@@ -1,2 +1,4 @@
 # Famhub-web
-Famhub is a smart agritech platform connecting farmers, buyers, and stakeholders with farm management tools, marketplace, and data-driven insights powered by Supabase.
+Famhub is a smart agritech platform designed to connect farmers, buyers, and agribusiness stakeholders through digital farm management tools, secure marketplaces, and data-driven insights.
+
+The platform is built with Supabase as the backend and modern frontend technologies, enabling scalability, security, and rapid development.
