@@ -1,36 +1,114 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'home_page.dart'; // Visitor homepage
+import 'services_page.dart'; 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  await Supabase.initialize(
-    url: 'https://erbxiqdfjmqnoeyjupru.supabase.co', // Replace with your Supabase URL
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVyYnhpcWRmam1xbm9leWp1cHJ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc1MjA4NzcsImV4cCI6MjA4MzA5Njg3N30.by_gz8RbQFlK_WI_QDo1w_W1dgXHZKsO1ZNKxFYg3Xo', // Replace with your anon key
-  );
-
-  runApp(SandboxApp());
+  await FamHubService.initHive();
+  runApp(const FamHubApp());
 }
 
-class SandboxApp extends StatelessWidget {
-  const SandboxApp({super.key});
+class FamHubApp extends StatelessWidget {
+  const FamHubApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Sandbox',
+      title: 'FamHub',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primaryColor: Colors.green[700],
-        colorScheme: ColorScheme.fromSwatch().copyWith(secondary: Colors.green[300]),
-        scaffoldBackgroundColor: Colors.grey[50],
-        appBarTheme: AppBarTheme(
-          backgroundColor: Colors.green[700],
-          elevation: 0,
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF1B5E20),
+          primary: const Color(0xFF1B5E20),
         ),
       ),
-      home: VisitorHomePage(), // Opens homepage first
+      home: const MainShell(),
+    );
+  }
+}
+
+class MainShell extends StatefulWidget {
+  const MainShell({super.key});
+
+  @override
+  State<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends State<MainShell> {
+  int _currentIndex = 0;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  @override
+  Widget build(BuildContext context) {
+    final modules = FamHubService.famHubModules;
+    final primaryGreen = Theme.of(context).colorScheme.primary;
+
+    return Scaffold(
+      key: _scaffoldKey,
+      // The Drawer handles the full list of 14 modules
+      drawer: Drawer(
+        child: Column(
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(color: primaryGreen),
+              child: const Center(
+                child: Text("FAMHUB SERVICES", 
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: modules.length,
+                itemBuilder: (context, i) {
+                  return ListTile(
+                    leading: Icon(modules[i].icon, color: _currentIndex == i ? primaryGreen : Colors.grey),
+                    title: Text(modules[i].label, 
+                      style: TextStyle(
+                        fontWeight: _currentIndex == i ? FontWeight.bold : FontWeight.normal,
+                        fontSize: 14
+                      )
+                    ),
+                    selected: _currentIndex == i,
+                    onTap: () {
+                      setState(() => _currentIndex = i);
+                      Navigator.pop(context); // Close drawer
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: modules.map((m) => m.page).toList(),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex < 4 ? _currentIndex : 4, // Clamp to "More" if index is high
+        onTap: (index) {
+          if (index == 4) {
+            _scaffoldKey.currentState?.openDrawer();
+          } else {
+            setState(() => _currentIndex = index);
+          }
+        },
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: primaryGreen,
+        unselectedItemColor: Colors.grey,
+        selectedFontSize: 10,
+        unselectedFontSize: 10,
+        items: [
+          ...modules.take(4).map((m) => BottomNavigationBarItem(
+            icon: Icon(m.icon),
+            label: m.label,
+          )),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.menu_rounded),
+            label: "More",
+          ),
+        ],
+      ),
     );
   }
 }

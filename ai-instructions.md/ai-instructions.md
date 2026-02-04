@@ -1,5 +1,5 @@
 # PROJECT CONTEXT: Farming Platform (AgTech)
-- **App Name:** [Insert your new name here]
+- **App Name:** [Famhub]
 - **Tech Stack:** Flutter (Dart), Supabase (PostgreSQL).
 - **User Persona:** Farmers and Agricultural Buyers. Some users may have low digital literacy.
 

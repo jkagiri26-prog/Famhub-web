@@ -1,0 +1,16 @@
+{
+    "name": "famhub_app",
+    "version": "1.0.0",
+    "description": "Famhub web app",
+    "main": "index.js",
+    "scripts": {
+      "dev": "lite-server",
+      "start": "lite-server"
+    },
+    "author": "James Kagiri",
+    "license": "MIT",
+    "devDependencies": {
+      "lite-server": "^2.6.1"
+    }
+  }
+  

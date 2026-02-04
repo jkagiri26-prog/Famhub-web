@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+  <meta charset="UTF-8">
+  <title>FamHub</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    body { background-color: #f8f9fa; margin: 0; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; }
+    .loader { border: 5px solid #f3f3f3; border-top: 5px solid #2E7D32; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="loading-indicator">
+    <div class="loader"></div>
+    <p style="color: #2E7D32; margin-top: 15px;">Loading FamHub...</p>
+  </div>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>
