@@ -17,6 +17,10 @@ import 'financing_page.dart';
 import 'opportunities_page.dart';
 import 'tech_corner_page.dart';
 
+/// FAMHUB: Module Development & Submission Protocol
+/// Registry & Service Orchestrator
+/// Version: 2026-02-08
+
 class ModuleRegistry {
   final String label;
   final String boxName;
@@ -126,5 +130,76 @@ class FamHubService {
         await Hive.openBox(module.boxName);
       }
     }
+  }
+}
+
+class ServicesPage extends StatelessWidget {
+  const ServicesPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final modules = FamHubService.famHubModules;
+    
+    return Container(
+      width: double.infinity, // Protocol Constraint
+      padding: const EdgeInsets.symmetric(horizontal: 16.0), // Betpawa Padding
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 10), // Minimal Top Padding
+          Text(
+            'Explore Services',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: GridView.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1.1,
+              ),
+              itemCount: modules.length,
+              itemBuilder: (context, index) {
+                final module = modules[index];
+                return _buildModuleCard(context, module);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModuleCard(BuildContext context, ModuleRegistry module) {
+    return InkWell(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => module.page),
+      ),
+      child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Colors.grey.shade200),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(module.icon, size: 32, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(height: 8),
+            Text(
+              module.label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
