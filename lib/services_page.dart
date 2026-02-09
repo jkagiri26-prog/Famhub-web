@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-// --- ALL 14 FEATURE PAGE IMPORTS ---
+// --- FEATURE PAGE IMPORTS ---
 import 'home_page.dart';
 import 'farmer_dashboard_page.dart'; 
 import 'marketplace_page.dart'; 
 import 'social_space_page.dart'; 
 import 'analytics_page.dart';
 import 'settings_page.dart';
-import 'otp_page.dart';
+import 'profile_page.dart';
 import 'knowledge_link_page.dart';
 import 'logistics_page.dart';
 import 'agribusiness_page.dart';
@@ -16,10 +16,13 @@ import 'extension_services_page.dart';
 import 'financing_page.dart';
 import 'opportunities_page.dart';
 import 'tech_corner_page.dart';
+import 'traceability_page.dart';
+import 'referral_hub.dart'; 
+import 'carbon_credit_page.dart'; // ADDED: Carbon Credit Module
 
 /// FAMHUB: Module Development & Submission Protocol
 /// Registry & Service Orchestrator
-/// Version: 2026-02-08
+/// Version: 2026-02-09 | Deployment Sync: UUID v7 Architecture Aligned
 
 class ModuleRegistry {
   final String label;
@@ -27,6 +30,7 @@ class ModuleRegistry {
   final Widget page;
   final IconData icon;
   final bool preserveState;
+  final String? description;
 
   const ModuleRegistry({
     required this.label,
@@ -34,6 +38,7 @@ class ModuleRegistry {
     required this.page,
     required this.icon,
     this.preserveState = false,
+    this.description,
   });
 }
 
@@ -44,6 +49,36 @@ class FamHubService {
           boxName: 'home_cache',
           page: HomePage(),
           icon: Icons.home_rounded,
+        ),
+        const ModuleRegistry(
+          label: 'Carbon Credits', // NEW: Carbon Credit Module
+          boxName: 'carbon_cache',
+          page: CarbonCreditPage(),
+          icon: Icons.diversity_3_rounded,
+          description: 'Offset & Community Support',
+          preserveState: true,
+        ),
+        const ModuleRegistry(
+          label: 'Referral Hub',
+          boxName: 'referral_cache',
+          page: ReferralHubPage(),
+          icon: Icons.stars_rounded,
+          description: 'Refer & Earn: Invite friends and get rewarded.',
+          preserveState: true,
+        ),
+        const ModuleRegistry(
+          label: 'Profile', 
+          boxName: 'profile_cache',
+          page: ProfilePage(),
+          icon: Icons.account_circle_rounded,
+          preserveState: true,
+        ),
+        const ModuleRegistry(
+          label: 'Traceability',
+          boxName: 'traceability_cache',
+          page: TraceabilityPage(),
+          icon: Icons.enhanced_encryption_rounded,
+          preserveState: true,
         ),
         const ModuleRegistry(
           label: 'Dashboard',
@@ -62,7 +97,7 @@ class FamHubService {
         const ModuleRegistry(
           label: 'Social',
           boxName: 'social_cache',
-          page: SocialServicesPage(), 
+          page: SocialSpacePage(), 
           icon: Icons.groups_rounded,
           preserveState: true,
         ),
@@ -124,11 +159,15 @@ class FamHubService {
       ];
 
   static Future<void> initHive() async {
-    await Hive.initFlutter();
-    for (var module in famHubModules) {
-      if (!Hive.isBoxOpen(module.boxName)) {
-        await Hive.openBox(module.boxName);
+    try {
+      await Hive.initFlutter();
+      for (var module in famHubModules) {
+        if (!Hive.isBoxOpen(module.boxName)) {
+          await Hive.openBox(module.boxName);
+        }
       }
+    } catch (e) {
+      debugPrint("FAMHUB_HIVE_INIT_FAILED: $e");
     }
   }
 }
@@ -141,12 +180,12 @@ class ServicesPage extends StatelessWidget {
     final modules = FamHubService.famHubModules;
     
     return Container(
-      width: double.infinity, // Protocol Constraint
-      padding: const EdgeInsets.symmetric(horizontal: 16.0), // Betpawa Padding
+      width: double.infinity, // FAMHUB Root Constraint
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 10), // Minimal Top Padding
+          const SizedBox(height: 10),
           Text(
             'Explore Services',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -176,16 +215,17 @@ class ServicesPage extends StatelessWidget {
   }
 
   Widget _buildModuleCard(BuildContext context, ModuleRegistry module) {
-    return InkWell(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => module.page),
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
       ),
-      child: Card(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: Colors.grey.shade200),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => module.page),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -197,6 +237,14 @@ class ServicesPage extends StatelessWidget {
               textAlign: TextAlign.center,
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
             ),
+            if (module.description != null)
+               Padding(
+                 padding: const EdgeInsets.only(top: 4.0),
+                 child: Text(
+                   module.label == 'Referral Hub' ? "Earn Rewards" : "Village Support",
+                   style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.secondary),
+                 ),
+               ),
           ],
         ),
       ),
