@@ -30,7 +30,9 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
-/build/
+# /build/  # Commented out - we need build/web for Flutter web deployment
+/build/*
+!/build/web/
 /coverage/
 
 # Symbolication related
