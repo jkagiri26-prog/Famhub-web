@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 
-/// FAMHUB Module: Marketplace (Performance Optimized)
-/// Logic: RepaintBoundaries for animations, Const constructors, Lazy rendering.
+/// FAMHUB Module: Marketplace (Final Production Version)
+/// Features: Lazy Loading, AI-Mediated Navigation, Performance Isolation.
 class MarketplacePage extends StatefulWidget {
   const MarketplacePage({super.key});
 
@@ -22,7 +22,8 @@ class _MarketplacePageState extends State<MarketplacePage> with AutomaticKeepAli
 
   final List<String> _filterTabs = const ["ALL", "LIVESTOCK", "CROPS", "INPUTS", "MACHINERY", "SERVICES"];
   
-  static const Color primaryGreen = Color(0xFF2E7D32); 
+  // Theme Constants
+  static const Color primaryGreen = Color(0xFF1B5E20); 
   static const Color canvasGrey = Color(0xFFEDF0F3);
 
   @override
@@ -56,19 +57,31 @@ class _MarketplacePageState extends State<MarketplacePage> with AutomaticKeepAli
       color: canvasGrey,
       child: Column(
         children: [
+          // RepaintBoundary isolates carousel animations from the rest of the list
           RepaintBoundary(child: _buildTripleHeader()),
           _buildSearchAndFilterArea(),
           Expanded(
             child: ListView(
-              cacheExtent: 500, 
+              cacheExtent: 1000, 
               physics: const BouncingScrollPhysics(),
               children: [
                 _buildDynamicFeaturedIsland(),
+                
+                // Segmented Display Logic
                 if (_activeTab == "ALL" || _activeTab == "LIVESTOCK")
-                  _buildSubcategoryIsland("LIVESTOCK", [{"n": "Dairy Cow", "d": "1.2km"}, {"n": "Beef Bull", "d": "4.5km"}]),
+                  _buildSubcategoryIsland("LIVESTOCK", [
+                    {"n": "Dairy Cow (Friesian)", "d": "1.2km", "p": "KSh 85,000"}, 
+                    {"n": "Beef Bull", "d": "4.5km", "p": "KSh 110,000"},
+                    {"n": "Dairy Goat", "d": "2.1km", "p": "KSh 12,500"}
+                  ]),
+                
                 if (_activeTab == "ALL" || _activeTab == "CROPS")
-                  _buildSubcategoryIsland("CROPS", [{"n": "Yellow Maize", "d": "0.8km"}, {"n": "Red Onions", "d": "12km"}]),
-                const SizedBox(height: 100),
+                  _buildSubcategoryIsland("CROPS & PRODUCE", [
+                    {"n": "Yellow Maize (90kg)", "d": "0.8km", "p": "KSh 3,200"}, 
+                    {"n": "Red Onions", "d": "12km", "p": "KSh 150/kg"}
+                  ]),
+                
+                const SizedBox(height: 100), // Navigation buffer
               ],
             ),
           ),
@@ -77,9 +90,11 @@ class _MarketplacePageState extends State<MarketplacePage> with AutomaticKeepAli
     );
   }
 
+  // --- UI COMPONENTS ---
+
   Widget _buildTripleHeader() {
     return Container(
-      height: 125,
+      height: 110,
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
       child: Row(
@@ -97,16 +112,16 @@ class _MarketplacePageState extends State<MarketplacePage> with AutomaticKeepAli
   Widget _buildStaticAnchor() {
     return Container(
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [primaryGreen, Color(0xFF43A047)]),
+        gradient: const LinearGradient(colors: [primaryGreen, Color(0xFF2E7D32)]),
         borderRadius: BorderRadius.circular(6),
       ),
       child: const Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.add_shopping_cart, color: Colors.white, size: 22),
+          Icon(Icons.add_shopping_cart, color: Colors.white, size: 20),
           SizedBox(height: 4),
           Text("SELL\nNOW", textAlign: TextAlign.center, 
-            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
+            style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900)),
         ],
       ),
     );
@@ -120,11 +135,10 @@ class _MarketplacePageState extends State<MarketplacePage> with AutomaticKeepAli
         controller: _carouselController,
         itemCount: 3,
         itemBuilder: (context, index) {
-          final List<Color> colors = [Colors.orange.shade700, Colors.blue.shade700, Colors.purple.shade700];
+          final List<Color> colors = [Colors.blue.shade800, Colors.orange.shade800, Colors.purple.shade800];
           return Container(
             color: colors[index],
-            // FIXED: Icons.local_offer instead of Icons.LocalOffer
-            child: const Center(child: Icon(Icons.local_offer, color: Colors.white24, size: 40)),
+            child: const Center(child: Icon(Icons.local_offer, color: Colors.white24, size: 35)),
           );
         },
       ),
@@ -137,15 +151,15 @@ class _MarketplacePageState extends State<MarketplacePage> with AutomaticKeepAli
       child: Container(
         key: ValueKey<int>(_currentAdIndex),
         decoration: BoxDecoration(
-          color: _currentAdIndex == 0 ? const Color(0xFFFFEBEE) : const Color(0xFFE3F2FD),
+          color: _currentAdIndex == 0 ? const Color(0xFFE3F2FD) : const Color(0xFFFFF3E0),
           borderRadius: BorderRadius.circular(6)
         ),
         child: Center(
-          child: Text(_currentAdIndex == 0 ? "SEED\nCO." : "TOYOTA\nAGRI",
+          child: Text(_currentAdIndex == 0 ? "TOYOTA\nAGRI" : "PANNAR\nSEEDS",
             textAlign: TextAlign.center, 
             style: TextStyle(
-              color: _currentAdIndex == 0 ? Colors.red.shade700 : Colors.blue.shade900, 
-              fontSize: 10, fontWeight: FontWeight.w900)
+              color: _currentAdIndex == 0 ? Colors.blue.shade900 : Colors.orange.shade900, 
+              fontSize: 9, fontWeight: FontWeight.w900)
           ),
         ),
       ),
@@ -158,20 +172,19 @@ class _MarketplacePageState extends State<MarketplacePage> with AutomaticKeepAli
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
-          const SizedBox(height: 4),
           Container(
-            height: 40,
+            height: 38,
             decoration: BoxDecoration(color: canvasGrey, borderRadius: BorderRadius.circular(4)),
             child: const TextField(
               decoration: InputDecoration(
-                hintText: "Search nearest...", 
-                prefixIcon: Icon(Icons.search, size: 18), 
+                hintText: "Search items near you...", 
+                prefixIcon: Icon(Icons.search, size: 16), 
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(vertical: 9)
+                contentPadding: EdgeInsets.symmetric(vertical: 8)
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           SizedBox(
             height: 35,
             child: ListView.builder(
@@ -182,11 +195,11 @@ class _MarketplacePageState extends State<MarketplacePage> with AutomaticKeepAli
                 return GestureDetector(
                   onTap: () => setState(() => _activeTab = _filterTabs[i]),
                   child: Container(
-                    margin: const EdgeInsets.only(right: 24),
+                    margin: const EdgeInsets.only(right: 20),
                     decoration: BoxDecoration(border: Border(bottom: BorderSide(
                       color: isMe ? Colors.orange : Colors.transparent, width: 2))),
                     child: Text(_filterTabs[i], style: TextStyle(
-                      fontSize: 11, fontWeight: FontWeight.w900, 
+                      fontSize: 10, fontWeight: FontWeight.w900, 
                       color: isMe ? Colors.orange : Colors.black54)),
                   ),
                 );
@@ -205,23 +218,23 @@ class _MarketplacePageState extends State<MarketplacePage> with AutomaticKeepAli
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: canvasGrey))),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
+                Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900)),
                 const Icon(Icons.arrow_forward_ios, size: 10, color: Colors.orange),
               ],
             ),
           ),
           SizedBox(
-            height: 235,
+            height: 255, 
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.all(12),
               itemCount: items.length,
-              itemBuilder: (c, i) => _buildDetailedCard(items[i]['n']!, items[i]['d']!),
+              itemBuilder: (c, i) => _buildProductCard(items[i]),
             ),
           ),
         ],
@@ -229,46 +242,51 @@ class _MarketplacePageState extends State<MarketplacePage> with AutomaticKeepAli
     );
   }
 
-  Widget _buildDetailedCard(String name, String distance) {
-    return Container(
-      width: 145,
-      margin: const EdgeInsets.only(right: 12),
-      decoration: BoxDecoration(
-        color: Colors.white, 
-        borderRadius: BorderRadius.circular(4), 
-        border: Border.all(color: canvasGrey)
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Stack(
-            children: [
-              Container(height: 90, width: double.infinity, color: canvasGrey, 
-                child: const Icon(Icons.image_outlined, color: Colors.black12)),
-              Positioned(top: 5, left: 5, child: _badge(distance, Colors.black87)),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildProductCard(Map<String, String> item) {
+    return GestureDetector(
+      onTap: () {
+        // NAVIGATE TO PRODUCT DETAILS (Mediation Bridge)
+        // Navigator.push(context, MaterialPageRoute(builder: (context) => ProductDetailsPage(product: item)));
+      },
+      child: Container(
+        width: 155,
+        margin: const EdgeInsets.only(right: 12),
+        decoration: BoxDecoration(
+          color: Colors.white, borderRadius: BorderRadius.circular(4), 
+          border: Border.all(color: canvasGrey)
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
               children: [
-                Text(name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold), maxLines: 1),
-                const Text("KSh 3,250", style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 8),
-                _actionBtn("AI CHAT SELLER", primaryGreen.withOpacity(0.1), primaryGreen, Icons.auto_awesome),
-                const SizedBox(height: 4),
-                _actionBtn("LOCKED CONTACT", Colors.black87, Colors.white, Icons.lock_person_rounded),
+                Container(height: 100, width: double.infinity, color: canvasGrey, 
+                  child: const Icon(Icons.image_outlined, color: Colors.black12, size: 30)),
+                Positioned(top: 5, left: 5, child: _badge(item['d']!, Colors.black87)),
               ],
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item['n']!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold), maxLines: 1),
+                  Text(item['p']!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: primaryGreen)),
+                  const SizedBox(height: 8),
+                  _actionBtn("AI CHAT SELLER", primaryGreen.withOpacity(0.08), primaryGreen, Icons.auto_awesome),
+                  const SizedBox(height: 6),
+                  _actionBtn("LOCKED CONTACT", Colors.grey.shade900, Colors.white, Icons.lock_person_rounded),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _actionBtn(String t, Color bg, Color tc, IconData i) => Container(
-    width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 7),
+    width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 8),
     decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
     child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
       Icon(i, size: 10, color: tc), const SizedBox(width: 4),
@@ -291,7 +309,7 @@ class _MarketplacePageState extends State<MarketplacePage> with AutomaticKeepAli
         mainAxisAlignment: MainAxisAlignment.spaceBetween, 
         children: List.generate(4, (i) => const CircleAvatar(
           radius: 25, backgroundColor: canvasGrey, 
-          child: Icon(Icons.verified, color: primaryGreen, size: 20))
+          child: Icon(Icons.verified_user_outlined, color: primaryGreen, size: 20))
         )
       ),
     );

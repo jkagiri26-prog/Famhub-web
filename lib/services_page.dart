@@ -30,6 +30,7 @@ class ModuleRegistry {
   final Widget page;
   final IconData icon;
   final List<String> allowedRoles;
+  final bool preserveState;
 
   const ModuleRegistry({
     required this.label,
@@ -37,12 +38,13 @@ class ModuleRegistry {
     required this.page,
     required this.icon,
     this.allowedRoles = const ['All'],
+    this.preserveState = true,
   });
 }
 
 class FamHubService {
   static List<ModuleRegistry> get famHubModules => [
-    const ModuleRegistry(label: 'Home', boxName: 'home_cache', page: HomePage(), icon: Icons.home_rounded),
+    const ModuleRegistry(label: 'Home', boxName: 'home_cache', page: HomePage(), icon: Icons.grid_view_rounded, allowedRoles: ['All'], preserveState: false),
     const ModuleRegistry(label: 'Farmer Dash', boxName: 'f_dash', page: FarmerDashboardPage(), icon: Icons.dashboard_rounded, allowedRoles: ['Farmer']),
     const ModuleRegistry(label: 'Trader Dash', boxName: 't_dash', page: TraderDashboardPage(), icon: Icons.analytics_rounded, allowedRoles: ['Trader']),
     const ModuleRegistry(label: 'Admin Panel', boxName: 'a_dash', page: AdminDashboardPage(), icon: Icons.admin_panel_settings_rounded, allowedRoles: ['Admin']),
@@ -56,7 +58,6 @@ class FamHubService {
     const ModuleRegistry(label: 'Knowledge', boxName: 'know_cache', page: KnowledgeLinkPage(), icon: Icons.menu_book_rounded),
     const ModuleRegistry(label: 'Traceability', boxName: 'trace_cache', page: TraceabilityPage(), icon: Icons.qr_code_scanner_rounded),
     const ModuleRegistry(label: 'Opportunities', boxName: 'opp_cache', page: OpportunitiesPage(), icon: Icons.lightbulb_rounded),
-    // FIXED: Added required userRole parameter
     const ModuleRegistry(label: 'Tech Corner', boxName: 'tech_cache', page: TechCornerPage(userRole: 'Farmer'), icon: Icons.memory_rounded),
     const ModuleRegistry(label: 'Referral Hub', boxName: 'ref_cache', page: ReferralHubPage(), icon: Icons.share_rounded),
     const ModuleRegistry(label: 'Analytics', boxName: 'ana_cache', page: AnalyticsPage(), icon: Icons.bar_chart_rounded),
@@ -64,7 +65,7 @@ class FamHubService {
     const ModuleRegistry(label: 'Settings', boxName: 'set_cache', page: SettingsPage(), icon: Icons.settings_rounded),
   ];
 
-  static List<ModuleRegistry> getModulesForRole(String role, List<String> permissions) {
+  static List<ModuleRegistry> getModulesForRole(String role) {
     if (role == 'Admin') return famHubModules;
     return famHubModules.where((m) => m.allowedRoles.contains('All') || m.allowedRoles.contains(role)).toList();
   }
@@ -74,12 +75,16 @@ class FamHubService {
     for (var m in famHubModules) {
       if (!Hive.isBoxOpen(m.boxName)) await Hive.openBox(m.boxName);
     }
-    if (!Hive.isBoxOpen('auth_cache')) await Hive.openBox('auth_cache');
+    final utilityBoxes = ['auth_cache', 'chat_cache', 'mediation_cache'];
+    for (var box in utilityBoxes) {
+      if (!Hive.isBoxOpen(box)) await Hive.openBox(box);
+    }
   }
 
   static dynamic getLocalData(String box, String key, {dynamic defaultValue}) =>
-      Hive.box(box).get(key, defaultValue: defaultValue);
+      Hive.isBoxOpen(box) ? Hive.box(box).get(key, defaultValue: defaultValue) : defaultValue;
 
-  static Future<void> saveLocalData(String box, String key, dynamic value) async =>
-      await Hive.box(box).put(key, value);
+  static Future<void> saveLocalData(String box, String key, dynamic value) async {
+    if (Hive.isBoxOpen(box)) await Hive.box(box).put(key, value);
+  }
 }
