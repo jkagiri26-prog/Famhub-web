@@ -33,9 +33,7 @@ class TraceabilityPage extends StatelessWidget {
                 Tab(text: 'LEDGER LOGS'),
               ],
             ),
-            
-            const SizedBox(height: 12.0),
-            
+            const SizedBox(height: 16.0),
             Expanded(
               child: TabBarView(
                 children: [
@@ -50,139 +48,100 @@ class TraceabilityPage extends StatelessWidget {
     );
   }
 
-  // --- TAB 1: Digital Certificate & Sourcing ---
-  Widget _buildCertificateTab(BuildContext context) {
-    final theme = Theme.of(context);
-    
-    // Mock for Supabase suggest_seed_sources RPC
-    const List<String> seedSuggestions = ["Kenya Seed Co", "Simlaw", "Pannar"];
+  Widget _buildBlockchainHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.verified_user_rounded, color: Theme.of(context).colorScheme.primary, size: 40),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Immutable Traceability ID", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                Text("FH-9923-BLOCK-KNY-01", style: TextStyle(fontFamily: 'monospace', fontSize: 14)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
+  Widget _buildCertificateTab(BuildContext context) {
+    return ListView(
+      children: [
+        _buildInfoTile("Crop Variety", "Organic Arabica Coffee"),
+        _buildInfoTile("Farmer ID", "KE-CENTRAL-042"),
+        _buildInfoTile("Soil Quality Index", "8.5 (Verified)"),
+        _buildInfoTile("Last Fertilizer Log", "N/A - 100% Organic"),
+        const SizedBox(height: 20),
+        Image.network(
+          'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=FAMHUB_VERIFIED_9923',
+          height: 150,
+        ),
+        const Center(child: Text("Scan to verify on FAMHUB Ledger", style: TextStyle(fontSize: 10))),
+      ],
+    );
+  }
+
+  Widget _buildLedgerTab(BuildContext context) {
+    final steps = [
+      {"event": "Seed Dispatched", "time": "Feb 01, 2026", "hash": "0x4f...2a"},
+      {"event": "Planting Verified", "time": "Feb 03, 2026", "hash": "0x91...bc"},
+      {"event": "Moisture Check", "time": "Feb 08, 2026", "hash": "0x12...ff"},
+    ];
+
+    return ListView.builder(
+      itemCount: steps.length,
+      itemBuilder: (context, index) {
+        return IntrinsicHeight(
+          child: Row(
+            children: [
+              Column(
+                children: [
+                  Icon(Icons.radio_button_checked, size: 16, color: Theme.of(context).colorScheme.primary),
+                  if (index != steps.length - 1) Expanded(child: VerticalDivider(color: Theme.of(context).colorScheme.primary, thickness: 2)),
+                ],
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(steps[index]["event"]!, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text(steps[index]["time"]!, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text("TX: ${steps[index]["hash"]}", style: const TextStyle(fontSize: 10, fontFamily: 'monospace')),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildInfoTile(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSealCard(context),
-          const SizedBox(height: 24),
-          
-          const Text("Enter/Verify Seed Source", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
-          const SizedBox(height: 8),
-          
-          // Smart Autocomplete using existing data
-          Autocomplete<String>(
-            optionsBuilder: (textValue) => textValue.text.isEmpty 
-                ? [] 
-                : seedSuggestions.where((s) => s.toLowerCase().contains(textValue.text.toLowerCase())),
-            fieldViewBuilder: (ctx, ctrl, node, onSub) => TextField(
-              controller: ctrl,
-              focusNode: node,
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.spoke, size: 18),
-                hintText: "Start typing seed source...",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-            ),
-          ),
-          
-          const SizedBox(height: 24),
-          _buildDetailRow(context, "Farmer Origin", "Samuel K. (Verified)", Icons.person_outline),
-          _buildDetailRow(context, "Geographic Plot", "Field A1 - East Sector", Icons.map_outlined),
-          _buildDetailRow(context, "System Hash", "sha256:0x8a...32", Icons.fingerprint),
-          
-          const SizedBox(height: 32),
-          SizedBox(width: double.infinity, child: ElevatedButton(onPressed: (){}, child: const Text("GENERATE QR LABEL"))),
+          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+          const Divider(),
         ],
       ),
-    );
-  }
-
-  // --- TAB 2: Immutable Ledger (Logs Chain) ---
-  Widget _buildLedgerTab(BuildContext context) {
-    return ListView.builder(
-      itemCount: 4,
-      padding: const EdgeInsets.only(top: 8),
-      itemBuilder: (context, index) => _LedgerNode(
-        title: index == 0 ? "Genesis: Seed Recorded" : "Integrity Check #$index",
-        hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e$index",
-        isLast: index == 3,
-      ),
-    );
-  }
-
-  // --- REUSABLE UI ---
-
-  Widget _buildBlockchainHeader(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        const Text('Traceability', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
-        Icon(Icons.shield_outlined, color: Theme.of(context).colorScheme.primary),
-      ],
-    );
-  }
-
-  Widget _buildSealCard(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primary.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.colorScheme.primary.withOpacity(0.2)),
-      ),
-      child: const Column(
-        children: [
-          Icon(Icons.qr_code_2, size: 48),
-          SizedBox(height: 8),
-          Text("LEDGER SEAL ACTIVE", style: TextStyle(fontWeight: FontWeight.bold)),
-          Text("Data is immutable and timestamped", style: TextStyle(fontSize: 10, color: Colors.grey)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(BuildContext context, String l, String v, IconData i) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        children: [
-          Icon(i, size: 16, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(width: 12),
-          Text(l, style: TextStyle(color: Theme.of(context).colorScheme.outline)),
-          const Spacer(),
-          Text(v, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-        ],
-      ),
-    );
-  }
-}
-
-class _LedgerNode extends StatelessWidget {
-  final String title, hash;
-  final bool isLast;
-  const _LedgerNode({required this.title, required this.hash, this.isLast = false});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Column(children: [
-          Icon(Icons.link, color: theme.colorScheme.primary, size: 16),
-          if (!isLast) Container(width: 1.5, height: 45, color: theme.colorScheme.outlineVariant),
-        ]),
-        const SizedBox(width: 16),
-        Expanded(child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            Text(hash, style: const TextStyle(fontSize: 9, color: Colors.grey, fontFamily: 'monospace')),
-            const SizedBox(height: 16),
-          ],
-        )),
-      ],
     );
   }
 }

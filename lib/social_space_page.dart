@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 
-class SocialServicesPage extends StatefulWidget {
-  const SocialServicesPage({super.key});
+class SocialSpacePage extends StatefulWidget {
+  const SocialSpacePage({super.key});
 
   @override
-  State<SocialServicesPage> createState() => _SocialServicesPageState();
+  State<SocialSpacePage> createState() => _SocialSpacePageState();
 }
 
-class _SocialServicesPageState extends State<SocialServicesPage> with AutomaticKeepAliveClientMixin {
+class _SocialSpacePageState extends State<SocialSpacePage> with AutomaticKeepAliveClientMixin {
   @override
-  bool get wantKeepAlive => true;
+  bool get wantKeepAlive => true; // Prevents page from rebuilding on tab switch
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     final Color primaryGreen = Theme.of(context).colorScheme.primary;
 
     return Container(
@@ -23,7 +23,7 @@ class _SocialServicesPageState extends State<SocialServicesPage> with AutomaticK
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 12),
+          const SizedBox(height: 12), // FAMHUB spacing rule
           Expanded(
             child: ListView(
               physics: const BouncingScrollPhysics(),
@@ -36,7 +36,15 @@ class _SocialServicesPageState extends State<SocialServicesPage> with AutomaticK
                   comments: "8",
                   primary: primaryGreen,
                 ),
-                const SizedBox(height: 80),
+                _buildFeedCard(
+                  author: "Sarah Wanjiku",
+                  role: "Organic Trader",
+                  content: "Current market prices for Hass Avocados are peaking in Nairobi. Great time for harvest!",
+                  likes: "56",
+                  comments: "12",
+                  primary: primaryGreen,
+                ),
+                const SizedBox(height: 80), // Padding for the floating bottom nav area
               ],
             ),
           ),
@@ -59,13 +67,18 @@ class _SocialServicesPageState extends State<SocialServicesPage> with AutomaticK
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const CircleAvatar(radius: 16, child: Icon(Icons.person, size: 18)),
+              CircleAvatar(
+                radius: 16, 
+                backgroundColor: primary.withOpacity(0.1),
+                child: Icon(Icons.person, size: 18, color: primary)
+              ),
               const SizedBox(width: 10),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -83,11 +96,11 @@ class _SocialServicesPageState extends State<SocialServicesPage> with AutomaticK
             children: [
               Icon(Icons.thumb_up_off_alt, size: 18, color: Colors.grey.shade600),
               const SizedBox(width: 4),
-              Text(likes),
+              Text(likes, style: const TextStyle(fontSize: 12)),
               const SizedBox(width: 16),
               Icon(Icons.chat_bubble_outline_rounded, size: 18, color: Colors.grey.shade600),
               const SizedBox(width: 4),
-              Text(comments),
+              Text(comments, style: const TextStyle(fontSize: 12)),
             ],
           ),
         ],

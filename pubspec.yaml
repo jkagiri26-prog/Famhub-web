@@ -29,6 +29,8 @@ dependencies:
   # Local Persistence - SQL (Relational/Heavy Tech Data)
   sqflite: ^2.3.0
   path: ^1.9.0
+  provider: ^6.1.5+1
+  connectivity_plus: ^7.0.0
 
 dev_dependencies:
   flutter_test:
