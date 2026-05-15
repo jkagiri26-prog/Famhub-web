@@ -1,0 +1,435 @@
+MASTER DEVELOPMENT RULEBOOK
+
+This document is the single source of truth for all AI-assisted development inside FAMHUB.
+
+It applies to:
+
+ChatGPT
+VS Code AI Assistants
+Continue
+Cline
+Claude
+OpenRouter agents
+Local models (Ollama, DeepSeek, CodeLlama, etc.)
+Any future engineering assistant
+
+This is not optional guidance.
+
+These are mandatory engineering rules.
+
+AI must follow this protocol before generating code.
+
+1. CORE IDENTITY
+Project
+
+FAMHUB
+
+A unified AgriTech platform for:
+
+Farmers
+Livestock keepers
+Agrovet dealers
+Traders
+Buyers
+Cooperatives
+Processors
+Input manufacturers
+Extension officers
+Financial stakeholders
+Carbon credit stakeholders
+Agricultural service providers
+
+The platform covers:
+
+Production → Operations → Traceability → Marketplace → Commerce → Analytics → Finance → Governance
+
+This is NOT a simple marketplace app.
+
+It is a full enterprise agricultural operating system.
+
+2. CORE STACK
+
+Frontend
+
+Flutter
+Dart
+Riverpod (flutter_riverpod)
+GoRouter
+Responsive App Shell
+Unified Dashboard Host
+Registry-driven modules
+
+Backend
+
+Supabase
+PostgreSQL
+RLS
+Edge Functions
+Storage Governance
+Event-driven media pipeline
+
+Infrastructure
+
+Single bucket media architecture
+Dynamic module loader
+Context Engine
+Registry caching
+Offline/Sync services
+Remote Config system
+3. ABSOLUTE NON-NEGOTIABLE RULES
+RULE A — NO SCAFFOLD RULE
+
+Feature modules MUST NOT contain:
+
+Scaffold
+AppBar
+Drawer
+BottomNavigationBar
+
+These belong ONLY in:
+
+MainShell
+DashboardShell
+UnifiedDashboardHost
+
+Modules render content only.
+
+Never violate this.
+
+RULE B — NEVER PASS user_id
+
+Frontend must NEVER pass:
+
+user_id
+owner_id
+ownership identifiers
+security-sensitive identity fields
+
+Identity must resolve server-side using:
+
+core.auth_user_id()
+
+with RLS enforcement.
+
+This is mandatory.
+
+No exceptions.
+
+RULE C — UI NEVER TALKS DIRECTLY TO SUPABASE
+
+Forbidden:
+
+Widget → Supabase
+
+Required:
+
+Widget → Provider → Controller → Repository → Service → Backend
+
+Strict architecture only.
+
+No shortcuts.
+
+RULE D — FULL FILE OUTPUT ONLY
+
+AI must always return:
+
+Full updated code
+Exact file path
+Registry updates
+Integration explanation
+
+Never return partial snippets unless explicitly requested.
+
+RULE E — SCHEMA-FIRST DEVELOPMENT
+
+Never invent fields.
+
+Never guess backend structure.
+
+Frontend must align to real backend schema.
+
+Database schema is the source of truth.
+
+Always.
+
+4. REQUIRED PROJECT STRUCTURE
+lib/
+├── main.dart
+│
+├── shared/
+│   ├── layout/
+│   ├── widgets/
+│   └── utilities/
+│
+├── core/
+│   ├── auth/
+│   ├── services/
+│   ├── providers/
+│   ├── database/
+│   ├── context_engine/
+│   ├── media/
+│   ├── sync/
+│   └── remote_config/
+│
+├── features/
+│   └── module_name/
+│       ├── module/
+│       ├── presentation/
+│       ├── application/
+│       ├── domain/
+│       ├── infrastructure/
+│       └── config/
+│
+├── dashboard/
+│   ├── host/
+│   ├── registry/
+│   ├── widgets/
+│   └── configs/
+│
+└── system/
+    ├── modules/
+    ├── registry/
+    └── governance/
+
+Modules must be self-contained and self-registering.
+
+5. SELF-REGISTERING MODULE RULE
+
+Every feature must include:
+
+class ModuleNameModule extends AppModule
+
+It must self-register:
+
+routes
+sidebar navigation
+dashboard widgets
+permissions
+lazy loading
+module metadata
+
+No hardcoded navigation.
+
+Registry-first architecture only.
+
+6. UNIFIED DASHBOARD RULE
+
+Never build isolated dashboards.
+
+Modules must register widgets into:
+
+UnifiedDashboardHost
+
+Example:
+
+DashboardWidgetConfig(
+  id: 'farm_kpis',
+  module: 'farm_management',
+  builder: ...
+)
+
+Dashboard must be:
+
+dynamic
+role-aware
+context-aware
+registry-driven
+
+Never static.
+
+7. CONTEXT ENGINE RULE
+
+All modules must resolve:
+
+User
+→ Entity
+→ Business Context
+→ Farm Context
+→ Production Context
+
+Examples:
+
+current farm
+selected business
+cooperative access
+delegated manager access
+
+Never hardcode assumptions.
+
+Always context-driven.
+
+8. RIVERPOD PRODUCTION PATTERN
+
+Mandatory:
+
+UI
+→ Provider
+→ Controller
+→ Repository
+→ Service
+→ Backend
+
+Forbidden:
+
+FutureBuilder architecture
+direct repository calls inside widgets
+business logic inside UI
+fetches inside build()
+
+Strict separation required.
+
+9. PERFORMANCE PROTOCOL
+
+Mandatory:
+
+single-trip queries
+no duplicate provider calls
+pagination
+lazy loading
+registry caching
+payload minimization
+server-side KPI aggregation
+no over-fetching
+cache-first architecture
+low-data usage for rural users
+
+Performance is a product feature.
+
+Not an optimization later.
+
+10. STORAGE & MEDIA GOVERNANCE
+
+Single bucket:
+
+media/
+
+Structured paths:
+
+images/
+videos/
+documents/
+thumbnails/
+
+Rules:
+
+max 3 images on free tier
+videos restricted
+client-side compression mandatory
+server-side optimization mandatory
+thumbnails-first loading
+no raw client storage writes
+
+Storage cost control is mandatory.
+
+11. RESPONSIVE ROOT STRUCTURE
+
+All pages must use responsive layout:
+
+Container(
+  width: double.infinity,
+  padding: const EdgeInsets.symmetric(horizontal: 16),
+  child: LayoutBuilder(
+    builder: (context, constraints) {
+      if (constraints.maxWidth < 600) {
+        return buildMobile();
+      }
+      if (constraints.maxWidth < 1024) {
+        return buildTablet();
+      }
+      return buildDesktop();
+    },
+  ),
+)
+
+No desktop-only assumptions.
+
+12. NAMING CONVENTIONS
+
+Files
+
+underscore_case
+
+Example:
+
+farm_dashboard_page.dart
+
+Classes
+
+PascalCase
+
+Example:
+
+FarmDashboardPage
+
+Methods
+
+camelCase
+
+Example:
+
+fetchFarmSummary()
+
+Database
+
+snake_case
+
+Example:
+
+farm_production_records
+
+Strict consistency required.
+
+13. MODULE SUBMISSION PROTOCOL
+
+Every module delivery must include:
+
+Full folder structure
+Full updated code
+Exact file paths
+Provider + Repository + View
+Registry updates
+Dashboard widget registration
+Role registry update
+Permissions config
+Backend mapping explanation
+Security validation
+Performance validation
+
+No partial delivery.
+
+14. AI BEHAVIOR RULES
+
+AI must:
+
+prefer correctness over speed
+prefer architecture over shortcuts
+refuse bad engineering patterns
+never generate fake placeholders
+never hide compile failures
+never bypass security rules
+never invent backend schema
+never create duplicate architectures
+
+Truthful engineering only.
+
+Always.
+
+15. FINAL RULE
+
+FAMHUB is built for production.
+
+Not demos.
+
+Not prototypes.
+
+Not quick hacks.
+
+Every code decision must survive:
+
+scale
+security review
+cost pressure
+real users
+real operations
+
+Build like production from day one.

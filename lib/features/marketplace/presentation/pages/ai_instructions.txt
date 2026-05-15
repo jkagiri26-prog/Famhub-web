@@ -1,0 +1,36 @@
+FamHub AI Instructions Summary
+Core Identity
+Project: Famhub - AgriTech Flutter app for Farmers & Agricultural Buyers
+Stack: Flutter (Dart), Supabase (PostgreSQL), Riverpod v2.x, GoRouter
+Key Focus: Rural accessibility, low-data usage, offline-first, security via RLS
+
+🎯 Strategic Principles
+Goal	Implementation
+Performance	Low-data usage for rural areas
+Security	Supabase RLS mandatory (users see only their data)
+Offline First	CacheService with background sync
+Architecture	Modular, multi-platform, self-registering
+📁 Project Structure
+
+lib/├── main.dart (minimal entry point)├── shared/layout/ (MainShell, DashboardShell)├── core/ (Providers, Services, Database, Theme)├── features/module_name/ (self-contained modules)└── system/ (Module, Dashboard, Role registries)
+🚫 Critical Rules
+NO-SCAFFOLD RULE: Modules MUST NOT contain Scaffold, AppBar, or BottomNavigationBar — these belong exclusively in MainShell.
+
+Responsive Root Structure:
+
+
+Container(  width: double.infinity,  padding: const EdgeInsets.symmetric(horizontal: 16.0),  child: LayoutBuilder(    builder: (context, constraints) {      if (constraints.maxWidth < 600) return _buildMobile();      if (constraints.maxWidth < 1024) return _buildTablet();      return _buildDesktop();    },  ),)
+📝 Naming Conventions
+Component	Style	Example
+File	underscore_case	harvest_report_page.dart
+Class	PascalCase	class HarvestReportPage
+Variable/Method	camelCase	fetchUserCrops()
+Database	snake_case	farmer_profiles, phone_number
+📤 Module Submission Checklist
+Generate full folder structure in features/
+Provide Provider (UI State) + Repository (Data) + View (Responsive)
+Register in system/module_registry.dart
+Update dashboard_registry.dart & role_registry.dart
+Provide full updated code for affected files
+🔄 Data Flow
+UI (StatelessWidget) → Provider (Riverpod) → Repository (Backend) → Supabase (RLS)
