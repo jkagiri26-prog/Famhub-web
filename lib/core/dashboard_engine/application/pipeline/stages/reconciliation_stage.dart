@@ -1,0 +1,60 @@
+import '../../../../../core/module_runtime_sync/domain/events/module_runtime_event.dart';
+import '../../../../../core/module_runtime_sync/domain/models/module_runtime_state.dart';
+import '../../../../../core/module_runtime_sync/application/coordinators/module_runtime_sync_coordinator.dart';
+
+import '../runtime_pipeline_context.dart';
+import '../runtime_pipeline_stage.dart';
+import '../../reconciliation/dashboard_runtime_diff.dart';
+import '../../reconciliation/dashboard_runtime_patch.dart';
+
+class ReconciliationStage
+    implements RuntimePipelineStage<ModuleRuntimeState,
+        DashboardRuntimePatch, DashboardRuntimeDiff> {
+  ReconciliationStage({
+    required this.coordinator,
+  });
+
+  final ModuleRuntimeSyncCoordinator coordinator;
+
+  @override
+  Future<void> execute(
+    RuntimePipelineContext<ModuleRuntimeState, DashboardRuntimePatch,
+            DashboardRuntimeDiff>
+        context,
+  ) async {
+    var tempState = context.currentState;
+
+    for (final rawEvent in context.events) {
+      /// ------------------------------------------------------------
+      /// STRICT TYPE SAFETY
+      /// ------------------------------------------------------------
+      if (rawEvent is! ModuleRuntimeEvent) {
+        continue;
+      }
+
+      final event = rawEvent;
+
+      /// ------------------------------------------------------------
+      /// SAFE RECONCILIATION CALL
+      /// ------------------------------------------------------------
+      final nextState = await coordinator.reconcile(
+        tempState,
+        event,
+      );
+
+      /// ------------------------------------------------------------
+      /// SAFETY: avoid redundant state churn
+      /// ------------------------------------------------------------
+      if (nextState == tempState) {
+        continue;
+      }
+
+      tempState = nextState;
+    }
+
+    /// ------------------------------------------------------------
+    /// FINAL STATE OUTPUT
+    /// ------------------------------------------------------------
+    context.setNextState(tempState);
+  }
+}

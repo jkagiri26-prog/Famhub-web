@@ -1,4 +1,4 @@
-import '../../../../dashboard/registry/dashboard_registry.dart';
+import '../../../system/registry/dashboard_registry.dart';
 import '../presentation/widgets/activity_timeline_widget.dart';
 import '../presentation/widgets/farm_alerts_widget.dart';
 import '../presentation/widgets/farm_kpi_cards.dart';

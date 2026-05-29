@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../shared/widgets/layout/responsive_wrapper_widget.dart';
-import '../../../shared/widgets/headers/module_header_widget.dart';
-import '../../../shared/widgets/headers/section_header_widget.dart';
-import '../../../shared/widgets/layout/section_container_widget.dart';
+import '../../../../shared/layouts/responsive_wrappers_widget.dart';
+import '../../../../shared/widgets/headers/module_header_widget.dart';
+import '../../../../shared/widgets/headers/section_header_widget.dart';
+import '../../../../shared/layouts/section_container_widget.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -64,7 +64,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
           const SizedBox(height: 12),
 
-          _NavTile(
+          const _NavTile(
             icon: Icons.lock,
             title: "Change PIN",
             trailing: "Last changed 3mo ago",
@@ -76,7 +76,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
           const SizedBox(height: 12),
 
-          _NavTile(
+          const _NavTile(
             icon: Icons.location_on,
             title: "Primary Market",
             trailing: "Nakuru",

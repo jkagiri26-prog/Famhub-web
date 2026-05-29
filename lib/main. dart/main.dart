@@ -3,18 +3,49 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/app/router/app_router_provider.dart';
-import 'core/context/context_provider.dart';
+
+/// 🧠 Context Engine (SINGLE SOURCE OF TRUTH)
+import 'core/context_engine/providers/context_provider.dart';
+
+/// 🧠 Dashboard bootstrap system (OS layer)
+import 'core/dashboard_engine/bootstrap/dashboard_bootstrap.dart';
+
+/// 🔥 Runtime module synchronization engine
+import 'core/module_runtime_sync/runtime_sync_engine.dart';
+import 'core/module_runtime_sync/presentation/providers/module_runtime_sync_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  /// 🔌 SUPABASE BOOTSTRAP (required for system.modules, feature_flags, etc.)
+  /// 🔌 SUPABASE BOOTSTRAP
   await Supabase.initialize(
     url: const String.fromEnvironment('SUPABASE_URL'),
     anonKey: const String.fromEnvironment('SUPABASE_ANON_KEY'),
   );
 
-  runApp(const ProviderScope(child: MyApp()));
+  /// 🌍 ROOT CONTAINER
+  final container = ProviderContainer();
+
+  /// 🚀 SYSTEM-DRIVEN DASHBOARD BOOTSTRAP
+  await DashboardBootstrap.initializeFromSystem();
+
+  /// 🔥 LIVE MODULE RUNTIME SYNC ENGINE
+  final runtimeSyncEngine = RuntimeSyncEngine(
+    ref: container,
+    supabase: Supabase.instance.client,
+    coordinator: container.read(
+      moduleRuntimeSyncCoordinatorProvider,
+    ),
+  );
+
+  await runtimeSyncEngine.initialize();
+
+  runApp(
+    UncontrolledProviderScope(
+      container: container,
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends ConsumerStatefulWidget {
@@ -29,9 +60,9 @@ class _MyAppState extends ConsumerState<MyApp> {
   void initState() {
     super.initState();
 
-    /// 🧠 Context engine boot (auth, session, environment, etc.)
-    Future.microtask(() {
-      ref.read(contextProvider.notifier).init();
+    /// 🧠 Context Engine Boot (SINGLE SOURCE OF TRUTH)
+    Future.microtask(() async {
+      await ref.read(contextProvider.notifier).init();
     });
   }
 
@@ -39,25 +70,36 @@ class _MyAppState extends ConsumerState<MyApp> {
   Widget build(BuildContext context) {
     final ctx = ref.watch(contextProvider);
 
-    /// 🚨 GLOBAL LOADING GATE
+    /// 🚨 GLOBAL SYSTEM LOADING GATE
     if (ctx.isLoading) {
       return const MaterialApp(
+        debugShowCheckedModeBanner: false,
         home: Scaffold(
-          body: Center(child: CircularProgressIndicator()),
+          body: Center(
+            child: CircularProgressIndicator(),
+          ),
         ),
       );
     }
 
-    /// 🧭 ROUTER (module-aware navigation entry)
+    /// 🧭 SYSTEM ROUTER
     final router = ref.watch(appRouterProvider);
 
     return MaterialApp.router(
       routerConfig: router,
-
       debugShowCheckedModeBanner: false,
 
-      /// 🌐 OPTIONAL: future global theme hook
-      themeMode: ctx.themeMode,
+      /// 🌐 THEME (FROM ENTITY CONTEXT)
+      themeMode: _mapThemeMode(ctx.role),
+
+      theme: ThemeData.light(),
+      darkTheme: ThemeData.dark(),
     );
+  }
+
+  /// Temporary mapping until theme is fully moved to context_engine
+  ThemeMode _mapThemeMode(String role) {
+    // Replace later with real preference in EntityContext if needed
+    return ThemeMode.system;
   }
 }

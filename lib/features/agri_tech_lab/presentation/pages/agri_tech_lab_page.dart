@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../../shared/widgets/layout/responsive_wrapper_widget.dart';
+import '../../../../shared/layouts/responsive_wrappers_widget.dart';
 import '../../../../shared/widgets/headers/module_header_widget.dart';
 import '../../../../shared/widgets/headers/section_header_widget.dart';
-import '../../../../shared/widgets/layout/section_container_widget.dart';
+import '../../../../shared/layouts/section_container_widget.dart';
 
 import '../widgets/device_card_widget.dart';
 
@@ -39,8 +39,8 @@ class AgriTechHubPage extends StatelessWidget {
 
           /// DEVICE LIST
           SectionContainerWidget(
-            child: Column(
-              children: const [
+            child: const Column(
+              children: [
                 DeviceCardWidget(
                   name: 'Soil Sensor A1',
                   status: 'Active',

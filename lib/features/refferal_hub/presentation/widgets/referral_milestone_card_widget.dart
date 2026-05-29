@@ -8,9 +8,9 @@ class ReferralMilestoneCardWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SectionContainerWidget(
-      child: Column(
+      child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
+        children: [
           Text(
             'Silver Milestone (12/15)',
             style: TextStyle(

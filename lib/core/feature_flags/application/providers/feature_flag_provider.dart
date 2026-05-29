@@ -5,7 +5,7 @@ import '../../infrastructure/repositories/feature_flag_repository.dart';
 
 final featureFlagRepositoryProvider =
     Provider<FeatureFlagRepository>((ref) {
-  return FeatureFlagRepository();
+  return const FeatureFlagRepository();
 });
 
 final featureFlagsProvider =

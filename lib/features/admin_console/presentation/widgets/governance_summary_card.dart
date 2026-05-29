@@ -5,10 +5,10 @@ class GovernanceSummaryCards extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
+    return const Wrap(
       spacing: 12,
       runSpacing: 12,
-      children: const [
+      children: [
         _SummaryCard(
           title: 'Active Modules',
           value: '12',

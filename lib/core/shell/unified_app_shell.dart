@@ -1,30 +1,37 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:famhub_app/core/providers/system_state_provider.dart';
+
 class AppShell extends ConsumerWidget {
   final Widget child;
 
-  const AppShell({super.key, required this.child});
+  const AppShell({
+    super.key,
+    required this.child,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ctx = ref.watch(contextProvider);
+    final systemState = ref.watch(systemStateProvider);
 
-    // 🚨 SYSTEM-LEVEL GATE (module_control / maintenance / kill switch)
-    if (ctx.isSystemDown) {
+    // ============================================================
+    // SYSTEM DOWN GATE (GLOBAL BLOCKER)
+    // ============================================================
+    if (systemState.isSystemDown) {
       return const Scaffold(
         body: Center(
-          child: Text("System maintenance in progress"),
+          child: Text('System maintenance in progress'),
         ),
       );
     }
 
-    // 🚨 GUEST ROUTING (unauthenticated users)
-    if (ctx.isGuest) {
-      return const GuestHomePage();
-    }
-
-    // 🧠 CORE LAYOUT ROUTING (device-level shell only)
+    // ============================================================
+    // RESPONSIVE SHELL WRAPPER
+    // ============================================================
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wrappedChild = _wrapWithModuleContext(ref, child);
+        final wrappedChild = _AppShellContext(child: child);
 
         if (constraints.maxWidth < 600) {
           return MobileShell(child: wrappedChild);
@@ -36,22 +43,17 @@ class AppShell extends ConsumerWidget {
       },
     );
   }
+}
 
-  /// 🔥 MODULE INJECTION LAYER (future-proof core hook)
-  Widget _wrapWithModuleContext(WidgetRef ref, Widget child) {
-    final ctx = ref.watch(contextProvider);
+class _AppShellContext extends StatelessWidget {
+  final Widget child;
 
-    /// 🚀 FUTURE SOURCES (DO NOT ENABLE YET)
-    /// final modules = ref.watch(moduleProvider);
-    /// final featureFlags = ref.watch(featureFlagProvider);
+  const _AppShellContext({
+    required this.child,
+  });
 
-    /// 🧠 DESIGN RULE:
-    /// AppShell MUST NOT decide business logic
-    /// It only provides structural context
-
-    return _AppShellContext(
-      isGuest: ctx.isGuest,
-      child: child,
-    );
+  @override
+  Widget build(BuildContext context) {
+    return child;
   }
 }

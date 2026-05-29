@@ -1,5 +1,12 @@
 import '../presentation/dashboard/farm_dashboard_composer.dart';
-import 'dashboard_widgets_registry.dart';
+
+/// ============================================================
+/// FARM MANAGEMENT REGISTRY
+/// ============================================================
+/// Legacy registry - maintained for compatibility.
+/// Dashboard widgets are now declared in FarmManagementModule.dashboardWidgets
+/// and resolved through ModuleRegistry.
+/// ============================================================
 
 class FarmManagementRegistry {
   static bool _initialized = false;
@@ -8,7 +15,8 @@ class FarmManagementRegistry {
     if (_initialized) return;
     _initialized = true;
 
-    FarmDashboardWidgetsRegistry.ensureRegistered();
+    // Widget registration moved to ModuleRegistry via FarmManagementModule.dashboardWidgets
+    // No longer need separate dashboard widget registration
   }
 }
 

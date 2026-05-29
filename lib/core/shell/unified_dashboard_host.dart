@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../application/providers/dashboard_provider.dart';
-import '../../infrastructure/services/dashboard_renderer_service.dart';
-import '../../infrastructure/resolvers/widget_resolver_service.dart';
+import '../state/dashboard_state_store.dart';
+import '../composition/dashboard_composition_engine.dart';
+import '../infrastructure/services/dashboard_renderer_service.dart';
 
-import '../../infrastructure/composition/dashboard_composition_engine.dart';
-import '../../application/services/dashboard_layout_preset_engine.dart';
-import '../../domain/models/dashboard_layout_presets.dart';
-
-class UnifiedDashboardHost extends ConsumerWidget {
+class UnifiedDashboardHost extends ConsumerStatefulWidget {
   final String moduleKey;
 
   const UnifiedDashboardHost({
@@ -18,65 +14,60 @@ class UnifiedDashboardHost extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final asyncDescriptors = ref.watch(
-      dashboardProvider(moduleKey),
+  ConsumerState<UnifiedDashboardHost> createState() =>
+      _UnifiedDashboardHostState();
+}
+
+class _UnifiedDashboardHostState
+    extends ConsumerState<UnifiedDashboardHost> {
+  @override
+  Widget build(BuildContext context) {
+    /// ============================================================
+    /// SINGLE SOURCE OF TRUTH (READ ONLY STATE)
+    /// ============================================================
+    final state = ref.watch(
+      dashboardStateStoreProvider(widget.moduleKey),
     );
 
-    return asyncDescriptors.when(
-      data: (descriptors) {
-        final renderer = DashboardRendererService(
-          widgetResolver: WidgetResolverService(),
-        );
+    if (state.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-        /// 1. BUILD ZONES
-        final zonesMap = renderer.renderByZones(
-          descriptors,
-          ref,
-          context,
-        );
+    /// ============================================================
+    /// PURE COMPOSITION LAYER (NO SIDE EFFECTS ALLOWED)
+    /// ============================================================
+    final compositionEngine =
+        ref.read(dashboardCompositionEngineProvider);
 
-        final zones = DashboardZoneData(
-          header: zonesMap['header'] ?? [],
-          main: zonesMap['main'] ?? [],
-          sidebar: zonesMap['sidebar'] ?? [],
-          footer: zonesMap['footer'] ?? [],
-        );
+    final renderer =
+        ref.read(dashboardRendererProvider(widget.moduleKey));
 
-        /// 2. LAYOUT PRESET ENGINE (DOMAIN-CORRECT)
-        final presetEngine = DashboardLayoutPresetEngine(
-          presets: DashboardLayoutPresets.defaults(),
-        );
+    final composed = compositionEngine.buildSync(
+      context: _buildContext(context),
+      modules: state.modules,
+    );
 
-        final deviceType = _deviceType(context);
-
-        final preset = presetEngine.resolve(
-          selectedKey: null,
-          deviceType: deviceType,
-        );
-
-        /// 3. COMPOSITION ENGINE (UI STRUCTURE)
-        final composer = DashboardCompositionEngine();
-
-        return composer.compose(
-          zones: zones,
-          context: context,
-          layoutType: preset.layoutType,
-        );
-      },
-
-      loading: () =>
-          const Center(child: CircularProgressIndicator()),
-
-      error: (e, _) => Center(child: Text('Error: $e')),
+    /// ============================================================
+    /// PURE RENDER OUTPUT (NO EVENT SUBSCRIPTIONS, NO MUTATIONS)
+    /// ============================================================
+    return renderer.render(
+      snapshot: composed,
+      zoneState: state.zoneState,
     );
   }
 
-  String _deviceType(BuildContext context) {
+  /// ============================================================
+  /// DEVICE CONTEXT DERIVATION (PURE FUNCTION)
+  /// ============================================================
+  LayoutContext _buildContext(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
 
-    if (width >= 1100) return 'desktop';
-    if (width >= 600) return 'tablet';
-    return 'mobile';
+    return LayoutContext(
+      device: width >= 1100
+          ? LayoutDeviceType.desktop
+          : width >= 600
+              ? LayoutDeviceType.tablet
+              : LayoutDeviceType.mobile,
+    );
   }
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../system/module/module_contract.dart';
+import '../../../system/modules_control/module_contract.dart';
 import '../domain/permissions/permissions.dart';
 import '../presentation/pages/activities_page.dart';
 import '../presentation/pages/assets_page.dart';

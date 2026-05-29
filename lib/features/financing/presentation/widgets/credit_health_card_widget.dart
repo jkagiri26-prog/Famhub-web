@@ -52,7 +52,7 @@ class CreditHealthCardWidget extends StatelessWidget {
           const SizedBox(height: 16),
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
+            child: const LinearProgressIndicator(
               value: 0.78,
               minHeight: 8,
               backgroundColor: Colors.white10,

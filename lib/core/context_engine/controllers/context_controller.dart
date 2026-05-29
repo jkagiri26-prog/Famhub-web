@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/entity_context.dart';
+import '../domain/models/entity_context.dart';
 import '../services/context_storage_service.dart';
 import '../services/context_sync_service.dart';
 
@@ -24,6 +24,7 @@ class ContextController extends StateNotifier<EntityContext> {
       role: local['role'],
       entityId: local['entityId'],
       isGuest: local['userId'] == null,
+      isLoading: true,
     );
 
     try {
