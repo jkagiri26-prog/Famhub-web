@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import '../reconciliation/dashboard_runtime_patch.dart';
+import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_patch.dart';
 
 class SmartPatchCoalescer {
   SmartPatchCoalescer({
@@ -42,14 +42,18 @@ class SmartPatchCoalescer {
   /// ============================================================
   /// FLUSH + MERGE + EXECUTE
   /// ============================================================
-  Future<void> _flush() async {
+    Future<void> _flush() async {
     if (_isProcessing || _buffer.isEmpty) return;
 
     _isProcessing = true;
 
-    final merged = _mergePatches(_buffer);
-
+    /// ==========================================================
+    /// SNAPSHOT COPY + IMMEDIATE CLEAR (PREVENTS PATCH LOSS)
+    /// ==========================================================
+    final batch = List<DashboardRuntimePatch>.from(_buffer);
     _buffer.clear();
+
+    final merged = _mergePatches(batch);
 
     await onExecute(merged);
 

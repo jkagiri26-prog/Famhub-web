@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class ModuleHeader extends StatelessWidget {
+class ModuleHeaderWidget extends StatelessWidget {
   final String title;
   final String subtitle;
   final IconData? trailingIcon;

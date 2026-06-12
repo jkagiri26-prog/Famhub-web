@@ -1,5 +1,5 @@
 import '../../domain/models/system_module.dart';
-import '../../../services/supabase_service.dart';
+import 'package:famhub_app/core/services/supabase_service.dart';
 
 class ModuleRepository {
   Future<List<SystemModule>> fetchEnabledModules() async {

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../../shared/widgets/layout/responsive_wrapper_widget.dart';
-import '../../../shared/widgets/headers/module_header_widget.dart';
-import '../../../shared/widgets/headers/section_header_widget.dart';
-import '../../../shared/widgets/cards/stats_card_widget.dart';
-import '../../../shared/widgets/layout/section_container_widget.dart';
+import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
+import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
+import 'package:famhub_app/shared/widgets/headers/section_header_widget.dart';
+import 'package:famhub_app/shared/widgets/cards/stats_card_widget.dart';
+import 'package:famhub_app/shared/layouts/section_container_widget.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -81,19 +81,19 @@ class ProfilePage extends StatelessWidget {
           const SizedBox(height: 12),
 
           /// SETTINGS LIST (TEMP SIMPLE CARDS FOR NOW)
-          _ProfileSettingTile(
+          const _ProfileSettingTile(
             icon: Icons.verified_user_outlined,
             title: "KYC Verification",
             subtitle: "Level 2 Verified",
           ),
 
-          _ProfileSettingTile(
+          const _ProfileSettingTile(
             icon: Icons.account_balance_wallet_outlined,
             title: "Payment Methods",
             subtitle: "MPESA, Bank",
           ),
 
-          _ProfileSettingTile(
+          const _ProfileSettingTile(
             icon: Icons.history,
             title: "Transaction History",
             subtitle: "View all receipts",

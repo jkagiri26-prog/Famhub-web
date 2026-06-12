@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../../shared/widgets/layout/responsive_wrapper_widget.dart';
-import '../../../../shared/widgets/headers/module_header_widget.dart';
-import '../../../../shared/widgets/headers/section_header_widget.dart';
-import '../../../../shared/widgets/cards/action_card_widget.dart';
+import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
+import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
+import 'package:famhub_app/shared/widgets/headers/section_header_widget.dart';
+import 'package:famhub_app/shared/widgets/cards/action_card_widget.dart';
 
 class AgribusinessPage extends StatelessWidget {
   const AgribusinessPage({super.key});

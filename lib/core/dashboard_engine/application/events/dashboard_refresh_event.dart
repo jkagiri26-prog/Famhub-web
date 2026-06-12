@@ -1,38 +1,9 @@
-﻿import 'package:flutter/foundation.dart';
-
-/// ============================================================
-/// DASHBOARD REFRESH EVENT (DOMAIN SIGNAL MODEL)
-/// ============================================================
-///
-/// Lightweight event used to trigger dashboard updates.
-///
-/// This is ONLY a signal carrier.
-///
-/// ❌ NOT responsible for:
-/// - layout decisions
-/// - module control
-/// - state management
-/// ============================================================
-enum DashboardRefreshEventType {
-  moduleActivation,
-  featureFlagUpdate,
-  entitySwitch,
-  roleContextChange,
-}
-
-@immutable
+﻿@immutable
 class DashboardRefreshEvent {
   final DashboardRefreshEventType type;
-
   final DateTime timestamp;
-
-  /// Optional module context (if event is module-scoped)
   final String? moduleKey;
-
-  /// Event origin (system, user_action, backend_sync, etc.)
   final String? source;
-
-  /// Flexible payload (must NOT contain logic)
   final Map<String, dynamic> metadata;
 
   const DashboardRefreshEvent({
@@ -42,10 +13,6 @@ class DashboardRefreshEvent {
     this.source,
     DateTime? timestamp,
   }) : timestamp = timestamp ?? DateTime.now();
-
-  /// ============================================================
-  /// VALUE EQUALITY (IMPORTANT FOR EVENT DEDUPE)
-  /// ============================================================
 
   @override
   bool operator ==(Object other) {
@@ -57,16 +24,7 @@ class DashboardRefreshEvent {
   }
 
   @override
-  int get hashCode => Object.hash(
-        type,
-        moduleKey,
-        source,
-        timestamp,
-      );
-
-  /// ============================================================
-  /// DEBUG
-  /// ============================================================
+  int get hashCode => Object.hash(type, moduleKey, source, timestamp);
 
   @override
   String toString() =>

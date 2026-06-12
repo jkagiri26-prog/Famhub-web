@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../application/reconciliation/dashboard_runtime_dependency_resolver.dart';
-import '../../application/reconciliation/dashboard_runtime_patch.dart';
-import '../../application/reconciliation/dashboard_runtime_reconciler.dart';
-import '../../application/reconciliation/dashboard_runtime_refresh_policy.dart';
+import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_dependency_resolver.dart';
+import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_patch.dart';
+import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_reconciler.dart';
+import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_refresh_policy.dart';
 
 final dashboardRuntimePatchProvider =
     StateNotifierProvider<
@@ -26,6 +26,18 @@ class DashboardRuntimePatchNotifier
     DashboardRuntimePatch patch,
   ) {
     state = patch;
+  }
+
+  /// Applies a refresh signal identified by patchId
+  void applyPatchId(String patchId) {
+    state = DashboardRuntimePatch(
+      actions: [
+        DashboardRuntimePatchAction(
+          type: DashboardPatchActionType.refreshNavigation,
+          target: patchId,
+        ),
+      ],
+    );
   }
 
   void clear() {

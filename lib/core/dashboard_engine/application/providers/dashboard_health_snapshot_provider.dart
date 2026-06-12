@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../monitoring/dashboard_runtime_health_snapshot.dart';
-import '../providers/dashboard_runtime_watchdog_provider.dart';
-import '../providers/dashboard_frame_scheduler_provider.dart';
+import 'package:famhub_app/core/dashboard_engine/application/monitoring/dashboard_runtime_health_snapshot.dart';
+import 'package:famhub_app/core/dashboard_engine/application/providers/dashboard_runtime_watchdog_provider.dart';
+import 'package:famhub_app/core/dashboard_engine/application/providers/dashboard_frame_scheduler_provider.dart';
 
 final dashboardHealthSnapshotProvider =
     Provider<DashboardRuntimeHealthSnapshot>((ref) {
@@ -16,14 +16,17 @@ final dashboardHealthSnapshotProvider =
     frameSchedulerBacklog: scheduler.backlog,
 
     /// ========================================================
-    /// REAL SIGNAL ONLY (NO FABRICATED DEFAULTS)
+    /// REAL ENGINE SIGNALS ONLY
     /// ========================================================
     lastPatchExecutionDuration: lastMetrics?.patchExecutionLatency,
 
-    /// rollback removed → explicit null is correct
+    /// rollback concept removed from runtime architecture
     lastRollbackAt: null,
 
-    /// IMPORTANT: preserve truth, not assumptions
+    /// ========================================================
+    /// ZONES ARE NOT A RUNTIME HEALTH METRIC ANYMORE
+    /// (Composition layer responsibility only)
+    /// ========================================================
     activeZoneCount: null,
   );
 });

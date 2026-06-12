@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../infrastructure/repositories/module_repository.dart';
-import '../domain/models/system_module.dart';
-import '../application/services/module_governance_service.dart';
+import 'package:famhub_app/core/modules/infrastructure/repositories/module_repository.dart';
+import 'package:famhub_app/core/modules/domain/models/system_module.dart';
+import 'package:famhub_app/core/modules/infrastructure/services/module_governance_service.dart';
 
 final moduleRepositoryProvider =
     Provider((ref) => ModuleRepository());

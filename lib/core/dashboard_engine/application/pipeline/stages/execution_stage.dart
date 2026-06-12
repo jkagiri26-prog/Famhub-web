@@ -1,19 +1,21 @@
-import '../../../../../core/module_runtime_sync/domain/models/module_runtime_state.dart';
-import '../runtime_pipeline_stage.dart';
-import '../runtime_pipeline_context.dart';
-import '../../executor/safe_dashboard_patch_executor.dart';
-import '../../reconciliation/dashboard_runtime_diff.dart';
-import '../../reconciliation/dashboard_runtime_patch.dart';
+import 'package:famhub_app/core/module_runtime_sync/domain/models/module_runtime_state.dart';
+import 'package:famhub_app/core/dashboard_engine/application/pipeline/runtime_pipeline_stage.dart';
+import 'package:famhub_app/core/dashboard_engine/application/pipeline/runtime_pipeline_context.dart';
+import 'package:famhub_app/core/dashboard_engine/application/executor/safe_dashboard_patch_executor.dart';
+import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_diff.dart';
+import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_patch.dart';
 
 class ExecutionStage implements RuntimePipelineStage<
     ModuleRuntimeState,
     DashboardRuntimePatch,
     DashboardRuntimeDiff> {
 
-  ExecutionStage({
+    ExecutionStage({
     required this.executor,
-    required this.onTrace,
-  });
+    void Function(DashboardRuntimePatch patch, String status)? onTrace,
+  }) : onTrace = onTrace ?? _noopTrace;
+
+  static void _noopTrace(DashboardRuntimePatch patch, String status) {}
 
   final SafeDashboardPatchExecutor executor;
 
@@ -35,7 +37,7 @@ class ExecutionStage implements RuntimePipelineStage<
 
     if (patch == null || patch.isEmpty) return;
 
-    final patchId = patch.fingerprint;
+        final patchId = patch.id;
 
     /// =========================================================
     /// IDEMPOTENCY GUARD (HARDENED)
@@ -56,11 +58,6 @@ class ExecutionStage implements RuntimePipelineStage<
 
     } catch (e) {
       onTrace(patch, 'failed');
-    } finally {
-      /// =======================================================
-      /// MARK CONTEXT COMPLETION (IMPORTANT FIX)
-      /// =======================================================
-      context.finalize();
     }
   }
 }

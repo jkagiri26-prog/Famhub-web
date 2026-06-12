@@ -18,10 +18,27 @@ class DashboardTraceEvent {
     required this.context,
   });
 
+  /// Unique trace id (usually patch id or event id)
   final String id;
+
+  /// Lifecycle stage inside dashboard_engine pipeline
   final TraceStage stage;
+
   final DateTime timestamp;
 
-  /// payload: event/module/widget/zone metadata
+  /// ============================================================
+  /// ENGINE CONTEXT PAYLOAD
+  /// ============================================================
+  /// MUST remain:
+  /// - moduleKey
+  /// - widgetKey
+  /// - patchActionType
+  /// - execution metadata
+  ///
+  /// MUST NOT contain:
+  /// - zone controllers
+  /// - UI state references
+  /// - provider snapshots
+  /// ============================================================
   final Map<String, dynamic> context;
 }

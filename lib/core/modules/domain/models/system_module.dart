@@ -20,7 +20,7 @@ class SystemModule {
   factory SystemModule.fromMap(Map<String, dynamic> map) {
     return SystemModule(
       moduleKey: map['module_key'],
-      displayName: map['display_name'],
+      displayName: map['module_name'] ?? map['display_name'],
       isEnabled: map['is_enabled'] ?? false,
       dashboardVisible: map['dashboard_visible'] ?? false,
       maintenanceMode: map['maintenance_mode'] ?? false,

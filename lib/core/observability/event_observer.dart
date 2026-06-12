@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import '../events/app_event_bus.dart';
-import '../events/events.dart';
+import 'package:famhub_app/core/events/app_event_bus.dart';
+import 'package:famhub_app/core/events/events.dart';
 
 /// ============================================================
 /// EVENT OBSERVER (OBSERVABILITY LAYER)

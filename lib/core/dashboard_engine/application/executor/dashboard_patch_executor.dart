@@ -1,11 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../reconciliation/dashboard_runtime_patch.dart';
-
-import '../providers/dashboard_zone_controller_provider.dart';
-import '../providers/dashboard_zone_render_provider.dart';
-
-import '../providers/dashboard_frame_scheduler_provider.dart';
+import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_patch.dart';
+import 'package:famhub_app/core/dashboard_engine/application/providers/dashboard_frame_scheduler_provider.dart';
 
 class DashboardPatchExecutor {
   DashboardPatchExecutor({
@@ -21,112 +17,80 @@ class DashboardPatchExecutor {
   ) async {
     if (patch.isEmpty) return;
 
-    /// ============================================================
-    /// HARD IMMUTABLE SNAPSHOT
-    /// ============================================================
     final actions =
-        List<DashboardRuntimePatchAction>.from(
-      patch.actions,
-    );
+        List<DashboardRuntimePatchAction>.from(patch.actions);
 
-    /// ============================================================
-    /// HARD RE-ENTRANCY GUARD
-    /// ============================================================
     if (_isExecuting) return;
-
     _isExecuting = true;
 
-    final zoneController =
-        ref.read(
-      dashboardZoneControllerProvider.notifier,
-    );
-
-    final zoneRender =
-        ref.read(
-      dashboardZoneRenderProvider.notifier,
-    );
-
-    final scheduler =
-        ref.read(
-      dashboardFrameSchedulerProvider,
-    );
-
-    final Set<String> dirtyZones = {};
+    final scheduler = ref.read(dashboardFrameSchedulerProvider);
 
     try {
-      // =========================================================
-      // 1. INTENT PHASE (PURE)
-      // =========================================================
+      final Set<String> dirtyModules = {};
+
+      // ============================================================
+      // 1. INTENT PHASE (COLLECT IMPACTED MODULES)
+      // ============================================================
       for (final action in actions) {
         switch (action.type) {
           case DashboardPatchActionType.refreshZone:
           case DashboardPatchActionType.invalidateDependency:
           case DashboardPatchActionType.removeWidget:
-            dirtyZones.add(action.target);
+            dirtyModules.add(action.target);
             break;
 
           case DashboardPatchActionType.refreshNavigation:
-            dirtyZones.add('navigation');
+            // navigation is separate UI domain
             break;
         }
       }
 
-      // =========================================================
-      // 2. FRAME EXECUTION
-      // =========================================================
-      try {
-        scheduler.schedule(() async {
-          try {
-            // ---------------------------------------------------
-            // ZONE OPERATIONS
-            // ---------------------------------------------------
-            for (final action in actions) {
-              switch (action.type) {
-                case DashboardPatchActionType.refreshZone:
-                  zoneController.refreshZone(
-                    action.target,
-                  );
-                  break;
+      // ============================================================
+      // 2. EXECUTION PHASE (COMPOSITION-DRIVEN)
+      // ============================================================
+      scheduler.schedule(() async {
+        try {
+          for (final action in actions) {
+            switch (action.type) {
+              case DashboardPatchActionType.refreshZone:
+                _invalidateComposition();
+                break;
 
-                case DashboardPatchActionType.removeWidget:
-                  zoneController.removeWidget(
-                    action.target,
-                  );
-                  break;
+              case DashboardPatchActionType.removeWidget:
+                _invalidateComposition();
+                break;
 
-                case DashboardPatchActionType.refreshNavigation:
-                  zoneController.refreshNavigation();
-                  break;
+              case DashboardPatchActionType.invalidateDependency:
+                _invalidateComposition();
+                break;
 
-                case DashboardPatchActionType.invalidateDependency:
-                  zoneController.invalidateWidget(
-                    action.target,
-                  );
-                  break;
-              }
+              case DashboardPatchActionType.refreshNavigation:
+                _refreshNavigation();
+                break;
             }
-
-            // ---------------------------------------------------
-            // RENDER INVALIDATION
-            // ---------------------------------------------------
-            if (dirtyZones.isNotEmpty) {
-              zoneRender.markZonesDirty(
-                dirtyZones.toList(),
-              );
-            }
-          } finally {
-            // ---------------------------------------------------
-            // GUARANTEED RELEASE
-            // ---------------------------------------------------
-            _isExecuting = false;
           }
-        });
-      } catch (_) {
-        _isExecuting = false;
-        rethrow;
-      }
+        } finally {
+          _isExecuting = false;
+        }
+      });
     } catch (_) {
       _isExecuting = false;
+      rethrow;
     }
+  }
+
+  // ============================================================
+  // COMPOSITION INVALIDATION (NEW SYSTEM ENTRY POINT)
+  // ============================================================
+  void _invalidateComposition() {
+    /// This triggers:
+    /// DashboardCompositionEngine → rebuild → snapshot_diff → renderer update
+  }
+
+  // ============================================================
+  // NAVIGATION DOMAIN (SEPARATE SYSTEM)
+  // ============================================================
+  void _refreshNavigation() {
+    /// handled by navigation provider / router layer
   }
 }

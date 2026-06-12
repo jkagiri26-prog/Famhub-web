@@ -1,25 +1,40 @@
-import 'package:flutter/widgets.dart';
+/// ============================================================
+/// MODULE CONTRACT (PURE ABSTRACT DEFINITION)
+/// ============================================================
+///
+/// SYSTEM/MODULES_CONTROL = SYSTEM GOVERNANCE LAYER
+///
+/// Pure abstract contract for module definitions.
+/// Contains NO Flutter/UI references.
+///
+/// ✅ Allowed:
+///   - Abstract contracts
+///   - Pure Dart interfaces
+///
+/// ❌ Forbidden:
+///   - Widget/UI types
+///   - Runtime logic
+///   - Provider imports
+/// ============================================================
 
+/// ============================================================
+/// APP MODULE CONTRACT
+/// ============================================================
+///
+/// Defines the pure contract every module must implement.
+/// No UI types — build() method moved to feature layer.
+/// ============================================================
 abstract class AppModule {
   /// Identity
   String get name;
   String get route;
 
-  /// ============================================================
-  /// DECLARATIVE UI DEFINITION ONLY
-  /// ============================================================
-
-  /// Widget keys this module exposes to dashboard engine
-  List<String> get dashboardWidgets;
-
   /// Optional grouping metadata
   String? get group => null;
 
-  /// Role access control
+  /// Role access control (static role list)
   List<String> get allowedRoles;
 
-  /// ============================================================
-  /// MAIN ENTRY WIDGET (APP ROUTING ONLY)
-  /// ============================================================
-  Widget build();
+  /// Widget keys this module exposes to dashboard engine
+  List<String> get dashboardWidgets;
 }

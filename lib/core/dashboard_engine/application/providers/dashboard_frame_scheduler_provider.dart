@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../scheduler/dashboard_frame_scheduler.dart';
+import 'package:famhub_app/core/dashboard_engine/application/scheduler/dashboard_frame_scheduler.dart';
 
 final dashboardFrameSchedulerProvider =
     Provider<DashboardFrameScheduler>((ref) {

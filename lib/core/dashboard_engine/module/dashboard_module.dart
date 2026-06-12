@@ -1,4 +1,4 @@
-import '../domain/value_objects/module_key.dart';
+import 'package:famhub_app/core/dashboard_engine/domain/value_objects/module_key.dart';
 
 /// ============================================================
 /// DASHBOARD MODULE (RUNTIME SAFE SNAPSHOT)

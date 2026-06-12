@@ -3,72 +3,65 @@ enum DashboardPatchActionType {
   removeWidget,
   refreshNavigation,
   invalidateDependency,
+  invalidateModules,
 }
 
 class DashboardRuntimePatchAction {
   const DashboardRuntimePatchAction({
     required this.type,
-    required this.target,
-  }) : assert(
-          target.trim().isNotEmpty,
-          'DashboardRuntimePatchAction.target cannot be empty',
-        );
+    required String target,
+    this.payload,
+  }) : target = target.trim(),
+       assert(target.trim().isNotEmpty,
+           'DashboardRuntimePatchAction.target cannot be empty');
 
   final DashboardPatchActionType type;
   final String target;
+  final Map<String, dynamic>? payload;
 
-  String get normalizedTarget => target.trim();
+  String get normalizedTarget => target;
 
   @override
   bool operator ==(Object other) {
     return other is DashboardRuntimePatchAction &&
         other.type == type &&
-        other.target == target;
+        other.target == target &&
+        other.payload == payload;
   }
 
   @override
-  int get hashCode => Object.hash(type, target);
+  int get hashCode => Object.hash(type, target, payload);
 }
 
+/// ============================================================
+/// RUNTIME PATCH (IMMUTABLE + DETERMINISTIC)
+/// ============================================================
 class DashboardRuntimePatch {
+  final List<DashboardRuntimePatchAction> actions;
+
   DashboardRuntimePatch({
     required List<DashboardRuntimePatchAction> actions,
   }) : actions = List.unmodifiable(
           actions
-              .where((a) => a.target.trim().isNotEmpty)
-              .map(
-                (a) => DashboardRuntimePatchAction(
-                  type: a.type,
-                  target: a.target.trim(),
-                ),
-              ),
+              .where((a) => a.target.isNotEmpty)
+                            .map((a) => DashboardRuntimePatchAction(
+                    type: a.type,
+                    target: a.target,
+                    payload: a.payload,
+                  ))
+              .toList()
+            ..sort(_compareActions),
         );
-
-  /// ============================================================
-  /// IMMUTABLE SNAPSHOT
-  /// ============================================================
-  final List<DashboardRuntimePatchAction> actions;
 
   /// ============================================================
   /// BASIC STATE
   /// ============================================================
   bool get isEmpty => actions.isEmpty;
-
   bool get isNotEmpty => actions.isNotEmpty;
-
   int get length => actions.length;
 
   /// ============================================================
-  /// DETERMINISTIC PATCH ID
-  /// ============================================================
-  ///
-  /// Stable across executions as long as patch contents
-  /// remain identical.
-  ///
-  String get id => fingerprint;
-
-  /// ============================================================
-  /// GROUPING HELPERS
+  /// ACTION FILTERING
   /// ============================================================
   List<DashboardRuntimePatchAction> actionsByType(
     DashboardPatchActionType type,
@@ -86,26 +79,38 @@ class DashboardRuntimePatch {
   }
 
   /// ============================================================
-  /// DETERMINISTIC FINGERPRINT
+  /// DETERMINISTIC ID (STABLE WITHIN SYSTEM)
   /// ============================================================
-  String get fingerprint {
-    final hash = Object.hashAll(
-      actions.map(
-        (a) => Object.hash(a.type, a.target),
-      ),
-    );
+  String get id => _stableFingerprint();
 
-    return hash.toString();
+  String _stableFingerprint() {
+    final buffer = StringBuffer();
+
+    for (final a in actions) {
+      buffer.write('${a.type.name}:${a.target};');
+    }
+
+    return buffer.toString();
+  }
+
+  static int _compareActions(
+    DashboardRuntimePatchAction a,
+    DashboardRuntimePatchAction b,
+  ) {
+    final typeCompare = a.type.index.compareTo(b.type.index);
+    if (typeCompare != 0) return typeCompare;
+
+    return a.target.compareTo(b.target);
   }
 
   @override
   bool operator ==(Object other) {
     return other is DashboardRuntimePatch &&
-        other.fingerprint == fingerprint;
+        other.id == id;
   }
 
   @override
-  int get hashCode => fingerprint.hashCode;
+  int get hashCode => id.hashCode;
 
   @override
   String toString() {

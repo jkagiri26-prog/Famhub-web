@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../executor/dashboard_patch_executor.dart';
+import 'package:famhub_app/core/dashboard_engine/application/executor/dashboard_patch_executor.dart';
 
 /// ============================================================
 /// DASHBOARD PATCH EXECUTOR PROVIDER

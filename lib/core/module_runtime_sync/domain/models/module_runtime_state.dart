@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class ModuleRuntimeState {
   const ModuleRuntimeState({
     required this.activeModules,
@@ -14,9 +16,9 @@ class ModuleRuntimeState {
 
   factory ModuleRuntimeState.initial() {
     return const ModuleRuntimeState(
-      activeModules: {},
-      disabledModules: {},
-      maintenanceModules: {},
+      activeModules: <String>{},
+      disabledModules: <String>{},
+      maintenanceModules: <String>{},
       lastSyncedAt: null,
     );
   }
@@ -29,13 +31,40 @@ class ModuleRuntimeState {
   }) {
     return ModuleRuntimeState(
       activeModules: activeModules ?? this.activeModules,
-      disabledModules:
-          disabledModules ?? this.disabledModules,
-      maintenanceModules:
-          maintenanceModules ??
-          this.maintenanceModules,
-      lastSyncedAt:
-          lastSyncedAt ?? this.lastSyncedAt,
+      disabledModules: disabledModules ?? this.disabledModules,
+      maintenanceModules: maintenanceModules ?? this.maintenanceModules,
+      lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return 'ModuleRuntimeState('
+        'activeModules: $activeModules, '
+        'disabledModules: $disabledModules, '
+        'maintenanceModules: $maintenanceModules, '
+        'lastSyncedAt: $lastSyncedAt'
+        ')';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+
+    return other is ModuleRuntimeState &&
+        setEquals(other.activeModules, activeModules) &&
+        setEquals(other.disabledModules, disabledModules) &&
+        setEquals(other.maintenanceModules, maintenanceModules) &&
+        other.lastSyncedAt == lastSyncedAt;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hash(
+      activeModules,
+      disabledModules,
+      maintenanceModules,
+      lastSyncedAt,
     );
   }
 }

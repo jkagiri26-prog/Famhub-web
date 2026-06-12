@@ -1,4 +1,4 @@
-import '../../../core/services/supabase_service.dart';
+import 'package:famhub_app/core/services/supabase_service.dart';
 
 class AdminGovernanceService {
   final client = SupabaseService.client;

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/shell/unified_dashboard_host.dart';
+import 'package:famhub_app/core/shell/unified_dashboard_host.dart';
 
 /// FARM DASHBOARD ENTRY POINT
 ///

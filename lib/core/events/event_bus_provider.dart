@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'app_event_bus.dart';
+import 'package:famhub_app/core/events/app_event_bus.dart';
 
 /// ============================================================
 /// EVENT BUS PROVIDER (HARD SINGLETON BOUNDARY)

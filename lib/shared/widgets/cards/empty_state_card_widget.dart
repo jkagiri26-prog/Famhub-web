@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class EmptyStateCard extends StatelessWidget {
+class EmptyStateCardWidget extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;

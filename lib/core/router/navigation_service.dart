@@ -1,17 +1,30 @@
-import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class NavigationService {
-  static final navigatorKey = GlobalKey<NavigatorState>();
+  static GoRouter? _router;
 
-  static Future<void> go(String route) async {
-    navigatorKey.currentState?.pushNamed(route);
+  /// Must be initialized from app root
+  static void setRouter(GoRouter router) {
+    _router = router;
   }
 
-  static Future<void> replace(String route) async {
-    navigatorKey.currentState?.pushReplacementNamed(route);
+  static void go(String route) {
+    _router?.go(route);
+  }
+
+  static void push(String route) {
+    _router?.push(route);
+  }
+
+  static void replace(String route) {
+    _router?.replace(route);
   }
 
   static void back() {
-    navigatorKey.currentState?.pop();
+    _router?.pop();
+  }
+
+  static bool canPop() {
+    return _router?.canPop() ?? false;
   }
 }

@@ -1,14 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../monitoring/dashboard_runtime_watchdog.dart';
+import 'package:famhub_app/core/dashboard_engine/application/monitoring/dashboard_runtime_watchdog.dart';
 
 /// ============================================================
 /// SYSTEM-LEVEL WATCHDOG PROVIDER (HARDENED)
 /// ============================================================
 /// RULES:
 /// - single instance per app lifecycle
-/// - idempotent lifecycle
-/// - safe disposal cleanup
+/// - explicit delegation only
+/// - no dynamic fallback
 /// ============================================================
 
 final dashboardRuntimeWatchdogProvider =
@@ -28,7 +28,7 @@ final dashboardRuntimeWatchdogProvider =
 });
 
 /// ============================================================
-/// PROXY LAYER (CRITICAL SAFETY WRAPPER)
+/// STRICT PROXY (EXPLICIT DELEGATION ONLY)
 /// ============================================================
 
 class _SafeWatchdogProxy implements DashboardRuntimeWatchdog {
@@ -37,31 +37,13 @@ class _SafeWatchdogProxy implements DashboardRuntimeWatchdog {
   final DashboardRuntimeWatchdog _inner;
 
   @override
-  void start() {
-    // idempotent protection
-    _inner.start();
-  }
+  void start() => _inner.start();
 
   @override
-  void stop() {
-    _inner.stop();
-  }
+  void stop() => _inner.stop();
 
   @override
   void recordPatchLatency(Duration d) {
     _inner.recordPatchLatency(d);
-  }
-
-  @override
-  void recordZoneInvalidation() {
-    _inner.recordZoneInvalidation();
-  }
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) {
-    return Function.apply(
-      _inner.noSuchMethod,
-      [invocation],
-    );
   }
 }

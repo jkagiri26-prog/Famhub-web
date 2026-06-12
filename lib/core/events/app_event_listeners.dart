@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'app_event_bus.dart';
-import 'events.dart';
+import 'package:famhub_app/core/events/app_event_bus.dart';
+import 'package:famhub_app/core/events/events.dart';
 
 class AppEventListeners {
   final AppEventBus bus;

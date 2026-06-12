@@ -1,8 +1,10 @@
 // Ensure this matches your file name: lib/pages/ai_seller_chat_page.dart
 import 'package:flutter/material.dart';
 
+import '../../domain/entities/listing.dart';
+
 class AiSellerChatPage extends StatefulWidget {
-  final Map<String, dynamic> product;
+  final Listing product;
   final bool isSellerView;
 
   const AiSellerChatPage({
@@ -15,4 +17,19 @@ class AiSellerChatPage extends StatefulWidget {
   State<AiSellerChatPage> createState() => _AiSellerChatPageState();
 }
 
-// ... rest of your code as provided ...
+class _AiSellerChatPageState extends State<AiSellerChatPage> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.product.title),
+      ),
+      body: Center(
+        child: Text(
+          'AI Seller Chat — ${widget.product.title}',
+          style: const TextStyle(fontSize: 16),
+        ),
+      ),
+    );
+  }
+}

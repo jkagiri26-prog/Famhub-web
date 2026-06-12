@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../state/widget_state_store.dart';
+import 'package:famhub_app/core/dashboard_engine/application/state/widget_state_store.dart';
 
 final widgetStateStoreProvider =
     Provider<WidgetStateStore>((ref) {

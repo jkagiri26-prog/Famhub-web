@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../application/providers/farm_dashboard_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/farm_dashboard_provider.dart';
 
 class ActivityTimelineWidget extends ConsumerWidget {
   const ActivityTimelineWidget({super.key});

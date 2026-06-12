@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/context_engine/providers/context_provider.dart';
-import '../../../../core/context_engine/models/entity_context.dart';
-import '../../domain/models/farm_entity.dart';
-import 'farm_selector_provider.dart';
+import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
+import 'package:famhub_app/core/context_engine/domain/models/entity_context.dart';
+import 'package:famhub_app/features/farm_management/domain/models/farm_entity.dart';
+import 'package:famhub_app/features/farm_management/application/providers/farm_selector_provider.dart';
 
 class FarmContext {
   final String? farmId;

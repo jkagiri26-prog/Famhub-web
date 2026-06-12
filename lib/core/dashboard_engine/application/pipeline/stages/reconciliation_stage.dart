@@ -1,11 +1,11 @@
-import '../../../../../core/module_runtime_sync/domain/events/module_runtime_event.dart';
-import '../../../../../core/module_runtime_sync/domain/models/module_runtime_state.dart';
-import '../../../../../core/module_runtime_sync/application/coordinators/module_runtime_sync_coordinator.dart';
+import 'package:famhub_app/core/module_runtime_sync/domain/events/module_runtime_event.dart';
+import 'package:famhub_app/core/module_runtime_sync/domain/models/module_runtime_state.dart';
+import 'package:famhub_app/core/module_runtime_sync/application/coordinators/module_runtime_sync_coordinator.dart';
 
-import '../runtime_pipeline_context.dart';
-import '../runtime_pipeline_stage.dart';
-import '../../reconciliation/dashboard_runtime_diff.dart';
-import '../../reconciliation/dashboard_runtime_patch.dart';
+import 'package:famhub_app/core/dashboard_engine/application/pipeline/runtime_pipeline_context.dart';
+import 'package:famhub_app/core/dashboard_engine/application/pipeline/runtime_pipeline_stage.dart';
+import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_diff.dart';
+import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_patch.dart';
 
 class ReconciliationStage
     implements RuntimePipelineStage<ModuleRuntimeState,

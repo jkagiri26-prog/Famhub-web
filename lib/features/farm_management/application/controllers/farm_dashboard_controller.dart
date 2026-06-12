@@ -1,17 +1,21 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../domain/models/activity_model.dart';
-import '../../domain/models/farm_dashboard_summary.dart';
-import '../../domain/models/production_model.dart';
-import '../../domain/repositories/farm_repository.dart';
+import 'package:famhub_app/features/farm_management/domain/models/activity_model.dart';
+import 'package:famhub_app/features/farm_management/domain/models/farm_dashboard_summary.dart';
+import 'package:famhub_app/features/farm_management/domain/models/production_model.dart';
+import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
 
-import '../providers/farm_context_provider.dart';
-import '../state/farm_dashboard_state.dart';
+import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/production_provider.dart';
+import 'package:famhub_app/features/farm_management/application/workflows/production_to_marketplace_workflow.dart';
+import 'package:famhub_app/features/farm_management/application/state/farm_dashboard_state.dart';
 
 /// Dashboard controller:
 /// - Reads farm context
 /// - Loads dashboard data
 /// - Executes farm actions
+/// - Triggers cross-module workflows
 class FarmDashboardController extends AsyncNotifier<FarmDashboardState> {
   late final FarmRepository repository;
 
@@ -55,6 +59,10 @@ class FarmDashboardController extends AsyncNotifier<FarmDashboardState> {
       farmId: farmId,
       production: production,
     );
+
+    // ── Cross-module workflow: Production → Marketplace ──
+    final workflowNotifier = ref.read(crossModuleWorkflowProvider(farmId).notifier);
+    await workflowNotifier.onProductionRecorded();
 
     ref.invalidateSelf();
   }

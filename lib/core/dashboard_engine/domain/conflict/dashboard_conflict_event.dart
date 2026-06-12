@@ -36,6 +36,7 @@ class ConflictEvent {
     required this.source,
     required this.timestamp,
     required this.payload,
+    this.sequenceId,
   });
 
   /// ============================================================
@@ -55,6 +56,12 @@ class ConflictEvent {
   /// ============================================================
 
   final DateTime timestamp;
+
+  /// ============================================================
+  /// OPTIONAL SEQUENCE ID (FROM BACKEND, FOR TIE-BREAKING)
+  /// ============================================================
+
+  final String? sequenceId;
 
   /// ============================================================
   /// EVENT PAYLOAD
@@ -84,7 +91,7 @@ class ConflictEvent {
   /// is based on identity, source and event ordering.
   /// ============================================================
 
-  @override
+    @override
   bool operator ==(Object other) {
     if (identical(this, other)) {
       return true;
@@ -93,7 +100,8 @@ class ConflictEvent {
     return other is ConflictEvent &&
         other.entityId == entityId &&
         other.source == source &&
-        other.timestamp == timestamp;
+        other.timestamp == timestamp &&
+        other.sequenceId == sequenceId;
   }
 
   @override
@@ -101,5 +109,6 @@ class ConflictEvent {
         entityId,
         source,
         timestamp,
+        sequenceId,
       );
 }

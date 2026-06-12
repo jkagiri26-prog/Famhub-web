@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/access/access_decision_engine.dart';
-import '../../core/context/context_provider.dart';
+import '../../core/context_engine/providers/ui_context_provider.dart';
 import '../../core/subscription/application/providers/subscription_provider.dart';
 
 class FeatureGate extends ConsumerWidget {
@@ -19,17 +19,19 @@ class FeatureGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final appContext = ref.watch(contextProvider);
+    final appContext = ref.watch(uiContextProvider);
     final subscription = ref.watch(subscriptionProvider);
 
-    final allowed = AccessDecisionEngine.canAccess(
+    final engine = ref.read(accessDecisionEngineProvider);
+
+    final decision = engine.evaluate(
       featureKey: featureKey,
       permission: permission,
-      role: appContext.role.activeRole,
+      role: appContext.role,
       userTier: subscription,
     );
 
-    if (!allowed) {
+    if (!decision.allowed) {
       return const SizedBox.shrink();
     }
 

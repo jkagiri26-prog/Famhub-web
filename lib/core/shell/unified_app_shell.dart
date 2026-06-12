@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/providers/system_state_provider.dart';
+import 'package:famhub_app/core/shell/app_shell_context.dart';
+import 'package:famhub_app/core/shell/mobile_shell.dart';
+import 'package:famhub_app/core/shell/tablet_shell.dart';
+import 'package:famhub_app/core/shell/desktop_shell.dart';
 
-class AppShell extends ConsumerWidget {
+class UnifiedAppShell extends ConsumerWidget {
   final Widget child;
 
-  const AppShell({
+  const UnifiedAppShell({
     super.key,
     required this.child,
   });
@@ -31,7 +35,11 @@ class AppShell extends ConsumerWidget {
     // ============================================================
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wrappedChild = _AppShellContext(child: child);
+        final wrappedChild = AppShellContext(
+          isGuest: false,
+          isSystemDown: systemState.isSystemDown,
+          child: child,
+        );
 
         if (constraints.maxWidth < 600) {
           return MobileShell(child: wrappedChild);
@@ -42,18 +50,5 @@ class AppShell extends ConsumerWidget {
         }
       },
     );
-  }
-}
-
-class _AppShellContext extends StatelessWidget {
-  final Widget child;
-
-  const _AppShellContext({
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return child;
   }
 }

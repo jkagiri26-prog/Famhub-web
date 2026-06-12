@@ -1,9 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../executor/safe_dashboard_patch_executor.dart';
-import '../executor/dashboard_patch_executor.dart';
-import '../providers/dashboard_patch_executor_provider.dart';
-
+import 'package:famhub_app/core/dashboard_engine/application/executor/safe_dashboard_patch_executor.dart';
 /// ============================================================
 /// SAFE PATCH EXECUTOR PROVIDER (HARDENED BOUNDARY LAYER)
 /// ============================================================
@@ -22,24 +19,13 @@ import '../providers/dashboard_patch_executor_provider.dart';
 
 final safeDashboardPatchExecutorProvider =
     Provider<SafeDashboardPatchExecutor>((ref) {
-  /// ------------------------------------------------------------
-  /// 1. DEPENDENCY RESOLUTION (IMMUTABLE GRAPH NODE)
-  /// ------------------------------------------------------------
-  final DashboardPatchExecutor unsafeExecutor =
-      ref.read(dashboardPatchExecutorProvider);
-
-  /// ------------------------------------------------------------
-  /// 2. SAFE WRAPPER CONSTRUCTION (NO SIDE EFFECTS)
-  /// ------------------------------------------------------------
   final SafeDashboardPatchExecutor safeExecutor =
       SafeDashboardPatchExecutor(
-    unsafeExecutor: unsafeExecutor,
     ref: ref,
-    maxRetries: 1,
   );
 
   /// ------------------------------------------------------------
-  /// 3. DISPOSAL SAFETY (PASSIVE ONLY)
+  /// DISPOSAL SAFETY (PASSIVE ONLY)
   /// ------------------------------------------------------------
   ref.onDispose(() {
     /// Intentionally no-op.

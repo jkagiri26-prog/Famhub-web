@@ -1,5 +1,5 @@
+import 'package:famhub_app/core/modules/domain/models/dashboard_module_definition.dart';
 import 'package:famhub_app/core/modules/domain/models/system_module.dart';
-import 'package:famhub_app/system/modules_control/module_definition.dart';
 
 /// ============================================================
 /// MODULE RUNTIME ADAPTER (SYSTEM → DASHBOARD BRIDGE)
@@ -38,14 +38,14 @@ class ModuleRuntimeAdapter {
     SystemModule module,
   ) {
     return DashboardModuleDefinition(
-      moduleKey: module.moduleKey ?? '',
-      widgetKey: module.widgetKey ?? '',
-      isEnabled: module.isEnabled ?? false,
-      dashboardVisible: module.dashboardVisible ?? false,
-    );,
+      moduleKey: module.moduleKey,
       widgetKey: module.moduleKey,
       isEnabled: module.isEnabled,
-      dashboardVisible: module.dashboardVisibl===========
+      dashboardVisible: module.dashboardVisible,
+    );
+  }
+
+  /// ============================================================
   /// ENGINE SAFETY GUARD (MINIMAL SANITIZATION ONLY)
   /// ============================================================
   bool _isValid(DashboardModuleDefinition module) {

@@ -1,13 +1,17 @@
-﻿import '../../domain/models/composition_node.dart';
-import '../../domain/models/layout_context.dart';
-import 'composition_snapshot.dart';
+﻿import 'package:flutter/foundation.dart';
+import 'package:famhub_app/core/modules/domain/models/dashboard_module_definition.dart';
+
+import 'package:famhub_app/core/dashboard_engine/domain/models/composition_node.dart';
+import 'package:famhub_app/core/dashboard_engine/domain/models/layout_context.dart';
+import 'package:famhub_app/core/dashboard_engine/application/resolution/layout_resolver.dart';
+import 'package:famhub_app/core/dashboard_engine/application/composition/composition_snapshot.dart';
 
 class DashboardCompositionEngine {
   final LayoutResolver layoutResolver;
 
   DashboardCompositionEngine({
-    required this.layoutResolver,
-  });
+    LayoutResolver? layoutResolver,
+  }) : layoutResolver = layoutResolver ?? const LayoutResolver();
 
   /// ============================================================
   /// COMPOSITION BUILD PIPELINE (STRUCTURE ONLY)
@@ -16,12 +20,12 @@ class DashboardCompositionEngine {
     required LayoutContext context,
     required List<DashboardModuleDefinition> modules,
   }) async {
-    final nodes = <CompositionNode>[];
-
-    /// Resolve layout ONCE (device + structure only)
+    /// Resolve layout once (UI hint only, NOT structure)
     final layoutDecision = layoutResolver.resolve(
       context: context,
     );
+
+    final nodes = <CompositionNode>[];
 
     for (final module in modules) {
       nodes.add(
@@ -30,34 +34,21 @@ class DashboardCompositionEngine {
           moduleKey: module.moduleKey,
           widgetKey: module.widgetKey,
 
-          /// ✅ FIX: zone is NOT layout type
-          /// zone is structural placeholder ONLY here
-          zone: _resolveBaseZone(module),
-
-          /// deterministic ordering
+          /// ❌ NO ZONES ANYMORE
+          /// instead we keep flat structure
           order: _deriveOrder(module),
+
+          /// optional: layout hints only (safe metadata)
+          payload: {
+            'layoutHint': layoutDecision.preset.type.toString(),
+          },
         ),
       );
     }
 
     nodes.sort((a, b) => a.order.compareTo(b.order));
 
-    return CompositionSnapshot(
-      nodes: nodes,
-      generatedAt: DateTime.now(),
-    );
-  }
-
-  /// ============================================================
-  /// ZONE RESOLUTION (SAFE DEFAULT ONLY)
-  /// ============================================================
-  String _resolveBaseZone(
-    DashboardModuleDefinition module,
-  ) {
-    /// IMPORTANT:
-    /// This is ONLY fallback.
-    /// Real zone assignment happens in Zone Mapping Engine.
-    return 'main';
+    return CompositionSnapshot.fromNodes(nodes);
   }
 
   /// ============================================================

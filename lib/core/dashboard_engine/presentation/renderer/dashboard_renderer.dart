@@ -1,22 +1,29 @@
 import 'package:flutter/widgets.dart';
 
-import '../../application/composition/composition_snapshot.dart';
-import '../../domain/models/composition_node.dart';
-import 'dashboard_renderer_widget.dart';
+import 'package:famhub_app/core/dashboard_engine/application/composition/composition_snapshot.dart';
+import 'package:famhub_app/core/dashboard_engine/domain/models/composition_node.dart';
+import 'package:famhub_app/core/dashboard_engine/presentation/renderer/dashboard_renderer_widget.dart';
 
 /// ============================================================
 /// DASHBOARD RENDERER (PRESENTATION FACADE)
 /// ============================================================
 ///
-/// Stable API layer for rendering CompositionSnapshot.
+/// This is the ONLY public rendering entry point.
 ///
-/// ❌ MUST NOT:
-/// - contain layout logic
-/// - resolve modules
-/// - manage state
+/// It assumes:
+/// ✔ CompositionSnapshot is fully resolved
+/// ✔ Access rules already applied
+/// ✔ Zone placement already determined
+/// ✔ Ordering already deterministic
+///
+/// It does NOT:
+/// ❌ resolve modules
+/// ❌ compute layout
+/// ❌ apply access rules
+/// ❌ apply zone logic
 /// ============================================================
 class DashboardRenderer {
-  /// Stable node → widget mapping function
+  /// Pure node → widget mapping function
   final Widget Function(CompositionNode node) widgetBuilder;
 
   const DashboardRenderer({
@@ -24,11 +31,15 @@ class DashboardRenderer {
   });
 
   /// ============================================================
-  /// RENDER SNAPSHOT → UI
+  /// SNAPSHOT → UI RENDER
   /// ============================================================
   Widget render({
     required CompositionSnapshot snapshot,
   }) {
+    if (snapshot.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return DashboardRendererWidget(
       snapshot: snapshot,
       builder: widgetBuilder,

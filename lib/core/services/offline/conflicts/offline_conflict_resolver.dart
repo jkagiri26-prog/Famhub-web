@@ -1,5 +1,5 @@
-import 'offline_conflict_model.dart';
-import 'offline_conflict_strategy.dart';
+import 'package:famhub_app/core/services/offline/conflicts/offline_conflict_model.dart';
+import 'package:famhub_app/core/services/offline/conflicts/offline_conflict_strategy.dart';
 
 class ConflictResolver {
   Map<String, dynamic> resolve(

@@ -1,17 +1,20 @@
-﻿import '../../domain/models/composition_node.dart';
+﻿import 'package:famhub_app/core/dashboard_engine/domain/models/composition_node.dart';
 
 /// ============================================================
 /// COMPOSITION SNAPSHOT (APPLICATION OUTPUT)
 /// ============================================================
 ///
-/// Immutable output of DashboardCompositionEngine.
+/// Immutable, deterministic representation of UI structure.
 ///
-/// This is the single source of truth for rendering.
-///
-/// Used for:
-/// - diff engine
-/// - renderer
+/// This is the SINGLE source of truth for:
+/// - rendering
+/// - diffing
 /// - caching
+///
+/// It must NOT contain:
+/// ❌ layout logic
+/// ❌ zone intelligence
+/// ❌ module resolution
 /// ============================================================
 class CompositionSnapshot {
   final List<CompositionNode> nodes;
@@ -20,7 +23,11 @@ class CompositionSnapshot {
   /// Fast lookup index (id → node)
   final Map<String, CompositionNode> index;
 
-  /// Zone grouping cache (zone → nodes)
+  /// ============================================================
+  /// NOTE:
+  /// zoneIndex is retained ONLY as a rendering optimization layer.
+  /// It is NOT part of system logic.
+  /// ============================================================
   final Map<String, List<CompositionNode>> zoneIndex;
 
   const CompositionSnapshot({
@@ -43,26 +50,33 @@ class CompositionSnapshot {
   }
 
   /// ============================================================
-  /// BUILDER (SAFE CONSTRUCTION)
+  /// SAFE BUILD FROM NODES (DETERMINISTIC)
   /// ============================================================
   factory CompositionSnapshot.fromNodes(
     List<CompositionNode> nodes,
   ) {
+    final sortedNodes = List<CompositionNode>.from(nodes)
+      ..sort((a, b) => a.order.compareTo(b.order));
+
     final index = <String, CompositionNode>{};
     final zoneIndex = <String, List<CompositionNode>>{};
 
-    for (final node in nodes) {
+    for (final node in sortedNodes) {
       index[node.id] = node;
 
-      zoneIndex.putIfAbsent(node.zone, () => []);
+      zoneIndex.putIfAbsent(node.zone, () => <CompositionNode>[]);
       zoneIndex[node.zone]!.add(node);
     }
 
     return CompositionSnapshot(
-      nodes: List.unmodifiable(nodes),
+      nodes: List.unmodifiable(sortedNodes),
       generatedAt: DateTime.now(),
       index: Map.unmodifiable(index),
-      zoneIndex: Map.unmodifiable(zoneIndex),
+      zoneIndex: Map.unmodifiable(
+        zoneIndex.map(
+          (k, v) => MapEntry(k, List.unmodifiable(v)),
+        ),
+      ),
     );
   }
 

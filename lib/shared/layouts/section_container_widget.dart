@@ -15,7 +15,7 @@ import 'package:flutter/material.dart';
 /// border consistency
 /// production-safe design
 
-class SectionContainer extends StatelessWidget {
+class SectionContainerWidget extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;

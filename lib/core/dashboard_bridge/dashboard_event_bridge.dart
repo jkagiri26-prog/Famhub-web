@@ -50,19 +50,15 @@ class DashboardEventBridge {
   /// PATCH HANDLER (CRITICAL PATH)
   /// ============================================================
   void _handlePatch(DashboardPatchEvent event) async {
-    final patch = event.patch;
+    final patchId = event.patchId;
 
     /// ------------------------------------------------------------
     /// 1. DEDUPLICATION STRATEGY
     /// ------------------------------------------------------------
-    final patchId = _extractPatchId(patch);
-
-    if (patchId != null) {
       if (_processedPatchIds.contains(patchId)) {
         return; // already applied
       }
       _processedPatchIds.add(patchId);
-    }
 
     /// ------------------------------------------------------------
     /// 2. QUEUE PROCESSING (NO RACE CONDITIONS)
@@ -77,11 +73,11 @@ class DashboardEventBridge {
 
     try {
       /// --------------------------------------------------------
-      /// 3. APPLY PATCH TO DASHBOARD STATE
+      /// 3. SIGNAL DASHBOARD STATE TO REFRESH (patch signal only)
       /// --------------------------------------------------------
       ref
           .read(dashboardRuntimePatchProvider.notifier)
-          .applyPatch(patch);
+          .applyPatchId(patchId);
 
     } catch (_) {
       /// intentionally swallowed — dashboard must not crash runtime

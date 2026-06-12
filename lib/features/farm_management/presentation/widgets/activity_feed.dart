@@ -9,7 +9,9 @@ class ActivityFeed extends StatelessWidget {
       child: Column(
         children: [
           ListTile(title: Text("Recent Activity")),
-          ListTile(title: Text("Sold 20 bags of maize")),
+          ListTile(
+            title: Text('No recent activities to display.'),
+          ),
         ],
       ),
     );

@@ -1,4 +1,4 @@
-import 'app_event_bus.dart';
+import 'package:famhub_app/core/events/app_event_bus.dart';
 
 /// ============================================================
 /// MODULE EVENTS

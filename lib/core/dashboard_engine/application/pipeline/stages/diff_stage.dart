@@ -1,9 +1,9 @@
-import '../../../../../core/module_runtime_sync/domain/models/module_runtime_state.dart';
-import '../runtime_pipeline_context.dart';
-import '../runtime_pipeline_stage.dart';
-import '../../reconciliation/dashboard_runtime_diff.dart';
-import '../../reconciliation/dashboard_runtime_patch.dart';
-import '../../reconciliation/dashboard_runtime_reconciler.dart';
+import 'package:famhub_app/core/module_runtime_sync/domain/models/module_runtime_state.dart';
+import 'package:famhub_app/core/dashboard_engine/application/pipeline/runtime_pipeline_context.dart';
+import 'package:famhub_app/core/dashboard_engine/application/pipeline/runtime_pipeline_stage.dart';
+import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_diff.dart';
+import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_patch.dart';
+import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_reconciler.dart';
 
 class DiffStage implements RuntimePipelineStage<ModuleRuntimeState,
     DashboardRuntimePatch, DashboardRuntimeDiff> {

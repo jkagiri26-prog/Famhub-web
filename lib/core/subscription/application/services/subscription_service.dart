@@ -1,4 +1,4 @@
-import '../domain/models/subscription_tier.dart';
+import 'package:famhub_app/core/subscription/domain/models/subscription_tier.dart';
 
 class SubscriptionService {
   static bool hasAccess({

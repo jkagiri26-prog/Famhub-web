@@ -1,5 +1,5 @@
-﻿import '../events/dashboard_event_bus.dart';
-import '../events/dashboard_refresh_event.dart';
+﻿import 'package:famhub_app/core/dashboard_engine/application/events/dashboard_event_bus.dart';
+import 'package:famhub_app/core/dashboard_engine/application/events/dashboard_refresh_event.dart';
 
 /// ============================================================
 /// WIDGET USAGE TRACKER (AI SIGNAL LAYER)

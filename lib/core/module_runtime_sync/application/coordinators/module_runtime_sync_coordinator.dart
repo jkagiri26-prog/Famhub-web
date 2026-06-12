@@ -1,6 +1,6 @@
-import '../../domain/events/module_runtime_event.dart';
-import '../../domain/models/module_runtime_state.dart';
-import '../reconciliation/module_runtime_reconciler.dart';
+import 'package:famhub_app/core/module_runtime_sync/domain/events/module_runtime_event.dart';
+import 'package:famhub_app/core/module_runtime_sync/domain/models/module_runtime_state.dart';
+import 'package:famhub_app/core/module_runtime_sync/application/reconciliation/module_runtime_reconciler.dart';
 
 /// ============================================================
 /// MODULE RUNTIME SYNC COORDINATOR (HARDENED GATEKEEPER)

@@ -1,5 +1,5 @@
-import '../../domain/models/composition_node.dart';
-import 'composition_snapshot.dart';
+import 'package:famhub_app/core/dashboard_engine/domain/models/composition_node.dart';
+import 'package:famhub_app/core/dashboard_engine/application/composition/composition_snapshot.dart';
 
 /// ============================================================
 /// SNAPSHOT DIFF (PERFORMANCE-CRITICAL ENGINE LAYER)
@@ -7,14 +7,6 @@ import 'composition_snapshot.dart';
 ///
 /// Computes differences between two CompositionSnapshots.
 ///
-/// Tracks:
-/// - added nodes
-/// - removed nodes
-/// - updated nodes (structure changes)
-/// - unchanged nodes
-///
-/// Optimized for renderer incremental updates.
-/// ============================================================
 class SnapshotDiff {
   final List<CompositionNode> added;
   final List<CompositionNode> removed;
@@ -102,9 +94,10 @@ class SnapshotDiff {
     CompositionNode oldNode,
     CompositionNode newNode,
   ) {
-    return oldNode.zone != newNode.zone ||
+    return oldNode.widgetKey != newNode.widgetKey ||
         oldNode.order != newNode.order ||
-        oldNode.widgetKey != newNode.widgetKey;
+        oldNode.moduleKey != newNode.moduleKey ||
+        oldNode.payload != newNode.payload;
   }
 
   bool wasAdded(String id) => addedIds.contains(id);

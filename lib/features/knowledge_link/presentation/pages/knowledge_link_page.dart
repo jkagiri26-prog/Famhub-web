@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:famhub/shared/layout/responsive_wrapper_widget.dart';
-import 'package:famhub/shared/widgets/headers/module_header_widget.dart';
-import 'package:famhub/shared/widgets/headers/section_header_widget.dart';
-import 'package:famhub/shared/widgets/cards/empty_state_card_widget.dart';
+import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
+import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
+import 'package:famhub_app/shared/widgets/headers/section_header_widget.dart';
+import 'package:famhub_app/shared/widgets/cards/empty_state_card_widget.dart';
 
 import '../widgets/knowledge_category_chips_widget.dart';
 import '../widgets/featured_guide_card_widget.dart';

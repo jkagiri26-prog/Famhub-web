@@ -1,9 +1,9 @@
-import '../../../module_runtime_sync/domain/models/module_runtime_state.dart';
+import 'package:famhub_app/core/module_runtime_sync/domain/models/module_runtime_state.dart';
 
-import 'dashboard_runtime_dependency_resolver.dart';
-import 'dashboard_runtime_diff.dart';
-import 'dashboard_runtime_patch.dart';
-import 'dashboard_runtime_refresh_policy.dart';
+import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_dependency_resolver.dart';
+import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_diff.dart';
+import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_patch.dart';
+import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_refresh_policy.dart';
 
 /// ============================================================
 /// DASHBOARD RUNTIME RECONCILER (CLEAN ARCHITECTURE)
@@ -11,7 +11,7 @@ import 'dashboard_runtime_refresh_policy.dart';
 /// Responsibilities:
 /// 1. Generate diff (pure comparison)
 /// 2. Resolve dependencies (graph expansion)
-/// 3. Generate deterministic patch (UI actions only)
+/// 3. Generate INVALIDATION INTENT (NOT UI ACTIONS)
 class DashboardRuntimeReconciler {
   DashboardRuntimeReconciler({
     required this.refreshPolicy,
@@ -52,7 +52,7 @@ class DashboardRuntimeReconciler {
   }
 
   // ============================================================
-  // 2. DEPENDENCY RESOLUTION (SEPARATE STEP)
+  // 2. DEPENDENCY RESOLUTION (PURE GRAPH EXPANSION)
   // ============================================================
   ResolvedDashboardDiff resolveDependencies(
     DashboardRuntimeDiff diff,
@@ -75,79 +75,41 @@ class DashboardRuntimeReconciler {
   }
 
   // ============================================================
-  // 3. PATCH GENERATION (PURE OUTPUT)
+  // 3. INVALIDATION INTENT (NO UI ACTIONS)
   // ============================================================
   DashboardRuntimePatch generatePatch(
     ResolvedDashboardDiff diff,
   ) {
-    final actions = <DashboardRuntimePatchAction>[];
+    final affectedModules = <String>{};
 
-    // ------------------------------------------------------------
-    // Added modules → refresh zone
-    // ------------------------------------------------------------
-    for (final module in diff.base.addedModules) {
-      actions.add(
+    // aggregate all invalidation sources
+    affectedModules.addAll(diff.base.addedModules);
+    affectedModules.addAll(diff.base.removedModules);
+    affectedModules.addAll(diff.base.maintenanceChangedModules);
+    affectedModules.addAll(diff.invalidatedModules);
+
+    return DashboardRuntimePatch(
+      actions: [
         DashboardRuntimePatchAction(
-          type: DashboardPatchActionType.refreshZone,
-          target: module,
+          type: DashboardPatchActionType.invalidateModules,
+          target: 'composition_engine',
+          payload: {
+            'modules': affectedModules.toList(),
+          },
         ),
-      );
-    }
 
-    // ------------------------------------------------------------
-    // Removed modules → remove widget
-    // ------------------------------------------------------------
-    for (final module in diff.base.removedModules) {
-      actions.add(
-        DashboardRuntimePatchAction(
-          type: DashboardPatchActionType.removeWidget,
-          target: module,
-        ),
-      );
-    }
-
-    // ------------------------------------------------------------
-    // Maintenance changes → refresh zone
-    // ------------------------------------------------------------
-    for (final module in diff.base.maintenanceChangedModules) {
-      actions.add(
-        DashboardRuntimePatchAction(
-          type: DashboardPatchActionType.refreshZone,
-          target: module,
-        ),
-      );
-    }
-
-    // ------------------------------------------------------------
-    // Dependency invalidation → cascade refresh
-    // ------------------------------------------------------------
-    for (final module in diff.invalidatedModules) {
-      actions.add(
-        DashboardRuntimePatchAction(
-          type: DashboardPatchActionType.invalidateDependency,
-          target: module,
-        ),
-      );
-    }
-
-    // ------------------------------------------------------------
-    // Navigation refresh (policy-driven)
-    // ------------------------------------------------------------
-    if (diff.shouldRefreshNavigation) {
-      actions.add(
-        const DashboardRuntimePatchAction(
-          type: DashboardPatchActionType.refreshNavigation,
-          target: 'global_navigation',
-        ),
-      );
-    }
-
-    return DashboardRuntimePatch(actions: actions);
+        if (diff.shouldRefreshNavigation)
+          const DashboardRuntimePatchAction(
+            type: DashboardPatchActionType.refreshNavigation,
+            target: 'global_navigation',
+          ),
+      ],
+    );
   }
 }
 
 /// ============================================================
-/// RESOLVED DIFF MODEL (NEW REQUIRED LAYER)
+/// RESOLVED DIFF MODEL
 /// ============================================================
 class ResolvedDashboardDiff {
   final DashboardRuntimeDiff base;

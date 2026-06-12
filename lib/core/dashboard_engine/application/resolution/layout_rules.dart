@@ -1,4 +1,4 @@
-﻿import '../../domain/models/layout_context.dart';
+﻿import 'package:famhub_app/core/dashboard_engine/domain/models/layout_context.dart';
 
 /// ============================================================
 /// LAYOUT RULE ENGINE (PURE POLICY LAYER)

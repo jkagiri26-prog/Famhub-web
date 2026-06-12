@@ -1,20 +1,8 @@
 ﻿import 'package:flutter/widgets.dart';
 
-import '../../application/composition/composition_snapshot.dart';
-import '../../domain/models/composition_node.dart';
+import 'package:famhub_app/core/dashboard_engine/application/composition/composition_snapshot.dart';
+import 'package:famhub_app/core/dashboard_engine/domain/models/composition_node.dart';
 
-/// ============================================================
-/// DASHBOARD RENDERER WIDGET
-/// ============================================================
-///
-/// Responsible ONLY for rendering CompositionSnapshot nodes
-/// into UI widgets.
-///
-/// ❌ NOT responsible for:
-/// - layout decisions
-/// - ordering logic
-/// - composition rules
-/// ============================================================
 class DashboardRendererWidget extends StatelessWidget {
   final CompositionSnapshot snapshot;
   final Widget Function(CompositionNode node) builder;
@@ -29,29 +17,11 @@ class DashboardRendererWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final nodes = snapshot.nodes;
 
-    // ============================================================
-    // GROUP BY ZONE (PRESERVE COMPOSITION STRUCTURE)
-    // ============================================================
-    final grouped = <String, List<CompositionNode>>{};
-
-    for (final node in nodes) {
-      grouped.putIfAbsent(node.zone, () => []).add(node);
-    }
-
-    // Sort nodes inside each group
-    for (final entry in grouped.entries) {
-      entry.value.sort(
-        (a, b) => a.order.compareTo(b.order),
-      );
-    }
-
+    /// ============================================================
+    /// PURE RENDERING ONLY (NO GROUPING LOGIC)
+    /// ============================================================
     return Column(
-      children: grouped.entries.map((entry) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: entry.value.map(builder).toList(),
-        );
-      }).toList(),
+      children: nodes.map(builder).toList(),
     );
   }
 }

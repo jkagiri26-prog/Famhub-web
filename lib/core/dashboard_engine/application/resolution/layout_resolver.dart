@@ -1,6 +1,6 @@
-﻿import 'layout_rules.dart';
-import 'layout_presets.dart';
-import '../../domain/models/layout_context.dart';
+﻿import 'package:famhub_app/core/dashboard_engine/application/resolution/layout_rules.dart';
+import 'package:famhub_app/core/dashboard_engine/application/resolution/layout_presets.dart';
+import 'package:famhub_app/core/dashboard_engine/domain/models/layout_context.dart';
 
 /// ============================================================
 /// LAYOUT RESOLUTION RESULT

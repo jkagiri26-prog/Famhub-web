@@ -43,6 +43,11 @@ class WidgetStateStore {
     _store.remove(widgetId);
   }
 
+  /// Restore a previously saved widget state
+  void restore(String widgetId, WidgetStateModel previousState) {
+    _store[widgetId] = previousState;
+  }
+
   /// Clear all (rare use)
   void clear() {
     _store.clear();

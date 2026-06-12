@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class SectionHeader extends StatelessWidget {
+class SectionHeaderWidget extends StatelessWidget {
   final String title;
 
   const SectionHeader({

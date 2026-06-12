@@ -1,4 +1,4 @@
-import '../domain/models/farm_widget_descriptor.dart';
+import 'package:famhub_app/features/farm_management/domain/models/farm_widget_descriptor.dart';
 
 class FarmDashboardDescriptors {
   static List<FarmWidgetDescriptor> core = [

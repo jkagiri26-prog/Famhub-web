@@ -1,9 +1,9 @@
-import '../../../../../core/module_runtime_sync/domain/models/module_runtime_state.dart';
-import '../runtime_pipeline_context.dart';
-import '../runtime_pipeline_stage.dart';
-import '../../reconciliation/dashboard_runtime_diff.dart';
-import '../../reconciliation/dashboard_runtime_patch.dart';
-import '../../reconciliation/dashboard_runtime_reconciler.dart';
+import 'package:famhub_app/core/module_runtime_sync/domain/models/module_runtime_state.dart';
+import 'package:famhub_app/core/dashboard_engine/application/pipeline/runtime_pipeline_context.dart';
+import 'package:famhub_app/core/dashboard_engine/application/pipeline/runtime_pipeline_stage.dart';
+import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_diff.dart';
+import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_patch.dart';
+import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_reconciler.dart';
 
 class PatchStage implements RuntimePipelineStage<ModuleRuntimeState,
     DashboardRuntimePatch, DashboardRuntimeDiff> {
@@ -32,12 +32,15 @@ class PatchStage implements RuntimePipelineStage<ModuleRuntimeState,
     /// ------------------------------------------------------------
     if (!diff.hasChanges) return;
 
+        /// ------------------------------------------------------------
+    /// DEPENDENCY RESOLUTION (MUST HAPPEN FIRST)
     /// ------------------------------------------------------------
-    /// PATCH GENERATION
+    final resolvedDiff = reconciler.resolveDependencies(diff);
+
     /// ------------------------------------------------------------
-    final patch = reconciler.generatePatch(
-      diff: diff,
-    );
+    /// PATCH GENERATION (FROM RESOLVED DIFF)
+    /// ------------------------------------------------------------
+    final patch = reconciler.generatePatch(resolvedDiff);
 
     /// ------------------------------------------------------------
     /// SAFETY: invalid or empty patch guard

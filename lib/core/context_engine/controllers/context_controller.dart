@@ -23,6 +23,7 @@ class ContextController extends StateNotifier<EntityContext> {
       userId: local['userId'],
       role: local['role'],
       entityId: local['entityId'],
+      tier: local['tier'] ?? 'free',
       isGuest: local['userId'] == null,
       isLoading: true,
     );
@@ -35,6 +36,7 @@ class ContextController extends StateNotifier<EntityContext> {
         userId: remote['userId'],
         role: remote['role'],
         entityId: remote['entityId'],
+        tier: remote['tier'] ?? 'free',
         isGuest: false,
         isLoading: false,
       );
@@ -44,6 +46,7 @@ class ContextController extends StateNotifier<EntityContext> {
         userId: remote['userId'],
         role: remote['role'],
         entityId: remote['entityId'],
+        tier: remote['tier'] ?? 'free',
       );
     } catch (e) {
       // Offline fallback
@@ -59,6 +62,7 @@ class ContextController extends StateNotifier<EntityContext> {
       userId: state.userId,
       role: role,
       entityId: state.entityId,
+      tier: state.tier,
     );
   }
 
@@ -70,6 +74,7 @@ class ContextController extends StateNotifier<EntityContext> {
       userId: state.userId,
       role: state.role,
       entityId: entityId,
+      tier: state.tier,
     );
   }
 

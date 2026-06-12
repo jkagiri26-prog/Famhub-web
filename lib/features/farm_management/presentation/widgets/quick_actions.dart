@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../application/providers/farm_dashboard_provider.dart';
-import '../../../domain/models/activity_model.dart';
-import '../../../domain/models/production_model.dart';
+import 'package:famhub_app/features/farm_management/application/providers/farm_dashboard_provider.dart';
 
 class FarmQuickActions extends ConsumerWidget {
   const FarmQuickActions({super.key});
@@ -21,31 +19,21 @@ class FarmQuickActions extends ConsumerWidget {
           children: [
             ElevatedButton(
               onPressed: () async {
-                await controller.createActivity(
-                  ActivityModel(
-                    id: 'new-activity',
-                    activityTypeId: 'mock-activity-type',
-                    performedAt: DateTime.now(),
-                    notes: 'New farm activity',
-                  ),
-                );
+                // TODO: Open activity creation dialog
+                // Activity creation requires user input before calling controller
               },
               child: const Text('Add Activity'),
             ),
             ElevatedButton(
               onPressed: () async {
-                await controller.recordProduction(
-                  const ProductionModel(
-                    id: 'new-production',
-                    farmId: 'selected-on-server',
-                    quantity: 0,
-                  ),
-                );
+                // TODO: Open production recording form
+                // Production recording requires user input before calling controller
               },
               child: const Text('Record Production'),
             ),
             ElevatedButton(
               onPressed: () async {
+                // TODO: Confirm action before syncing
                 await controller.syncMarketplaceListing();
               },
               child: const Text('Sell to Marketplace'),

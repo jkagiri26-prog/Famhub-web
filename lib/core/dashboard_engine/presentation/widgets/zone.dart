@@ -1,43 +1,48 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../application/providers/dashboard_zone_render_provider.dart';
-
-class _Zone extends ConsumerStatefulWidget {
-  const _Zone({
+class Zone extends StatefulWidget {
+  const Zone({
+    super.key,
     required this.zoneId,
     required this.child,
     required this.isDirty,
+    this.onCleared,
   });
 
   final String zoneId;
   final Widget child;
+
+  /// Derived from SnapshotDiff / PatchExecutor
   final bool isDirty;
 
+  /// Optional callback instead of provider mutation
+  final VoidCallback? onCleared;
+
   @override
-  ConsumerState<_Zone> createState() => _ZoneState();
+  State<Zone> createState() => _ZoneState();
 }
 
-class _ZoneState extends ConsumerState<_Zone> {
+class _ZoneState extends State<Zone> {
   bool _hasReset = false;
 
   @override
-  void didUpdateWidget(covariant _Zone oldWidget) {
+  void didUpdateWidget(covariant Zone oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    /// Reset only when zone transitions from dirty → clean
+    /// Only react when dirty state changes to true
     if (widget.isDirty && !_hasReset) {
       _hasReset = true;
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
 
-        ref
-            .read(dashboardZoneRenderProvider.notifier)
-            .clearZone(widget.zoneId);
+        /// ❌ NO PROVIDER CALLS
+        /// ✔ pure UI callback hook
+        widget.onCleared?.call();
       });
     }
 
+    /// reset internal guard when clean
     if (!widget.isDirty) {
       _hasReset = false;
     }
@@ -45,7 +50,6 @@ class _ZoneState extends ConsumerState<_Zone> {
 
   @override
   Widget build(BuildContext context) {
-    /// Always participate in rebuild cycle (Riverpod-safe)
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 180),
       child: widget.child,

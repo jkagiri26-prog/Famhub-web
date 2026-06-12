@@ -1,4 +1,4 @@
-import '../../domain/models/system_module.dart';
+import 'package:famhub_app/core/modules/domain/models/system_module.dart';
 
 class ModuleGovernanceService {
   List<SystemModule> applyRules(List<SystemModule> modules) {

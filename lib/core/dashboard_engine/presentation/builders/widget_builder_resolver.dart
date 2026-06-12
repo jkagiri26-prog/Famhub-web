@@ -1,5 +1,5 @@
 import 'package:flutter/widgets.dart';
-import 'widget_builder_registry.dart';
+import 'package:famhub_app/core/dashboard_engine/presentation/builders/widget_builder_registry.dart';
 
 /// ============================================================
 /// WIDGET BUILDER RESOLVER

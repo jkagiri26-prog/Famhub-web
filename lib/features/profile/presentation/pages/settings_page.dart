@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../../shared/layouts/responsive_wrappers_widget.dart';
-import '../../../../shared/widgets/headers/module_header_widget.dart';
-import '../../../../shared/widgets/headers/section_header_widget.dart';
-import '../../../../shared/layouts/section_container_widget.dart';
+import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
+import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
+import 'package:famhub_app/shared/widgets/headers/section_header_widget.dart';
+import 'package:famhub_app/shared/layouts/section_container_widget.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});

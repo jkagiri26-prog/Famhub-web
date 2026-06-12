@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-class ReportCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final String price;

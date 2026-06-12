@@ -1,4 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
+import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
+import 'package:famhub_app/shared/widgets/headers/section_header_widget.dart';
+import 'package:famhub_app/shared/layouts/section_container_widget.dart';
+import '../widgets/featured_opportunity_widget.dart';
+import '../widgets/opportunity_item_widget.dart';
 
 /// FAMHUB Module: OpportunitiesPage
 /// Fully aligned with Shared Widget System

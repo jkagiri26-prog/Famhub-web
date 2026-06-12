@@ -1,5 +1,5 @@
 ﻿import 'dart:async';
-import 'dashboard_refresh_event.dart';
+import 'package:famhub_app/core/dashboard_engine/application/events/dashboard_refresh_event.dart';
 
 /// ============================================================
 /// DASHBOARD EVENT BUS (INTERNAL SIGNAL LAYER)

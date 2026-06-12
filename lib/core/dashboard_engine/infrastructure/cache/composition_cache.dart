@@ -1,4 +1,4 @@
-﻿import '../../application/composition/composition_snapshot.dart';
+﻿import 'package:famhub_app/core/dashboard_engine/application/composition/composition_snapshot.dart';
 
 /// ============================================================
 /// COMPOSITION CACHE (IN-FLIGHT PERFORMANCE LAYER)

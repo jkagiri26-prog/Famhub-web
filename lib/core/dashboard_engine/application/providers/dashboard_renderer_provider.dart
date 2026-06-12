@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/widgets.dart';
 
-import '../../domain/models/composition_node.dart';
-import '../../application/resolution/widget_resolution_engine.dart';
-import '../../presentation/renderer/dashboard_renderer.dart';
+import 'package:famhub_app/core/dashboard_engine/domain/models/composition_node.dart';
+import 'package:famhub_app/core/dashboard_engine/application/resolution/widget_resolution_engine.dart';
+import 'package:famhub_app/core/dashboard_engine/presentation/renderer/dashboard_renderer.dart';
 
 final widgetResolutionEngineProvider =
     Provider<WidgetResolutionEngine>((ref) {

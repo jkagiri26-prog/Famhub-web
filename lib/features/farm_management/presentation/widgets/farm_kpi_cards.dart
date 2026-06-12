@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../domain/models/farm_dashboard_summary.dart';
+import 'package:famhub_app/features/farm_management/domain/models/farm_dashboard_summary.dart';
 
 class FarmKpiCards extends StatelessWidget {
   final FarmDashboardSummary summary;

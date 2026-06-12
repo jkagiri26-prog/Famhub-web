@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../../../shared/layout/responsive_wrapper_widget.dart';
-import '../../../../../shared/widgets/headers/module_header_widget.dart';
-import '../../../../../shared/widgets/headers/section_header_widget.dart';
+import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
+import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
+import 'package:famhub_app/shared/widgets/headers/section_header_widget.dart';
 import '../widgets/expert_card_widget.dart';
 import '../widgets/service_category_card_widget.dart';
 

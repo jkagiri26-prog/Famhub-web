@@ -1,5 +1,5 @@
-import 'runtime_pipeline_context.dart';
-import 'runtime_pipeline_stage.dart';
+import 'package:famhub_app/core/dashboard_engine/application/pipeline/runtime_pipeline_context.dart';
+import 'package:famhub_app/core/dashboard_engine/application/pipeline/runtime_pipeline_stage.dart';
 
 typedef StageFailureHandler<TState, TPatch, TDiff>
     = void Function(

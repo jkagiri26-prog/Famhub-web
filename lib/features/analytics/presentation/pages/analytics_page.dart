@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 
-import '../../../../shared/widgets/layout/responsive_wrapper_widget.dart';
-import '../../../../shared/widgets/headers/module_header_widget.dart';
-import '../../../../shared/widgets/headers/section_header_widget.dart';
-import '../../../../shared/widgets/cards/report_card_widget.dart';
+import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
+import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
+import 'package:famhub_app/shared/widgets/headers/section_header_widget.dart';
+import 'package:famhub_app/shared/widgets/cards/report_card_widget.dart';
 
 import 'widgets/analytics_chart_widget.dart';
 import 'widgets/analytics_breadcrumb_widget.dart';

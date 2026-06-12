@@ -1,19 +1,39 @@
+/// ============================================================
+/// APP SHELL CONTEXT (INHERITED WIDGET FOR SHELL STATE)
+/// ============================================================
+///
+/// 🧠 LOCATION CONTEXT:
+///   core/shell/ = OS-level shell layer
+///
+/// ✅ Responsibilities:
+///   - Provide shell context to child widgets
+///   - Guest mode flag
+///   - Shell-level state
+///
+/// ❌ Does NOT:
+///   - Contain business logic
+///   - Reference registries
+/// ============================================================
+
 import 'package:flutter/widgets.dart';
 
-class _AppShellContext extends InheritedWidget {
+class AppShellContext extends InheritedWidget {
   final bool isGuest;
+  final bool isSystemDown;
 
-  const _AppShellContext({
+  const AppShellContext({
     required this.isGuest,
+    this.isSystemDown = false,
     required super.child,
   });
 
-  static _AppShellContext? of(BuildContext context) {
-    return context.dependOnInheritedWidgetOfExactType<_AppShellContext>();
+  static AppShellContext? of(BuildContext context) {
+    return context.dependOnInheritedWidgetOfExactType<AppShellContext>();
   }
 
   @override
-  bool updateShouldNotify(_AppShellContext oldWidget) {
-    return isGuest != oldWidget.isGuest;
+  bool updateShouldNotify(AppShellContext oldWidget) {
+    return isGuest != oldWidget.isGuest ||
+        isSystemDown != oldWidget.isSystemDown;
   }
 }
