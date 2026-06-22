@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 
-import '../../system/models/module_definition.dart';
+import 'package:famhub_app/system/modules_control/module_contract.dart';
 import '../presentation/pages/agribusiness_page.dart';
 
 class AgribusinessModule {
-  static ModuleDefinition register() {
-    return ModuleDefinition(
+  static ModuleContract register() {
+    return ModuleContract(
       key: 'agribusiness',
       name: 'Agribusiness',
       description: 'Agribusiness operations, partnerships, and enterprise management.',
       icon: Icons.business_center,
-      builder: () => const AgribusinessPage(),
+      builder: (_) => const AgribusinessPage(),
     );
   }
 }

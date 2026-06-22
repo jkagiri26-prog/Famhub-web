@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../shared/widgets/layout/section_container_widget.dart';
+import 'package:famhub_app/shared/layouts/section_container_widget.dart';
 
 class ReferralMilestoneCardWidget extends StatelessWidget {
   const ReferralMilestoneCardWidget({super.key});

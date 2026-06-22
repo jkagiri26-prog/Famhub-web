@@ -17,6 +17,38 @@ class ReconciliationStage
   final ModuleRuntimeSyncCoordinator coordinator;
 
   @override
+  String get name => 'ReconciliationStage';
+
+  @override
+  Future<void> beforeExecute(
+    RuntimePipelineContext<ModuleRuntimeState, DashboardRuntimePatch,
+            DashboardRuntimeDiff>
+        context,
+  ) async {
+    // No-op
+  }
+
+  @override
+  Future<void> afterExecute(
+    RuntimePipelineContext<ModuleRuntimeState, DashboardRuntimePatch,
+            DashboardRuntimeDiff>
+        context,
+  ) async {
+    // No-op
+  }
+
+  @override
+  Future<void> run(
+    RuntimePipelineContext<ModuleRuntimeState, DashboardRuntimePatch,
+            DashboardRuntimeDiff>
+        context,
+  ) async {
+    await beforeExecute(context);
+    await execute(context);
+    await afterExecute(context);
+  }
+
+  @override
   Future<void> execute(
     RuntimePipelineContext<ModuleRuntimeState, DashboardRuntimePatch,
             DashboardRuntimeDiff>

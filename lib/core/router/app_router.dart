@@ -151,7 +151,7 @@ class AppRouter {
               path: AppRoutes.techLab,
               name: AppRoutes.techLabName,
               builder: (context, state) {
-                return const AgriTechHubPage();
+                return const AgriTechLabPage();
               },
             ),
             GoRoute(

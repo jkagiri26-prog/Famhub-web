@@ -1,3 +1,4 @@
+// ignore: dangling_library_doc_comments
 /// ============================================================
 /// FEATURE REGISTRY (PURE BLUEPRINT CATALOG)
 /// ============================================================

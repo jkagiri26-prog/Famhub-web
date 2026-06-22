@@ -12,7 +12,16 @@ import 'core/dashboard_engine/bootstrap/dashboard_bootstrap.dart';
 
 /// 🔥 Runtime module synchronization engine
 import 'core/module_runtime_sync/runtime_sync_engine.dart';
-import 'core/module_runtime_sync/presentation/providers/module_runtime_sync_provider.dart';
+import 'core/module_runtime_sync/application/providers/module_runtime_sync_provider.dart';
+
+/// 🔄 Workflow Orchestrator — bridges WorkflowEvents → Provider invalidation
+import 'core/events/workflow_orchestrator.dart';
+import 'core/events/event_bus_provider.dart';
+
+/// 🏪 Provider invalidations for workflow orchestration
+import 'features/farm_management/application/providers/farm_dashboard_provider.dart';
+import 'features/farm_management/application/providers/assets_provider.dart';
+import 'features/marketplace/application/providers/marketplace_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,9 +40,9 @@ void main() async {
   // Skipped here as it requires module-specific widget builders.
   // await DashboardBootstrap.initialize(builders: {});
 
-  /// 🔥 LIVE MODULE RUNTIME SYNC ENGINE
+    /// 🔥 LIVE MODULE RUNTIME SYNC ENGINE
   final runtimeSyncEngine = RuntimeSyncEngine(
-    ref: container,
+    ref: container as Ref,
     supabase: Supabase.instance.client,
     coordinator: container.read(
       moduleRuntimeSyncCoordinatorProvider,
@@ -42,20 +51,52 @@ void main() async {
 
   await runtimeSyncEngine.initialize();
 
+  /// 🔄 WORKFLOW ORCHESTRATOR — BRIDGES EVENTS → PROVIDERS
+  ///
+  /// Creates a WorkflowOrchestrator with real provider invalidation
+  /// callbacks. This ensures that when cross-module workflows
+  /// (e.g., production → marketplace publish, kpi automation)
+  /// emit WorkflowEvents, the relevant Riverpod providers are
+  /// invalidated and the UI reactively updates.
+  ///
+  /// Callbacks use container.invalidate() rather than ref.invalidate()
+  /// because we're outside the widget tree. The container is the
+  /// root ProviderContainer used by the app.
+  final orchestratorConfig = OrchestratorConfig(
+    invalidateFarmDashboard: () {
+      container.invalidate(farmDashboardProvider);
+    },
+    invalidateAssets: () {
+      // assetsProvider is a family provider keyed by farmId.
+      // We invalidate the provider itself, which forces re-creation
+      // for all farm IDs on next access.
+      container.invalidate(assetsProvider);
+    },
+    invalidateMarketplace: () {
+      container.invalidate(marketplaceProvider);
+    },
+  );
+
+  final orchestrator = WorkflowOrchestrator(
+    bus: container.read(eventBusProvider),
+    config: orchestratorConfig,
+      );
+  orchestrator.start();
+
   runApp(
     UncontrolledProviderScope(
       container: container,
       child: const MyApp(),
     ),
-  );
-}
+    );
+  }
 
 class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
 
   @override
   ConsumerState<MyApp> createState() => _MyAppState();
-}
+  }
 
 class _MyAppState extends ConsumerState<MyApp> {
   @override
@@ -66,7 +107,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     Future.microtask(() async {
       await ref.read(contextProvider.notifier).init();
     });
-  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -92,7 +133,7 @@ class _MyAppState extends ConsumerState<MyApp> {
       debugShowCheckedModeBanner: false,
 
       /// 🌐 THEME (FROM ENTITY CONTEXT)
-      themeMode: _mapThemeMode(ctx.role),
+      themeMode: _mapThemeMode(ctx.role ?? 'farmer'),
 
       theme: ThemeData.light(),
       darkTheme: ThemeData.dark(),
@@ -105,3 +146,4 @@ class _MyAppState extends ConsumerState<MyApp> {
     return ThemeMode.system;
   }
 }
+

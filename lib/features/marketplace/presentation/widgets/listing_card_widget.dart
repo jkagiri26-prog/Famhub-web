@@ -5,6 +5,7 @@ class ListingCardWidget extends StatelessWidget {
   final String subtitle;
   final String price;
   final String location;
+  final Widget? trailing;
 
   const ListingCardWidget({
     super.key,
@@ -12,6 +13,7 @@ class ListingCardWidget extends StatelessWidget {
     required this.subtitle,
     required this.price,
     required this.location,
+    this.trailing,
   });
 
   @override
@@ -28,26 +30,35 @@ class ListingCardWidget extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  title,
             style: const TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
             ),
+          ),
+                ),
+              if (trailing != null) trailing!,
+            ],
           ),
 
           const SizedBox(height: 6),
 
           Text(
             subtitle,
-            style: const TextStyle(
-              color: Colors.grey,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.grey,
               fontSize: 13,
-            ),
+              ),
           ),
 
           const SizedBox(height: 12),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -56,14 +67,20 @@ class ListingCardWidget extends StatelessWidget {
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Theme.of(context).colorScheme.primary,
-                ),
+      ),
               ),
-              Text(
-                location,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey,
-                ),
+              Row(
+                children: [
+                  Icon(Icons.location_on_outlined, size: 12, color: Colors.grey.shade500),
+                  const SizedBox(width: 4),
+                  Text(
+                    location,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

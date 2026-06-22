@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:famhub_app/core/module_runtime_sync/presentation/providers/module_runtime_sync_provider.dart';
+import 'package:famhub_app/core/module_runtime_sync/application/providers/module_runtime_sync_provider.dart';
 
 /// ============================================================
 /// PHASE 6 — TASK D1: RUNTIME DIAGNOSTICS PANEL

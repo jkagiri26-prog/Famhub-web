@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 
-import '../../system/models/module_definition.dart';
+import 'package:famhub_app/system/modules_control/module_contract.dart';
 import '../presentation/pages/carbon_credit_page.dart';
 
 class CarbonCreditModule {
-  static ModuleDefinition register() {
-    return ModuleDefinition(
+  static ModuleContract register() {
+    return ModuleContract(
       key: 'carbon_credit',
       name: 'Carbon Credit',
       description: 'Manage carbon projects, credits, and sustainability metrics.',
       icon: Icons.eco,
-      builder: () => const CarbonCreditPage(),
+      builder: (_) => const CarbonCreditPage(),
     );
   }
 }

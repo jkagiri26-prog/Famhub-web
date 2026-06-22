@@ -1,3 +1,7 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:famhub_app/features/farm_management/domain/models/farm_widget_descriptor.dart';
+
 final farmDashboardDescriptorProvider =
     Provider<List<FarmWidgetDescriptor>>((ref) {
   return const [

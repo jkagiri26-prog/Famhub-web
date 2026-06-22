@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
-import 'package:famhub_app/core/context_engine/domain/models/entity_context.dart';
 import 'package:famhub_app/features/farm_management/domain/models/farm_entity.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_selector_provider.dart';
 
@@ -29,13 +28,12 @@ final farmContextProvider = Provider<FarmContext>((ref) {
 
   final selectedFarmId = selector.selectedFarmId;
 
-  final selectedFarm = selector.farms
-      .where((f) => f.id == selectedFarmId)
-      .cast<FarmEntity?>()
-      .firstWhere(
-        (f) => f != null,
-        orElse: () => null,
-      );
+    final selectedFarm = selector.selectedFarmId != null
+      ? selector.farms.cast<FarmEntity?>().firstWhere(
+          (f) => f?.id == selector.selectedFarmId,
+          orElse: () => null,
+        )
+      : null;
 
   return FarmContext(
     farmId: selectedFarmId,

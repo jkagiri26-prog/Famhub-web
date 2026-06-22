@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../system/module/module_contract.dart';
+import 'package:famhub_app/system/modules_control/module_contract.dart';
 import '../config/permissions.dart';
 import '../presentation/pages/auth_page.dart';
 
@@ -9,7 +9,7 @@ class AuthModule extends AppModule {
   static const String displayName = 'Authentication';
   static const IconData icon = Icons.security;
 
-  const AuthModule();
+  AuthModule();
 
   void ensureInitialized() {
     // TODO: Initialize registry if needed
@@ -38,8 +38,7 @@ class AuthModule extends AppModule {
   @override
   List<String> get dashboardWidgets => const [];
 
-  @override
-  Widget build() {
+    Widget build() {
     ensureInitialized();
     return const AuthPage();
   }

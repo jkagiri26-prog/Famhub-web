@@ -1,3 +1,4 @@
+// ignore: dangling_library_doc_comments
 /// ============================================================
 /// MAINTENANCE STATE WIDGET (STANDARDIZED UX)
 /// ============================================================

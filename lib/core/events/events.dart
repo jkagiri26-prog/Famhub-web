@@ -33,7 +33,7 @@ class DashboardPatchEvent extends AppEvent {
   /// Unique identifier of the patch produced by pipeline
   final String patchId;
 
-  const DashboardPatchEvent(this.patchId);
+  DashboardPatchEvent(this.patchId);
 }
 
 /// ============================================================

@@ -22,6 +22,8 @@
 ///     - created_at (timestamptz)
 /// ============================================================
 
+// ignore_for_file: dangling_library_doc_comments
+
 class AssetModel {
   final String id;
   final String farmId;

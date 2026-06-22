@@ -1,29 +1,17 @@
 import 'package:flutter/material.dart';
-
-import 'package:famhub_app/system/modules/module.dart';
+import 'package:famhub_app/system/modules_control/module_contract.dart';
 import 'package:famhub_app/features/admin_console/presentation/pages/admin_dashboard_page.dart';
 
 class AdminConsoleModule extends AppModule {
   @override
-  String get moduleKey => 'admin_console';
+  String get name => 'admin_console';
 
   @override
-  String get moduleName => 'Admin Console';
+  String get route => '/admin';
 
   @override
-  IconData get icon => Icons.admin_panel_settings;
+  List<String> get allowedRoles => ['admin'];
 
   @override
-  int get sortOrder => 999;
-
-  @override
-  bool get requiresAuth => true;
-
-  @override
-  bool get showInDashboard => true;
-
-  @override
-  Widget build(BuildContext context) {
-    return const AdminDashboardPage();
-  }
+  List<String> get dashboardWidgets => [];
 }

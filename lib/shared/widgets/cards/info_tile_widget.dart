@@ -1,3 +1,4 @@
+// ignore: dangling_library_doc_comments
 /// ============================================================
 /// INFO TILE WIDGET (REUSABLE INFO DISPLAY)
 /// ============================================================

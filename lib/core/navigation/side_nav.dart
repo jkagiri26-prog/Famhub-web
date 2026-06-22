@@ -1,3 +1,4 @@
+// ignore: dangling_library_doc_comments
 /// ============================================================
 /// SIDE NAVIGATION (TABLET/DESKTOP NAV)
 /// ============================================================
@@ -30,7 +31,7 @@ class SideNav extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final location = GoRouterState.of(context).location;
+    final location = GoRouterState.of(context).uri.toString();
     final modulesAsync = ref.watch(moduleProvider);
 
     return NavigationRail(

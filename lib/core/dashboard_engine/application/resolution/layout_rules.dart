@@ -50,7 +50,7 @@ class LayoutRules {
       );
     }
 
-    // ============================================================
+        // ============================================================
     // 3. DEVICE FALLBACK
     // ============================================================
     switch (context.device) {
@@ -72,13 +72,5 @@ class LayoutRules {
           sourceRule: 'device_desktop',
         );
     }
-
-    // ============================================================
-    // 4. SAFETY FALLBACK
-    // ============================================================
-    return const LayoutRuleResult(
-      presetKey: 'default_grid',
-      sourceRule: 'fallback_default',
-    );
   }
 }

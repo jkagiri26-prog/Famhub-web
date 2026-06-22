@@ -8,7 +8,7 @@ class FarmManagementModule extends AppModule {
   static const String displayName = 'Farm Management';
   static const IconData icon = Icons.agriculture;
 
-  const FarmManagementModule();
+  FarmManagementModule();
 
   List<String> get permissions => FarmManagementPermissions.all;
 

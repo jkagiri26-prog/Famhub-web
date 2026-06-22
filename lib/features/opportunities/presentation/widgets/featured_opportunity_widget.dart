@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:famhub_app/shared/layouts/section_container_widget.dart';
+
 class FeaturedOpportunityWidget extends StatelessWidget {
   const FeaturedOpportunityWidget({super.key});
 

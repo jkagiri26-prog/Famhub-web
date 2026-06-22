@@ -10,7 +10,7 @@ class AgribusinessPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ResponsiveWrapperWidget(
+    return ResponsiveWrapper(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

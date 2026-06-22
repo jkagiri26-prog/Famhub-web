@@ -39,19 +39,20 @@ class _DiagnosticsOverlayState extends ConsumerState<DiagnosticsOverlay> {
   }
 
   void _subscribeToSnapshots() {
-    // Delay subscription to ensure provider is ready
-    Future.microtask(() {
-      if (!mounted) return;
-      final stream = ref.read(runtimeHealthSnapshotStreamProvider.stream);
-      _snapshotSubscription = stream.listen((snapshot) {
-        if (mounted) {
-          setState(() {
-            _latestSnapshot = snapshot;
-            _snapshotCount++;
-          });
-        }
-      });
-    });
+    // Use ref.listen to subscribe to the stream provider
+    ref.listen<AsyncValue<RuntimeHealthSnapshot>>(
+      runtimeHealthSnapshotStreamProvider,
+      (previous, next) {
+        next.whenData((snapshot) {
+          if (mounted) {
+            setState(() {
+              _latestSnapshot = snapshot;
+              _snapshotCount++;
+            });
+          }
+        });
+      },
+    );
   }
 
   @override
@@ -76,7 +77,7 @@ class _DiagnosticsOverlayState extends ConsumerState<DiagnosticsOverlay> {
             // Swipe up to close
             if (details.primaryVelocity != null &&
                 details.primaryVelocity! < -500) {
-              ref.read(diagnosticsPanelVisibleProvider.notifier).state = false;
+              ref.read(diagnosticsPanelVisibleProvider.notifier).hide();
             }
           },
           child: Column(
@@ -105,7 +106,7 @@ class _DiagnosticsOverlayState extends ConsumerState<DiagnosticsOverlay> {
                     ),
                     const Spacer(),
                     Text(
-                      '${summary.healthStatus.name.toUpperCase()}',
+                      summary.healthStatus.name.toUpperCase(),
                       style: _labelStyle(Colors.white),
                     ),
                     const SizedBox(width: 8),
@@ -116,8 +117,7 @@ class _DiagnosticsOverlayState extends ConsumerState<DiagnosticsOverlay> {
                     const SizedBox(width: 8),
                     InkWell(
                       onTap: () =>
-                          ref.read(diagnosticsPanelVisibleProvider.notifier).state =
-                              false,
+                          ref.read(diagnosticsPanelVisibleProvider.notifier).hide(),
                       child: const Icon(Icons.close, color: Colors.white, size: 16),
                     ),
                   ],
@@ -140,7 +140,7 @@ class _DiagnosticsOverlayState extends ConsumerState<DiagnosticsOverlay> {
                         _metricRow('Total Events',
                             '${summary.totalEvents}'),
                         _metricRow('EPS',
-                            '${summary.eventsPerSecond.toStringAsFixed(1)}'),
+                            summary.eventsPerSecond.toStringAsFixed(1)),
                       ]),
 
                       const SizedBox(height: 6),
@@ -181,8 +181,8 @@ class _DiagnosticsOverlayState extends ConsumerState<DiagnosticsOverlay> {
                       ]),
 
                       // ── Help text ──
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
                         child: Text(
                           'DEV-ONLY | Swipe up to close',
                           style: TextStyle(

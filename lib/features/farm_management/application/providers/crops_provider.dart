@@ -9,6 +9,7 @@
 ///
 /// Provides crop list and management operations for a given farm.
 /// ============================================================
+library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -38,11 +39,13 @@ class CropListState {
 
   List<CropModel> get filteredCrops {
     if (searchQuery == null || searchQuery!.isEmpty) return crops;
+
     final query = searchQuery!.toLowerCase();
-    return crops.where((c) =>
-      c.cropName.toLowerCase().contains(query) ||
-      (c.variety?.toLowerCase().contains(query) ?? false)
-    ).toList();
+
+    return crops.where((c) {
+      return c.cropName.toLowerCase().contains(query) ||
+          (c.variety?.toLowerCase().contains(query) ?? false);
+    }).toList();
   }
 
   CropListState copyWith({
@@ -54,28 +57,43 @@ class CropListState {
     return CropListState(
       crops: crops ?? this.crops,
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage,
-      searchQuery: searchQuery,
+      errorMessage: errorMessage ?? this.errorMessage,
+      searchQuery: searchQuery ?? this.searchQuery,
     );
   }
 }
 
-/// Crops notifier
-class CropsNotifier extends StateNotifier<CropListState> {
-  final FarmRepository _repository;
-  final String? _farmId;
+/// ============================================================
+/// CROPS NOTIFIER (RIVERPOD 3 - NOTIFIER API)
+/// ============================================================
+class CropsNotifier extends Notifier<CropListState> {
+  FarmRepository get _repository =>
+      ref.read(farmRepositoryProvider);
 
-  CropsNotifier(this._repository, this._farmId)
-      : super(CropListState.initial());
+  @override
+  CropListState build() {
+    return CropListState.initial();
+  }
 
-  Future<void> loadCrops() async {
-    if (_farmId == null) return;
+  Future<void> loadCrops({String? farmId}) async {
+    final effectiveFarmId = farmId ?? ref.read(farmContextProvider).farmId;
+    if (effectiveFarmId == null) return;
+
     state = state.copyWith(isLoading: true, errorMessage: null);
+
     try {
-      final crops = await _repository.getCrops(farmId: _farmId!);
-      state = state.copyWith(crops: crops, isLoading: false);
+      final crops =
+          await _repository.getCrops(farmId: effectiveFarmId);
+
+      state = state.copyWith(
+        crops: crops,
+        isLoading: false,
+      );
     } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: e.toString());
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString(),
+      );
     }
   }
 
@@ -84,18 +102,20 @@ class CropsNotifier extends StateNotifier<CropListState> {
   }
 }
 
-/// Provider for crop list
-final cropsProvider = StateNotifierProvider.family<CropsNotifier, CropListState, String?>(
-  (ref, farmId) {
-    final repository = ref.read(farmRepositoryProvider);
-    return CropsNotifier(repository, farmId);
-  },
+/// ============================================================
+/// PROVIDER (NOTIFIER)
+/// ============================================================
+final cropsProvider =
+    NotifierProvider<CropsNotifier, CropListState>(
+  CropsNotifier.new,
 );
 
 /// Auto-loading crop provider based on farm context
-final autoCropsProvider = Provider.family<AsyncValue<List<CropModel>>, String?>(
+final autoCropsProvider =
+    Provider.family<AsyncValue<List<CropModel>>, String?>(
   (ref, farmId) {
-    final cropsAsync = ref.watch(cropsProvider(farmId));
-    return AsyncValue.data(cropsAsync.filteredCrops);
+    final cropsState = ref.watch(cropsProvider);
+
+    return AsyncValue.data(cropsState.filteredCrops);
   },
 );

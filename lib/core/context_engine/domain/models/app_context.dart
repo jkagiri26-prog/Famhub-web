@@ -1,3 +1,5 @@
+import 'entity_context.dart';
+
 class AppContext {
   final String? userId;
   final String? entityId;
@@ -15,7 +17,7 @@ class AppContext {
     return AppContext(
       userId: ctx.userId,
       entityId: ctx.entityId,
-      role: ctx.role,
+      role: ctx.role ?? 'guest',
       isLoading: ctx.isLoading,
     );
   }

@@ -1,3 +1,4 @@
+// ignore: dangling_library_doc_comments
 /// ============================================================
 /// ROUTE REGISTRY (PURE STATIC ROUTE MAPPING)
 /// ============================================================

@@ -252,8 +252,8 @@ class RuntimeMetricsCollector {
   DateTime? _uptimeSince;
 
   DateTime _startTime = DateTime.now();
-  int _eventsInCurrentSecond = 0;
   double _currentEps = 0;
+  int _eventsInCurrentSecond = 0;
 
   // ─── PHASE 3: Analytics aggregation ──────────────────────
   final List<AnalyticsWindow> _analyticsHistory = [];
@@ -307,12 +307,12 @@ class RuntimeMetricsCollector {
     if (uptime == null) return ResilienceMetrics.empty;
 
     final uptimeMinutes = DateTime.now().difference(uptime).inMinutes;
-    final recoveryRate = _totalFailures > 0
-        ? _totalRecoveries / (_totalFailures + _totalRecoveries)
-        : 1.0;
-    final mtbf = _totalFailures > 0
-        ? uptimeMinutes / _totalFailures
-        : double.infinity;
+    final recoveryRate = _failureCount > 0
+      ? _totalRecoveries / (_failureCount + _totalRecoveries)
+      : 1.0;
+    final mtbf = _failureCount > 0
+      ? uptimeMinutes / _failureCount
+      : double.infinity;
     final mttr = _totalRecoveries > 0 && _lastFailureAt != null && _lastRecoveryAt != null
         ? _lastRecoveryAt!.difference(_lastFailureAt!).inSeconds / _totalRecoveries
         : 0.0;
@@ -320,7 +320,7 @@ class RuntimeMetricsCollector {
     return ResilienceMetrics(
       uptimeSince: uptime,
       totalRecoveries: _totalRecoveries,
-      totalFailures: _totalFailures,
+      totalFailures: _failureCount,
       recoveryRate: recoveryRate,
       mtbfMinutes: mtbf,
       mttrSeconds: mttr,
@@ -368,7 +368,6 @@ class RuntimeMetricsCollector {
   /// Record a telemetry event (non-blocking, O(1) amortized)
   void record(RuntimeTelemetryEvent event) {
     _totalEventsIngested++;
-    _eventsInCurrentSecond++;
     _windowEventCount++;
 
     // ── Module metrics tracking ──
@@ -639,11 +638,7 @@ class RuntimeMetricsCollector {
   List<double> get _sortedPatchSamples =>
       List<double>.from(_patchDurationSamples)..sort();
 
-  List<double> get _sortedReplaySamples =>
-      List<double>.from(_replayDurationSamples)..sort();
 
-  List<double> get _sortedRenderSamples =>
-      List<double>.from(_renderDurationSamples)..sort();
 
   // ─── PATCH DURATION TRACKING ────────────────────────────
 
@@ -772,7 +767,7 @@ class RuntimeMetricsCollector {
 
   RuntimeHealthStatus _deriveHealthStatus() {
     if (_failureCount > 50 || _frameBacklogCritical > 10 || _consecutiveFailures > 20) {
-      return RuntimeHealthStatus.critical;
+      return RuntimeHealthStatus.corrupted;
     }
     if (_bufferCapacityWarnings > 5 || _frameBacklogWarnings > 20 || _consecutiveFailures > 5) {
       return RuntimeHealthStatus.degraded;
@@ -831,7 +826,6 @@ class RuntimeMetricsCollector {
     _recoveryCount = 0;
     _droppedEventCount = 0;
     _reconnectAttemptCount = 0;
-    _reconnectSuccessCount = 0;
     _totalPipelineRuns = 0;
     _totalEventsIngested = 0;
     _frameBacklogWarnings = 0;
@@ -845,7 +839,6 @@ class RuntimeMetricsCollector {
     _lastRecoveryAt = null;
     _uptimeSince = DateTime.now();
     _startTime = DateTime.now();
-    _eventsInCurrentSecond = 0;
     _currentEps = 0;
     _latestSnapshot = null;
     _analyticsHistory.clear();

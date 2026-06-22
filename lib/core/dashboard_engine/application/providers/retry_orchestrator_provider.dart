@@ -1,3 +1,4 @@
+// ignore: dangling_library_doc_comments
 /// ============================================================
 /// RETRY ORCHESTRATOR PROVIDER — APPLICATION LAYER
 /// ============================================================
@@ -21,9 +22,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/dashboard_engine/application/executor/retry_orchestrator.dart';
+import 'package:famhub_app/core/dashboard_engine/application/providers/observability_providers.dart';
 
 /// Default retry orchestrator with exponential backoff
 final defaultRetryOrchestratorProvider = Provider<RetryOrchestrator>((ref) {
+  final collector = ref.read(runtimeMetricsCollectorProvider);
   return RetryOrchestrator(
     policy: RetryPolicy.exponential(
       maxAttempts: 3,
@@ -31,11 +34,16 @@ final defaultRetryOrchestratorProvider = Provider<RetryOrchestrator>((ref) {
       maxDelayMs: 2000,
       backoffFactor: 2.0,
     ),
+    metricsCollector: collector,
   );
 });
 
 /// Policy-specific retry orchestrator provider
 final retryOrchestratorProvider =
     Provider.family<RetryOrchestrator, RetryPolicy>((ref, policy) {
-  return RetryOrchestrator(policy: policy);
+  final collector = ref.read(runtimeMetricsCollectorProvider);
+  return RetryOrchestrator(
+    policy: policy,
+    metricsCollector: collector,
+  );
 });

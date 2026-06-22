@@ -1,26 +1,25 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_dependency_resolver.dart';
 import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_patch.dart';
 import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_reconciler.dart';
 import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_refresh_policy.dart';
 
 final dashboardRuntimePatchProvider =
-    StateNotifierProvider<
+    NotifierProvider<
       DashboardRuntimePatchNotifier,
       DashboardRuntimePatch
     >(
-      (ref) => DashboardRuntimePatchNotifier(),
+      DashboardRuntimePatchNotifier.new,
     );
 
 class DashboardRuntimePatchNotifier
-    extends StateNotifier<DashboardRuntimePatch> {
-  DashboardRuntimePatchNotifier()
-    : super(
-        const DashboardRuntimePatch(
-          actions: [],
-        ),
-      );
+    extends Notifier<DashboardRuntimePatch> {
+  @override
+  DashboardRuntimePatch build() {
+    return DashboardRuntimePatch(
+      actions: [],
+    );
+  }
 
   void applyPatch(
     DashboardRuntimePatch patch,
@@ -41,7 +40,7 @@ class DashboardRuntimePatchNotifier
   }
 
   void clear() {
-    state = const DashboardRuntimePatch(
+    state = DashboardRuntimePatch(
       actions: [],
     );
   }

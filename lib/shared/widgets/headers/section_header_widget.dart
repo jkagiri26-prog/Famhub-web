@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class SectionHeaderWidget extends StatelessWidget {
   final String title;
 
-  const SectionHeader({
+  const SectionHeaderWidget({
     super.key,
     required this.title,
   });

@@ -1,5 +1,6 @@
 import 'package:famhub_app/core/modules/domain/models/dashboard_module_definition.dart';
 import 'package:famhub_app/core/dashboard_engine/infrastructure/adapters/module_runtime_adapter.dart';
+import 'package:famhub_app/core/modules/domain/models/system_module.dart';
 
 /// ============================================================
 /// MODULE LOADER SERVICE (RUNTIME LAYER)
@@ -24,15 +25,9 @@ class DashboardModuleLoader {
   });
 
   /// Load modules from system layer (no transformation)
-  Future<List<DashboardModuleDefinition>> load({
-    required String device,
-    String? role,
-    String? entityId,
-  }) {
-    return adapter.loadDashboardModules(
-      device: device,
-      role: role,
-      entityId: entityId,
-    );
+  Future<List<DashboardModuleDefinition>> load(
+    List<SystemModule> systemModules,
+  ) {
+    return adapter.loadDashboardModules(systemModules);
   }
 }

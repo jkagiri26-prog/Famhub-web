@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// ============================================================
 /// RUNTIME TELEMETRY EVENT — IMMUTABLE DOMAIN MODEL
 /// ============================================================
@@ -18,6 +20,8 @@
 /// These events flow through the RuntimeMetricsCollector.
 /// They do NOT control execution — they only observe.
 /// ============================================================
+
+// ignore_for_file: dangling_library_doc_comments
 
 /// Categorizes the origin phase of a telemetry event.
 enum TelemetryPhase {
@@ -211,7 +215,7 @@ class RuntimeTelemetryEvent {
 
   @override
   String toString() =>
-      'RuntimeTelemetryEvent($type | ${phase.name} | ${timestamp})';
+      'RuntimeTelemetryEvent($type | ${phase.name} | $timestamp)';
 }
 
 /// ============================================================

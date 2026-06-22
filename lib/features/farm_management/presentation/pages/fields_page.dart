@@ -10,6 +10,7 @@ import 'package:famhub_app/shared/layouts/adaptive_content_grid.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/fields_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
+import 'package:famhub_app/features/farm_management/domain/models/field_model.dart';
 
 class FieldsPage extends ConsumerStatefulWidget {
   const FieldsPage({super.key});
@@ -28,7 +29,7 @@ class _FieldsPageState extends ConsumerState<FieldsPage> {
   Future<void> _loadFields() async {
     final farmId = ref.read(farmContextProvider).farmId;
     if (farmId != null) {
-      ref.read(fieldsProvider(farmId).notifier).loadFields();
+      ref.read(fieldsProvider.notifier).loadFields(farmId: farmId);
     }
   }
 
@@ -44,7 +45,7 @@ class _FieldsPageState extends ConsumerState<FieldsPage> {
       );
     }
 
-    final fieldState = ref.watch(fieldsProvider(farmId));
+    final fieldState = ref.watch(fieldsProvider);
 
     if (fieldState.isLoading) {
       return const FeaturePageScaffold(
@@ -126,7 +127,7 @@ class _FieldsPageState extends ConsumerState<FieldsPage> {
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 final field = fields[index];
-                return _FieldCard(field: field);
+                return FieldCard(field: field);
               },
             ),
           ),
@@ -135,10 +136,10 @@ class _FieldsPageState extends ConsumerState<FieldsPage> {
   }
 }
 
-class _FieldCard extends StatelessWidget {
+class FieldCard extends StatelessWidget {
   final FieldModel field;
 
-  const _FieldCard({required this.field});
+  const FieldCard({required this.field});
 
   @override
   Widget build(BuildContext context) {
@@ -216,18 +217,18 @@ class _FieldCard extends StatelessWidget {
             Row(
               children: [
                 if (field.acreage != null)
-                  _InfoChip(
+                  InfoChip(
                     icon: Icons.straighten,
                     label: '${field.acreage!.toStringAsFixed(1)} ha',
                   ),
                 if (field.acreage != null) const SizedBox(width: 12),
                 if (field.currentCrop != null)
-                  _InfoChip(
+                  InfoChip(
                     icon: Icons.grass,
                     label: field.currentCrop!,
                   ),
                 if (field.currentCrop != null) const SizedBox(width: 12),
-                _InfoChip(
+                InfoChip(
                   icon: Icons.circle,
                   label: field.statusLabel,
                 ),
@@ -255,11 +256,11 @@ class _FieldCard extends StatelessWidget {
   }
 }
 
-class _InfoChip extends StatelessWidget {
+class InfoChip extends StatelessWidget {
   final IconData icon;
   final String label;
 
-  const _InfoChip({required this.icon, required this.label});
+  const InfoChip({required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -276,4 +277,3 @@ class _InfoChip extends StatelessWidget {
     );
   }
 }
-

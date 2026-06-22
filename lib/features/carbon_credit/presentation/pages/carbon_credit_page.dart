@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
 import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
 
-import '../widgets/carbon_credit_tab_bar_widget.dart';
-import '../widgets/carbon_credit_tab_views_widget.dart';
+import 'package:famhub_app/features/carbon_credit/presentation/widgets/carbon_tab_bar_widget.dart';
+import '../widgets/carbon_tab_views_widget.dart';
 
 class CarbonCreditPage extends StatelessWidget {
   const CarbonCreditPage({super.key});
@@ -13,9 +13,9 @@ class CarbonCreditPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 4,
-      child: ResponsiveWrapperWidget(
-        child: Column(
-          children: const [
+      child: ResponsiveWrapper(
+        child: const Column(
+          children: [
             SizedBox(height: 12),
 
             /// Shared Header Widget

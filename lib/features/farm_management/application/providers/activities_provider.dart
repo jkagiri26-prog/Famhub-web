@@ -9,6 +9,7 @@
 ///
 /// Provides farm activity timeline and management operations.
 /// ============================================================
+library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -41,35 +42,59 @@ class ActivityListState {
     return ActivityListState(
       activities: activities ?? this.activities,
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage,
+      errorMessage: errorMessage ?? this.errorMessage,
     );
   }
 }
 
-/// Activities notifier
-class ActivitiesNotifier extends StateNotifier<ActivityListState> {
-  final FarmRepository _repository;
-  final String? _farmId;
+/// ============================================================
+/// ACTIVITIES NOTIFIER (RIVERPOD 3 - NOTIFIER API)
+/// ============================================================
+class ActivitiesNotifier extends Notifier<ActivityListState> {
+  late final String? _farmId;
 
-  ActivitiesNotifier(this._repository, this._farmId)
-      : super(ActivityListState.initial());
+  FarmRepository get _repository =>
+      ref.read(farmRepositoryProvider);
+
+  @override
+  ActivityListState build() {
+    // The farmId is set via `currentFarmIdProvider` or similar
+    return ActivityListState.initial();
+  }
+
+  void setFarmId(String? farmId) {
+    _farmId = farmId;
+    // Reload when farm changes
+    loadActivities();
+  }
 
   Future<void> loadActivities() async {
     if (_farmId == null) return;
+
     state = state.copyWith(isLoading: true, errorMessage: null);
+
     try {
-      final activities = await _repository.getActivities(farmId: _farmId!);
-      state = state.copyWith(activities: activities, isLoading: false);
+      final activities =
+          await _repository.getActivities(farmId: _farmId);
+
+      state = state.copyWith(
+        activities: activities,
+        isLoading: false,
+      );
     } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: e.toString());
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString(),
+      );
     }
   }
 }
 
-/// Provider for activity list
-final activitiesProvider = StateNotifierProvider.family<ActivitiesNotifier, ActivityListState, String?>(
-  (ref, farmId) {
-    final repository = ref.read(farmRepositoryProvider);
-    return ActivitiesNotifier(repository, farmId);
-  },
+/// ============================================================
+/// PROVIDER (NOTIFIER)
+/// ============================================================
+final activitiesProvider =
+    NotifierProvider<ActivitiesNotifier, ActivityListState>(
+  ActivitiesNotifier.new,
 );
+

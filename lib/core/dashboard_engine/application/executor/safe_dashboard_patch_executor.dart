@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_patch.dart';
 import 'package:famhub_app/core/dashboard_engine/application/providers/trace_collector_provider.dart';
 import 'package:famhub_app/core/dashboard_engine/application/telemetry/dashboard_trace_event.dart';
+import 'package:famhub_app/core/dashboard_engine/application/providers/widget_state_provider.dart';
 import 'package:famhub_app/core/dashboard_engine/application/state/widget_state_store.dart';
+import 'package:famhub_app/core/dashboard_engine/domain/models/widget_state_model.dart';
 
 enum PatchActionFailureReason {
   schedulerOverloaded,
@@ -51,7 +52,6 @@ class SafeDashboardPatchExecutor {
   });
 
   final Ref ref;
-
   bool _isExecuting = false;
 
   Future<SafePatchExecutionResult> executeSafely(
@@ -82,11 +82,9 @@ class SafeDashboardPatchExecutor {
       );
     }
 
-        _isExecuting = true;
-
+    _isExecuting = true;
     final tracer = ref.read(traceCollectorProvider);
     final widgetStore = ref.read(widgetStateStoreProvider);
-
     int processed = 0;
     int failed = 0;
     final errors = <PatchActionError>[];
@@ -94,7 +92,7 @@ class SafeDashboardPatchExecutor {
     // ============================================================
     // STAGED EXECUTION BUFFER (FOR ATOMIC ROLLBACK)
     // ============================================================
-    final appliedActions = <DashboardPatchAction>[];
+    final appliedActions = <DashboardRuntimePatchAction>[];
     final savedStates = <String, WidgetStateModel>{};
 
     try {
@@ -116,7 +114,6 @@ class SafeDashboardPatchExecutor {
             case DashboardPatchActionType.refreshZone:
               affectedWidgets.add(action.target);
               break;
-
             case DashboardPatchActionType.removeWidget:
               // Save state BEFORE removal for potential rollback
               final existing = widgetStore.get(action.target);
@@ -126,15 +123,12 @@ class SafeDashboardPatchExecutor {
               widgetStore.remove(action.target);
               affectedWidgets.add(action.target);
               break;
-
             case DashboardPatchActionType.refreshNavigation:
               _refreshNavigation();
               break;
-
             case DashboardPatchActionType.invalidateDependency:
               affectedWidgets.add(action.target);
               break;
-
             case DashboardPatchActionType.invalidateModules:
               final modules = action.payload?['modules'];
               if (modules is List) {
@@ -147,7 +141,6 @@ class SafeDashboardPatchExecutor {
           processed++;
         } catch (e) {
           failed++;
-
           errors.add(PatchActionError(
             actionId: action.target,
             zoneId: 'composition',
@@ -156,7 +149,6 @@ class SafeDashboardPatchExecutor {
             timestamp: DateTime.now(),
             retriable: false,
           ));
-
           // STOP execution immediately on failure — no partial commit
           break;
         }
@@ -190,7 +182,6 @@ class SafeDashboardPatchExecutor {
     } catch (e) {
       // Catastrophic failure — attempt rollback of anything applied
       _rollback(appliedActions, savedStates, widgetStore);
-
       return SafePatchExecutionResult(
         actionsProcessed: processed,
         actionsFailed: patch.actions.length - processed,
@@ -214,7 +205,7 @@ class SafeDashboardPatchExecutor {
   // ATOMIC ROLLBACK (REVERSE ORDER)
   // ============================================================
   void _rollback(
-    List<DashboardPatchAction> appliedActions,
+    List<DashboardRuntimePatchAction> appliedActions,
     Map<String, WidgetStateModel> savedStates,
     WidgetStateStore widgetStore,
   ) {

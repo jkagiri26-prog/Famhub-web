@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
+import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart' as rw;
 import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
 import 'package:famhub_app/shared/widgets/cards/empty_state_card_widget.dart';
 
@@ -31,7 +31,7 @@ class _AgriConnectPageState extends State<AgriConnectPage>
   Widget build(BuildContext context) {
     super.build(context);
 
-    return ResponsiveWrapperWidget(
+    return rw.ResponsiveWrapper(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

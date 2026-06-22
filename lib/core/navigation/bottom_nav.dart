@@ -1,3 +1,4 @@
+// ignore: dangling_library_doc_comments
 /// ============================================================
 /// BOTTOM NAVIGATION (MOBILE NAV)
 /// ============================================================
@@ -26,7 +27,7 @@ class BottomNav extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final location = GoRouterState.of(context).location;
+    final location = GoRouterState.of(context).uri.toString();
 
     return NavigationBar(
       selectedIndex: _resolveIndex(location),

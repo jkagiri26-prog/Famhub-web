@@ -1,49 +1,18 @@
-/// ============================================================
-/// RETRY ORCHESTRATOR — APPLICATION LAYER
-/// ============================================================
-///
-/// PURPOSE:
-/// Provides configurable retry logic for dashboard operations.
-/// Wraps existing patch execution with retry policies.
-///
-/// This is the GAP-CLOSURE for G2: "No formal retry orchestration."
-///
-/// RETRY POLICIES:
-///   - None: No retry (execute once)
-///   - Simple: Fixed number of attempts with delay
-///   - Exponential: Exponential backoff between retries
-///   - Adaptive: Adjusts based on error type and system load
-///
-/// 🧠 LOCATION CONTEXT:
-///   core/dashboard_engine/application/executor/ = patch execution layer
-///
-/// ✅ USAGE:
-/// ```dart
-/// final orchestrator = RetryOrchestrator(
-///   policy: RetryPolicy.exponential(
-///     maxAttempts: 3,
-///     baseDelayMs: 100,
-///   ),
-/// );
-///
-/// final result = await orchestrator.execute(
-///   operation: () => executor.execute(patch),
-///   operationName: 'patch_execution',
-/// );
-/// ```
-///
-/// ❌ Does NOT:
-///   - Replace SafeDashboardPatchExecutor
-///   - Handle module state management
-///   - Perform reconciliation
-/// ============================================================
-
 import 'dart:async';
 import 'dart:math';
 
+import 'package:famhub_app/core/dashboard_engine/domain/observability/observability_telemetry_event.dart';
+import 'package:famhub_app/core/dashboard_engine/application/observability/runtime_metrics_collector.dart';
+
 /// ============================================================
-/// RETRY RESULT
+/// RETRY RESULT — PHASE 3 EXPANSION
 /// ============================================================
+/// 
+/// PHASE 3 EXTENSIONS:
+/// - Recovery tracking metadata
+/// - Observability correlation (telemetry event linkage)
+/// - Module-specific failure context
+///
 class RetryResult<T> {
   /// Whether the operation succeeded
   final bool success;
@@ -60,12 +29,24 @@ class RetryResult<T> {
   /// Total duration of all attempts
   final Duration totalDuration;
 
+  /// PHASE 3: Recovery tracking
+  final bool recoveryAttempted;
+  final bool recoverySucceeded;
+  final String? recoveryMethod;
+  final RuntimeHealthStatus? postRecoveryHealth;
+  final int failureSequenceId;
+
   const RetryResult({
     required this.success,
     this.value,
     this.error,
     required this.attemptsMade,
     required this.totalDuration,
+    this.recoveryAttempted = false,
+    this.recoverySucceeded = false,
+    this.recoveryMethod,
+    this.postRecoveryHealth,
+    this.failureSequenceId = 0,
   });
 
   bool get failed => !success;
@@ -148,16 +129,61 @@ class RetryPolicy {
 }
 
 /// ============================================================
-/// RETRY ORCHESTRATOR
+/// RETRY ORCHESTRATOR — PHASE 3 EXPANSION
+/// ============================================================
+///
+/// PHASE 3 EXTENSIONS:
+/// - Recovery tracking with runtime metrics collector integration
+/// - Telemetry event emission for retry operations
+/// - Module-specific failure sequence tracking
 /// ============================================================
 class RetryOrchestrator {
   final RetryPolicy policy;
   final void Function(String message)? logger;
+  final RuntimeMetricsCollector? metricsCollector;
 
-  const RetryOrchestrator({
+  // PHASE 3: Failure sequence tracking
+  final Map<String, int> _moduleFailureSequences = {};
+
+  RetryOrchestrator({
     required this.policy,
     this.logger,
+    this.metricsCollector,
   });
+
+  /// PHASE 3: Record a recovery telemetry event
+  void _recordRecoveryTelemetry({
+    required String moduleId,
+    required bool success,
+    String? recoveryMethod,
+  }) {
+    if (metricsCollector == null) return;
+
+    final event = RuntimeTelemetryEvent(
+      traceId: 'retry_${DateTime.now().millisecondsSinceEpoch}',
+      timestamp: DateTime.now(),
+      type: success
+          ? TelemetryEventType.syncReconnectSucceeded
+          : TelemetryEventType.syncReconnectFailed,
+      moduleId: moduleId,
+      durationMs: 0,
+      phase: TelemetryPhase.execution,
+      severity: success ? TelemetrySeverity.info : TelemetrySeverity.warning,
+    );
+    metricsCollector!.record(event);
+  }
+
+  /// PHASE 3: Get or increment failure sequence for a module
+  int _getFailureSequence(String moduleId) {
+    _moduleFailureSequences.putIfAbsent(moduleId, () => 0);
+    _moduleFailureSequences[moduleId] = _moduleFailureSequences[moduleId]! + 1;
+    return _moduleFailureSequences[moduleId]!;
+  }
+
+  /// PHASE 3: Reset failure sequence for a module (on success)
+  void _resetFailureSequence(String moduleId) {
+    _moduleFailureSequences[moduleId] = 0;
+  }
 
   /// ============================================================
   /// EXECUTE AN OPERATION WITH RETRY
@@ -168,6 +194,7 @@ class RetryOrchestrator {
   /// [operation] — The async operation to execute
   /// [operationName] — Name for logging
   /// [shouldRetry] — Optional custom retry decision function
+  /// [moduleId] — Optional module ID for failure sequence tracking
   ///
   /// Returns a RetryResult with the outcome.
   /// ============================================================
@@ -175,6 +202,7 @@ class RetryOrchestrator {
     required Future<T> Function() operation,
     String operationName = 'unknown',
     bool Function(Object error)? shouldRetry,
+    String? moduleId,
   }) async {
     final sw = Stopwatch()..start();
     int attempts = 0;
@@ -190,15 +218,24 @@ class RetryOrchestrator {
         _log('$operationName succeeded on attempt $attempts '
             '(${sw.elapsedMilliseconds}ms)');
 
+        // Reset failure sequence on success
+        if (moduleId != null) _resetFailureSequence(moduleId);
+
         return RetryResult(
           success: true,
           value: result,
           attemptsMade: attempts,
           totalDuration: sw.elapsed,
+          failureSequenceId: moduleId != null
+              ? (_moduleFailureSequences[moduleId] ?? 0)
+              : 0,
         );
       } catch (e) {
         lastError = e;
         sw.stop();
+
+        // Track failure sequence
+        if (moduleId != null) _getFailureSequence(moduleId);
 
         _log('$operationName failed on attempt $attempts: $e');
 
@@ -216,7 +253,7 @@ class RetryOrchestrator {
         // Check error type filter
         if (!policy.retryOnAllErrors) {
           final isRetryable = policy.retryableErrorTypes
-              .any((type) => type.isInstanceOfType(e));
+              .any((type) => type.isInstance(e));
           if (!isRetryable) {
             _log('Error type not retryable. Stopping retries.');
             break;
@@ -235,11 +272,67 @@ class RetryOrchestrator {
     _log('$operationName failed after $attempts attempts '
         '(${sw.elapsedMilliseconds}ms total)');
 
+    // Record recovery failure telemetry
+    if (moduleId != null) {
+      _recordRecoveryTelemetry(
+        moduleId: moduleId,
+        success: false,
+        recoveryMethod: 'retry_exhausted',
+      );
+    }
+
     return RetryResult(
       success: false,
       error: lastError,
       attemptsMade: attempts,
       totalDuration: sw.elapsed,
+      failureSequenceId: moduleId != null
+          ? (_moduleFailureSequences[moduleId] ?? 0)
+          : 0,
+    );
+  }
+
+  /// ============================================================
+  /// EXECUTE WITH RECOVERY (PHASE 3)
+  /// ============================================================
+  ///
+  /// Executes with retry and automatic recovery tracking.
+  /// Used when a module-specific operation fails and needs
+  /// observability correlation.
+  ///
+  /// [moduleId] — Module being operated on
+  /// [recoveryMethod] — Name of the recovery strategy used
+  /// ============================================================
+  Future<RetryResult<T>> executeWithRecovery<T>({
+    required Future<T> Function() operation,
+    required String moduleId,
+    String operationName = 'unknown',
+    String recoveryMethod = 'default',
+  }) async {
+    final result = await execute<T>(
+      operation: operation,
+      operationName: operationName,
+      moduleId: moduleId,
+    );
+
+    if (result.success) {
+      _recordRecoveryTelemetry(
+        moduleId: moduleId,
+        success: true,
+        recoveryMethod: recoveryMethod,
+      );
+    }
+
+    return RetryResult(
+      success: result.success,
+      value: result.value,
+      error: result.error,
+      attemptsMade: result.attemptsMade,
+      totalDuration: result.totalDuration,
+      recoveryAttempted: !result.success,
+      recoverySucceeded: result.success,
+      recoveryMethod: recoveryMethod,
+      failureSequenceId: result.failureSequenceId,
     );
   }
 
@@ -300,6 +393,6 @@ class RetryOrchestrator {
 }
 
 /// Extension to check if object is instance of a type
-extension _TypeCheck on Object {
-  bool isInstanceOfType(Type type) => runtimeType == type;
+extension _TypeCheck on Type {
+  bool isInstance(Object object) => object.runtimeType == this;
 }

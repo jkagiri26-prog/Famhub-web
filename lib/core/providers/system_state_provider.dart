@@ -16,8 +16,14 @@ class SystemState {
   }
 }
 
-class SystemStateNotifier extends StateNotifier<SystemState> {
-  SystemStateNotifier() : super(const SystemState());
+/// ============================================================
+/// SYSTEM STATE NOTIFIER (RIVERPOD 3)
+/// ============================================================
+class SystemStateNotifier extends Notifier<SystemState> {
+  @override
+  SystemState build() {
+    return const SystemState();
+  }
 
   void setMaintenanceMode(bool value) {
     state = state.copyWith(
@@ -26,7 +32,10 @@ class SystemStateNotifier extends StateNotifier<SystemState> {
   }
 }
 
+/// ============================================================
+/// PROVIDER
+/// ============================================================
 final systemStateProvider =
-    StateNotifierProvider<SystemStateNotifier, SystemState>(
-  (ref) => SystemStateNotifier(),
+    NotifierProvider<SystemStateNotifier, SystemState>(
+  SystemStateNotifier.new,
 );

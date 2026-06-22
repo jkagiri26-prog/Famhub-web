@@ -24,6 +24,8 @@
 ///   - A replacement for ModuleRuntimeState
 /// ============================================================
 
+// ignore_for_file: dangling_library_doc_comments
+
 /// Possible degradation levels for a module
 enum DegradationLevel {
   /// Module operating normally — no issues

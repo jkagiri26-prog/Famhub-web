@@ -11,6 +11,7 @@ import 'package:famhub_app/shared/layouts/adaptive_content_grid.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/livestock_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
+import 'package:famhub_app/features/farm_management/domain/models/livestock_model.dart';
 
 class LivestockPage extends ConsumerStatefulWidget {
   const LivestockPage({super.key});
@@ -29,7 +30,8 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
   Future<void> _loadLivestock() async {
     final farmId = ref.read(farmContextProvider).farmId;
     if (farmId != null) {
-      ref.read(livestockProvider(farmId).notifier).loadLivestock();
+
+      ref.read(livestockProvider.notifier).loadLivestock(farmId: farmId);
     }
   }
 
@@ -45,7 +47,7 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
       );
     }
 
-    final livestockState = ref.watch(livestockProvider(farmId));
+    final livestockState = ref.watch(livestockProvider);
 
     if (livestockState.isLoading) {
       return const FeaturePageScaffold(
@@ -102,7 +104,7 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
         ),
         const SizedBox(height: 16),
 
-        // ── Species Filter ──
+                // ── Species Filter ──
         if (speciesList.length > 1)
           FilterRow(
             filters: speciesList
@@ -111,12 +113,10 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
             selectedValue: livestockState.speciesFilter,
             onChanged: (species) {
               ref
-                  .read(livestockProvider(farmId).notifier)
+                                    .read(livestockProvider.notifier)
                   .setSpeciesFilter(species.isEmpty ? null : species);
             },
           ),
-        const SizedBox(height: 8),
-
         // ── Livestock List ──
         if (filtered.isEmpty)
           const Expanded(

@@ -31,11 +31,12 @@ class DashboardPatchExecutor {
       // ============================================================
       // 1. INTENT PHASE (COLLECT IMPACTED MODULES)
       // ============================================================
-      for (final action in actions) {
+            for (final action in actions) {
         switch (action.type) {
           case DashboardPatchActionType.refreshZone:
           case DashboardPatchActionType.invalidateDependency:
           case DashboardPatchActionType.removeWidget:
+          case DashboardPatchActionType.invalidateModules:
             dirtyModules.add(action.target);
             break;
 
@@ -50,7 +51,7 @@ class DashboardPatchExecutor {
       // ============================================================
       scheduler.schedule(() async {
         try {
-          for (final action in actions) {
+                    for (final action in actions) {
             switch (action.type) {
               case DashboardPatchActionType.refreshZone:
                 _invalidateComposition();
@@ -61,6 +62,10 @@ class DashboardPatchExecutor {
                 break;
 
               case DashboardPatchActionType.invalidateDependency:
+                _invalidateComposition();
+                break;
+
+              case DashboardPatchActionType.invalidateModules:
                 _invalidateComposition();
                 break;
 

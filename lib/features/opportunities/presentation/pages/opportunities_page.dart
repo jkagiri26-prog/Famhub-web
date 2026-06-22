@@ -8,7 +8,7 @@ import '../widgets/opportunity_item_widget.dart';
 
 /// FAMHUB Module: OpportunitiesPage
 /// Fully aligned with Shared Widget System
-/// - ResponsiveWrapperWidget
+/// - ResponsiveWrapper
 /// - ModuleHeaderWidget
 /// - SectionHeaderWidget
 /// - SectionContainerWidget
@@ -24,7 +24,7 @@ class _OpportunitiesPageState extends State<OpportunitiesPage> {
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
 
-    return ResponsiveWrapperWidget(
+    return ResponsiveWrapper(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

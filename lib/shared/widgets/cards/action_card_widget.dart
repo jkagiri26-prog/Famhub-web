@@ -6,7 +6,7 @@ class ActionCardWidget extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onTap;
 
-  const ActionCard({
+  const ActionCardWidget({
     super.key,
     required this.title,
     required this.description,

@@ -9,12 +9,14 @@
 ///
 /// Provides livestock inventory and management operations.
 /// ============================================================
+library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/features/farm_management/domain/models/livestock_model.dart';
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
 
 /// Livestock list state
 class LivestockListState {
@@ -38,9 +40,10 @@ class LivestockListState {
   /// Filtered list by species
   List<LivestockModel> get filteredLivestock {
     if (speciesFilter == null || speciesFilter!.isEmpty) return livestock;
-    return livestock.where((l) =>
-      l.species.toLowerCase() == speciesFilter!.toLowerCase()
-    ).toList();
+    return livestock
+        .where((l) =>
+            l.species.toLowerCase() == speciesFilter!.toLowerCase())
+        .toList();
   }
 
   /// Total animal count
@@ -63,27 +66,42 @@ class LivestockListState {
       livestock: livestock ?? this.livestock,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage,
-      speciesFilter: speciesFilter,
+      speciesFilter: speciesFilter ?? this.speciesFilter,
     );
   }
 }
 
-/// Livestock notifier
-class LivestockNotifier extends StateNotifier<LivestockListState> {
-  final FarmRepository _repository;
-  final String? _farmId;
+/// ============================================================
+/// LIVESTOCK NOTIFIER (RIVERPOD 3 - NOTIFIER API)
+/// ============================================================
+class LivestockNotifier extends Notifier<LivestockListState> {
+  FarmRepository get _repository =>
+      ref.read(farmRepositoryProvider);
 
-  LivestockNotifier(this._repository, this._farmId)
-      : super(LivestockListState.initial());
+  @override
+  LivestockListState build() {
+    return LivestockListState.initial();
+  }
 
-  Future<void> loadLivestock() async {
-    if (_farmId == null) return;
+  Future<void> loadLivestock({String? farmId}) async {
+    final effectiveFarmId = farmId ?? ref.read(farmContextProvider).farmId;
+    if (effectiveFarmId == null) return;
+
     state = state.copyWith(isLoading: true, errorMessage: null);
+
     try {
-      final livestock = await _repository.getLivestock(farmId: _farmId!);
-      state = state.copyWith(livestock: livestock, isLoading: false);
+      final livestock =
+          await _repository.getLivestock(farmId: effectiveFarmId);
+
+      state = state.copyWith(
+        livestock: livestock,
+        isLoading: false,
+      );
     } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: e.toString());
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString(),
+      );
     }
   }
 
@@ -92,10 +110,10 @@ class LivestockNotifier extends StateNotifier<LivestockListState> {
   }
 }
 
-/// Provider for livestock list
-final livestockProvider = StateNotifierProvider.family<LivestockNotifier, LivestockListState, String?>(
-  (ref, farmId) {
-    final repository = ref.read(farmRepositoryProvider);
-    return LivestockNotifier(repository, farmId);
-  },
+/// ============================================================
+/// PROVIDER (NOTIFIER)
+/// ============================================================
+final livestockProvider =
+    NotifierProvider<LivestockNotifier, LivestockListState>(
+  LivestockNotifier.new,
 );

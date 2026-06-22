@@ -63,7 +63,7 @@ class RuntimeMetricsPanel extends ConsumerWidget {
                 _row('Status', summary.healthStatus.name.toUpperCase(),
                     valueColor: _statusColor(summary.healthStatus)),
                 _row('Total Events', '${summary.totalEvents}'),
-                _row('Events/sec', '${summary.eventsPerSecond.toStringAsFixed(1)}'),
+                _row('Events/sec', summary.eventsPerSecond.toStringAsFixed(1)),
                 _row('Failures', '${summary.failures}',
                     valueColor: summary.failures > 0 ? Colors.red : null),
                 _row('Dropped Events', '${summary.droppedEvents}',
@@ -196,7 +196,7 @@ class RuntimeMetricsPanel extends ConsumerWidget {
             ),
 
             const SizedBox(height: 24),
-            Text(
+            const Text(
               'DEV-ONLY DIAGNOSTICS PANEL | Phase 7A Observability',
               style: TextStyle(
                 color: Colors.white24,

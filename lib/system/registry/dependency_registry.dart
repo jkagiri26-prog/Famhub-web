@@ -1,3 +1,4 @@
+// ignore: dangling_library_doc_comments
 /// ============================================================
 /// DEPENDENCY REGISTRY (PURE STATIC GRAPH)
 /// ============================================================

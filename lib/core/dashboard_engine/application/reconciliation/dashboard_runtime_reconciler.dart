@@ -34,10 +34,9 @@ class DashboardRuntimeReconciler {
     final removedModules =
         previous.activeModules.difference(next.activeModules);
 
-    final maintenanceChangedModules =
-        next.maintenanceModules.symmetricDifference(
-      previous.maintenanceModules,
-    );
+    final maintenanceChangedModules = next.maintenanceModules
+        .difference(previous.maintenanceModules)
+        .union(previous.maintenanceModules.difference(next.maintenanceModules));
 
     final hasChanges = addedModules.isNotEmpty ||
         removedModules.isNotEmpty ||
@@ -99,7 +98,7 @@ class DashboardRuntimeReconciler {
         ),
 
         if (diff.shouldRefreshNavigation)
-          const DashboardRuntimePatchAction(
+          DashboardRuntimePatchAction(
             type: DashboardPatchActionType.refreshNavigation,
             target: 'global_navigation',
           ),

@@ -1,3 +1,9 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../models/module_activation.dart';
+import '../services/activation_cache_service.dart';
+import '../services/remote_config_service.dart';
+
 final remoteConfigProvider =
     FutureProvider<List<ModuleActivation>>((ref) async {
   final service = RemoteConfigService();

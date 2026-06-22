@@ -1,5 +1,10 @@
-class ContextNotifier extends StateNotifier<EntityContext> {
-  ContextNotifier() : super(const EntityContext());
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../domain/models/entity_context.dart';
+
+class ContextNotifier extends Notifier<EntityContext> {
+  @override
+  EntityContext build() => const EntityContext();
 
   void setUser(String userId) {
     state = state.copyWith(userId: userId, isGuest: false, tier: 'free');

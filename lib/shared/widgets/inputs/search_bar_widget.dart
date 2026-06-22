@@ -1,3 +1,4 @@
+// ignore: dangling_library_doc_comments
 /// ============================================================
 /// SEARCH BAR WIDGET (REUSABLE SEARCH INPUT)
 /// ============================================================

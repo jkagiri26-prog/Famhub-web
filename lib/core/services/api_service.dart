@@ -1,55 +1,243 @@
+import 'dart:async';
 import 'dart:convert';
+
+// ignore: depend_on_referenced_packages
 import 'package:http/http.dart' as http;
-import 'auth_service.dart';
+
+import 'package:famhub_app/core/services/auth_service.dart';
 
 class ApiService {
-  static const String baseUrl = "https://api.famhub.com";
+  ApiService({
+    required this.authService,
+    http.Client? client,
+    this.baseUrl = _defaultBaseUrl,
+  }) : _client = client ?? http.Client();
 
-  /// Centralized headers, automatically including Auth tokens if logged in
-  static Map<String, String> _getHeaders() {
-    final Map<String, String> headers = {
+  static const String _defaultBaseUrl = 'https://api.famhub.com';
+
+  final AuthService authService;
+  final http.Client _client;
+  final String baseUrl;
+
+  static const Duration _timeout = Duration(seconds: 30);
+
+  /// =========================
+  /// HEADERS
+  /// =========================
+
+  Future<Map<String, String>> _headers() async {
+    final headers = <String, String>{
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
 
-    if (AuthService.isLoggedIn()) {
-      headers['Authorization'] = 'Bearer ${AuthService.getUserId()}';
+    final token = await authService.getAccessToken();
+
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
     }
-    
+
     return headers;
   }
 
-  static Future<T> get<T>(String endpoint) async {
+  /// =========================
+  /// URI BUILDER
+  /// =========================
+
+  Uri _buildUri(
+    String endpoint, {
+    Map<String, dynamic>? queryParameters,
+  }) {
+    final sanitizedEndpoint = endpoint.startsWith('/')
+        ? endpoint.substring(1)
+        : endpoint;
+
+    return Uri.parse(
+      '$baseUrl/$sanitizedEndpoint',
+    ).replace(
+      queryParameters: queryParameters?.map(
+        (key, value) => MapEntry(key, value.toString()),
+      ),
+    );
+  }
+
+  /// =========================
+  /// GET
+  /// =========================
+
+  Future<dynamic> get(
+    String endpoint, {
+    Map<String, dynamic>? queryParameters,
+  }) async {
     try {
-      final response = await http.get(
-        Uri.parse("$baseUrl/$endpoint"),
-        headers: _getHeaders(),
+      final response = await _client
+          .get(
+            _buildUri(
+              endpoint,
+              queryParameters: queryParameters,
+            ),
+            headers: await _headers(),
+          )
+          .timeout(_timeout);
+
+      return _processResponse(response);
+    } on TimeoutException {
+      throw ApiException(
+        message: 'Request timeout',
+        statusCode: 408,
       );
-      return _processResponse<T>(response);
     } catch (e) {
-      throw Exception("FAMHUB_API_ERROR: GET $endpoint failed -> $e");
+      throw ApiException(
+        message: 'GET request failed: $e',
+      );
     }
   }
 
-  static Future<T> post<T>(String endpoint, Map<String, dynamic> data) async {
+  /// =========================
+  /// POST
+  /// =========================
+
+  Future<dynamic> post(
+    String endpoint, {
+    Map<String, dynamic>? body,
+    Map<String, dynamic>? queryParameters,
+  }) async {
     try {
-      final response = await http.post(
-        Uri.parse("$baseUrl/$endpoint"),
-        headers: _getHeaders(),
-        body: jsonEncode(data),
+      final response = await _client
+          .post(
+            _buildUri(
+              endpoint,
+              queryParameters: queryParameters,
+            ),
+            headers: await _headers(),
+            body: jsonEncode(body ?? {}),
+          )
+          .timeout(_timeout);
+
+      return _processResponse(response);
+    } on TimeoutException {
+      throw ApiException(
+        message: 'Request timeout',
+        statusCode: 408,
       );
-      return _processResponse<T>(response);
     } catch (e) {
-      throw Exception("FAMHUB_API_ERROR: POST $endpoint failed -> $e");
+      throw ApiException(
+        message: 'POST request failed: $e',
+      );
     }
   }
 
-  /// Internal response processor to handle status codes and decoding
-  static T _processResponse<T>(http.Response response) {
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return jsonDecode(response.body) as T;
-    } else {
-      throw Exception("Server Error: ${response.statusCode} - ${response.body}");
+  /// =========================
+  /// PUT
+  /// =========================
+
+  Future<dynamic> put(
+    String endpoint, {
+    Map<String, dynamic>? body,
+  }) async {
+    try {
+      final response = await _client
+          .put(
+            _buildUri(endpoint),
+            headers: await _headers(),
+            body: jsonEncode(body ?? {}),
+          )
+          .timeout(_timeout);
+
+      return _processResponse(response);
+    } on TimeoutException {
+      throw ApiException(
+        message: 'Request timeout',
+        statusCode: 408,
+      );
+    } catch (e) {
+      throw ApiException(
+        message: 'PUT request failed: $e',
+      );
     }
+  }
+
+  /// =========================
+  /// DELETE
+  /// =========================
+
+  Future<dynamic> delete(
+    String endpoint,
+  ) async {
+    try {
+      final response = await _client
+          .delete(
+            _buildUri(endpoint),
+            headers: await _headers(),
+          )
+          .timeout(_timeout);
+
+      return _processResponse(response);
+    } on TimeoutException {
+      throw ApiException(
+        message: 'Request timeout',
+        statusCode: 408,
+      );
+    } catch (e) {
+      throw ApiException(
+        message: 'DELETE request failed: $e',
+      );
+    }
+  }
+
+  /// =========================
+  /// RESPONSE PROCESSOR
+  /// =========================
+
+  dynamic _processResponse(http.Response response) {
+    final statusCode = response.statusCode;
+
+    dynamic data;
+
+    try {
+      data = response.body.isNotEmpty
+          ? jsonDecode(response.body)
+          : null;
+    } catch (_) {
+      data = response.body;
+    }
+
+    if (statusCode >= 200 && statusCode < 300) {
+      return data;
+    }
+
+    throw ApiException(
+      message: data is Map<String, dynamic>
+          ? (data['message']?.toString() ??
+              'Unknown server error')
+          : 'Server error',
+      statusCode: statusCode,
+      response: data,
+    );
+  }
+
+  void dispose() {
+    _client.close();
+  }
+}
+
+/// =========================
+/// API EXCEPTION
+/// =========================
+
+class ApiException implements Exception {
+  ApiException({
+    required this.message,
+    this.statusCode,
+    this.response,
+  });
+
+  final String message;
+  final int? statusCode;
+  final dynamic response;
+
+  @override
+  String toString() {
+    return 'ApiException(statusCode: $statusCode, message: $message)';
   }
 }

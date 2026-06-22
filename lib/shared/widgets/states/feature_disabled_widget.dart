@@ -1,3 +1,4 @@
+// ignore: dangling_library_doc_comments
 /// ============================================================
 /// FEATURE DISABLED WIDGET (STANDARDIZED UX)
 /// ============================================================

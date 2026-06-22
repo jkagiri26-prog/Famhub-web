@@ -13,51 +13,51 @@ class LogisticsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ResponsiveWrapperWidget(
+    return ResponsiveWrapper(
       child: ListView(
-        children: [
-          const SizedBox(height: 10),
+        children: const [
+          SizedBox(height: 10),
 
           /// MODULE HEADER
-          const ModuleHeaderWidget(
+          ModuleHeaderWidget(
             title: "Logistics",
             subtitle: "Transport • Fleet • Supply Chain",
           ),
 
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
 
           /// ACTIVE SHIPMENT
-          const LogisticsActiveShipmentCardWidget(),
+          LogisticsActiveShipmentCardWidget(),
 
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
 
           /// SECTION HEADER
-          const SectionHeaderWidget(
+          SectionHeaderWidget(
             title: "Available Transporters",
           ),
 
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
 
           /// TRANSPORTERS LIST
-          const TransporterListingCardWidget(
+          TransporterListingCardWidget(
             name: "Molo Express",
             vehicle: "5 Ton Truck",
             rate: "KSh 150/km",
           ),
 
-          const TransporterListingCardWidget(
+          TransporterListingCardWidget(
             name: "Nakuru Logistics",
             vehicle: "10 Ton Lorry",
             rate: "KSh 280/km",
           ),
 
-          const TransporterListingCardWidget(
+          TransporterListingCardWidget(
             name: "Farm-to-Market",
             vehicle: "Pick-up 1 Ton",
             rate: "KSh 80/km",
           ),
 
-          const SizedBox(height: 80),
+          SizedBox(height: 80),
         ],
       ),
     );

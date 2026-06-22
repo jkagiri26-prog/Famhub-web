@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../shared/layout/responsive_wrapper_widget.dart';
+import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
 import '../../../../shared/widgets/headers/module_header_widget.dart';
 
 import '../widgets/role_selector_widget.dart';
@@ -96,7 +96,7 @@ class _AuthPageState extends State<AuthPage> {
     final Color primary =
         Theme.of(context).colorScheme.primary;
 
-    return ResponsiveWrapperWidget(
+    return ResponsiveWrapper(
       backgroundColor: Colors.white,
       child: SafeArea(
         child: SingleChildScrollView(
@@ -107,7 +107,7 @@ class _AuthPageState extends State<AuthPage> {
               const SizedBox(height: 20),
 
               /// MODULE HEADER
-              ModuleHeaderWidget(
+              const ModuleHeaderWidget(
                 title: "FAMHUB",
                 subtitle:
                     "Authentication • Access • Identity",

@@ -37,33 +37,34 @@ class _PipelineTimingInspectorState
   }
 
   void _subscribeToEvents() {
-    Future.microtask(() {
-      if (!mounted) return;
-      final stream = ref.read(rawTelemetryEventStreamProvider.stream);
-      _subscription = stream.listen((event) {
-        if (!mounted) return;
+    ref.listen<AsyncValue<RuntimeTelemetryEvent>>(
+      rawTelemetryEventStreamProvider,
+      (previous, next) {
+        next.whenData((event) {
+          if (!mounted) return;
 
-        if (event.type == TelemetryEventType.pipelineStageCompleted &&
-            event.durationMs > 0) {
-          setState(() {
-            _recentTimings.insert(
-              0,
-              PipelineTimingRecord(
-                stage: event.phase.name,
-                durationMs: event.durationMs,
-                traceId: event.traceId,
-                moduleId: event.moduleId,
-                timestamp: event.timestamp,
-              ),
-            );
+          if (event.type == TelemetryEventType.pipelineStageCompleted &&
+              event.durationMs > 0) {
+            setState(() {
+              _recentTimings.insert(
+                0,
+                PipelineTimingRecord(
+                  stage: event.phase.name,
+                  durationMs: event.durationMs,
+                  traceId: event.traceId,
+                  moduleId: event.moduleId,
+                  timestamp: event.timestamp,
+                ),
+              );
 
-            if (_recentTimings.length > _maxRecords) {
-              _recentTimings.removeLast();
-            }
-          });
-        }
-      });
-    });
+              if (_recentTimings.length > _maxRecords) {
+                _recentTimings.removeLast();
+              }
+            });
+          }
+        });
+      },
+    );
   }
 
   @override

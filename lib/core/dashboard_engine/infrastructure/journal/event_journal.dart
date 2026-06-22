@@ -337,17 +337,5 @@ class EventJournal {
     print('[EventJournal] WARNING: $message');
   }
 
-  /// ============================================================
-  /// ROW → ConflictEvent (LEGACY, UNCHANGED)
-  /// ============================================================
-  ConflictEvent _rowToEvent(Map<String, dynamic> row) {
-    return ConflictEvent(
-      entityId: row['entity_id'] as String,
-      source: ConflictSource.values.byName(row['source'] as String),
-      timestamp: DateTime.parse(row['timestamp'] as String),
-      payload: Map<String, dynamic>.from(
-        jsonDecode(row['payload'] as String) as Map,
-      ),
-    );
-  }
 }
+

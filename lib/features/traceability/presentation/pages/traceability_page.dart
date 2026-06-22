@@ -17,7 +17,7 @@ import '../widgets/traceability_qr_section_widget.dart';
 /// - No AppBar
 /// - No Drawer
 /// - No BottomNavigationBar
-/// - ResponsiveWrapperWidget enforced
+/// - ResponsiveWrapper enforced
 /// - Shared widgets first
 /// - Feature widgets only for domain-specific UI
 
@@ -28,7 +28,7 @@ class TraceabilityPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 2,
-      child: ResponsiveWrapperWidget(
+      child: ResponsiveWrapper(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

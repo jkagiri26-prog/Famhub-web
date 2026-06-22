@@ -15,7 +15,7 @@ import '../widgets/loan_offer_card_widget.dart';
 /// - No AppBar
 /// - No Drawer
 /// - No BottomNavigationBar
-/// - Uses ResponsiveWrapperWidget
+/// - Uses ResponsiveWrapper
 /// - Uses shared headers
 /// - Uses module-specific finance widgets
 /// - Pure UI only (no backend logic)
@@ -47,7 +47,7 @@ class _FinancingPageState extends State<FinancingPage>
   Widget build(BuildContext context) {
     super.build(context);
 
-    return ResponsiveWrapperWidget(
+    return ResponsiveWrapper(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

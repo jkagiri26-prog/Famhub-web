@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../system/modules_control/module_contract.dart';
-import '../presentation/pages/profile_page.dart';
+import 'package:famhub_app/system/modules_control/module_contract.dart';
+import 'package:famhub_app/features/profile/presentation/pages/profile_page.dart';
 
 class ProfileModule {
   static ModuleContract register() {
@@ -11,7 +11,7 @@ class ProfileModule {
       description:
           'User profile, account settings, preferences, and identity management.',
       icon: Icons.person,
-      builder: () => const ProfilePage(),
+      builder: (_) => const ProfilePage(),
     );
   }
 }

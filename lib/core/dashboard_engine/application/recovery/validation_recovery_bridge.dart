@@ -1,3 +1,4 @@
+// ignore: dangling_library_doc_comments
 /// ============================================================
 /// VALIDATION-TO-RECOVERY BRIDGE — APPLICATION LAYER
 /// ============================================================

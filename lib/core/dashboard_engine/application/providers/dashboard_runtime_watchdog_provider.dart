@@ -37,6 +37,9 @@ class _SafeWatchdogProxy implements DashboardRuntimeWatchdog {
   final DashboardRuntimeWatchdog _inner;
 
   @override
+  Ref get ref => _inner.ref;
+
+  @override
   void start() => _inner.start();
 
   @override
@@ -45,5 +48,34 @@ class _SafeWatchdogProxy implements DashboardRuntimeWatchdog {
   @override
   void recordPatchLatency(Duration d) {
     _inner.recordPatchLatency(d);
+  }
+
+  @override
+  HealthMetrics? get lastMetrics => _inner.lastMetrics;
+
+  @override
+  List<HealthMetrics> get metricsSnapshot => _inner.metricsSnapshot;
+
+  @override
+  HealthAlert get currentAlert => _inner.currentAlert;
+
+  @override
+  bool get hasWarning => _inner.hasWarning;
+
+  @override
+  bool get isCritical => _inner.isCritical;
+
+  @override
+  double get averagePatchLatencyMs => _inner.averagePatchLatencyMs;
+
+  @override
+  int get latestFrameBacklog => _inner.latestFrameBacklog;
+
+  @override
+  int get sampleCount => _inner.sampleCount;
+
+  @override
+  void recordFrameSchedulerBacklog(int backlog) {
+    _inner.recordFrameSchedulerBacklog(backlog);
   }
 }

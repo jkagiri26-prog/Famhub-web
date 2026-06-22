@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
 
 import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
 import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
 import 'package:famhub_app/shared/widgets/headers/section_header_widget.dart';
 import 'package:famhub_app/shared/widgets/cards/report_card_widget.dart';
 
-import 'widgets/analytics_chart_widget.dart';
-import 'widgets/analytics_breadcrumb_widget.dart';
+import 'package:famhub_app/features/analytics/presentation/widgets/analytics_chart_widget.dart';
+import 'package:famhub_app/features/analytics/presentation/widgets/analytics_breadcrumb_widget.dart';
 
 class AnalyticsPage extends StatelessWidget {
   const AnalyticsPage({super.key});
@@ -16,7 +15,7 @@ class AnalyticsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
 
-    return ResponsiveWrapperWidget(
+    return ResponsiveWrapper(
       child: ListView(
         physics: const BouncingScrollPhysics(),
         children: [

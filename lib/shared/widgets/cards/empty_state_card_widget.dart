@@ -5,7 +5,7 @@ class EmptyStateCardWidget extends StatelessWidget {
   final String title;
   final String subtitle;
 
-  const EmptyStateCard({
+  const EmptyStateCardWidget({
     super.key,
     required this.icon,
     required this.title,

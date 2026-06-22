@@ -1,3 +1,4 @@
+// ignore: dangling_library_doc_comments
 /// ============================================================
 /// SUMMARY PANEL WIDGET (REUSABLE DASHBOARD SUMMARY)
 /// ============================================================

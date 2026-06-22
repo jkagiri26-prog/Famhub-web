@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import '../widgets/governance_summary_cards.dart';
-import '../widgets/governance_summary_card.dart';
+import 'package:famhub_app/features/admin_console/presentation/widgets/governance_summary_card.dart';
+import '../widgets/feature_toggle_tile.dart';
 import '../widgets/module_control_tile.dart';
 import '../widgets/role_permission_editor.dart';
 import '../widgets/subscription_tier_editor.dart';
@@ -12,13 +11,12 @@ class AdminDashboardPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+    return const SingleChildScrollView(
+      padding: EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
+        children: [
           GovernanceSummaryCards(),
-
           SizedBox(height: 24),
 
           /// Feature flags control
@@ -29,19 +27,15 @@ class AdminDashboardPage extends ConsumerWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-
           SizedBox(height: 12),
-
           FeatureToggleTile(
             featureKey: 'ai_advisory',
             isEnabled: true,
           ),
-
           FeatureToggleTile(
             featureKey: 'carbon_tracking',
             isEnabled: true,
           ),
-
           FeatureToggleTile(
             featureKey: 'advanced_reporting',
             isEnabled: false,
@@ -57,19 +51,15 @@ class AdminDashboardPage extends ConsumerWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-
           SizedBox(height: 12),
-
           ModuleControlTile(
             moduleKey: 'farm_management',
             isEnabled: true,
           ),
-
           ModuleControlTile(
             moduleKey: 'marketplace',
             isEnabled: true,
           ),
-
           ModuleControlTile(
             moduleKey: 'logistics',
             isEnabled: false,
@@ -85,9 +75,7 @@ class AdminDashboardPage extends ConsumerWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-
           SizedBox(height: 12),
-
           RolePermissionEditor(),
 
           SizedBox(height: 32),
@@ -100,9 +88,7 @@ class AdminDashboardPage extends ConsumerWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-
           SizedBox(height: 12),
-
           SubscriptionTierEditor(),
         ],
       ),

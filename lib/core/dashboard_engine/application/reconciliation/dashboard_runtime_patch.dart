@@ -7,7 +7,7 @@ enum DashboardPatchActionType {
 }
 
 class DashboardRuntimePatchAction {
-  const DashboardRuntimePatchAction({
+  DashboardRuntimePatchAction({
     required this.type,
     required String target,
     this.payload,

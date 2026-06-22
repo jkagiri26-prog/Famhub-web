@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 
-import '../../system/models/module_definition.dart';
-import '../presentation/pages/finance_page.dart';
+import 'package:famhub_app/system/modules_control/module_contract.dart';
+import 'package:famhub_app/features/knowledge_link/presentation/pages/knowledge_link_page.dart';
 
-class FinanceModule {
-  static ModuleDefinition register() {
-    return ModuleDefinition(
-      key: 'finance',
-      name: 'Finance',
-      description: 'Payments, loans, wallets, billing, and financial operations.',
-      icon: Icons.account_balance_wallet,
-      builder: () => const FinancePage(),
+class KnowledgeLinkModule {
+  static ModuleContract register() {
+    return ModuleContract(
+      key: 'knowledge_link',
+      name: 'Knowledge Link',
+      description: 'Agricultural learning, extension content, and knowledge sharing.',
+      icon: Icons.menu_book,
+
+      builder: (_) => const KnowledgeLinkPage(),
     );
   }
 }

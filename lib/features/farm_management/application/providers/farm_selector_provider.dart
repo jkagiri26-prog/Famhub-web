@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/features/farm_management/domain/models/farm_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
-import 'package:famhub_app/features/farm_management/infrastructure/repositories/farm_repository_impl.dart';
+import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
 
 class FarmSelectorState {
   final List<FarmEntity> farms;
@@ -34,22 +34,30 @@ class FarmSelectorState {
       farms: farms ?? this.farms,
       selectedFarmId: selectedFarmId ?? this.selectedFarmId,
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage,
+      errorMessage: errorMessage ?? this.errorMessage,
     );
   }
 }
 
-/// Manages farm selection state and loads user's farms.
-class FarmSelectorNotifier extends StateNotifier<FarmSelectorState> {
-  final FarmRepository _repository;
+/// ============================================================
+/// FARM SELECTOR NOTIFIER (RIVERPOD 3 - NOTIFIER API)
+/// ============================================================
+class FarmSelectorNotifier extends Notifier<FarmSelectorState> {
+  FarmRepository get _repository =>
+      ref.read(farmRepositoryProvider);
 
-  FarmSelectorNotifier(this._repository) : super(FarmSelectorState.initial());
+  @override
+  FarmSelectorState build() {
+    return FarmSelectorState.initial();
+  }
 
-  /// Load farms for the current user.
+  /// Load farms for current user
   Future<void> loadFarms() async {
     state = state.copyWith(isLoading: true, errorMessage: null);
+
     try {
       final farms = await _repository.getUserFarms();
+
       state = state.copyWith(
         farms: farms,
         isLoading: false,
@@ -63,14 +71,16 @@ class FarmSelectorNotifier extends StateNotifier<FarmSelectorState> {
     }
   }
 
-  /// Select a farm by ID.
+  /// Select a farm
   void selectFarm(String farmId) {
     state = state.copyWith(selectedFarmId: farmId);
   }
 }
 
-/// Provider for farm selector state.
-final farmSelectorProvider = StateNotifierProvider<FarmSelectorNotifier, FarmSelectorState>((ref) {
-  final repository = ref.read(farmRepositoryProvider);
-  return FarmSelectorNotifier(repository);
-});
+/// ============================================================
+/// PROVIDER (NOTIFIER VERSION)
+/// ============================================================
+final farmSelectorProvider =
+    NotifierProvider<FarmSelectorNotifier, FarmSelectorState>(
+  FarmSelectorNotifier.new,
+);

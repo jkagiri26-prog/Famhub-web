@@ -1,11 +1,21 @@
 import 'package:famhub_app/core/services/supabase_service.dart';
 
 class AdminGovernanceService {
-  final client = SupabaseService.client;
+  final client = SupabaseService.instance.client;
 
   Future<void> toggleFeature(String featureKey, bool enabled) async {
     await client.rpc('update_feature_flag', params: {
       'feature_key': featureKey,
+      'enabled': enabled,
+    });
+  }
+
+  Future<void> toggleModule({
+    required String moduleKey,
+    required bool enabled,
+  }) async {
+    await client.rpc('toggle_module', params: {
+      'module_key': moduleKey,
       'enabled': enabled,
     });
   }

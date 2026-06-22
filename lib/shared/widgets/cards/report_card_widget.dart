@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
+class ReportCardWidget extends StatelessWidget {
   final String title;
   final String subtitle;
   final String price;
   final bool isLocked;
   final VoidCallback? onTap;
 
-  const ReportCard({
+  const ReportCardWidget({
     super.key,
     required this.title,
     required this.subtitle,

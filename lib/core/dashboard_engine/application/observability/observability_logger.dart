@@ -22,6 +22,8 @@
 /// - Do NOT serialize giant payloads
 /// ============================================================
 
+// ignore_for_file: dangling_library_doc_comments
+
 import 'package:famhub_app/core/dashboard_engine/domain/observability/observability_telemetry_event.dart';
 
 /// Severity mapping for observability log output
@@ -79,7 +81,7 @@ class ObservabilityLogEntry {
   String toString() =>
       '[${severity.name.toUpperCase()}] [$phase] [$traceId] $message'
       '${durationMs != null ? ' (${durationMs}ms)' : ''}'
-      '${moduleId != null ? ' [${moduleId}]' : ''}';
+      '${moduleId != null ? ' [$moduleId]' : ''}';
 }
 
 /// ============================================================

@@ -11,6 +11,7 @@ import 'package:famhub_app/shared/layouts/adaptive_content_grid.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/assets_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
+import 'package:famhub_app/features/farm_management/domain/models/asset_model.dart';
 
 class AssetsPage extends ConsumerStatefulWidget {
   const AssetsPage({super.key});
@@ -29,7 +30,7 @@ class _AssetsPageState extends ConsumerState<AssetsPage> {
   Future<void> _loadAssets() async {
     final farmId = ref.read(farmContextProvider).farmId;
     if (farmId != null) {
-      ref.read(assetsProvider(farmId).notifier).loadAssets();
+      ref.read(assetsProvider.notifier).loadAssets(farmId: farmId);
     }
   }
 
@@ -45,7 +46,7 @@ class _AssetsPageState extends ConsumerState<AssetsPage> {
       );
     }
 
-    final assetState = ref.watch(assetsProvider(farmId));
+    final assetState = ref.watch(assetsProvider);
 
     if (assetState.isLoading) {
       return const FeaturePageScaffold(
@@ -111,8 +112,8 @@ class _AssetsPageState extends ConsumerState<AssetsPage> {
                 .toList(),
             selectedValue: assetState.typeFilter,
             onChanged: (type) {
-              ref
-                  .read(assetsProvider(farmId).notifier)
+                            ref
+                  .read(assetsProvider.notifier)
                   .setTypeFilter(type.isEmpty ? null : type);
             },
           ),

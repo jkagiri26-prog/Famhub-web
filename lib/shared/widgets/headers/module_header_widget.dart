@@ -6,7 +6,7 @@ class ModuleHeaderWidget extends StatelessWidget {
   final IconData? trailingIcon;
   final VoidCallback? onTrailingTap;
 
-  const ModuleHeader({
+  const ModuleHeaderWidget({
     super.key,
     required this.title,
     required this.subtitle,

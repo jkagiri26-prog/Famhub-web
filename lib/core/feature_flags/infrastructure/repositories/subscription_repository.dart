@@ -17,7 +17,7 @@ class SubscriptionRepository {
 
   Future<Map<String, dynamic>> fetchSubscriptionState() async {
     final response =
-        await SupabaseService.client.rpc('get_subscription_state');
+        await SupabaseService.instance.client.rpc('get_subscription_state');
 
     return Map<String, dynamic>.from(response ?? {});
   }

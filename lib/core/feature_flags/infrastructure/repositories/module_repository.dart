@@ -17,7 +17,7 @@ class ModuleRepository {
 
   Future<List<Map<String, dynamic>>> fetchModules() async {
     final response =
-        await SupabaseService.client.from('system.modules').select();
+        await SupabaseService.instance.client.from('system.modules').select();
 
     return List<Map<String, dynamic>>.from(response);
   }

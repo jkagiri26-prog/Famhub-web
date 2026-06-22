@@ -11,7 +11,7 @@ class LogisticsModule {
       description:
           'Transportation, delivery coordination, fleet tracking, and supply chain logistics.',
       icon: Icons.local_shipping,
-      builder: () => const LogisticsPage(),
+      builder: (_) => const LogisticsPage(),
     );
   }
 }

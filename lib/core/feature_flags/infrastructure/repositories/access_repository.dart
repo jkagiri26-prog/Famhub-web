@@ -17,7 +17,7 @@ class AccessRepository {
 
   Future<Map<String, dynamic>> fetchAccessContext() async {
     final response =
-        await SupabaseService.client.rpc('get_access_context');
+        await SupabaseService.instance.client.rpc('get_access_context');
 
     return Map<String, dynamic>.from(response ?? {});
   }

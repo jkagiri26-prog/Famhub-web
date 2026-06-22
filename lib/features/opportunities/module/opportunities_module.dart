@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 
-import '../../system/models/module_definition.dart';
+import 'package:famhub_app/system/modules_control/module_contract.dart';
 import '../presentation/pages/opportunities_page.dart';
 
 class OpportunitiesModule {
-  static ModuleDefinition register() {
-    return ModuleDefinition(
+  static ModuleContract register() {
+    return ModuleContract(
       key: 'opportunities',
       name: 'Opportunities',
       description: 'Jobs, grants, tenders, funding, and opportunities.',
       icon: Icons.work,
-      builder: () => const OpportunitiesPage(),
+      builder: (_) => const OpportunitiesPage(),
     );
   }
 }

@@ -36,7 +36,7 @@ class _KnowledgeLinkPageState extends State<KnowledgeLinkPage>
   Widget build(BuildContext context) {
     super.build(context);
 
-    return ResponsiveWrapperWidget(
+    return ResponsiveWrapper(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

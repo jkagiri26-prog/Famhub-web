@@ -80,6 +80,15 @@ class InstrumentedStage<TState, TPatch, TDiff>
   String get name => 'Instrumented(${inner.name})';
 
   @override
+  Future<void> run(
+    RuntimePipelineContext<TState, TPatch, TDiff> context,
+  ) async {
+    await beforeExecute(context);
+    await execute(context);
+    await afterExecute(context);
+  }
+
+  @override
   Future<void> execute(
     RuntimePipelineContext<TState, TPatch, TDiff> context,
   ) async {
@@ -118,7 +127,7 @@ class InstrumentedStage<TState, TPatch, TDiff>
           'hasOutput': _hasStageOutput(context, stageId),
         },
       ));
-    } catch (e, stack) {
+    } catch (e) {
       sw.stop();
 
       // ── Record failure (passive — does NOT rethrow or suppress) ──
@@ -233,7 +242,7 @@ class InstrumentedOrchestrator<TState, TPatch, TDiff> {
         phase: TelemetryPhase.general,
         timestamp: DateTime.now(),
         durationMs: sw.elapsedMilliseconds,
-        metadata: {
+        metadata: const {
           'pipeline': 'full',
           'status': 'success',
         },

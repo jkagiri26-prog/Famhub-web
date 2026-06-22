@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:famhub/shared/widgets/cards/action_card_widget.dart';
+import 'package:famhub_app/shared/widgets/cards/action_card_widget.dart';
 
 class KnowledgeQuickAccessWidget extends StatelessWidget {
   const KnowledgeQuickAccessWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: const [
+    return const Column(
+      children: [
         ActionCardWidget(
           title: "AI Extension Support",
           description:

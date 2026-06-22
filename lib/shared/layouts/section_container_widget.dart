@@ -21,7 +21,7 @@ class SectionContainerWidget extends StatelessWidget {
   final EdgeInsetsGeometry? margin;
   final VoidCallback? onTap;
 
-  const SectionContainer({
+  const SectionContainerWidget({
     super.key,
     required this.child,
     this.padding,

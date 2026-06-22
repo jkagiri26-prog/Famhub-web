@@ -66,7 +66,7 @@ class SmartPatchCoalescer {
   DashboardRuntimePatch _mergePatches(
     List<DashboardRuntimePatch> patches,
   ) {
-    final Map<String, DashboardPatchAction> mergedActions = {};
+    final Map<String, DashboardRuntimePatchAction> mergedActions = {};
 
     for (final patch in patches) {
       for (final action in patch.actions) {

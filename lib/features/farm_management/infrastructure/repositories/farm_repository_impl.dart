@@ -234,19 +234,44 @@ class FarmRepositoryImpl implements FarmRepository {
         }
       }
 
-      // Insert activity record (entity_id is set server-side)
-      await _client.from('activities').insert({
+            // Insert activity record (entity_id is set server-side)
+      final inserted = await _client.from('activities').insert({
         'activity_type_id': activity.activityTypeId,
         'performed_at': activity.performedAt.toIso8601String(),
         'notes': activity.notes,
         'asset_id': activity.assetId,
         'plan_id': activity.planId,
-      });
+      }).select('id').single();
 
-      // Note: activity_values would be inserted separately if needed.
-      // For now, the main activity record is sufficient.
-      // Extension point: If attributes are provided on ActivityModel,
-      // insert them here via bulk insert.
+      // Persist attribute values if provided
+      if (activity.attributeValues.isNotEmpty) {
+        final activityId = inserted['id'] as String;
+        for (final entry in activity.attributeValues.entries) {
+          final key = entry.key;
+          final value = entry.value;
+
+          if (value == null) continue;
+
+          final row = <String, dynamic>{
+            'activity_id': activityId,
+            'attribute_id': key,
+          };
+
+          if (value is String) {
+            row['value_text'] = value;
+          } else if (value is num) {
+            row['value_number'] = value.toDouble();
+          } else if (value is bool) {
+            row['value_boolean'] = value;
+          } else if (value is DateTime) {
+            row['value_text'] = value.toIso8601String();
+          } else {
+            row['value_text'] = value.toString();
+          }
+
+          await _client.from('activity_values').insert(row);
+        }
+      }
     } on PostgrestException catch (e) {
       throw Exception('Failed to create activity: ${e.message}');
     } catch (e) {
@@ -564,11 +589,288 @@ class FarmRepositoryImpl implements FarmRepository {
           ));
         }
       }
-      return activities;
+            return activities;
     } on PostgrestException catch (e) {
       throw Exception('Failed to load activities: ${e.message}');
     } catch (e) {
       throw Exception('Failed to load activities: $e');
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // OPERATIONAL DATA PERSISTENCE
+  // ═══════════════════════════════════════════════════════════════
+
+  /// Persist dynamic attribute values for an activity.
+  ///
+  /// Inserts into: farm_management.activity_values
+  /// Each key-value pair becomes a row:
+  ///   - activity_id: the parent activity
+  ///   - attribute_id: resolved from key (attribute name or registry ID)
+  ///   - value_text/value_number/value_boolean: based on value type
+  @override
+  Future<void> persistActivityValues({
+    required String farmId,
+    required String activityId,
+    required Map<String, dynamic> values,
+  }) async {
+    if (values.isEmpty) return;
+
+    try {
+      for (final entry in values.entries) {
+        final key = entry.key;
+        final value = entry.value;
+
+        if (value == null) continue;
+
+        final row = <String, dynamic>{
+          'activity_id': activityId,
+          'attribute_id': key,
+        };
+
+        if (value is String) {
+          row['value_text'] = value;
+        } else if (value is num) {
+          row['value_number'] = value.toDouble();
+        } else if (value is bool) {
+          row['value_boolean'] = value;
+        } else if (value is DateTime) {
+          row['value_text'] = value.toIso8601String();
+        } else {
+          row['value_text'] = value.toString();
+        }
+
+        await _client.from('activity_values').insert(row);
+      }
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to persist activity values: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to persist activity values: $e');
+    }
+  }
+
+  /// ── Inventory / Stock ──────────────────────────────────────
+
+  @override
+  Future<Map<String, dynamic>> consumeStock({
+    required String farmId,
+    required String assetId,
+    required double quantity,
+    String? activityId,
+    String? unitId,
+    String? description,
+  }) async {
+    try {
+      final currentAsset = await _client
+          .from('assets')
+          .select('id, quantity')
+          .eq('id', assetId)
+          .eq('farm_id', farmId)
+          .single();
+
+      final currentQty = (currentAsset['quantity'] as num?)?.toDouble() ?? 0;
+
+      if (currentQty < quantity) {
+        return {
+          'success': false,
+          'error': 'Insufficient stock. Available: $currentQty, Requested: $quantity',
+          'new_balance': currentQty,
+        };
+      }
+
+      final newBalance = currentQty - quantity;
+      await _client
+          .from('assets')
+          .update({'quantity': newBalance, 'updated_at': DateTime.now().toIso8601String()})
+          .eq('id', assetId);
+
+      if (activityId != null) {
+        await _client.from('production_records').insert({
+          'farm_id': farmId,
+          'asset_id': assetId,
+          'activity_id': activityId,
+          'quantity': -quantity,
+          'unit_id': unitId,
+          'source_type': 'consumption',
+          'created_at': DateTime.now().toIso8601String(),
+        });
+      }
+
+      return {'success': true, 'new_balance': newBalance, 'quantity': -quantity};
+    } catch (e) {
+      return {'success': false, 'error': e.toString(), 'new_balance': 0};
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> addStock({
+    required String farmId,
+    required String assetId,
+    required double quantity,
+    String? activityId,
+    String? unitId,
+    String? description,
+  }) async {
+    try {
+      final currentAsset = await _client
+          .from('assets')
+          .select('id, quantity')
+          .eq('id', assetId)
+          .eq('farm_id', farmId)
+          .single();
+
+      final currentQty = (currentAsset['quantity'] as num?)?.toDouble() ?? 0;
+      final newBalance = currentQty + quantity;
+
+      await _client
+          .from('assets')
+          .update({'quantity': newBalance, 'updated_at': DateTime.now().toIso8601String()})
+          .eq('id', assetId);
+
+      return {'success': true, 'new_balance': newBalance, 'quantity': quantity};
+    } catch (e) {
+      return {'success': false, 'error': e.toString(), 'new_balance': 0};
+    }
+  }
+
+  @override
+  Future<Map<String, double>> getAvailableStock({required String farmId}) async {
+    try {
+      final result = await _client
+          .from('assets')
+          .select('id, quantity')
+          .eq('farm_id', farmId)
+          .gt('quantity', 0);
+
+      final stock = <String, double>{};
+      for (final row in (result as List).cast<Map<String, dynamic>>()) {
+        final id = row['id'] as String;
+        final qty = (row['quantity'] as num?)?.toDouble() ?? 0;
+        stock[id] = qty;
+      }
+      return stock;
+    } catch (e) {
+      return {};
+    }
+  }
+
+  /// ── Financial Records ──────────────────────────────────────
+
+  @override
+  Future<void> recordFinancialTransaction({
+    required String farmId,
+    required String recordType,
+    required double amount,
+    required String description,
+    String? activityId,
+  }) async {
+    try {
+      await _client.from('financial_records').insert({
+        'farm_id': farmId,
+        'activity_id': activityId,
+        'record_type': recordType,
+        'amount': amount,
+        'description': description,
+        'recorded_at': DateTime.now().toIso8601String(),
+      });
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to record financial transaction: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to record financial transaction: $e');
+    }
+  }
+
+  /// ── KPI Automation ─────────────────────────────────────────
+
+  @override
+  Future<void> updateProductionKpis({required String farmId, double? quantity}) async {
+    try {
+      final result = await _client
+          .from('production_records')
+          .select('quantity')
+          .eq('farm_id', farmId)
+          .gt('quantity', 0);
+
+      double totalProduction = 0;
+      for (final row in (result as List).cast<Map<String, dynamic>>()) {
+        totalProduction += (row['quantity'] as num?)?.toDouble() ?? 0;
+      }
+
+      await _client.from('farm_kpis').upsert({
+        'farm_id': farmId,
+        'total_production': totalProduction,
+        'total_yield': totalProduction,
+        'last_updated': DateTime.now().toIso8601String(),
+      }, onConflict: 'farm_id');
+    } catch (e) {
+      // KPI update is non-critical
+    }
+  }
+
+  @override
+  Future<void> updateFinancialKpis({
+    required String farmId,
+    String? recordType,
+    double? amount,
+  }) async {
+    try {
+      final records = await _client
+          .from('financial_records')
+          .select('record_type, amount')
+          .eq('farm_id', farmId);
+
+      double totalIncome = 0;
+      double totalExpense = 0;
+
+      for (final row in (records as List).cast<Map<String, dynamic>>()) {
+        final type = row['record_type'] as String?;
+        final amt = (row['amount'] as num?)?.toDouble() ?? 0;
+        if (type == 'income' || type == 'sale') {
+          totalIncome += amt;
+        } else if (type == 'expense') {
+          totalExpense += amt.abs();
+        }
+      }
+
+      await _client.from('farm_kpis').upsert({
+        'farm_id': farmId,
+        'total_income': totalIncome,
+        'total_expense': totalExpense,
+        'profit': totalIncome - totalExpense,
+        'last_updated': DateTime.now().toIso8601String(),
+      }, onConflict: 'farm_id');
+
+      await _client.from('farm_aggregates').upsert({
+        'farm_id': farmId,
+        'total_income': totalIncome,
+        'total_expense': totalExpense,
+        'updated_at': DateTime.now().toIso8601String(),
+      }, onConflict: 'farm_id');
+    } catch (e) {
+      // Non-critical
+    }
+  }
+
+  @override
+  Future<void> updateStockValueKpi({required String farmId}) async {
+    try {
+      final assets = await _client
+          .from('assets')
+          .select('quantity')
+          .eq('farm_id', farmId);
+
+      double stockValue = 0;
+      for (final asset in (assets as List).cast<Map<String, dynamic>>()) {
+        stockValue += (asset['quantity'] as num?)?.toDouble() ?? 0;
+      }
+
+      await _client.from('farm_kpis').upsert({
+        'farm_id': farmId,
+        'stock_value': stockValue,
+        'last_updated': DateTime.now().toIso8601String(),
+      }, onConflict: 'farm_id');
+    } catch (e) {
+      // Non-critical
     }
   }
 }

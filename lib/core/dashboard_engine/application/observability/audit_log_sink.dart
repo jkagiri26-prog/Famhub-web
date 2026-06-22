@@ -1,3 +1,4 @@
+// ignore: dangling_library_doc_comments
 /// ============================================================
 /// AUDIT LOG SINK — PHASE 7A + PHASE 3 EXPANSION
 /// ============================================================
@@ -38,6 +39,7 @@
 /// ```
 /// ============================================================
 
+import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:math';
@@ -70,6 +72,132 @@ class AuditLogEntry {
         'telemetry': telemetryEvent?.toJson(),
         'recordedAt': recordedAt.toIso8601String(),
       };
+}
+
+/// ============================================================
+/// EXPORT FORMAT (PHASE 3 EXPORT EXTENSION)
+/// ============================================================
+enum ExportFormat {
+  json,
+  jsonPretty,
+  csv,
+  compact,
+}
+
+/// ============================================================
+/// COMPRESSION LEVEL (PHASE 3 COMPRESSION EXTENSION)
+/// ============================================================
+enum CompressionLevel {
+  none,
+  light,
+  medium,
+  aggressive,
+}
+
+/// ============================================================
+/// EXPORT OPTIONS (PHASE 3 EXPORT EXTENSION)
+/// ============================================================
+///
+/// Configures export behavior including format, compression,
+/// filtering, and telemetry inclusion.
+/// ============================================================
+class ExportOptions {
+  final ExportFormat format;
+  final bool includeTelemetry;
+  final bool includeMetadata;
+  final CompressionLevel compression;
+  final Set<LogSeverity>? severityFilter;
+  final int? maxEntries;
+
+  const ExportOptions({
+    this.format = ExportFormat.json,
+    this.includeTelemetry = true,
+    this.includeMetadata = true,
+    this.compression = CompressionLevel.none,
+    this.severityFilter,
+    this.maxEntries,
+  });
+}
+
+/// ============================================================
+/// BATCH PERSISTENCE ADAPTER (PHASE 3 EXTENSION)
+/// ============================================================
+///
+/// Collects entries into batches and flushes via a callback.
+/// Useful for writing to files, remote APIs, or databases.
+/// ============================================================
+class BatchPersistenceAdapter {
+  final int batchSize;
+  final Duration flushInterval;
+  final Future<void> Function(List<AuditLogEntry> batch) onFlush;
+  final List<AuditLogEntry> _buffer = [];
+  Timer? _flushTimer;
+
+  BatchPersistenceAdapter({
+    required this.batchSize,
+    required this.flushInterval,
+    required this.onFlush,
+  });
+
+  void add(AuditLogEntry entry) {
+    _buffer.add(entry);
+    if (_buffer.length >= batchSize) {
+      _flush();
+    } else {
+      _flushTimer ??= Timer(flushInterval, _flush);
+    }
+  }
+
+  Future<void> _flush() async {
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    if (_buffer.isEmpty) return;
+    final batch = List<AuditLogEntry>.from(_buffer);
+    _buffer.clear();
+    try {
+      await onFlush(batch);
+    } catch (_) {
+      // Silently handle flush errors — re-queue
+      _buffer.insertAll(0, batch);
+    }
+  }
+
+  void dispose() {
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    if (_buffer.isNotEmpty) _flush();
+  }
+}
+
+/// ============================================================
+/// COMPRESSION ADAPTER (PHASE 3 EXTENSION)
+/// ============================================================
+///
+/// Compresses export payloads using string compaction (lossless).
+/// Light: removes whitespace. Medium: shortens keys. Aggressive: full minification.
+/// ============================================================
+class CompressionAdapter {
+  static String compress(String data, CompressionLevel level) {
+    switch (level) {
+      case CompressionLevel.none:
+        return data;
+      case CompressionLevel.light:
+        return data.replaceAll(RegExp(r'\s+'), ' ');
+      case CompressionLevel.medium:
+        return data
+            .replaceAll(RegExp(r'\s+'), ' ')
+            .replaceAll('"', "'")
+            .replaceAll(', ', ',');
+      case CompressionLevel.aggressive:
+        return data.replaceAll(RegExp(r'\s+|\n|\r|\t'), '');
+    }
+  }
+
+  /// Estimate compression ratio
+  static double estimateRatio(String original, String compressed) {
+    if (original.isEmpty) return 1.0;
+    return compressed.length / original.length;
+  }
 }
 
 /// ============================================================
@@ -234,116 +362,6 @@ class AuditLogSink {
   // ═══════════════════════════════════════════════════════════
   // PHASE 3: PERSISTENCE ADAPTERS & EXPORT FORMATS
   // ═══════════════════════════════════════════════════════════
-
-  /// ── EXPORT FORMAT ──
-  enum ExportFormat {
-    json,
-    jsonPretty,
-    csv,
-    compact,
-  }
-
-  /// ── COMPRESSION LEVEL ──
-  enum CompressionLevel {
-    none,
-    light,
-    medium,
-    aggressive,
-  }
-
-  /// ── EXPORT OPTIONS ──
-  class ExportOptions {
-    final ExportFormat format;
-    final bool includeTelemetry;
-    final bool includeMetadata;
-    final CompressionLevel compression;
-    final Set<LogSeverity>? severityFilter;
-    final int? maxEntries;
-
-    const ExportOptions({
-      this.format = ExportFormat.json,
-      this.includeTelemetry = true,
-      this.includeMetadata = true,
-      this.compression = CompressionLevel.none,
-      this.severityFilter,
-      this.maxEntries,
-    });
-  }
-
-  /// ── BATCH PERSISTENCE ADAPTER ──
-  ///
-  /// Collects entries into batches and flushes via a callback.
-  /// Useful for writing to files, remote APIs, or databases.
-  class BatchPersistenceAdapter {
-    final int batchSize;
-    final Duration flushInterval;
-    final Future<void> Function(List<AuditLogEntry> batch) onFlush;
-    final List<AuditLogEntry> _buffer = [];
-    Timer? _flushTimer;
-
-    BatchPersistenceAdapter({
-      required this.batchSize,
-      required this.flushInterval,
-      required this.onFlush,
-    });
-
-    void add(AuditLogEntry entry) {
-      _buffer.add(entry);
-      if (_buffer.length >= batchSize) {
-        _flush();
-      } else {
-        _flushTimer ??= Timer(flushInterval, _flush);
-      }
-    }
-
-    Future<void> _flush() async {
-      _flushTimer?.cancel();
-      _flushTimer = null;
-      if (_buffer.isEmpty) return;
-      final batch = List<AuditLogEntry>.from(_buffer);
-      _buffer.clear();
-      try {
-        await onFlush(batch);
-      } catch (_) {
-        // Silently handle flush errors — re-queue
-        _buffer.insertAll(0, batch);
-      }
-    }
-
-    void dispose() {
-      _flushTimer?.cancel();
-      _flushTimer = null;
-      if (_buffer.isNotEmpty) _flush();
-    }
-  }
-
-  /// ── COMPRESSION ADAPTER ──
-  ///
-  /// Compresses export payloads using string compaction (lossless).
-  /// Light: removes whitespace. Medium: shortens keys. Aggressive: full minification.
-  class CompressionAdapter {
-    static String compress(String data, CompressionLevel level) {
-      switch (level) {
-        case CompressionLevel.none:
-          return data;
-        case CompressionLevel.light:
-          return data.replaceAll(RegExp(r'\s+'), ' ');
-        case CompressionLevel.medium:
-          return data
-              .replaceAll(RegExp(r'\s+'), ' ')
-              .replaceAll('"', "'")
-              .replaceAll(', ', ',');
-        case CompressionLevel.aggressive:
-          return data.replaceAll(RegExp(r'\s+|\n|\r|\t'), '');
-      }
-    }
-
-    /// Estimate compression ratio
-    static double estimateRatio(String original, String compressed) {
-      if (original.isEmpty) return 1.0;
-      return compressed.length / original.length;
-    }
-  }
 
   /// ── EXPORT METHODS ──
 

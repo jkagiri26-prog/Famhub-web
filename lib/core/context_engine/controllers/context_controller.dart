@@ -1,24 +1,27 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../domain/models/entity_context.dart';
-import '../services/context_storage_service.dart';
-import '../services/context_sync_service.dart';
+import 'package:famhub_app/core/context_engine/domain/models/entity_context.dart';
+import 'package:famhub_app/core/context_engine/providers/context_storage_service_provider.dart';
+import 'package:famhub_app/core/context_engine/services/context_storage_service.dart';
+import 'package:famhub_app/core/context_engine/services/context_sync_service.dart';
 
-class ContextController extends StateNotifier<EntityContext> {
-  final ContextStorageService storage;
-  final ContextSyncService sync;
+class ContextController extends Notifier<EntityContext> {
+  late final ContextStorageService storage;
+  late final ContextSyncService sync;
 
-  ContextController(this.storage, this.sync)
-      : super(EntityContext.empty);
+  @override
+  EntityContext build() {
+    storage = ref.read(contextStorageServiceProvider);
+    sync = ref.read(contextSyncServiceProvider);
 
-  /// 🚀 INITIALIZE (App start)
+    return const EntityContext();
+  }
+
   Future<void> init() async {
     state = state.copyWith(isLoading: true);
 
-    // 1. Load local
     final local = await storage.load();
 
-    // 2. Apply local immediately (fast UI)
     state = state.copyWith(
       userId: local['userId'],
       role: local['role'],
@@ -29,7 +32,6 @@ class ContextController extends StateNotifier<EntityContext> {
     );
 
     try {
-      // 3. Sync with backend
       final remote = await sync.fetchUserContext();
 
       state = EntityContext(
@@ -41,20 +43,17 @@ class ContextController extends StateNotifier<EntityContext> {
         isLoading: false,
       );
 
-      // 4. Persist
       await storage.save(
         userId: remote['userId'],
         role: remote['role'],
         entityId: remote['entityId'],
         tier: remote['tier'] ?? 'free',
       );
-    } catch (e) {
-      // Offline fallback
+    } catch (_) {
       state = state.copyWith(isLoading: false);
     }
   }
 
-  /// 🔄 SWITCH ROLE
   Future<void> switchRole(String role) async {
     state = state.copyWith(role: role);
 
@@ -66,7 +65,6 @@ class ContextController extends StateNotifier<EntityContext> {
     );
   }
 
-  /// 🔄 SWITCH ENTITY
   Future<void> switchEntity(String entityId) async {
     state = state.copyWith(entityId: entityId);
 
@@ -78,7 +76,6 @@ class ContextController extends StateNotifier<EntityContext> {
     );
   }
 
-  /// 🚪 LOGOUT
   Future<void> logout() async {
     await storage.clear();
     state = EntityContext.empty;

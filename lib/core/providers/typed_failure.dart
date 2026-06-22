@@ -1,3 +1,4 @@
+// ignore: dangling_library_doc_comments
 /// ============================================================
 /// TYPED FAILURE MODEL — APPLICATION LAYER
 /// ============================================================
@@ -28,6 +29,8 @@
 ///   - Modify existing providers
 ///   - Introduce breaking changes
 /// ============================================================
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Base failure type
 sealed class TypedFailure {

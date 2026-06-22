@@ -1,30 +1,19 @@
 /// ============================================================
 /// PRODUCTION → MARKETPLACE CROSS-MODULE WORKFLOW
 /// ============================================================
-///
-/// 🧠 LOCATION CONTEXT:
-///   features/farm_management/application/workflows/
-///
-/// FIRST CROSS-MODULE FLOW:
-///   Farm Management → Production Recorded → Inventory Updated
-///   → Marketplace Listing Suggested
-///
-/// ✅ PATTERN:
-///   Uses existing providers from both modules.
-///   NO duplicate state systems.
-///   NO parallel workflow systems.
-///   NO direct Supabase in presentation.
-/// ============================================================
+library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:famhub_app/features/farm_management/domain/models/production_model.dart';
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
-import 'package:famhub_app/features/farm_management/application/providers/production_provider.dart';
+import 'package:famhub_app/features/marketplace/domain/repositories/marketplace_repository.dart';
+import 'package:famhub_app/features/marketplace/application/providers/marketplace_provider.dart';
 
-/// State for the cross-module workflow
+/// ============================================================
+/// STATE
+/// ============================================================
 class CrossModuleWorkflowState {
   final bool isSyncing;
   final String? lastSyncResult;
@@ -47,39 +36,60 @@ class CrossModuleWorkflowState {
     return CrossModuleWorkflowState(
       isSyncing: isSyncing ?? this.isSyncing,
       lastSyncResult: lastSyncResult ?? this.lastSyncResult,
-      errorMessage: errorMessage,
+      errorMessage: errorMessage ?? this.errorMessage,
     );
   }
 }
 
-/// Notifier for cross-module workflow
-class CrossModuleWorkflowNotifier extends StateNotifier<CrossModuleWorkflowState> {
-  final FarmRepository _repository;
-  final String? _farmId;
+/// ============================================================
+/// NOTIFIER (RIVERPOD 3 - CLEAN VERSION)
+/// ============================================================
+class CrossModuleWorkflowNotifier
+    extends Notifier<CrossModuleWorkflowState> {
+  FarmRepository get _farmRepository =>
+      ref.read(farmRepositoryProvider);
 
-  CrossModuleWorkflowNotifier(this._repository, this._farmId)
-      : super(CrossModuleWorkflowState.initial());
+  MarketplaceRepository get _marketplaceRepository =>
+      ref.read(marketplaceRepositoryProvider);
 
-  /// When a production record is created, trigger:
-  /// 1. Refresh production data
-  /// 2. Sync to marketplace
-  Future<void> onProductionRecorded() async {
-    if (_farmId == null) return;
+  @override
+  CrossModuleWorkflowState build() {
+    return CrossModuleWorkflowState.initial();
+  }
 
+  /// ============================================================
+  /// CROSS MODULE FLOW
+  /// Production → Inventory → Marketplace sync
+  /// ============================================================
+  Future<void> syncProductionToMarketplace({String? farmId}) async {
+    final effectiveFarmId = farmId ?? ref.read(farmContextProvider).farmId;
+    if (effectiveFarmId == null) return;
     state = state.copyWith(isSyncing: true, errorMessage: null);
-
     try {
-      // Step 1: Sync inventory with marketplace
-      await _repository.syncMarketplaceListing(farmId: _farmId!);
-
+      final productionRecords =
+          await _farmRepository.getProductionRecords(farmId: effectiveFarmId);
+      var syncedCount = 0;
+      for (final record in productionRecords) {
+        try {
+          await _marketplaceRepository.createListing({
+            'title': 'Production #${record.id}',
+            'quantity': record.quantity,
+            'unit': record.unitId,
+            'category': record.categoryId,
+          });
+          syncedCount++;
+        } catch (_) {
+          // Continue with next record
+        }
+      }
       state = state.copyWith(
         isSyncing: false,
-        lastSyncResult: 'Production recorded and marketplace inventory synced.',
+        lastSyncResult: 'Synced $syncedCount records',
       );
     } catch (e) {
       state = state.copyWith(
         isSyncing: false,
-        errorMessage: 'Workflow failed: $e',
+        errorMessage: e.toString(),
       );
     }
   }
@@ -89,11 +99,10 @@ class CrossModuleWorkflowNotifier extends StateNotifier<CrossModuleWorkflowState
   }
 }
 
-/// Provider for cross-module workflow
-final crossModuleWorkflowProvider = StateNotifierProvider.family<
-    CrossModuleWorkflowNotifier, CrossModuleWorkflowState, String?>(
-  (ref, farmId) {
-    final repository = ref.read(farmRepositoryProvider);
-    return CrossModuleWorkflowNotifier(repository, farmId);
-  },
+/// ============================================================
+/// PROVIDER
+/// ============================================================
+final crossModuleWorkflowProvider =
+    NotifierProvider<CrossModuleWorkflowNotifier, CrossModuleWorkflowState>(
+  CrossModuleWorkflowNotifier.new,
 );

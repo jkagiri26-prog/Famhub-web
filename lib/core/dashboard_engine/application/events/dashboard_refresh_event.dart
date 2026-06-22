@@ -1,4 +1,13 @@
-﻿@immutable
+﻿import 'package:flutter/foundation.dart';
+
+enum DashboardRefreshEventType {
+  moduleActivation,
+  navigationRefresh,
+  componentUpdate,
+  stateSync,
+}
+
+@immutable
 class DashboardRefreshEvent {
   final DashboardRefreshEventType type;
   final DateTime timestamp;
@@ -6,7 +15,7 @@ class DashboardRefreshEvent {
   final String? source;
   final Map<String, dynamic> metadata;
 
-  const DashboardRefreshEvent({
+  DashboardRefreshEvent({
     required this.type,
     required this.metadata,
     this.moduleKey,

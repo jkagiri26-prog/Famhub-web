@@ -1,3 +1,4 @@
+// ignore: dangling_library_doc_comments
 /// ============================================================
 /// APP SHELL CONTEXT (INHERITED WIDGET FOR SHELL STATE)
 /// ============================================================
@@ -21,7 +22,7 @@ class AppShellContext extends InheritedWidget {
   final bool isGuest;
   final bool isSystemDown;
 
-  const AppShellContext({
+  const AppShellContext({super.key, 
     required this.isGuest,
     this.isSystemDown = false,
     required super.child,

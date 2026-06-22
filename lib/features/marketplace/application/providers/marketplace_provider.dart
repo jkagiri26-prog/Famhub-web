@@ -4,21 +4,125 @@ import '../../domain/entities/listing.dart';
 import '../../domain/repositories/marketplace_repository.dart';
 import '../../infrastructure/services/marketplace_service.dart';
 
-/// Marketplace async provider.
-/// Returns AsyncValue<List<Listing>> to support loading/error/data states.
-final marketplaceProvider = AsyncNotifierProvider<MarketplaceController, List<Listing>>(
+/// ============================================================
+/// SERVICE LAYER
+/// ============================================================
+final marketplaceServiceProvider = Provider<MarketplaceService>((ref) {
+  return MarketplaceService();
+});
+
+/// ============================================================
+/// REPOSITORY LAYER
+/// ============================================================
+final marketplaceRepositoryProvider =
+    Provider<MarketplaceRepository>((ref) {
+  final service = ref.watch(marketplaceServiceProvider);
+  return MarketplaceRepository(service);
+});
+
+/// ============================================================
+/// MARKETPLACE CONTROLLER (ASYNC NOTIFIER)
+/// ============================================================
+final marketplaceProvider =
+    AsyncNotifierProvider<MarketplaceController, List<Listing>>(
   MarketplaceController.new,
 );
 
 class MarketplaceController extends AsyncNotifier<List<Listing>> {
+  MarketplaceRepository get _repo =>
+      ref.read(marketplaceRepositoryProvider);
+
   @override
   Future<List<Listing>> build() async {
-    final repo = MarketplaceRepository(MarketplaceService());
-    return repo.fetchListings();
+    return _safeFetch();
+  }
+
+  Future<List<Listing>> _safeFetch() async {
+    try {
+      return await _repo.fetchListings();
+    } catch (e, st) {
+      state = AsyncError(e, st);
+      rethrow;
+    }
   }
 
   Future<void> load() async {
-    final repo = MarketplaceRepository(MarketplaceService());
-    state = AsyncValue.data(await repo.fetchListings());
+    state = const AsyncLoading();
+
+    try {
+      final data = await _repo.fetchListings();
+      state = AsyncValue.data(data);
+    } catch (e, st) {
+      state = AsyncError(e, st);
+    }
+  }
+
+  Future<void> createListing(Map<String, dynamic> payload) async {
+    await _repo.createListing(payload);
+    ref.invalidateSelf();
+  }
+
+  Future<void> updateListing(
+    String id,
+    Map<String, dynamic> payload,
+  ) async {
+    await _repo.updateListing(id, payload);
+
+    ref.invalidateSelf();
+    ref.invalidate(listingDetailsProvider(id));
+  }
+
+  Future<void> archiveListing(String id) async {
+    await _repo.archiveListing(id);
+
+    ref.invalidateSelf();
+    ref.invalidate(listingDetailsProvider(id));
+  }
+
+  Future<void> publishListing(String id) async {
+    await _repo.publishListing(id);
+
+    ref.invalidateSelf();
+    ref.invalidate(listingDetailsProvider(id));
+  }
+
+  Future<void> updateInventory({
+    required String listingId,
+    double? availableQuantity,
+    double? soldQuantity,
+    double? reservedQuantity,
+  }) async {
+    await _repo.updateInventory(
+      listingId: listingId,
+      availableQuantity: availableQuantity,
+      soldQuantity: soldQuantity,
+      reservedQuantity: reservedQuantity,
+    );
+
+    ref.invalidateSelf();
+    ref.invalidate(listingDetailsProvider(listingId));
   }
 }
+
+/// ============================================================
+/// DETAIL PROVIDERS
+/// ============================================================
+final listingDetailsProvider =
+    FutureProvider.family<Listing?, String>((ref, id) async {
+  final repo = ref.read(marketplaceRepositoryProvider);
+  return repo.fetchListingById(id);
+});
+
+final sellerListingsProvider =
+    FutureProvider.family<List<Listing>, String>((ref, sellerId) async {
+  final repo = ref.read(marketplaceRepositoryProvider);
+  return repo.fetchListings(sellerId: sellerId);
+});
+
+final sellerStatsProvider =
+    FutureProvider.family<Map<String, dynamic>, String>(
+  (ref, sellerId) async {
+    final repo = ref.read(marketplaceRepositoryProvider);
+    return repo.getSellerStats(sellerId);
+  },
+);

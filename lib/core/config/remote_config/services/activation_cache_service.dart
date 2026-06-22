@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/module_activation.dart';
+
 class ActivationCacheService {
   static const _key = 'module_activation';
 

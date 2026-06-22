@@ -1,37 +1,33 @@
 import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 import 'package:famhub_app/core/module_runtime_sync/application/coordinators/module_runtime_sync_coordinator.dart';
 import 'package:famhub_app/core/module_runtime_sync/domain/events/module_runtime_event.dart';
 import 'package:famhub_app/core/module_runtime_sync/domain/models/module_runtime_state.dart';
-
 import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_diff.dart';
 import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_patch.dart';
 import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_reconciler.dart';
-
 import 'package:famhub_app/core/dashboard_engine/application/conflict/dashboard_conflict_buffer.dart';
 import 'package:famhub_app/core/dashboard_engine/domain/conflict/dashboard_conflict_resolver.dart';
 import 'package:famhub_app/core/dashboard_engine/domain/conflict/dashboard_conflict_event.dart';
 import 'package:famhub_app/core/dashboard_engine/domain/conflict/dashboard_conflict_source.dart';
-
 import 'package:famhub_app/core/dashboard_engine/application/pipeline/runtime_pipeline_context.dart';
 import 'package:famhub_app/core/dashboard_engine/application/pipeline/runtime_pipeline_orchestrator.dart';
-
 import 'package:famhub_app/core/dashboard_engine/application/pipeline/stages/reconciliation_stage.dart';
 import 'package:famhub_app/core/dashboard_engine/application/pipeline/stages/diff_stage.dart';
 import 'package:famhub_app/core/dashboard_engine/application/pipeline/stages/patch_stage.dart';
 import 'package:famhub_app/core/dashboard_engine/application/pipeline/stages/execution_stage.dart';
-
 import 'package:famhub_app/core/dashboard_engine/application/providers/safe_dashboard_patch_executor_provider.dart';
 import 'package:famhub_app/core/dashboard_engine/application/providers/widget_state_provider.dart';
 import 'package:famhub_app/core/dashboard_engine/application/hydration/widget_hydration_engine.dart';
 import 'package:famhub_app/core/dashboard_engine/infrastructure/journal/event_journal.dart';
 import 'package:famhub_app/core/dashboard_engine/infrastructure/checkpoint/runtime_checkpoint_store.dart';
 import 'package:famhub_app/core/dashboard_engine/infrastructure/repositories/widget_hydration_repository.dart';
+import 'package:famhub_app/core/module_runtime_sync/application/providers/module_runtime_sync_provider.dart';
+import 'package:famhub_app/core/dashboard_engine/domain/observability/observability_telemetry_event.dart';
+import 'package:famhub_app/core/dashboard_engine/application/providers/dashboard_runtime_patch_provider.dart';
 
 /// ============================================================
 /// RUNTIME SYNC ENGINE (v5 — OPTIMIZED & OPERATIONALIZED)
@@ -65,9 +61,8 @@ class RuntimeSyncEngine {
     this.enableCompaction = true,
     this.enableReplayMetrics = true,
     this.enableAdaptiveBatching = true,
-  }) : _conflictBuffer = ConflictBuffer(const ConflictResolver()) {
+  }) : _conflictBuffer = ConflictBuffer(ConflictResolver()) {
     final reconciler = ref.read(dashboardRuntimeReconcilerProvider);
-
     _orchestrator =
         RuntimePipelineOrchestrator<ModuleRuntimeState, DashboardRuntimePatch,
             DashboardRuntimeDiff>(
@@ -88,14 +83,11 @@ class RuntimeSyncEngine {
   final Ref ref;
   final SupabaseClient supabase;
   final ModuleRuntimeSyncCoordinator coordinator;
-
   final ConflictBuffer _conflictBuffer;
-
   late final RuntimePipelineOrchestrator _orchestrator;
   late final EventJournal _eventJournal;
   late final RuntimeCheckpointStore _checkpointStore;
   late final WidgetHydrationEngine _hydrationEngine;
-
   RealtimeChannel? _channel;
 
   // ============================================================
@@ -198,7 +190,6 @@ class RuntimeSyncEngine {
     if (_initialized) return;
     _initialized = true;
     _engineStartTime = DateTime.now();
-
     _log('Starting initialization...');
     await coordinator.bootstrap();
     await _initPersistence();
@@ -206,7 +197,6 @@ class RuntimeSyncEngine {
     await _hydrateWidgetState();
     await _replayDelta();
     _subscribeToModuleChanges();
-
     _log('Initialization complete. '
         'Replayed=$_replayedEventCount events. '
         'Checkpoint restore=${_checkpointRestoreDurationMs}ms. '
@@ -218,7 +208,6 @@ class RuntimeSyncEngine {
   // ============================================================
   Future<void> _initPersistence() async {
     _log('Initializing persistence layers...');
-
     final dbPath = await getDatabasesPath();
     final journalPath = join(dbPath, 'dashboard_event_journal.db');
     final checkpointPath = join(dbPath, 'dashboard_checkpoint.db');
@@ -226,31 +215,31 @@ class RuntimeSyncEngine {
     final journalDb = await openDatabase(journalPath, version: 1,
         onCreate: (db, version) async {
       await db.execute('''
-        CREATE TABLE IF NOT EXISTS event_journal (
-          seq_id    INTEGER PRIMARY KEY AUTOINCREMENT,
-          entity_id TEXT NOT NULL,
-          timestamp TEXT NOT NULL,
-          source    TEXT NOT NULL,
-          payload   TEXT NOT NULL
-        )
-      ''');
+CREATE TABLE IF NOT EXISTS event_journal (
+  seq_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+  entity_id TEXT NOT NULL,
+  timestamp TEXT NOT NULL,
+  source    TEXT NOT NULL,
+  payload   TEXT NOT NULL
+)
+''');
       await db.execute('''
-        CREATE INDEX IF NOT EXISTS idx_event_journal_entity
-        ON event_journal (entity_id, timestamp)
-      ''');
+CREATE INDEX IF NOT EXISTS idx_event_journal_entity
+ON event_journal (entity_id, timestamp)
+''');
     });
 
     final checkpointDb = await openDatabase(checkpointPath, version: 1,
         onCreate: (db, version) async {
       await db.execute('''
-        CREATE TABLE IF NOT EXISTS runtime_checkpoints (
-          id               INTEGER PRIMARY KEY AUTOINCREMENT,
-          schema_version   INTEGER NOT NULL,
-          last_sequence_id INTEGER NOT NULL,
-          created_at       TEXT    NOT NULL,
-          payload          TEXT    NOT NULL
-        )
-      ''');
+CREATE TABLE IF NOT EXISTS runtime_checkpoints (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  schema_version   INTEGER NOT NULL,
+  last_sequence_id INTEGER NOT NULL,
+  created_at       TEXT    NOT NULL,
+  payload          TEXT    NOT NULL
+)
+''');
     });
 
     _eventJournal = EventJournal(journalDb);
@@ -264,7 +253,6 @@ class RuntimeSyncEngine {
   Future<void> _restoreCheckpoint() async {
     _log('Restoring checkpoint...');
     final sw = Stopwatch()..start();
-
     final checkpoint = await _checkpointStore.loadLatestCheckpoint();
     if (checkpoint == null) {
       _log('No valid checkpoint found. Will use full journal replay.');
@@ -272,11 +260,9 @@ class RuntimeSyncEngine {
       _checkpointRestoreDurationMs = sw.elapsedMilliseconds;
       return;
     }
-
     _lastCommittedSequenceId = checkpoint.lastSequenceId;
     _lastCheckpointSequence = checkpoint.lastSequenceId;
     ref.read(moduleRuntimeSyncProvider.notifier).updateState(checkpoint.moduleState);
-
     sw.stop();
     _checkpointRestoreDurationMs = sw.elapsedMilliseconds;
     _log('Checkpoint restored: seq=${checkpoint.lastSequenceId}, '
@@ -303,7 +289,6 @@ class RuntimeSyncEngine {
     _healthStatus = RuntimeHealthStatus.replaying;
     _log('Starting adaptive replay...');
     final sw = Stopwatch()..start();
-
     try {
       _lastJournalSequence = await _eventJournal.getLastSequenceId();
       if (_lastJournalSequence == null) {
@@ -333,7 +318,8 @@ class RuntimeSyncEngine {
       }
 
       // TASK A2: Adaptive batch sizing
-      final isLargeBacklog = eventsToReplay.length >= _replayLargeBacklogThreshold;
+      final isLargeBacklog =
+          eventsToReplay.length >= _replayLargeBacklogThreshold;
       final batchSize = enableAdaptiveBatching
           ? (isLargeBacklog ? _replayBaseBatchSize : _replayLargeBatchSize)
           : _replayLargeBatchSize;
@@ -343,16 +329,13 @@ class RuntimeSyncEngine {
 
       int processed = 0;
       int batchCount = 0;
-
       while (processed < eventsToReplay.length) {
         final end = (processed + batchSize) > eventsToReplay.length
             ? eventsToReplay.length
             : processed + batchSize;
-
         for (final event in eventsToReplay.sublist(processed, end)) {
           _conflictBuffer.add(event);
         }
-
         processed = end;
         batchCount++;
 
@@ -365,16 +348,13 @@ class RuntimeSyncEngine {
       _adaptiveReplayBatchesUsed = batchCount;
       _avgReplayBatchSize =
           batchCount > 0 ? (eventsToReplay.length ~/ batchCount) : batchSize;
-
       await _processBufferedEvents();
-
       sw.stop();
       _journalReplayDurationMs = sw.elapsedMilliseconds;
 
       final eps = _replayedEventCount > 0
           ? (_replayedEventCount / (_journalReplayDurationMs / 1000.0)).round()
           : 0;
-
       _log('Replay complete: $_replayedEventCount events, '
           '${_journalReplayDurationMs}ms, $eps eps, $batchCount batches');
     } finally {
@@ -382,7 +362,6 @@ class RuntimeSyncEngine {
       if (_healthStatus == RuntimeHealthStatus.replaying) {
         _healthStatus = RuntimeHealthStatus.healthy;
       }
-
       if (_pendingDuringReplay.isNotEmpty) {
         _log('Draining ${_pendingDuringReplay.length} pending events...');
         final pending = List<_PendingIngestion>.from(_pendingDuringReplay);
@@ -400,7 +379,6 @@ class RuntimeSyncEngine {
   Future<void> dispose() async {
     _log('Starting graceful shutdown...');
     _disposed = true;
-
     _coalesceTimer?.cancel();
     _coalesceTimer = null;
     _reconnectTimer?.cancel();
@@ -420,6 +398,7 @@ class RuntimeSyncEngine {
       _log('Forcing final checkpoint...');
       await _trySaveCheckpoint(force: true);
     }
+
     _log('Graceful shutdown complete.');
   }
 
@@ -433,7 +412,6 @@ class RuntimeSyncEngine {
 
   void onAppForegrounded() {
     _isBackgrounded = false;
-
     // Drain any pending events that accumulated while backgrounded
     if (_pendingDuringReplay.isNotEmpty) {
       _log('Draining ${_pendingDuringReplay.length} pending events...');
@@ -453,10 +431,8 @@ class RuntimeSyncEngine {
     _reconnectTimer?.cancel();
     final delay = _backoffInitial * (1 << _reconnectAttempt);
     final capped = delay < _backoffMax ? delay : _backoffMax;
-
     _log('Reconnect attempt ${_reconnectAttempt + 1} '
         'in ${capped.inSeconds}s (exponential backoff)...');
-
     _reconnectTimer = Timer(capped, () {
       _reconnectAttempt++;
       _subscribeToModuleChanges();
@@ -479,45 +455,43 @@ class RuntimeSyncEngine {
 
     _channel!
         .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'system',
-          table: 'modules',
-          callback: (payload) {
-            Future.microtask(
-              () => _ingestEvent(
-                  payload.newRecord, ModuleRuntimeEventType.moduleUpdated),
-            );
-          },
-        )
+            event: PostgresChangeEvent.all,
+            schema: 'system',
+            table: 'modules',
+            callback: (payload) {
+              Future.microtask(
+                () => _ingestEvent(
+                    payload.newRecord, ModuleRuntimeEventType.moduleUpdated),
+              );
+            })
         .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'system',
-          table: 'module_installations',
-          callback: (payload) {
-            Future.microtask(
-              () => _ingestEvent(
-                  payload.newRecord, ModuleRuntimeEventType.installationUpdated),
-            );
-          },
-        )
+            event: PostgresChangeEvent.all,
+            schema: 'system',
+            table: 'module_installations',
+            callback: (payload) {
+              Future.microtask(
+                () => _ingestEvent(payload.newRecord,
+                    ModuleRuntimeEventType.installationUpdated),
+              );
+            })
         .subscribe((status, error) {
-          if (error != null) {
-            _log('Realtime subscription error: $error');
-            _scheduleReconnect();
-          } else if (status == 'SUBSCRIBED') {
-            _resetReconnectBackoff();
-            _log('Realtime subscription active.');
-          }
-        });
+      if (error != null) {
+        _log('Realtime subscription error: $error');
+        _scheduleReconnect();
+      } else if (status == 'SUBSCRIBED') {
+        _resetReconnectBackoff();
+        _log('Realtime subscription active.');
+      }
+    });
   }
 
   // ============================================================
   // EVENT INGESTION (WITH REPLAY LOCK)
   // ============================================================
   Future<void> _ingestEvent(
-    Map<String, dynamic> payload,
-    ModuleRuntimeEventType type,
-  ) async {
+      Map<String, dynamic> payload,
+      ModuleRuntimeEventType type,
+      ) async {
     if (_isReplaying) {
       _pendingDuringReplay.add(_PendingIngestion(payload, type));
       return;
@@ -530,9 +504,9 @@ class RuntimeSyncEngine {
   // COALESCED INTERNAL INGESTION (TASK A1)
   // ============================================================
   Future<void> _ingestEventInternal(
-    Map<String, dynamic> payload,
-    ModuleRuntimeEventType type,
-  ) async {
+      Map<String, dynamic> payload,
+      ModuleRuntimeEventType type,
+      ) async {
     if (_isBackgrounded) {
       _pendingDuringReplay.add(_PendingIngestion(payload, type));
       return;
@@ -572,7 +546,6 @@ class RuntimeSyncEngine {
   void _scheduleCoalescedProcessing() {
     if (_isProcessingRunning) return;
     if (_coalesceScheduled) return;
-
     _coalesceScheduled = true;
     _coalesceTimer?.cancel();
     _coalesceTimer = Timer(_coalescingWindow, () {
@@ -588,10 +561,8 @@ class RuntimeSyncEngine {
   // ============================================================
   Future<void> _processBufferedEvents() async {
     if (_isProcessingRunning) return;
-
     _isProcessingRunning = true;
     final sw = Stopwatch()..start();
-
     try {
       final events = _conflictBuffer.resolveAll();
       if (events.isEmpty) return;
@@ -633,6 +604,7 @@ class RuntimeSyncEngine {
       if (_shouldCheckpoint() && enableCheckpointing && !_isBackgrounded) {
         _trySaveCheckpoint();
       }
+
       if (_conflictBuffer.isNotEmpty) {
         _scheduleCoalescedProcessing();
       }
@@ -653,7 +625,6 @@ class RuntimeSyncEngine {
       final currentState = ref.read(moduleRuntimeSyncProvider);
       final lastSeq = await _eventJournal.getLastSequenceId();
       if (lastSeq == null) return;
-
       _log('Saving checkpoint at seq=$lastSeq...');
       await _checkpointStore.saveCheckpoint(
         RuntimeCheckpoint(
@@ -681,18 +652,6 @@ class RuntimeSyncEngine {
     }
   }
 
-  /// Phase 6 — TASK B1: Journal VACUUM
-  Future<void> _tryVacuumJournal() async {
-    if (!enableCompaction) return;
-    if (_isBackgrounded) return;
-    try {
-      await _eventJournal.vacuum();
-      _log('Journal VACUUM completed.');
-    } catch (e) {
-      _log('Journal VACUUM failed (non-fatal): $e');
-    }
-  }
-
   void _safe(void Function() fn) {
     try {
       fn();
@@ -715,13 +674,11 @@ class RuntimeSyncEngine {
         'lastCheckpointSequence': _lastCheckpointSequence,
         'lastJournalSequence': _lastJournalSequence,
         'checkpointFallbackOccurred': _checkpointFallbackOccurred,
-
         // Memory (B2)
         'bufferedEventCount': _conflictBuffer.length,
         'journalRowCount': 0,
         'pipelineExecutionCount': _totalPipelineRuns,
         'avgReplayBatchSize': _avgReplayBatchSize,
-
         // Pipeline
         'pipelineRunCount': _pipelineRunCount,
         'totalEventsIngested': _totalEventsIngested,
@@ -731,14 +688,12 @@ class RuntimeSyncEngine {
         'totalProcessingTimeMs': _totalProcessingTime.inMilliseconds,
         'engineUptimeMs':
             DateTime.now().difference(_engineStartTime).inMilliseconds,
-
         // Health (D3)
         'isReplaying': _isReplaying,
         'isInitialized': _initialized,
         'isBackgrounded': _isBackgrounded,
         'healthStatus': _healthStatus.name,
         'reconnectAttempt': _reconnectAttempt,
-
         // Capacity
         'bufferCapacity': _maxBufferedEvents,
         'bufferUtilization': _conflictBuffer.utilization,
@@ -748,13 +703,6 @@ class RuntimeSyncEngine {
   /// Backward-compatible alias
   Map<String, dynamic> get recoveryMetrics => runtimeMetrics;
 }
-
-// Re-export canonical RuntimeHealthStatus from domain observability.
-// This import alias ensures RuntimeSyncEngine consumers can access
-// the enum from either location during migration period.
-// After all imports are updated, this local definition can be removed.
-export 'package:famhub_app/core/dashboard_engine/domain/observability/observability_telemetry_event.dart'
-    show RuntimeHealthStatus;
 
 // ============================================================
 // PENDING INGESTION QUEUE

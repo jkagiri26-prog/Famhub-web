@@ -11,6 +11,8 @@ import 'package:famhub_app/shared/layouts/adaptive_content_grid.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/crops_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
+import 'package:famhub_app/features/farm_management/domain/models/crop_model.dart';
+
 
 class CropsPage extends ConsumerStatefulWidget {
   const CropsPage({super.key});
@@ -28,8 +30,8 @@ class _CropsPageState extends ConsumerState<CropsPage> {
 
   Future<void> _loadCrops() async {
     final farmId = ref.read(farmContextProvider).farmId;
-    if (farmId != null) {
-      ref.read(cropsProvider(farmId).notifier).loadCrops();
+        if (farmId != null) {
+      ref.read(cropsProvider.notifier).loadCrops(farmId: farmId);
     }
   }
 
@@ -37,7 +39,7 @@ class _CropsPageState extends ConsumerState<CropsPage> {
   Widget build(BuildContext context) {
     final farmId = ref.watch(farmContextProvider).farmId;
 
-    if (farmId == null) {
+        if (farmId == null) {
       return const FeaturePageScaffold(
         title: 'Crops',
         subtitle: 'Select a farm to view crops',
@@ -45,7 +47,7 @@ class _CropsPageState extends ConsumerState<CropsPage> {
       );
     }
 
-    final cropState = ref.watch(cropsProvider(farmId));
+    final cropState = ref.watch(cropsProvider);
 
     if (cropState.isLoading) {
       return const FeaturePageScaffold(
@@ -118,7 +120,7 @@ class _CropsPageState extends ConsumerState<CropsPage> {
         SearchBarWidget(
           hintText: 'Search crops...',
           onChanged: (query) {
-            ref.read(cropsProvider(farmId).notifier).setSearchQuery(query);
+            ref.read(cropsProvider.notifier).setSearchQuery(query);
           },
         ),
         const SizedBox(height: 12),
@@ -156,7 +158,6 @@ class _CropCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final statusColor = _statusColor(crop.status);
 
     return Card(

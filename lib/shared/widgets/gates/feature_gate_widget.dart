@@ -1,40 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/access/access_decision_engine.dart';
-import '../../core/context_engine/providers/ui_context_provider.dart';
-import '../../core/subscription/application/providers/subscription_provider.dart';
-
+import 'package:famhub_app/core/feature_flags/application/providers/feature_access_provider.dart';
 class FeatureGate extends ConsumerWidget {
   final String featureKey;
-  final String permission;
   final Widget child;
+  final Widget? lockedWidget;
+  final Widget? maintenanceWidget;
+  final Widget? adminOnlyWidget;
 
   const FeatureGate({
     super.key,
     required this.featureKey,
-    required this.permission,
     required this.child,
+    this.lockedWidget,
+    this.maintenanceWidget,
+    this.adminOnlyWidget,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final appContext = ref.watch(uiContextProvider);
-    final subscription = ref.watch(subscriptionProvider);
+    final accessAsync = ref.watch(featureAccessProvider(featureKey));
 
-    final engine = ref.read(accessDecisionEngineProvider);
-
-    final decision = engine.evaluate(
-      featureKey: featureKey,
-      permission: permission,
-      role: appContext.role,
-      userTier: subscription,
-    );
-
-    if (!decision.allowed) {
-      return const SizedBox.shrink();
-    }
-
+    return accessAsync.when(
+      data: (canAccess) {
+        if (canAccess) {
     return child;
   }
+        return lockedWidget ?? const SizedBox.shrink();
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+}
 }

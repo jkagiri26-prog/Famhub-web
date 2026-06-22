@@ -14,7 +14,9 @@ class AccessDecisionEngine {
 
   void _ensurePolicyLoaded() {
     final asyncPolicy = ref.read(accessPolicyProvider);
-    _cachedPolicy ??= asyncPolicy.valueOrNull;
+        _cachedPolicy ??= asyncPolicy.whenOrNull(
+      data: (data) => data,
+    );
   }
 
   AccessDecision evaluate({

@@ -8,14 +8,12 @@ import 'package:famhub_app/shared/layouts/section_container_widget.dart';
 
 import '../widgets/device_card_widget.dart';
 
-class AgriTechHubPage extends StatelessWidget {
-  const AgriTechHubPage({super.key});
+class AgriTechLabPage extends StatelessWidget {
+  const AgriTechLabPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
-
-    return ResponsiveWrapperWidget(
+    return ResponsiveWrapper(
       child: ListView(
         physics: const BouncingScrollPhysics(),
         children: [
@@ -39,8 +37,8 @@ class AgriTechHubPage extends StatelessWidget {
           const SizedBox(height: 12),
 
           /// DEVICE LIST
-          SectionContainerWidget(
-            child: const Column(
+          const SectionContainerWidget(
+            child: Column(
               children: [
                 DeviceCardWidget(
                   name: 'Soil Sensor A1',

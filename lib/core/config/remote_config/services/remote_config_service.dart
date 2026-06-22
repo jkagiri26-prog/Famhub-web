@@ -1,13 +1,15 @@
+import '../models/module_activation.dart';
+
 class RemoteConfigService {
   Future<List<ModuleActivation>> fetch() async {
     // call Supabase
     return [
-      ModuleActivation(
+      const ModuleActivation(
         moduleName: 'marketplace',
         isEnabled: true,
         allowedRoles: ['farmer', 'trader'],
       ),
-      ModuleActivation(
+      const ModuleActivation(
         moduleName: 'finance',
         isEnabled: false,
         allowedRoles: ['admin'],

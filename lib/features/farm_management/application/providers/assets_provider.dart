@@ -9,12 +9,14 @@
 ///
 /// Provides farm asset registry and management operations.
 /// ============================================================
+library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/features/farm_management/domain/models/asset_model.dart';
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
 
 /// Asset list state
 class AssetListState {
@@ -37,7 +39,10 @@ class AssetListState {
 
   List<AssetModel> get filteredAssets {
     if (typeFilter == null || typeFilter!.isEmpty) return assets;
-    return assets.where((a) => a.assetType == typeFilter).toList();
+
+    return assets
+        .where((a) => a.assetType == typeFilter)
+        .toList();
   }
 
   /// Unique asset types
@@ -60,28 +65,43 @@ class AssetListState {
     return AssetListState(
       assets: assets ?? this.assets,
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage,
-      typeFilter: typeFilter,
+      errorMessage: errorMessage ?? this.errorMessage,
+      typeFilter: typeFilter ?? this.typeFilter,
     );
   }
 }
 
-/// Assets notifier
-class AssetsNotifier extends StateNotifier<AssetListState> {
-  final FarmRepository _repository;
-  final String? _farmId;
+/// ============================================================
+/// ASSETS NOTIFIER (RIVERPOD 3 - NOTIFIER API)
+/// ============================================================
+class AssetsNotifier extends Notifier<AssetListState> {
+  FarmRepository get _repository =>
+      ref.read(farmRepositoryProvider);
 
-  AssetsNotifier(this._repository, this._farmId)
-      : super(AssetListState.initial());
+  @override
+  AssetListState build() {
+    return AssetListState.initial();
+  }
 
-  Future<void> loadAssets() async {
-    if (_farmId == null) return;
+  Future<void> loadAssets({String? farmId}) async {
+    final effectiveFarmId = farmId ?? ref.read(farmContextProvider).farmId;
+    if (effectiveFarmId == null) return;
+
     state = state.copyWith(isLoading: true, errorMessage: null);
+
     try {
-      final assets = await _repository.getAssets(farmId: _farmId!);
-      state = state.copyWith(assets: assets, isLoading: false);
+      final assets =
+          await _repository.getAssets(farmId: effectiveFarmId);
+
+      state = state.copyWith(
+        assets: assets,
+        isLoading: false,
+      );
     } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: e.toString());
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString(),
+      );
     }
   }
 
@@ -90,10 +110,10 @@ class AssetsNotifier extends StateNotifier<AssetListState> {
   }
 }
 
-/// Provider for asset list
-final assetsProvider = StateNotifierProvider.family<AssetsNotifier, AssetListState, String?>(
-  (ref, farmId) {
-    final repository = ref.read(farmRepositoryProvider);
-    return AssetsNotifier(repository, farmId);
-  },
+/// ============================================================
+/// PROVIDER (NOTIFIER)
+/// ============================================================
+final assetsProvider =
+    NotifierProvider<AssetsNotifier, AssetListState>(
+  AssetsNotifier.new,
 );

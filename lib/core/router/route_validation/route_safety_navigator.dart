@@ -1,3 +1,4 @@
+// ignore: dangling_library_doc_comments
 /// ============================================================
 /// ROUTE SAFETY NAVIGATOR
 /// ============================================================
@@ -136,11 +137,11 @@ class RouteSafetyNavigator {
       // ── 3. Check access allowed ──
       final userContext = ref.read(contextProvider);
       if (userContext.role != null) {
-        final accessRule = AccessRegistry.forResource(moduleDef.moduleKey);
+        final accessRule = AccessRegistry.forResource(moduleDef.moduleId);
         if (accessRule != null &&
             !accessRule.allowedRoles.contains(userContext.role) &&
             !accessRule.allowedRoles.contains('*')) {
-          return _RouteValidationResult(
+          return const _RouteValidationResult(
             isValid: false,
             fallbackMessage: 'You do not have access to this module.',
           );
@@ -148,7 +149,7 @@ class RouteSafetyNavigator {
       }
 
       // ── 4. Check feature enabled (for route-level features) ──
-      final feature = FeatureRegistry.byKey(moduleDef.moduleKey);
+      final feature = FeatureRegistry.byKey(moduleDef.moduleId);
       if (feature != null && !feature.defaultEnabled) {
         // If feature is disabled by default, check user context for runtime enablement
         // Full check is done by the feature gate service at widget level.
@@ -169,7 +170,7 @@ class RouteSafetyNavigator {
       }
     }
 
-    return _RouteValidationResult(isValid: true);
+    return const _RouteValidationResult(isValid: true);
   }
 
   /// ============================================================

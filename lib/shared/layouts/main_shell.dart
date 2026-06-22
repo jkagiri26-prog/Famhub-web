@@ -1,7 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../core/services/module_registry.dart';
-import '../core/providers/auth_provider.dart';
+import 'package:famhub_app/core/providers/auth_provider.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/farm_dashboard_page.dart';
+import 'package:famhub_app/features/marketplace/presentation/pages/marketplace_page.dart';
+
+/// Represents a runtime module with UI capabilities for the shell.
+class ShellModule {
+  final String title;
+  final IconData icon;
+  final WidgetBuilder builder;
+
+  const ShellModule({
+    required this.title,
+    required this.icon,
+    required this.builder,
+  });
+}
 
 class MainShell extends StatefulWidget {
   final String role;
@@ -14,10 +28,33 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
+  /// Resolves available modules based on user role.
+  List<ShellModule> _getModulesForRole(String role) {
+    return [
+      const ShellModule(
+        title: 'Farm',
+        icon: Icons.agriculture,
+        builder: _buildFarmPage,
+      ),
+      const ShellModule(
+        title: 'Marketplace',
+        icon: Icons.store,
+        builder: _buildMarketplacePage,
+      ),
+    ];
+  }
+
+    static Widget _buildFarmPage(BuildContext context) {
+    return const FarmDashboardPage();
+  }
+
+  static Widget _buildMarketplacePage(BuildContext context) {
+    return const MarketplacePage();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final role = widget.role;
-    final visibleModules = ModuleRegistry.modulesByRole(role);
+    final visibleModules = _getModulesForRole(widget.role);
 
     if (visibleModules.isEmpty) {
       return const Scaffold(

@@ -1,3 +1,4 @@
+// ignore: dangling_library_doc_comments
 /// ============================================================
 /// WORKFLOW EVENTS — FORMALIZED WORKFLOW ORCHESTRATION SEED
 /// ============================================================
@@ -68,7 +69,7 @@ class WorkflowEvent extends AppEvent {
   /// Payload data for this step
   final Map<String, dynamic> payload;
 
-  const WorkflowEvent({
+  WorkflowEvent({
     required this.workflowName,
     required this.stepName,
     this.status = WorkflowStepStatus.pending,

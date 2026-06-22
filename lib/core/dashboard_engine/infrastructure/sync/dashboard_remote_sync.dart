@@ -30,7 +30,7 @@ class DashboardRemoteSync {
   /// ============================================================
   Future<void> sync() async {
     // Fetch latest dashboard state from backend
-    final remoteState = await remoteDataSource.get('dashboard_sync');
+    await remoteDataSource.get('dashboard_sync');
 
     // TODO:
     // - update local cache if needed

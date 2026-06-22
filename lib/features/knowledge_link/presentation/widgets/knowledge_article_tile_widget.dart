@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:famhub/shared/layout/section_container_widget.dart';
+import 'package:famhub_app/shared/layouts/section_container_widget.dart';
 
 class KnowledgeArticleTileWidget extends StatelessWidget {
   final String title;

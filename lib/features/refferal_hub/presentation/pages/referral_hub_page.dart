@@ -21,7 +21,7 @@ class ReferralHubPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 4,
-      child: ResponsiveWrapperWidget(
+      child: ResponsiveWrapper(
         child: Column(
           children: [
             const SizedBox(height: 12),
@@ -70,8 +70,8 @@ class ReferralHubPage extends StatelessWidget {
 class _OverviewTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      children: const [
+        return ListView(
+      children: [
         ReferralActionCardWidget(
           referralCode: ReferralHubPage.referralCode,
         ),
@@ -81,7 +81,7 @@ class _OverviewTab extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: StatsCardWidget(
+              child: StatsCard(
                 title: 'Total Referrals',
                 value: '12',
                 icon: Icons.group_add,
@@ -89,7 +89,7 @@ class _OverviewTab extends StatelessWidget {
             ),
             SizedBox(width: 12),
             Expanded(
-              child: StatsCardWidget(
+              child: StatsCard(
                 title: 'Total Earned',
                 value: 'KSh 2,400',
                 icon: Icons.payments,

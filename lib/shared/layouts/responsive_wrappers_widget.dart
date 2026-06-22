@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-
 /// FAMHUB Shared Layout
 ///
 /// Standard responsive wrapper for all module pages.
@@ -16,7 +15,7 @@ import 'package:flutter/material.dart';
 ///
 /// This ensures consistent width handling across the platform.
 
-class ResponsiveWrapperWidget extends StatelessWidget {
+class ResponsiveWrapper extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
   final Color? backgroundColor;

@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famhub_app/core/dashboard_engine/domain/observability/observability_telemetry_event.dart';
 import 'package:famhub_app/core/dashboard_engine/application/observability/runtime_metrics_collector.dart';
 import 'package:famhub_app/core/dashboard_engine/application/observability/observability_logger.dart';
+import 'package:famhub_app/core/dashboard_engine/application/prediction/predictive_engine.dart';
+import 'package:famhub_app/core/dashboard_engine/application/providers/provider_health_monitor.dart';
 
 /// ============================================================
 /// OBSERVABILITY PROVIDERS — PHASE 7A
@@ -77,7 +79,10 @@ final runtimeHealthSnapshotStreamProvider =
 /// Auto-updates when the stream emits a new value.
 final latestHealthSnapshotProvider = Provider<RuntimeHealthSnapshot?>((ref) {
   final streamValue = ref.watch(runtimeHealthSnapshotStreamProvider);
-  return streamValue.valueOrNull;
+  return streamValue.maybeWhen(
+    data: (data) => data,
+    orElse: () => null,
+  );
 });
 
 // ─── RAW TELEMETRY EVENT STREAM ────────────────────────────
@@ -94,19 +99,37 @@ final rawTelemetryEventStreamProvider =
 
 /// Feature flag to enable/disable observability layer.
 /// When disabled, collectors no-op and UI is hidden.
-final observabilityEnabledProvider = StateProvider<bool>((ref) {
-  // Default: enabled in debug, disabled in release
-  // Can be overridden by feature flags or config
-  return true;
-});
+class ObservabilityEnabled extends Notifier<bool> {
+  @override
+  bool build() => true;
+
+  void toggle() => state = !state;
+  void disable() => state = false;
+  void enable() => state = true;
+}
+
+final observabilityEnabledProvider =
+    NotifierProvider<ObservabilityEnabled, bool>(
+  ObservabilityEnabled.new,
+);
 
 // ─── DIAGNOSTICS PANEL VISIBILITY ─────────────────────────
 
 /// Controls visibility of the developer diagnostics overlay.
 /// Dev-only — not for production.
-final diagnosticsPanelVisibleProvider = StateProvider<bool>((ref) {
-  return false;
-});
+class DiagnosticsPanelVisible extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void toggle() => state = !state;
+  void show() => state = true;
+  void hide() => state = false;
+}
+
+final diagnosticsPanelVisibleProvider =
+    NotifierProvider<DiagnosticsPanelVisible, bool>(
+  DiagnosticsPanelVisible.new,
+);
 
 // ─── SLOW MODULE LIST PROVIDER ────────────────────────────
 
@@ -160,4 +183,132 @@ class ObservabilitySummary {
     required this.averagePatchDurationMs,
     required this.p95PatchDurationMs,
   });
+}
+
+// ════════════════════════════════════════════════════════════════
+// PHASE 3: RESILIENCE, ANALYTICS, PREDICTION & HEALTH PROVIDERS
+// ════════════════════════════════════════════════════════════════
+
+final resilienceMetricsProvider = Provider<ResilienceMetrics>((ref) {
+  final collector = ref.read(runtimeMetricsCollectorProvider);
+  return collector.resilienceMetrics;
+});
+
+final moduleMetricsProvider = Provider<Map<String, ModuleMetrics>>((ref) {
+  final collector = ref.read(runtimeMetricsCollectorProvider);
+  return collector.allModuleMetrics;
+});
+
+final moduleMetricProvider = Provider.family<ModuleMetrics?, String>((ref, moduleId) {
+  final collector = ref.read(runtimeMetricsCollectorProvider);
+  return collector.moduleMetrics(moduleId);
+});
+
+final moduleHealthIndexProvider = Provider.family<double, String>((ref, moduleId) {
+  final collector = ref.read(runtimeMetricsCollectorProvider);
+  return collector.moduleHealthIndex(moduleId);
+});
+
+final analyticsHistoryProvider = Provider<List<AnalyticsWindow>>((ref) {
+  final collector = ref.read(runtimeMetricsCollectorProvider);
+  return collector.analyticsHistory;
+});
+
+final latestAnalyticsWindowProvider = Provider<AnalyticsWindow?>((ref) {
+  final history = ref.watch(analyticsHistoryProvider);
+  return history.isNotEmpty ? history.last : null;
+});
+
+final predictiveEngineProvider = Provider<PredictiveEngine>((ref) {
+  return PredictiveEngine();
+});
+
+final moduleDegradationScoreProvider = Provider.family<DegradationScore, String>((ref, moduleId) {
+  final engine = ref.read(predictiveEngineProvider);
+  return engine.calculateDegradation(moduleId);
+});
+
+final providerHealthMonitorProvider = Provider<ProviderHealthMonitor>((ref) {
+  return ProviderHealthMonitor.instance;
+});
+
+final providerHealthSnapshotProvider = Provider<ProviderHealthSnapshot>((ref) {
+  final monitor = ref.read(providerHealthMonitorProvider);
+  return monitor.snapshot;
+});
+
+final allProvidersHealthyProvider = Provider<bool>((ref) {
+  final snapshot = ref.watch(providerHealthSnapshotProvider);
+  return snapshot.allHealthy;
+});
+
+final runtimeAnalyticsProvider = Provider<RuntimeAnalytics>((ref) {
+  final collector = ref.read(runtimeMetricsCollectorProvider);
+  final resilience = ref.watch(resilienceMetricsProvider);
+  final snapshot = ref.watch(latestHealthSnapshotProvider);
+
+  return RuntimeAnalytics(
+    healthStatus: snapshot?.healthStatus ?? RuntimeHealthStatus.healthy,
+    totalEvents: collector.totalEvents,
+    eventsPerSecond: collector.eventsPerSecond,
+    failures: collector.failureCount,
+    recoveries: collector.recoveryCount,
+    droppedEvents: collector.droppedEventCount,
+    slowModuleCount: collector.slowModuleCount,
+    resilienceMetrics: resilience,
+    averagePatchDurationMs: snapshot?.averagePatchDurationMs ?? 0,
+    p95PatchDurationMs: snapshot?.p95PatchDurationMs ?? 0,
+    uptime: collector.uptime,
+    analyticsWindows: collector.analyticsHistory,
+  );
+});
+
+class RuntimeAnalytics {
+  final RuntimeHealthStatus healthStatus;
+  final int totalEvents;
+  final double eventsPerSecond;
+  final int failures;
+  final int recoveries;
+  final int droppedEvents;
+  final int slowModuleCount;
+  final ResilienceMetrics resilienceMetrics;
+  final double averagePatchDurationMs;
+  final double p95PatchDurationMs;
+  final Duration uptime;
+  final List<AnalyticsWindow> analyticsWindows;
+
+  const RuntimeAnalytics({
+    required this.healthStatus,
+    required this.totalEvents,
+    required this.eventsPerSecond,
+    required this.failures,
+    required this.recoveries,
+    required this.droppedEvents,
+    required this.slowModuleCount,
+    required this.resilienceMetrics,
+    required this.averagePatchDurationMs,
+    required this.p95PatchDurationMs,
+    required this.uptime,
+    required this.analyticsWindows,
+  });
+
+  double get recoveryRate {
+    final total = failures + recoveries;
+    return total > 0 ? recoveries / total : 1.0;
+  }
+
+  Map<String, dynamic> toJson() => {
+        'healthStatus': healthStatus.name,
+        'totalEvents': totalEvents,
+        'eventsPerSecond': eventsPerSecond,
+        'failures': failures,
+        'recoveries': recoveries,
+        'recoveryRate': recoveryRate,
+        'droppedEvents': droppedEvents,
+        'slowModuleCount': slowModuleCount,
+        'averagePatchDurationMs': averagePatchDurationMs,
+        'p95PatchDurationMs': p95PatchDurationMs,
+        'uptimeMs': uptime.inMilliseconds,
+        'resilience': resilienceMetrics.toJson(),
+      };
 }

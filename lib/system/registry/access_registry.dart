@@ -1,3 +1,4 @@
+// ignore: dangling_library_doc_comments
 /// ============================================================
 /// ACCESS REGISTRY (PURE DECLARATIVE RULES)
 /// ============================================================

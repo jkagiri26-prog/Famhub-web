@@ -28,17 +28,13 @@ class DashboardCompositionEngine {
     final nodes = <CompositionNode>[];
 
     for (final module in modules) {
-      nodes.add(
+            nodes.add(
         CompositionNode(
           id: '${module.moduleKey}_${module.widgetKey}',
           moduleKey: module.moduleKey,
           widgetKey: module.widgetKey,
-
-          /// ❌ NO ZONES ANYMORE
-          /// instead we keep flat structure
+          zone: 'default',
           order: _deriveOrder(module),
-
-          /// optional: layout hints only (safe metadata)
           payload: {
             'layoutHint': layoutDecision.preset.type.toString(),
           },

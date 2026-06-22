@@ -61,8 +61,8 @@ class FarmDashboardController extends AsyncNotifier<FarmDashboardState> {
     );
 
     // ── Cross-module workflow: Production → Marketplace ──
-    final workflowNotifier = ref.read(crossModuleWorkflowProvider(farmId).notifier);
-    await workflowNotifier.onProductionRecorded();
+    final workflowNotifier = ref.read(crossModuleWorkflowProvider.notifier);
+    await workflowNotifier.syncProductionToMarketplace(farmId: farmId);
 
     ref.invalidateSelf();
   }

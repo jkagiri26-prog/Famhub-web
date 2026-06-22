@@ -87,28 +87,6 @@ class DashboardEventBridge {
   }
 
   /// ============================================================
-  /// PATCH IDENTIFIER EXTRACTION
-  /// ============================================================
-  /// Attempts to extract stable ID for deduplication.
-  /// Falls back to hash if not available.
-  String? _extractPatchId(dynamic patch) {
-    try {
-      if (patch == null) return null;
-
-      /// common patterns:
-      if (patch.id != null) return patch.id.toString();
-
-      if (patch.runtimeType.toString().contains('Patch')) {
-        return patch.hashCode.toString();
-      }
-
-      return patch.hashCode.toString();
-    } catch (_) {
-      return null;
-    }
-  }
-
-  /// ============================================================
   /// STOP LISTENER
   /// ============================================================
   void stop() {

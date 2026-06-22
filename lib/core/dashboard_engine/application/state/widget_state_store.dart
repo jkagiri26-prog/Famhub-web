@@ -1,3 +1,7 @@
+import 'package:famhub_app/core/dashboard_engine/domain/models/widget_state_model.dart';
+
+// The domain model WidgetStateModel (from domain/models/widget_state_model.dart)
+// is used instead of a duplicate definition.
 class WidgetStateStore {
   final Map<String, WidgetStateModel> _store = {};
 

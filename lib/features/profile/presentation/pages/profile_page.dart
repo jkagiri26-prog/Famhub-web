@@ -13,7 +13,7 @@ class ProfilePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
 
-    return ResponsiveWrapperWidget(
+    return ResponsiveWrapper(
       child: Column(
         children: [
           const SizedBox(height: 12),
@@ -53,10 +53,10 @@ class ProfilePage extends StatelessWidget {
           const SizedBox(height: 16),
 
           /// METRICS
-          Row(
-            children: const [
+                    Row(
+            children: [
               Expanded(
-                child: StatsCardWidget(
+                child: StatsCard(
                   title: "Farm Size",
                   value: "4.5 Acres",
                   icon: Icons.agriculture,
@@ -64,7 +64,7 @@ class ProfilePage extends StatelessWidget {
               ),
               SizedBox(width: 12),
               Expanded(
-                child: StatsCardWidget(
+                child: StatsCard(
                   title: "Trust Score",
                   value: "98%",
                   icon: Icons.verified,

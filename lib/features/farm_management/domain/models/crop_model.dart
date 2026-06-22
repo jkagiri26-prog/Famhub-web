@@ -23,6 +23,8 @@
 ///     - created_at (timestamptz)
 /// ============================================================
 
+// ignore_for_file: dangling_library_doc_comments
+
 enum CropStatus { planted, growing, harvested, failed }
 
 class CropModel {

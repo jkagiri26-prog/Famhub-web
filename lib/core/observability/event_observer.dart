@@ -76,9 +76,9 @@ class EventObserver {
       };
     }
 
-    if (event is DashboardPatchEvent) {
+        if (event is DashboardPatchEvent) {
       return {
-        "patchType": event.patch.runtimeType.toString(),
+        "patchId": event.patchId,
       };
     }
 

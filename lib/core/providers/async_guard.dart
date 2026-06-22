@@ -1,3 +1,4 @@
+﻿// ignore: dangling_library_doc_comments
 /// ============================================================
 /// ASYNC GUARD — APPLICATION LAYER
 /// ============================================================
@@ -31,6 +32,7 @@
 import 'dart:async';
 
 import 'package:famhub_app/core/providers/typed_failure.dart';
+import 'package:riverpod/riverpod.dart';
 
 /// ============================================================
 /// ASYNC GUARD
@@ -38,8 +40,7 @@ import 'package:famhub_app/core/providers/typed_failure.dart';
 class AsyncGuard {
   /// Guard an async operation with typed failure handling.
   ///
-  /// This wraps `AsyncValue.guard()` and converts generic errors
-  /// to TypedFailure instances.
+  /// Converts generic errors to TypedFailure instances.
   ///
   /// [operation] — The async operation to guard
   /// [onFailure] — Optional callback when a typed failure occurs
