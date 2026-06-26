@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "if [ ! -d \"flutter\" ]; then git clone https://github.com/flutter/flutter.git -b stable --depth 1; fi && ./flutter/bin/flutter pub get && ./flutter/bin/flutter build web --release --base-href / --dart-define=SUPABASE_URL=$SUPABASE_URL --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY",
+  "buildCommand": "bash vercel_build.sh",
   "outputDirectory": "build/web",
   "headers": [
     {
