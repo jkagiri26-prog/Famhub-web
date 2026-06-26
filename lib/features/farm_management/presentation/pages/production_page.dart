@@ -209,9 +209,9 @@ class _ProductionRecordingPageState extends ConsumerState<ProductionRecordingPag
                       ),
                     ),
                     const SizedBox(height: 8),
-                    if (fieldState != null && fieldState.isLoading)
+                    if (fieldState.isLoading)
                       const Text('Loading fields...')
-                    else if (fieldState != null && fieldState.fields.isNotEmpty)
+                    else if (fieldState.fields.isNotEmpty)
                       DropdownButtonFormField<String>(
                         value: _selectedFieldId,
                         decoration: InputDecoration(

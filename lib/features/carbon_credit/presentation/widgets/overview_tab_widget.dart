@@ -10,7 +10,7 @@ class OverviewTabWidget extends StatelessWidget {
   Widget build(BuildContext context) {
         return ListView(
       physics: const BouncingScrollPhysics(),
-      children: [
+      children: const [
         SectionHeaderWidget(
           title: 'Carbon Summary',
         ),

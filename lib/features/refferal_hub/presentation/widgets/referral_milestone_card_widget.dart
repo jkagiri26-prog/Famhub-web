@@ -7,8 +7,8 @@ class ReferralMilestoneCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SectionContainerWidget(
-      child: const Column(
+    return const SectionContainerWidget(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(

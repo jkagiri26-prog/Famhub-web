@@ -11,10 +11,10 @@ class CarbonCreditPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
+    return const DefaultTabController(
       length: 4,
       child: ResponsiveWrapper(
-        child: const Column(
+        child: Column(
           children: [
             SizedBox(height: 12),
 

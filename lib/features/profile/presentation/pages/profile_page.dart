@@ -53,7 +53,7 @@ class ProfilePage extends StatelessWidget {
           const SizedBox(height: 16),
 
           /// METRICS
-                    Row(
+                    const Row(
             children: [
               Expanded(
                 child: StatsCard(

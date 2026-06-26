@@ -1,11 +1,11 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:famhub_app/core/module_runtime_sync/application/coordinators/module_runtime_sync_coordinator.dart';
 import 'package:famhub_app/core/module_runtime_sync/domain/events/module_runtime_event.dart';
 import 'package:famhub_app/core/module_runtime_sync/domain/models/module_runtime_state.dart';
+import 'package:famhub_app/core/module_runtime_sync/infrastructure/persistence/persistence_store.dart';
 import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_diff.dart';
 import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_patch.dart';
 import 'package:famhub_app/core/dashboard_engine/application/reconciliation/dashboard_runtime_reconciler.dart';
@@ -22,8 +22,6 @@ import 'package:famhub_app/core/dashboard_engine/application/pipeline/stages/exe
 import 'package:famhub_app/core/dashboard_engine/application/providers/safe_dashboard_patch_executor_provider.dart';
 import 'package:famhub_app/core/dashboard_engine/application/providers/widget_state_provider.dart';
 import 'package:famhub_app/core/dashboard_engine/application/hydration/widget_hydration_engine.dart';
-import 'package:famhub_app/core/dashboard_engine/infrastructure/journal/event_journal.dart';
-import 'package:famhub_app/core/dashboard_engine/infrastructure/checkpoint/runtime_checkpoint_store.dart';
 import 'package:famhub_app/core/dashboard_engine/infrastructure/repositories/widget_hydration_repository.dart';
 import 'package:famhub_app/core/module_runtime_sync/application/providers/module_runtime_sync_provider.dart';
 import 'package:famhub_app/core/dashboard_engine/domain/observability/observability_telemetry_event.dart';
@@ -54,15 +52,16 @@ import 'package:famhub_app/core/dashboard_engine/application/providers/dashboard
 /// ============================================================
 class RuntimeSyncEngine {
   RuntimeSyncEngine({
-    required this.ref,
+    required this.container,
     required this.supabase,
     required this.coordinator,
+    required this.persistenceStore,
     this.enableCheckpointing = true,
     this.enableCompaction = true,
     this.enableReplayMetrics = true,
     this.enableAdaptiveBatching = true,
   }) : _conflictBuffer = ConflictBuffer(ConflictResolver()) {
-    final reconciler = ref.read(dashboardRuntimeReconcilerProvider);
+    final reconciler = container.read(dashboardRuntimeReconcilerProvider);
     _orchestrator =
         RuntimePipelineOrchestrator<ModuleRuntimeState, DashboardRuntimePatch,
             DashboardRuntimeDiff>(
@@ -71,7 +70,7 @@ class RuntimeSyncEngine {
         DiffStage(reconciler: reconciler),
         PatchStage(reconciler: reconciler),
         ExecutionStage(
-          executor: ref.read(safeDashboardPatchExecutorProvider),
+          executor: container.read(safeDashboardPatchExecutorProvider),
         ),
       ],
     );
@@ -80,13 +79,12 @@ class RuntimeSyncEngine {
   // ============================================================
   // DEPENDENCIES
   // ============================================================
-  final Ref ref;
+  final ProviderContainer container;
+  final PersistenceStore persistenceStore;
   final SupabaseClient supabase;
   final ModuleRuntimeSyncCoordinator coordinator;
   final ConflictBuffer _conflictBuffer;
   late final RuntimePipelineOrchestrator _orchestrator;
-  late final EventJournal _eventJournal;
-  late final RuntimeCheckpointStore _checkpointStore;
   late final WidgetHydrationEngine _hydrationEngine;
   RealtimeChannel? _channel;
 
@@ -208,42 +206,7 @@ class RuntimeSyncEngine {
   // ============================================================
   Future<void> _initPersistence() async {
     _log('Initializing persistence layers...');
-    final dbPath = await getDatabasesPath();
-    final journalPath = join(dbPath, 'dashboard_event_journal.db');
-    final checkpointPath = join(dbPath, 'dashboard_checkpoint.db');
-
-    final journalDb = await openDatabase(journalPath, version: 1,
-        onCreate: (db, version) async {
-      await db.execute('''
-CREATE TABLE IF NOT EXISTS event_journal (
-  seq_id    INTEGER PRIMARY KEY AUTOINCREMENT,
-  entity_id TEXT NOT NULL,
-  timestamp TEXT NOT NULL,
-  source    TEXT NOT NULL,
-  payload   TEXT NOT NULL
-)
-''');
-      await db.execute('''
-CREATE INDEX IF NOT EXISTS idx_event_journal_entity
-ON event_journal (entity_id, timestamp)
-''');
-    });
-
-    final checkpointDb = await openDatabase(checkpointPath, version: 1,
-        onCreate: (db, version) async {
-      await db.execute('''
-CREATE TABLE IF NOT EXISTS runtime_checkpoints (
-  id               INTEGER PRIMARY KEY AUTOINCREMENT,
-  schema_version   INTEGER NOT NULL,
-  last_sequence_id INTEGER NOT NULL,
-  created_at       TEXT    NOT NULL,
-  payload          TEXT    NOT NULL
-)
-''');
-    });
-
-    _eventJournal = EventJournal(journalDb);
-    _checkpointStore = RuntimeCheckpointStore(checkpointDb);
+    await persistenceStore.initialize();
     _log('Persistence layers initialized.');
   }
 
@@ -253,19 +216,19 @@ CREATE TABLE IF NOT EXISTS runtime_checkpoints (
   Future<void> _restoreCheckpoint() async {
     _log('Restoring checkpoint...');
     final sw = Stopwatch()..start();
-    final checkpoint = await _checkpointStore.loadLatestCheckpoint();
-    if (checkpoint == null) {
+    final moduleState = await persistenceStore.loadLatestCheckpoint();
+    if (moduleState == null) {
       _log('No valid checkpoint found. Will use full journal replay.');
       sw.stop();
       _checkpointRestoreDurationMs = sw.elapsedMilliseconds;
       return;
     }
-    _lastCommittedSequenceId = checkpoint.lastSequenceId;
-    _lastCheckpointSequence = checkpoint.lastSequenceId;
-    ref.read(moduleRuntimeSyncProvider.notifier).updateState(checkpoint.moduleState);
+    _lastCommittedSequenceId = await persistenceStore.getLastEventSequenceId();
+    _lastCheckpointSequence = _lastCommittedSequenceId;
+    container.read(moduleRuntimeSyncProvider.notifier).updateState(moduleState);
     sw.stop();
     _checkpointRestoreDurationMs = sw.elapsedMilliseconds;
-    _log('Checkpoint restored: seq=${checkpoint.lastSequenceId}, '
+    _log('Checkpoint restored: seq=$_lastCommittedSequenceId, '
         'duration=${_checkpointRestoreDurationMs}ms');
   }
 
@@ -274,7 +237,7 @@ CREATE TABLE IF NOT EXISTS runtime_checkpoints (
   // ============================================================
   Future<void> _hydrateWidgetState() async {
     _log('Hydrating widget state...');
-    final widgetStore = ref.read(widgetStateStoreProvider);
+    final widgetStore = container.read(widgetStateStoreProvider);
     final repo = WidgetHydrationRepository(supabase);
     _hydrationEngine = WidgetHydrationEngine(repository: repo, store: widgetStore);
     await _hydrationEngine.hydrate();
@@ -290,7 +253,7 @@ CREATE TABLE IF NOT EXISTS runtime_checkpoints (
     _log('Starting adaptive replay...');
     final sw = Stopwatch()..start();
     try {
-      _lastJournalSequence = await _eventJournal.getLastSequenceId();
+      _lastJournalSequence = await persistenceStore.getLastEventSequenceId();
       if (_lastJournalSequence == null) {
         _log('Journal empty, no replay needed.');
         sw.stop();
@@ -299,7 +262,7 @@ CREATE TABLE IF NOT EXISTS runtime_checkpoints (
       }
 
       final sinceSeq = _lastCommittedSequenceId ?? 0;
-      final allEvents = await _eventJournal.readAfter(sinceSeq);
+      final allEvents = await persistenceStore.readEventsAfter(sinceSeq);
       if (allEvents.isEmpty) {
         _log('No new events to replay.');
         sw.stop();
@@ -522,7 +485,7 @@ CREATE TABLE IF NOT EXISTS runtime_checkpoints (
       payload: {'type': type.name, 'data': payload, 'traceId': traceId},
     );
 
-    await _eventJournal.append(event);
+    await persistenceStore.appendEvent(event);
     _conflictBuffer.add(event);
     _scheduleCoalescedProcessing();
 
@@ -567,7 +530,7 @@ CREATE TABLE IF NOT EXISTS runtime_checkpoints (
       final events = _conflictBuffer.resolveAll();
       if (events.isEmpty) return;
 
-      final currentState = ref.read(moduleRuntimeSyncProvider);
+      final currentState = container.read(moduleRuntimeSyncProvider);
 
       // TASK C1: Diff short-circuit — check if events produce meaningful change
       bool hasMeaningfulChange = events.any((e) =>
@@ -591,7 +554,7 @@ CREATE TABLE IF NOT EXISTS runtime_checkpoints (
       _safe(() {
         final nextState = context.nextState;
         if (nextState != null) {
-          ref.read(moduleRuntimeSyncProvider.notifier).updateState(nextState);
+          container.read(moduleRuntimeSyncProvider.notifier).updateState(nextState);
           _pipelineRunCount++;
           _totalPipelineRuns++;
         }
@@ -622,16 +585,13 @@ CREATE TABLE IF NOT EXISTS runtime_checkpoints (
   Future<void> _trySaveCheckpoint({bool force = false}) async {
     if (!enableCheckpointing && !force) return;
     try {
-      final currentState = ref.read(moduleRuntimeSyncProvider);
-      final lastSeq = await _eventJournal.getLastSequenceId();
+      final currentState = container.read(moduleRuntimeSyncProvider);
+      final lastSeq = await persistenceStore.getLastEventSequenceId();
       if (lastSeq == null) return;
       _log('Saving checkpoint at seq=$lastSeq...');
-      await _checkpointStore.saveCheckpoint(
-        RuntimeCheckpoint(
-          lastSequenceId: lastSeq,
-          createdAt: DateTime.now(),
-          moduleState: currentState,
-        ),
+      await persistenceStore.saveCheckpoint(
+        lastSequenceId: lastSeq,
+        moduleState: currentState,
       );
       _log('Checkpoint saved.');
 
@@ -645,7 +605,7 @@ CREATE TABLE IF NOT EXISTS runtime_checkpoints (
 
   Future<void> _tryCompactJournal(int sequenceId) async {
     try {
-      await _eventJournal.pruneBefore(sequenceId);
+      await persistenceStore.pruneEventsBefore(sequenceId);
       _log('Journal compaction: pruned seq_id <= $sequenceId');
     } catch (e) {
       _log('Journal compaction failed (non-fatal): $e');

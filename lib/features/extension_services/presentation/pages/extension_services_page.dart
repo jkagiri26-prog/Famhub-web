@@ -11,8 +11,8 @@ class ExtensionServicesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ResponsiveWrapper(
-      child: const SingleChildScrollView(
+    return const ResponsiveWrapper(
+      child: SingleChildScrollView(
         physics: BouncingScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

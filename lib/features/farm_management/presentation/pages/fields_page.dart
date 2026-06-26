@@ -139,7 +139,7 @@ class _FieldsPageState extends ConsumerState<FieldsPage> {
 class FieldCard extends StatelessWidget {
   final FieldModel field;
 
-  const FieldCard({required this.field});
+  const FieldCard({super.key, required this.field});
 
   @override
   Widget build(BuildContext context) {
@@ -260,7 +260,7 @@ class InfoChip extends StatelessWidget {
   final IconData icon;
   final String label;
 
-  const InfoChip({required this.icon, required this.label});
+  const InfoChip({super.key, required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {

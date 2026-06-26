@@ -23,53 +23,83 @@ import 'features/farm_management/application/providers/farm_dashboard_provider.d
 import 'features/farm_management/application/providers/assets_provider.dart';
 import 'features/marketplace/application/providers/marketplace_provider.dart';
 
+/// 🚀 Startup Coordinator & Platform Persistence
+import 'core/startup/startup_coordinator.dart';
+import 'core/module_runtime_sync/infrastructure/persistence/persistence_store_factory.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  debugPrint('1. Widgets initialized');
 
-  /// 🔌 SUPABASE BOOTSTRAP
-  await Supabase.initialize(
-    url: const String.fromEnvironment('SUPABASE_URL'),
-    anonKey: const String.fromEnvironment('SUPABASE_ANON_KEY'),
-  );
+  // ─────────────────────────────────────────────────────────────
+  // PHASE 1: Validate configuration before any initialization
+  // ─────────────────────────────────────────────────────────────
+  if (!validateEnvironment()) {
+    runConfigurationErrorApp(
+      'Application configuration is incomplete.\n\n'
+      'Please ensure SUPABASE_URL and SUPABASE_ANON_KEY are provided\n'
+      'via --dart-define build arguments.',
+    );
+    return;
+  }
 
-  /// 🌍 ROOT CONTAINER
-  final container = ProviderContainer();
+  // ─────────────────────────────────────────────────────────────
+  // PHASE 2: CRITICAL — Must complete before first frame
+  // ─────────────────────────────────────────────────────────────
 
-    /// 🚀 SYSTEM-DRIVEN DASHBOARD BOOTSTRAP
-  // DashboardBootstrap.initialize() is called when widget builders are available.
-  // Skipped here as it requires module-specific widget builders.
-  // await DashboardBootstrap.initialize(builders: {});
-
-    /// 🔥 LIVE MODULE RUNTIME SYNC ENGINE
-  final runtimeSyncEngine = RuntimeSyncEngine(
-    ref: container as Ref,
-    supabase: Supabase.instance.client,
-    coordinator: container.read(
-      moduleRuntimeSyncCoordinatorProvider,
+  // Stage 1: Supabase initialization (critical, with timeout & error handling)
+  final supabaseResult = await runStage(
+    BootStage.supabaseInit,
+    () => Supabase.initialize(
+      url: const String.fromEnvironment('SUPABASE_URL'),
+      anonKey: const String.fromEnvironment('SUPABASE_ANON_KEY'),
     ),
+    timeout: const Duration(seconds: 15),
   );
 
-  await runtimeSyncEngine.initialize();
+  if (!supabaseResult.success) {
+    runConfigurationErrorApp(
+      'Failed to initialize the application backend.\n\n'
+      'Error: ${supabaseResult.error}\n\n'
+      'Please check your network connection and try again.',
+    );
+    return;
+  }
 
-  /// 🔄 WORKFLOW ORCHESTRATOR — BRIDGES EVENTS → PROVIDERS
-  ///
-  /// Creates a WorkflowOrchestrator with real provider invalidation
-  /// callbacks. This ensures that when cross-module workflows
-  /// (e.g., production → marketplace publish, kpi automation)
-  /// emit WorkflowEvents, the relevant Riverpod providers are
-  /// invalidated and the UI reactively updates.
-  ///
-  /// Callbacks use container.invalidate() rather than ref.invalidate()
-  /// because we're outside the widget tree. The container is the
-  /// root ProviderContainer used by the app.
+    debugPrint('2. Supabase initialized');
+
+  // Stage 2: Create root ProviderContainer
+  final container = ProviderContainer();
+  debugPrint('3. ProviderContainer created');
+
+  // Stage 3: Create persistence store (platform-agnostic)
+  final persistenceStore = createPersistenceStore();
+
+  // Stage 4: Create RuntimeSyncEngine (do NOT initialize yet)
+  RuntimeSyncEngine? runtimeSyncEngine;
+  try {
+    runtimeSyncEngine = RuntimeSyncEngine(
+      container: container,
+      supabase: Supabase.instance.client,
+      coordinator: container.read(
+        moduleRuntimeSyncCoordinatorProvider,
+      ),
+      persistenceStore: persistenceStore,
+    );
+    debugPrint('[BOOT] RuntimeSyncEngine created successfully.');
+  } catch (e, stack) {
+    debugPrint('[BOOT] RuntimeSyncEngine creation failed: $e');
+    debugPrintStack(
+        stackTrace: stack, label: '[BOOT] RuntimeSyncEngine creation');
+    // Non-fatal — app can run without sync engine
+  }
+
+  // Stage 5: Workflow Orchestrator
   final orchestratorConfig = OrchestratorConfig(
     invalidateFarmDashboard: () {
       container.invalidate(farmDashboardProvider);
     },
     invalidateAssets: () {
-      // assetsProvider is a family provider keyed by farmId.
-      // We invalidate the provider itself, which forces re-creation
-      // for all farm IDs on next access.
       container.invalidate(assetsProvider);
     },
     invalidateMarketplace: () {
@@ -77,72 +107,164 @@ void main() async {
     },
   );
 
-  final orchestrator = WorkflowOrchestrator(
-    bus: container.read(eventBusProvider),
-    config: orchestratorConfig,
-      );
-  orchestrator.start();
+  try {
+    final orchestrator = WorkflowOrchestrator(
+      bus: container.read(eventBusProvider),
+      config: orchestratorConfig,
+    );
+    orchestrator.start();
+    debugPrint('[BOOT] WorkflowOrchestrator started successfully.');
+  } catch (e, stack) {
+    debugPrint('[BOOT] WorkflowOrchestrator start failed: $e');
+    debugPrintStack(
+        stackTrace: stack, label: '[BOOT] WorkflowOrchestrator');
+  }
+
+    debugPrint('4. runApp()');
+
+  // ─────────────────────────────────────────────────────────────
+  // PHASE 3: runApp() — First frame MUST render now
+  // ─────────────────────────────────────────────────────────────
 
   runApp(
     UncontrolledProviderScope(
       container: container,
-      child: const MyApp(),
+      child: MyApp(
+        runtimeSyncEngine: runtimeSyncEngine,
+      ),
     ),
-    );
-  }
+  );
+
+  debugPrint('[BOOT] runApp() called — first frame rendering.');
+}
 
 class MyApp extends ConsumerStatefulWidget {
-  const MyApp({super.key});
+  final RuntimeSyncEngine? runtimeSyncEngine;
+
+  const MyApp({
+    super.key,
+    this.runtimeSyncEngine,
+  });
 
   @override
   ConsumerState<MyApp> createState() => _MyAppState();
-  }
+}
 
 class _MyAppState extends ConsumerState<MyApp> {
+  bool _deferredInitStarted = false;
+
   @override
   void initState() {
     super.initState();
 
-    /// 🧠 Context Engine Boot (SINGLE SOURCE OF TRUTH)
-    Future.microtask(() async {
-      await ref.read(contextProvider.notifier).init();
-    });
-}
+    // ─────────────────────────────────────────────────────────
+    // PHASE 4: DEFERRED — After first frame via post-frame callback
+    // ─────────────────────────────────────────────────────────
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_deferredInitStarted) return;
+      _deferredInitStarted = true;
 
-  @override
+      // Stage 6: Context Engine initialization
+      Future.microtask(() async {
+        try {
+          await ref.read(contextProvider.notifier).init();
+          debugPrint('[BOOT] ContextEngine initialized successfully.');
+        } catch (e, stack) {
+          debugPrint('[BOOT] ContextEngine init failed: $e');
+          debugPrintStack(
+              stackTrace: stack, label: '[BOOT] ContextEngine');
+        }
+      });
+
+      // Stage 7: RuntimeSyncEngine deferred initialization
+      final syncEngine = widget.runtimeSyncEngine;
+      if (syncEngine != null) {
+        Future.microtask(() async {
+          try {
+            await syncEngine
+                .initialize()
+                .timeout(const Duration(seconds: 30));
+            debugPrint('[BOOT] RuntimeSyncEngine initialized.');
+          } catch (e, stack) {
+            debugPrint('[BOOT] RuntimeSyncEngine init failed: $e');
+            debugPrintStack(
+                stackTrace: stack, label: '[BOOT] RuntimeSyncEngine');
+            // Non-fatal — sync can retry later
+          }
+        });
+      }
+    });
+  }
+
+        @override
   Widget build(BuildContext context) {
+    debugPrint('5. MyApp.build()');
+
+    // ╔══════════════════════════════════════════════════════════╗
+    // ║  DIAGNOSTIC PHASES                                       ║
+    // ║  Choose ONE phase below by commenting out the others.    ║
+    // ╚══════════════════════════════════════════════════════════╝
+
+    // ==========================================================
+    // PHASE 2: Bypass Context Engine & Router
+    // If this shows "FAMHUB Boot OK" → main() is working fine.
+    // ==========================================================
+    // return const MaterialApp(
+    //   debugShowCheckedModeBanner: false,
+    //   home: Scaffold(
+    //     body: Center(child: Text('FAMHUB Boot OK')),
+    //   ),
+    // );
+
+    // ==========================================================
+    // PHASE 3: Verify Router
+    // If Phase 2 works, swap to this.
+    // Use `home:` instead of `routerConfig:` to bypass GoRouter.
+    // ==========================================================
+    // return MaterialApp(
+    //   debugShowCheckedModeBanner: false,
+    //   home: const Scaffold(
+    //     body: Center(child: Text('Router Bypassed')),
+    //   ),
+    // );
+
+    // ==========================================================
+    // PHASE 4: Verify Dashboard Loading
+    // If Phase 3 works, swap to this.
+    // ==========================================================
+    // return MaterialApp(
+    //   debugShowCheckedModeBanner: false,
+    //   home: const Scaffold(
+    //     body: Text('Dashboard Loaded'),
+    //   ),
+    // );
+
+    // ==========================================================
+    // PRODUCTION: Use when diagnostics are complete.
+    // ==========================================================
     final ctx = ref.watch(contextProvider);
 
-    /// 🚨 GLOBAL SYSTEM LOADING GATE
     if (ctx.isLoading) {
       return const MaterialApp(
         debugShowCheckedModeBanner: false,
         home: Scaffold(
-          body: Center(
-            child: CircularProgressIndicator(),
-          ),
+          body: Center(child: CircularProgressIndicator()),
         ),
       );
     }
 
-    /// 🧭 SYSTEM ROUTER
     final router = ref.watch(appRouterProvider);
 
     return MaterialApp.router(
       routerConfig: router,
       debugShowCheckedModeBanner: false,
-
-      /// 🌐 THEME (FROM ENTITY CONTEXT)
       themeMode: _mapThemeMode(ctx.role ?? 'farmer'),
-
       theme: ThemeData.light(),
       darkTheme: ThemeData.dark(),
     );
   }
 
-  /// Temporary mapping until theme is fully moved to context_engine
   ThemeMode _mapThemeMode(String role) {
-    // Replace later with real preference in EntityContext if needed
     return ThemeMode.system;
   }
 }

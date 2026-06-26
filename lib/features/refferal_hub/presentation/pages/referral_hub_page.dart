@@ -71,7 +71,7 @@ class _OverviewTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
         return ListView(
-      children: [
+      children: const [
         ReferralActionCardWidget(
           referralCode: ReferralHubPage.referralCode,
         ),
