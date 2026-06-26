@@ -22,6 +22,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart' show Icons;  
 
 /// Startup stages for tracing
 enum BootStage {
@@ -81,13 +82,13 @@ class _ConfigurationErrorWidget extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.error_outline,
                   size: 64,
                   color: Color(0xFFE53935),
                 ),
-                const SizedBox(height: 16),
-                const Text(
+                SizedBox(height: 16),
+                Text(
                   'Configuration Error',
                   style: TextStyle(
                     fontSize: 22,
@@ -95,11 +96,11 @@ class _ConfigurationErrorWidget extends StatelessWidget {
                     color: Color(0xFFF5F5F5),
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Text(
                   message,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     color: Color(0xFFBDBDBD),
                   ),

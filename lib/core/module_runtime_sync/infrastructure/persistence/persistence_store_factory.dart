@@ -16,5 +16,5 @@ import 'persistence_store_stub.dart'
 
 /// Create the appropriate PersistenceStore for the current platform.
 PersistenceStore createPersistenceStore() {
-  return _createPlatformStore();
+  return createPlatformStore();
 }

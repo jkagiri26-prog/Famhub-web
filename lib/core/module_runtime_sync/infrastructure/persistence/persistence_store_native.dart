@@ -2,6 +2,6 @@
 import 'sqlite_persistence_facade.dart';
 import 'persistence_store.dart';
 
-PersistenceStore _createPlatformStore() {
+PersistenceStore createPlatformStore() {
   return SqlitePersistenceFacade();
 }

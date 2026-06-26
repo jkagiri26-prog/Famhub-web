@@ -15,6 +15,8 @@ import 'package:famhub_app/core/dashboard_engine/domain/conflict/dashboard_confl
 /// ============================================================
 
 class ConflictResolver {
+  const ConflictResolver();
+
   /// Resolves a batch of conflict events into a final ordered result.
   ///
   /// This is PURE logic only — no side effects.

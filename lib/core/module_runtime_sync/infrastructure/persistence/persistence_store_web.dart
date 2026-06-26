@@ -2,6 +2,6 @@
 import 'memory_persistence_store.dart';
 import 'persistence_store.dart';
 
-PersistenceStore _createPlatformStore() {
+PersistenceStore createPlatformStore() {
   return MemoryPersistenceStore();
 }
