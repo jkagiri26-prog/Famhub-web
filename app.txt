@@ -1,0 +1,4 @@
+       lib\app\app.dart
+       lib\app\app_entry.dart
+       lib\app\app_initializer.dart
+       lib\app\bootstrap.dart

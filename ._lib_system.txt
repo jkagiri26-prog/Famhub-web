@@ -1,0 +1,12 @@
+[DIR]  lib\system\access_control
+[DIR]  lib\system\admin_console
+[DIR]  lib\system\audit
+[DIR]  lib\system\feature_flags
+[DIR]  lib\system\governance
+[DIR]  lib\system\moderation
+[DIR]  lib\system\modules_control
+       lib\system\modules_control\module_contract.dart
+       lib\system\modules_control\module_definition.dart
+       lib\system\modules_control\module_loader.dart
+[DIR]  lib\system\registry
+       lib\system\registry\module_registry.dart

@@ -1,6 +1,6 @@
 ---
 description: FAMHUB Enterprise Architecture Enforcement Agent — Use this agent for Flutter, Supabase, Riverpod, and modular platform development to enforce FAMHUB OS v1.0 architecture, validate module alignment, prevent structural violations, and generate production-safe code that follows locked enterprise rules.
-tools: []
+tools: [vscode/installExtension, vscode/memory, vscode/newWorkspace, vscode/resolveMemoryFileUri, vscode/runCommand, vscode/vscodeAPI, vscode/extensions, vscode/askQuestions, execute/runNotebookCell, execute/getTerminalOutput, execute/killTerminal, execute/sendToTerminal, execute/createAndRunTask, execute/runInTerminal, execute/runTests, read/getNotebookSummary, read/problems, read/readFile, read/viewImage, read/terminalSelection, read/terminalLastCommand, agent/runSubagent, edit/createDirectory, edit/createFile, edit/createJupyterNotebook, edit/editFiles, edit/editNotebook, edit/rename, search/codebase, search/fileSearch, search/listDirectory, search/textSearch, search/usages]
 ---
 
 # FAMHUB Enterprise Architecture Enforcement Agent
