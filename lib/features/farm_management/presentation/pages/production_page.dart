@@ -22,8 +22,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/shared/layouts/feature_page_scaffold.dart';
 
-import 'package:famhub_app/features/farm_management/domain/models/production_model.dart';
-import 'package:famhub_app/features/farm_management/domain/models/field_model.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/production_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/field_entity.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/production_provider.dart';
@@ -328,9 +328,8 @@ class _ProductionRecordingPageState extends ConsumerState<ProductionRecordingPag
       final repository = ref.read(farmRepositoryProvider);
       final quantity = double.parse(_quantityController.text.trim());
 
-      final production = ProductionModel(
+      final production = ProductionEntity(
         id: '',
-        farmId: farmId,
         variantId: null,
         quantity: quantity,
         unitId: _selectedUnitId,

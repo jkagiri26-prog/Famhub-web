@@ -6,7 +6,7 @@ import 'package:famhub_app/core/shell/unified_dashboard_host.dart';
 import 'package:famhub_app/core/router/route_names.dart';
 
 // ── Module pages (registry-driven imports) ──
-import 'package:famhub_app/features/farm_management/presentation/pages/farm_dashboard_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/farm_dashboard_page.dart' as farm;
 import 'package:famhub_app/features/marketplace/presentation/pages/marketplace_page.dart';
 import 'package:famhub_app/features/analytics/presentation/pages/analytics_page.dart';
 import 'package:famhub_app/features/financing/presentation/pages/financing_page.dart';
@@ -24,6 +24,14 @@ import 'package:famhub_app/features/profile/presentation/pages/profile_page.dart
 import 'package:famhub_app/features/profile/presentation/pages/settings_page.dart';
 import 'package:famhub_app/features/admin_console/presentation/pages/admin_dashboard_page.dart';
 import 'package:famhub_app/features/guest/guest_homepage.dart';
+
+// ── Enterprise Phase: System Pages ──
+import 'package:famhub_app/features/home/presentation/pages/home_page.dart';
+import 'package:famhub_app/features/search/presentation/pages/global_search_page.dart';
+import 'package:famhub_app/features/notifications/presentation/pages/notification_center_page.dart';
+import 'package:famhub_app/features/settings/presentation/pages/runtime_settings_page.dart';
+import 'package:famhub_app/features/reports/presentation/pages/reports_center_page.dart';
+import 'package:famhub_app/features/ai_assistant/presentation/pages/ai_assistant_page.dart';
 
 /// ============================================================
 /// APP ROUTER (SINGLE ROUTING AUTHORITY)
@@ -66,8 +74,8 @@ class AppRouter {
             GoRoute(
               path: AppRoutes.farm,
               name: AppRoutes.farmName,
-              builder: (context, state) {
-                return const FarmDashboardPage();
+                            builder: (context, state) {
+                return const farm.FarmManagementPage();
               },
             ),
             GoRoute(
@@ -180,6 +188,48 @@ class AppRouter {
               name: AppRoutes.adminName,
               builder: (context, state) {
                 return const AdminDashboardPage();
+              },
+            ),
+                        GoRoute(
+              path: AppRoutes.home,
+              name: AppRoutes.homeName,
+              builder: (context, state) {
+                return const HomePage();
+              },
+            ),
+            GoRoute(
+              path: AppRoutes.search,
+              name: AppRoutes.searchName,
+              builder: (context, state) {
+                return const GlobalSearchPage();
+              },
+            ),
+            GoRoute(
+              path: AppRoutes.notifications,
+              name: AppRoutes.notificationsName,
+              builder: (context, state) {
+                return const NotificationCenterPage();
+              },
+            ),
+            GoRoute(
+              path: AppRoutes.reports,
+              name: AppRoutes.reportsName,
+              builder: (context, state) {
+                return const ReportsCenterPage();
+              },
+            ),
+            GoRoute(
+              path: AppRoutes.runtimeSettings,
+              name: AppRoutes.runtimeSettingsName,
+              builder: (context, state) {
+                return const RuntimeSettingsPage();
+              },
+            ),
+            GoRoute(
+              path: AppRoutes.aiAssistant,
+              name: AppRoutes.aiAssistantName,
+              builder: (context, state) {
+                return const AIAssistantPage();
               },
             ),
             GoRoute(

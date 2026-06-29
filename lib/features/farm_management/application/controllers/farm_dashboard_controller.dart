@@ -1,30 +1,33 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+/// ============================================================
+/// FARM DASHBOARD CONTROLLER
+/// ============================================================
+///
+/// 🧠 APPLICATION LAYER — controller
+///
+/// Orchestrates farm dashboard data loading and actions.
+/// - Reads farm context
+/// - Loads dashboard summary + today's activities
+/// - Provides action methods for production, activities, marketplace sync
+/// ============================================================
+library;
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famhub_app/features/farm_management/domain/models/activity_model.dart';
 import 'package:famhub_app/features/farm_management/domain/models/farm_dashboard_summary.dart';
-import 'package:famhub_app/features/farm_management/domain/models/production_model.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/production_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
-
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
-import 'package:famhub_app/features/farm_management/application/providers/production_provider.dart';
-import 'package:famhub_app/features/farm_management/application/workflows/production_to_marketplace_workflow.dart';
 import 'package:famhub_app/features/farm_management/application/state/farm_dashboard_state.dart';
 
 /// Dashboard controller:
 /// - Reads farm context
-/// - Loads dashboard data
-/// - Executes farm actions
-/// - Triggers cross-module workflows
+/// - Loads dashboard data (summary + activities)
+/// - Executes farm actions (production, activities, marketplace sync)
 class FarmDashboardController extends AsyncNotifier<FarmDashboardState> {
-  late final FarmRepository repository;
-
   @override
   Future<FarmDashboardState> build() async {
-    // Repository should be injected via provider (future improvement),
-    // but kept simple here for stability phase.
-    repository = ref.read(farmRepositoryProvider);
-
+    final repository = ref.read(farmRepositoryProvider);
     final farmId = ref.watch(farmContextProvider).farmId;
 
     if (farmId == null) {
@@ -50,19 +53,23 @@ class FarmDashboardController extends AsyncNotifier<FarmDashboardState> {
   }
 
   Future<void> recordProduction(
-    ProductionModel production,
+    ProductionEntity production,
   ) async {
     final farmId = ref.read(farmContextProvider).farmId;
     if (farmId == null) return;
 
+    final repository = ref.read(farmRepositoryProvider);
     await repository.recordProduction(
       farmId: farmId,
       production: production,
     );
 
     // ── Cross-module workflow: Production → Marketplace ──
-    final workflowNotifier = ref.read(crossModuleWorkflowProvider.notifier);
-    await workflowNotifier.syncProductionToMarketplace(farmId: farmId);
+    try {
+      await repository.syncMarketplaceListing(farmId: farmId);
+    } catch (_) {
+      // Non-critical
+    }
 
     ref.invalidateSelf();
   }
@@ -73,6 +80,7 @@ class FarmDashboardController extends AsyncNotifier<FarmDashboardState> {
     final farmId = ref.read(farmContextProvider).farmId;
     if (farmId == null) return;
 
+    final repository = ref.read(farmRepositoryProvider);
     await repository.createActivity(
       farmId: farmId,
       activity: activity,
@@ -85,6 +93,7 @@ class FarmDashboardController extends AsyncNotifier<FarmDashboardState> {
     final farmId = ref.read(farmContextProvider).farmId;
     if (farmId == null) return;
 
+    final repository = ref.read(farmRepositoryProvider);
     await repository.syncMarketplaceListing(
       farmId: farmId,
     );

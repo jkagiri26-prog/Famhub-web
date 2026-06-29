@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/entities/listing.dart';
+import '../../domain/enums/listing_status.dart';
 
 /// Reusable listing status badge.
 /// Shows colored pill with status text.

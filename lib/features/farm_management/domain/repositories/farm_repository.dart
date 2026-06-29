@@ -1,11 +1,11 @@
 import 'package:famhub_app/features/farm_management/domain/models/activity_model.dart';
-import 'package:famhub_app/features/farm_management/domain/models/asset_model.dart';
-import 'package:famhub_app/features/farm_management/domain/models/crop_model.dart';
-import 'package:famhub_app/features/farm_management/domain/models/field_model.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/asset_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/field_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/models/farm_dashboard_summary.dart';
-import 'package:famhub_app/features/farm_management/domain/models/farm_entity.dart';
-import 'package:famhub_app/features/farm_management/domain/models/livestock_model.dart';
-import 'package:famhub_app/features/farm_management/domain/models/production_model.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/farm_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/production_entity.dart';
 
 /// Backend-ready contract for all farm-management operations.
 ///
@@ -18,25 +18,31 @@ abstract class FarmRepository {
   Future<List<FarmEntity>> getUserFarms();
 
   // ── Crops ──────────────────────────────────────────────────
-  Future<List<CropModel>> getCrops({required String farmId});
-  Future<void> createCrop({required String farmId, required CropModel crop});
+  Future<List<CropEntity>> getCrops({required String farmId});
+  Future<void> createCrop({required String farmId, required CropEntity crop});
 
   // ── Livestock ──────────────────────────────────────────────
-  Future<List<LivestockModel>> getLivestock({required String farmId});
-  Future<void> createLivestock({required String farmId, required LivestockModel livestock});
+
+
+  Future<List<LivestockEntity>> getLivestock({required String farmId});
+  Future<void> createLivestock({required String farmId, required LivestockEntity livestock});
 
   // ── Assets ─────────────────────────────────────────────────
-  Future<List<AssetModel>> getAssets({required String farmId});
-  Future<void> createAsset({required String farmId, required AssetModel asset});
+  Future<List<AssetEntity>> getAssets({required String farmId});
+  Future<void> createAsset({required String farmId, required AssetEntity asset});
+
+
+
+
 
   // ── Fields ─────────────────────────────────────────────────
-  Future<List<FieldModel>> getFields({required String farmId});
+  Future<List<FieldEntity>> getFields({required String farmId});
 
   // ── Production ─────────────────────────────────────────────
-  Future<List<ProductionModel>> getProductionRecords({required String farmId});
+  Future<List<ProductionEntity>> getProductionRecords({required String farmId});
   Future<void> recordProduction({
     required String farmId,
-    required ProductionModel production,
+    required ProductionEntity production,
   });
 
   // ── Activities ─────────────────────────────────────────────

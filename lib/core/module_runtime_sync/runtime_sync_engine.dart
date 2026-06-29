@@ -60,7 +60,7 @@ class RuntimeSyncEngine {
     this.enableCompaction = true,
     this.enableReplayMetrics = true,
     this.enableAdaptiveBatching = true,
-  }) : _conflictBuffer = ConflictBuffer(ConflictResolver()) {
+  }) : _conflictBuffer = ConflictBuffer(const ConflictResolver()) {
     final reconciler = container.read(dashboardRuntimeReconcilerProvider);
     _orchestrator =
         RuntimePipelineOrchestrator<ModuleRuntimeState, DashboardRuntimePatch,

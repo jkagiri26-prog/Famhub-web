@@ -5,13 +5,12 @@ import 'package:famhub_app/shared/layouts/feature_page_scaffold.dart';
 import 'package:famhub_app/shared/widgets/states/loading_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
-import 'package:famhub_app/shared/widgets/inputs/filter_row.dart';
 import 'package:famhub_app/shared/widgets/cards/kpi_card.dart';
 import 'package:famhub_app/shared/layouts/adaptive_content_grid.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/livestock_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
-import 'package:famhub_app/features/farm_management/domain/models/livestock_model.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
 
 class LivestockPage extends ConsumerStatefulWidget {
   const LivestockPage({super.key});
@@ -30,7 +29,6 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
   Future<void> _loadLivestock() async {
     final farmId = ref.read(farmContextProvider).farmId;
     if (farmId != null) {
-
       ref.read(livestockProvider.notifier).loadLivestock(farmId: farmId);
     }
   }
@@ -52,7 +50,7 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
     if (livestockState.isLoading) {
       return const FeaturePageScaffold(
         title: 'Livestock',
-        subtitle: 'Loading livestock inventory...',
+        subtitle: 'Loading livestock records...',
         children: [LoadingStateWidget(useSkeleton: true)],
       );
     }
@@ -72,68 +70,57 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
       );
     }
 
-    final filtered = livestockState.filteredLivestock;
-    final speciesList = livestockState.species;
+    final livestock = livestockState.livestock;
+    final totalAnimals =
+        livestock.fold<int>(0, (sum, l) => sum + (l.count ?? 0));
+    final speciesCount = livestock.map((l) => l.species).toSet().length;
 
     return FeaturePageScaffold(
       title: 'Livestock',
-      subtitle: '${livestockState.totalCount} animals total',
+      subtitle: '${livestock.length} animal type${livestock.length == 1 ? '' : 's'}',
       children: [
         // ── KPIs ──
         AdaptiveContentGrid(
           items: [
             KPICard(
               label: 'Total Animals',
-              value: '${livestockState.totalCount}',
+              value: '$totalAnimals',
               icon: Icons.pets,
-              iconColor: Colors.brown,
+              iconColor: Colors.orange,
             ),
             KPICard(
               label: 'Species',
-              value: '${speciesList.length}',
+              value: '$speciesCount',
               icon: Icons.category,
-              iconColor: Colors.teal,
+              iconColor: Colors.brown,
             ),
             KPICard(
-              label: 'Groups',
-              value: '${livestockState.livestock.length}',
-              icon: Icons.groups,
-              iconColor: Colors.indigo,
+              label: 'Animal Types',
+              value: '${livestock.length}',
+              icon: Icons.list,
+              iconColor: Colors.teal,
             ),
           ],
         ),
         const SizedBox(height: 16),
 
-                // ── Species Filter ──
-        if (speciesList.length > 1)
-          FilterRow(
-            filters: speciesList
-                .map((s) => FilterChipItem(value: s, label: s))
-                .toList(),
-            selectedValue: livestockState.speciesFilter,
-            onChanged: (species) {
-              ref
-                                    .read(livestockProvider.notifier)
-                  .setSpeciesFilter(species.isEmpty ? null : species);
-            },
-          ),
         // ── Livestock List ──
-        if (filtered.isEmpty)
+        if (livestock.isEmpty)
           const Expanded(
             child: EmptyStateWidget(
               icon: Icons.pets,
-              title: 'No Livestock',
-              subtitle: 'Add your first livestock record.',
+              title: 'No Livestock Recorded',
+              subtitle: 'Add livestock to start tracking.',
             ),
           )
         else
           Expanded(
             child: ListView.separated(
               physics: const BouncingScrollPhysics(),
-              itemCount: filtered.length,
+              itemCount: livestock.length,
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
-                final animal = filtered[index];
+                final animal = livestock[index];
                 return _LivestockCard(animal: animal);
               },
             ),
@@ -144,15 +131,12 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
 }
 
 class _LivestockCard extends StatelessWidget {
-  final LivestockModel animal;
+  final LivestockEntity animal;
 
   const _LivestockCard({required this.animal});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final healthColor = _healthColor(animal.healthStatus);
-
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -170,10 +154,10 @@ class _LivestockCard extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: Colors.brown.withValues(alpha: 0.1),
+                    color: Colors.orange.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.pets, size: 20, color: Colors.brown),
+                  child: const Icon(Icons.pets, size: 20, color: Colors.orange),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -200,86 +184,36 @@ class _LivestockCard extends StatelessWidget {
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4,
+                    horizontal: 10,
+                    vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: healthColor.withValues(alpha: 0.1),
+                    color: Colors.green.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    animal.healthLabel,
-                    style: TextStyle(
+                    '${animal.count ?? 0} head',
+                    style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: healthColor,
+                      color: Colors.green,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                _InfoChip(
-                  icon: Icons.numbers,
-                  label: 'Count: ${animal.count}',
-                ),
-                const SizedBox(width: 12),
-                if (animal.purpose != null)
-                  _InfoChip(
-                    icon: Icons.flag,
-                    label: animal.purpose!,
-                  ),
-                if (animal.ageInMonths != null) ...[
-                  const SizedBox(width: 12),
-                  _InfoChip(
-                    icon: Icons.schedule,
-                    label: '${animal.ageInMonths}mo',
-                  ),
-                ],
-              ],
-            ),
+            if (animal.notes != null && animal.notes!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                animal.notes!,
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ],
         ),
       ),
     );
   }
-
-  Color _healthColor(String? health) {
-    switch (health?.toLowerCase()) {
-      case 'excellent':
-        return Colors.green;
-      case 'good':
-        return Colors.blue;
-      case 'fair':
-        return Colors.orange;
-      case 'poor':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
 }
-
-class _InfoChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _InfoChip({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: Colors.grey.shade500),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-        ),
-      ],
-    );
-  }
-}
-

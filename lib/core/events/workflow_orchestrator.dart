@@ -153,25 +153,11 @@ class WorkflowOrchestrator {
 
   /// Bridge workflow events to provider invalidations
   void _bridgeToProviders(WorkflowEvent event) {
-    switch (event.workflowName) {
-      case 'kpi_automation':
-        _config.invalidateFarmDashboard?.call();
-        break;
-
-      case 'stock_mutation':
-        _config.invalidateAssets?.call();
-        _config.invalidateFarmDashboard?.call();
-        break;
-
-      case 'production_publish':
-      case 'production_to_marketplace':
-        _config.invalidateFarmDashboard?.call();
-        _config.invalidateMarketplace?.call();
-        break;
-
-      default:
-        _config.invalidateFarmDashboard?.call();
-        break;
+    final invalidators = _config.eventBridge[event.workflowName];
+    if (invalidators != null) {
+      for (final invalidate in invalidators) {
+        invalidate();
+      }
     }
   }
 
@@ -195,16 +181,39 @@ class WorkflowOrchestrator {
 /// Signature for provider invalidation callbacks
 typedef ProviderInvalidator = void Function();
 
-/// Orchestrator configuration with invalidation callbacks
+/// Orchestrator configuration with generic event-to-provider mapping
+///
+/// Instead of hardcoded workflow→provider mappings, each workflow
+/// name can register any number of invalidation callbacks.
+/// Modules register their own invalidators at startup.
+///
+/// Usage:
+/// ```dart
+/// final config = OrchestratorConfig(
+///   eventBridge: {
+///     'kpi_automation': [() => container.invalidate(farmDashboardProvider)],
+///     'stock_mutation': [
+///       () => container.invalidate(assetsProvider),
+///       () => container.invalidate(farmDashboardProvider),
+///     ],
+///     'production_publish': [
+///       () => container.invalidate(farmDashboardProvider),
+///       () => container.invalidate(marketplaceProvider),
+///     ],
+///     'production_to_marketplace': [
+///       () => container.invalidate(farmDashboardProvider),
+///       () => container.invalidate(marketplaceProvider),
+///     ],
+///   },
+/// );
+/// ```
 class OrchestratorConfig {
-  final ProviderInvalidator? invalidateFarmDashboard;
-  final ProviderInvalidator? invalidateAssets;
-  final ProviderInvalidator? invalidateMarketplace;
+  /// Generic event-to-provider binding.
+  /// Key = workflow name, Value = list of invalidation callbacks.
+  final Map<String, List<ProviderInvalidator>> eventBridge;
 
   const OrchestratorConfig({
-    this.invalidateFarmDashboard,
-    this.invalidateAssets,
-    this.invalidateMarketplace,
+    this.eventBridge = const {},
   });
 }
 

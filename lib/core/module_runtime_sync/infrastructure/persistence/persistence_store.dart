@@ -11,6 +11,7 @@
 ///   - Platform differences belong in infrastructure ONLY
 ///   - No kIsWeb checks outside this layer
 /// ============================================================
+library;
 
 import 'package:famhub_app/core/dashboard_engine/domain/conflict/dashboard_conflict_event.dart';
 import 'package:famhub_app/core/module_runtime_sync/domain/models/module_runtime_state.dart';

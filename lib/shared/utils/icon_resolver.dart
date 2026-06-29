@@ -166,6 +166,52 @@ class IconResolver {
         return Icons.feedback_outlined;
       case 'help':
         return Icons.help_outline;
+      case 'terminal':
+        return Icons.terminal_outlined;
+      case 'widgets':
+        return Icons.widgets_outlined;
+      case 'campaign':
+        return Icons.campaign_outlined;
+      case 'lightbulb':
+        return Icons.lightbulb_outline;
+      case 'list_alt':
+        return Icons.list_alt_outlined;
+      case 'add_circle':
+        return Icons.add_circle_outline;
+      case 'sell':
+        return Icons.sell_outlined;
+      case 'leaderboard':
+        return Icons.leaderboard_outlined;
+      case 'verified':
+        return Icons.verified_outlined;
+      case 'track_changes':
+        return Icons.track_changes_outlined;
+      case 'history':
+        return Icons.history_outlined;
+      case 'touch_app':
+        return Icons.touch_app_outlined;
+      case 'more_vert':
+        return Icons.more_vert_outlined;
+      case 'description':
+        return Icons.description_outlined;
+      case 'person':
+        return Icons.person_outline;
+      case 'admin_panel_settings':
+        return Icons.admin_panel_settings_outlined;
+      case 'wb_sunny':
+        return Icons.wb_sunny_outlined;
+      case 'auto_awesome':
+        return Icons.auto_awesome_outlined;
+      case 'bolt':
+        return Icons.bolt_outlined;
+      case 'push_pin':
+        return Icons.push_pin_outlined;
+      case 'qr_code_scanner':
+        return Icons.qr_code_scanner_outlined;
+      case 'people':
+        return Icons.people_outline;
+      case 'school':
+        return Icons.school_outlined;
       default:
         return Icons.widgets_outlined;
     }
@@ -238,5 +284,28 @@ class IconResolver {
         'report',
         'feedback',
         'help',
+        'terminal',
+        'widgets',
+        'campaign',
+        'lightbulb',
+        'list_alt',
+        'add_circle',
+        'sell',
+        'leaderboard',
+        'verified',
+        'track_changes',
+        'history',
+        'touch_app',
+        'more_vert',
+        'description',
+        'person',
+        'admin_panel_settings',
+        'wb_sunny',
+        'auto_awesome',
+        'bolt',
+        'push_pin',
+        'qr_code_scanner',
+        'people',
+        'school',
       };
 }

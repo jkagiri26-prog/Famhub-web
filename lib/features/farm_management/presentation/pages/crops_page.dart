@@ -11,7 +11,8 @@ import 'package:famhub_app/shared/layouts/adaptive_content_grid.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/crops_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
-import 'package:famhub_app/features/farm_management/domain/models/crop_model.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/enums/crop_status.dart';
 
 
 class CropsPage extends ConsumerStatefulWidget {
@@ -152,7 +153,7 @@ class _CropsPageState extends ConsumerState<CropsPage> {
 }
 
 class _CropCard extends StatelessWidget {
-  final CropModel crop;
+  final CropEntity crop;
 
   const _CropCard({required this.crop});
 

@@ -26,9 +26,21 @@ class ModuleService {
   Future<List<SystemModule>> getActiveModules() async {
     if (_cache != null) return _cache!;
 
-    final response = await _client
+                final response = await _client
         .from('system.modules')
-        .select('module_key, module_name, is_enabled, dashboard_visible, maintenance_mode, premium_only, display_order');
+        .select('module_key, module_name, is_enabled, '
+            'dashboard_visible, sidebar_visible, bottom_nav_visible, '
+            'quick_action_visible, launcher_visible, '
+            'desktop_only, mobile_only, tablet_only, '
+            'maintenance_mode, maintenance_message, '
+            'premium_only, requires_subscription, '
+            'requires_entity, requires_farm, requires_business, '
+            'requires_verification, '
+            'display_order, badge_text, badge_color, '
+            'notification_count_source, icon_color, '
+            'section, category, group, '
+            'parent_module, sort_group, '
+            'default_open, pinned');
 
     final List data = response;
 

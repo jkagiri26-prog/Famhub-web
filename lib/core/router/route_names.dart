@@ -109,6 +109,38 @@ class AppRoutes {
   // SYSTEM
   // =========================
 
+    // =========================
+  // ENTERPRISE PHASE: SYSTEM PAGES
+  // =========================
+
+  /// Home screen
+  static const home = '/home';
+  static const homeName = 'home';
+
+  /// Global search
+  static const search = '/search';
+  static const searchName = 'search';
+
+  /// Notification center
+  static const notifications = '/notifications';
+  static const notificationsName = 'notifications';
+
+  /// Command palette
+  static const commandPalette = '/command-palette';
+  static const commandPaletteName = 'commandPalette';
+
+  /// Runtime settings
+  static const runtimeSettings = '/settings';
+  static const runtimeSettingsName = 'runtimeSettings';
+
+  /// Reports center
+  static const reports = '/reports';
+  static const reportsName = 'reports';
+
+  /// AI assistant
+  static const aiAssistant = '/ai-assistant';
+  static const aiAssistantName = 'aiAssistant';
+
   /// 404 fallback
   static const notFound = '/404';
 }

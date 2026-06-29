@@ -9,9 +9,10 @@ import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
 import 'package:famhub_app/shared/widgets/cards/info_tile_widget.dart';
 
 import 'package:famhub_app/features/marketplace/presentation/widgets/listing_card_widget.dart';
-// import 'package:famhub_app/features/marketplace/presentation/widgets/listing_status_badge.dart';
+import 'package:famhub_app/features/marketplace/presentation/widgets/listing_status_badge.dart';
 import 'package:famhub_app/features/marketplace/presentation/widgets/marketplace_health_widget.dart';
 import 'package:famhub_app/features/marketplace/domain/entities/listing.dart';
+import 'package:famhub_app/features/marketplace/domain/enums/listing_status.dart';
 import 'package:famhub_app/features/marketplace/application/providers/marketplace_provider.dart';
 import 'package:famhub_app/features/marketplace/presentation/pages/seller_profile_page.dart';
 

@@ -1,10 +1,45 @@
+/// ============================================================
+/// DEPRECATED - Legacy Shell (Do Not Use)
+/// ============================================================
+///
+/// STATUS: LEGACY / DEPRECATED
+///
+/// This file contains the OLD MainShell which was the shell
+/// before the runtime architecture was built. It contains:
+///   - Hardcoded Farm and Marketplace modules
+///   - Direct imports of feature pages
+///   - Non-responsive layout
+///   - No runtime governance
+///
+/// DO NOT IMPORT OR USE THIS FILE.
+///
+/// USE INSTEAD:
+///   - UnifiedAppShell in core/shell/unified_app_shell.dart
+///   - DesktopShell in core/shell/desktop_shell.dart
+///   - TabletShell in core/shell/tablet_shell.dart
+///   - MobileShell in core/shell/mobile_shell.dart
+///
+/// The runtime architecture (RuntimeCompositionEngine +
+/// RuntimeContributionEngine + Context Engine) has fully
+/// replaced this legacy shell.
+///
+/// This file is kept only for reference and will be removed
+/// in a future cleanup phase.
+///
+/// Last updated: Stabilization Phase A
+/// ============================================================
+library;
+
+// ignore_for_file: unused_import, unused_element
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:famhub_app/core/providers/auth_provider.dart';
-import 'package:famhub_app/features/farm_management/presentation/pages/farm_dashboard_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/farm_dashboard_page.dart' as farm;
 import 'package:famhub_app/features/marketplace/presentation/pages/marketplace_page.dart';
 
 /// Represents a runtime module with UI capabilities for the shell.
+/// DEPRECATED - This class is part of the legacy shell
 class ShellModule {
   final String title;
   final IconData icon;
@@ -17,6 +52,7 @@ class ShellModule {
   });
 }
 
+/// DEPRECATED - Use UnifiedAppShell instead
 class MainShell extends StatefulWidget {
   final String role;
   const MainShell({super.key, required this.role});
@@ -45,7 +81,7 @@ class _MainShellState extends State<MainShell> {
   }
 
     static Widget _buildFarmPage(BuildContext context) {
-    return const FarmDashboardPage();
+    return const farm.FarmManagementPage();
   }
 
   static Widget _buildMarketplacePage(BuildContext context) {
@@ -63,7 +99,6 @@ class _MainShellState extends State<MainShell> {
     }
 
     return Scaffold(
-      // The Shell provides the structural Scaffold and AppBar
       appBar: AppBar(
         title: const Text("FAMHUB", style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
@@ -75,7 +110,6 @@ class _MainShellState extends State<MainShell> {
       body: SafeArea(
         child: IndexedStack(
           index: _currentIndex,
-          // Modules are rendered here as children without their own Scaffolds
           children: visibleModules.map((m) => m.builder(context)).toList(),
         ),
       ),
@@ -139,7 +173,6 @@ class _MainShellState extends State<MainShell> {
             title: const Text("Logout",
                 style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
             onTap: () {
-              // Properly resets the app state via the Provider
               context.read<AuthProvider>().logout();
               Navigator.pushReplacementNamed(context, '/auth');
             },

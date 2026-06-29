@@ -11,7 +11,7 @@ import 'package:famhub_app/shared/layouts/adaptive_content_grid.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/assets_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
-import 'package:famhub_app/features/farm_management/domain/models/asset_model.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/asset_entity.dart';
 
 class AssetsPage extends ConsumerStatefulWidget {
   const AssetsPage({super.key});
@@ -161,7 +161,7 @@ class _AssetsPageState extends ConsumerState<AssetsPage> {
 }
 
 class _AssetCard extends StatelessWidget {
-  final AssetModel asset;
+  final AssetEntity asset;
 
   const _AssetCard({required this.asset});
 

@@ -1,4 +1,3 @@
-// ignore: dangling_library_doc_comments
 /// ============================================================
 /// ACTIVITY TEMPLATE LOADER
 /// ============================================================
@@ -15,6 +14,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../workflows/dynamic_activity_engine.dart';
+import 'package:famhub_app/features/farm_management/domain/models/template_attribute.dart';
+import 'package:famhub_app/features/farm_management/domain/models/workflow_stage.dart';
+import 'package:famhub_app/features/farm_management/domain/enums/attribute_type.dart';
 
 /// Loads activity templates from Supabase with fallback to presets.
 class ActivityTemplateLoader {
@@ -133,3 +135,4 @@ class ActivityTemplateLoader {
 final activityTemplateLoaderProvider = Provider<ActivityTemplateLoader>((ref) {
   return ActivityTemplateLoader();
 });
+

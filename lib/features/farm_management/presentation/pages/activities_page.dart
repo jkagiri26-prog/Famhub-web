@@ -64,10 +64,9 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
     Future.microtask(() => _loadActivities());
   }
 
-    Future<void> _loadActivities() async {
+        Future<void> _loadActivities() async {
     final farmId = ref.read(farmContextProvider).farmId;
     if (farmId != null) {
-      ref.read(activitiesProvider.notifier).setFarmId(farmId);
       ref.read(activitiesProvider.notifier).loadActivities();
     }
   }

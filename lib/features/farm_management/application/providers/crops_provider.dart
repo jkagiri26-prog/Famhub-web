@@ -13,14 +13,14 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:famhub_app/features/farm_management/domain/models/crop_model.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
 
 /// Crop list state
 class CropListState {
-  final List<CropModel> crops;
+  final List<CropEntity> crops;
   final bool isLoading;
   final String? errorMessage;
   final String? searchQuery;
@@ -37,7 +37,7 @@ class CropListState {
         isLoading: true,
       );
 
-  List<CropModel> get filteredCrops {
+  List<CropEntity> get filteredCrops {
     if (searchQuery == null || searchQuery!.isEmpty) return crops;
 
     final query = searchQuery!.toLowerCase();
@@ -49,7 +49,7 @@ class CropListState {
   }
 
   CropListState copyWith({
-    List<CropModel>? crops,
+    List<CropEntity>? crops,
     bool? isLoading,
     String? errorMessage,
     String? searchQuery,
@@ -112,7 +112,7 @@ final cropsProvider =
 
 /// Auto-loading crop provider based on farm context
 final autoCropsProvider =
-    Provider.family<AsyncValue<List<CropModel>>, String?>(
+    Provider.family<AsyncValue<List<CropEntity>>, String?>(
   (ref, farmId) {
     final cropsState = ref.watch(cropsProvider);
 

@@ -10,7 +10,7 @@ import 'package:famhub_app/shared/layouts/adaptive_content_grid.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/fields_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
-import 'package:famhub_app/features/farm_management/domain/models/field_model.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/field_entity.dart';
 
 class FieldsPage extends ConsumerStatefulWidget {
   const FieldsPage({super.key});
@@ -137,7 +137,7 @@ class _FieldsPageState extends ConsumerState<FieldsPage> {
 }
 
 class FieldCard extends StatelessWidget {
-  final FieldModel field;
+  final FieldEntity field;
 
   const FieldCard({super.key, required this.field});
 

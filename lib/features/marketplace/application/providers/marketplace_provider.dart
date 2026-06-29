@@ -2,13 +2,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/listing.dart';
 import '../../domain/repositories/marketplace_repository.dart';
-import '../../infrastructure/services/marketplace_service.dart';
+import '../../domain/enums/listing_status.dart';
+import '../../infrastructure/data_sources/marketplace_remote_data_source.dart';
+import '../../infrastructure/repositories/marketplace_repository_impl.dart';
 
 /// ============================================================
-/// SERVICE LAYER
+/// DATA SOURCE LAYER
 /// ============================================================
-final marketplaceServiceProvider = Provider<MarketplaceService>((ref) {
-  return MarketplaceService();
+final marketplaceRemoteDataSourceProvider =
+    Provider<MarketplaceRemoteDataSource>((ref) {
+  return MarketplaceRemoteDataSource();
 });
 
 /// ============================================================
@@ -16,8 +19,8 @@ final marketplaceServiceProvider = Provider<MarketplaceService>((ref) {
 /// ============================================================
 final marketplaceRepositoryProvider =
     Provider<MarketplaceRepository>((ref) {
-  final service = ref.watch(marketplaceServiceProvider);
-  return MarketplaceRepository(service);
+  final dataSource = ref.watch(marketplaceRemoteDataSourceProvider);
+  return MarketplaceRepositoryImpl(dataSource);
 });
 
 /// ============================================================

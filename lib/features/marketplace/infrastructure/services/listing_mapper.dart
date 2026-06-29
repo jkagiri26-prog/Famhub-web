@@ -1,4 +1,5 @@
 import '../../domain/entities/listing.dart';
+import '../../domain/enums/listing_status.dart';
 
 class ListingMapper {
   static Listing fromJson(Map<String, dynamic> json) {

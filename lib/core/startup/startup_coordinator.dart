@@ -19,6 +19,7 @@
 ///   - Alter business logic
 ///   - Introduce new state management
 /// ============================================================
+library;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -82,13 +83,13 @@ class _ConfigurationErrorWidget extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
+                const Icon(
                   Icons.error_outline,
                   size: 64,
                   color: Color(0xFFE53935),
                 ),
-                SizedBox(height: 16),
-                Text(
+                const SizedBox(height: 16),
+                const Text(
                   'Configuration Error',
                   style: TextStyle(
                     fontSize: 22,
@@ -96,11 +97,11 @@ class _ConfigurationErrorWidget extends StatelessWidget {
                     color: Color(0xFFF5F5F5),
                   ),
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
                 Text(
                   message,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 14,
                     color: Color(0xFFBDBDBD),
                   ),

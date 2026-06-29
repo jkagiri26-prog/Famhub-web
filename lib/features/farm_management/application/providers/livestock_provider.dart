@@ -13,14 +13,14 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:famhub_app/features/farm_management/domain/models/livestock_model.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
 
 /// Livestock list state
 class LivestockListState {
-  final List<LivestockModel> livestock;
+  final List<LivestockEntity> livestock;
   final bool isLoading;
   final String? errorMessage;
   final String? speciesFilter;
@@ -37,8 +37,8 @@ class LivestockListState {
         isLoading: true,
       );
 
-  /// Filtered list by species
-  List<LivestockModel> get filteredLivestock {
+
+  List<LivestockEntity> get filteredLivestock {
     if (speciesFilter == null || speciesFilter!.isEmpty) return livestock;
     return livestock
         .where((l) =>
@@ -57,7 +57,7 @@ class LivestockListState {
     ..sort();
 
   LivestockListState copyWith({
-    List<LivestockModel>? livestock,
+    List<LivestockEntity>? livestock,
     bool? isLoading,
     String? errorMessage,
     String? speciesFilter,

@@ -7,7 +7,7 @@ import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
 import 'package:famhub_app/shared/layouts/adaptive_content_grid.dart';
 
-import 'package:famhub_app/features/farm_management/domain/models/farm_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/farm_entity.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_selector_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
 

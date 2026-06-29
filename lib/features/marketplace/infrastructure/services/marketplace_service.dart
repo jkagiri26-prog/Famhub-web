@@ -1,9 +1,23 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../domain/entities/listing.dart';
-/// Marketplace service layer.
+/// ============================================================
+/// MARKETPLACE SERVICE (LEGACY WRAPPER)
+/// ============================================================
+///
+/// ⚠️ LEGACY — Kept for backward compatibility.
+/// New code should use MarketplaceRemoteDataSource directly
+/// via MarketplaceRepositoryImpl.
 ///
 /// Communicates with `marketplace.listings` table via Supabase.
 /// All queries are scoped via RLS — no user_id from frontend.
+/// ============================================================
+library;
+
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../domain/enums/listing_status.dart';
+
+/// Marketplace service layer.
+///
+/// ⚠️ LEGACY: Use [MarketplaceRemoteDataSource] for new development.
+@Deprecated('Use MarketplaceRemoteDataSource instead')
 class MarketplaceService {
   final SupabaseClient _client;
 

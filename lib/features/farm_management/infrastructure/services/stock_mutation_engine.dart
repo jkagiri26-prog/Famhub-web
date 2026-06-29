@@ -28,64 +28,10 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:famhub_app/core/events/app_event_bus.dart';
-import 'package:famhub_app/core/events/events.dart';
 import 'package:famhub_app/core/events/workflow_events.dart';
-
-/// Direction of stock movement
-enum StockDirection {
-  /// Stock flows INTO inventory (production, purchase)
-  inflow,
-
-  /// Stock flows OUT OF inventory (consumption, sale)
-  outflow,
-
-  /// Stock is adjusted (correction, loss)
-  adjustment,
-}
-
-/// Result of a stock mutation operation
-class StockMutationResult {
-  final String assetId;
-  final StockDirection direction;
-  final double quantity;
-  final double newBalance;
-  final bool success;
-  final String? errorMessage;
-
-  const StockMutationResult({
-    required this.assetId,
-    required this.direction,
-    required this.quantity,
-    required this.newBalance,
-    required this.success,
-    this.errorMessage,
-  });
-}
-
-/// Stock movement record for persistence
-class StockMovement {
-  final String? id;
-  final String farmId;
-  final String? assetId;
-  final String? activityId;
-  final StockDirection direction;
-  final double quantity;
-  final String? unitId;
-  final String? description;
-  final DateTime timestamp;
-
-  const StockMovement({
-    this.id,
-    required this.farmId,
-    this.assetId,
-    this.activityId,
-    required this.direction,
-    required this.quantity,
-    this.unitId,
-    this.description,
-    required this.timestamp,
-  });
-}
+import 'package:famhub_app/features/farm_management/domain/enums/stock_direction.dart';
+import 'package:famhub_app/features/farm_management/domain/models/stock_mutation_result.dart';
+import 'package:famhub_app/features/farm_management/domain/models/stock_movement.dart';
 
 /// ============================================================
 /// STOCK MUTATION ENGINE

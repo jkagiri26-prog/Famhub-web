@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'listing_card_widget.dart';
 import 'listing_status_badge.dart';
 import '../../domain/entities/listing.dart';
+import '../../domain/enums/listing_status.dart';
 import '../pages/product_details_page.dart';
 
 /// Reusable listing tile with navigation, status badge, and card display.

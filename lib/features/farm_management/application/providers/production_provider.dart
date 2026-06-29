@@ -14,14 +14,14 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:famhub_app/features/farm_management/domain/models/production_model.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/production_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
 
 /// Production state
 class ProductionState {
-  final List<ProductionModel> records;
+  final List<ProductionEntity> records;
   final bool isLoading;
   final String? errorMessage;
 
@@ -44,7 +44,7 @@ class ProductionState {
   int get recordCount => records.length;
 
   ProductionState copyWith({
-    List<ProductionModel>? records,
+    List<ProductionEntity>? records,
     bool? isLoading,
     String? errorMessage,
   }) {

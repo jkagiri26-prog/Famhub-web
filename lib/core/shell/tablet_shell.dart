@@ -8,12 +8,13 @@
 ///
 /// ✅ Responsibilities:
 ///   - Tablet-specific shell layout (600-1024px)
-///   - Side navigation rail + content
+///   - Compact sidebar navigation rail (backend-driven)
 ///   - Child content rendering
 ///
 /// ❌ Does NOT:
 ///   - Contain business logic
 ///   - Reference registries directly for business rules
+///   - Hardcode navigation items
 /// ============================================================
 
 import 'package:flutter/material.dart';
@@ -38,16 +39,16 @@ class TabletShell extends ConsumerWidget {
       body: SafeArea(
         child: Row(
           children: [
-            // ── Side Navigation Rail (Compact) ──
-            const SideNav(),
-            
+            // ── Compact Side Navigation Rail ──
+            const SideNav(isCollapsed: true),
+
             // ── Vertical divider ──
             VerticalDivider(
               width: 1,
               thickness: 1,
               color: Colors.grey.shade200,
             ),
-            
+
             // ── Main Content ──
             Expanded(
               child: Container(

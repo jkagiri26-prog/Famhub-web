@@ -8,6 +8,7 @@
 /// Web → MemoryPersistenceStore
 /// Mobile/Desktop → SQLitePersistenceStore
 /// ============================================================
+library;
 
 import 'persistence_store.dart';
 import 'persistence_store_stub.dart'

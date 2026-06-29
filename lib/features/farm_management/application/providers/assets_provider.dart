@@ -13,14 +13,14 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:famhub_app/features/farm_management/domain/models/asset_model.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/asset_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
 
 /// Asset list state
 class AssetListState {
-  final List<AssetModel> assets;
+  final List<AssetEntity> assets;
   final bool isLoading;
   final String? errorMessage;
   final String? typeFilter;
@@ -37,7 +37,7 @@ class AssetListState {
         isLoading: true,
       );
 
-  List<AssetModel> get filteredAssets {
+  List<AssetEntity> get filteredAssets {
     if (typeFilter == null || typeFilter!.isEmpty) return assets;
 
     return assets
@@ -50,14 +50,14 @@ class AssetListState {
       assets.map((a) => a.assetType).toSet().toList()..sort();
 
   /// Assets needing maintenance (90+ days since last)
-  List<AssetModel> get needsMaintenance =>
+  List<AssetEntity> get needsMaintenance =>
       assets.where((a) {
         if (a.daysSinceMaintenance == null) return true;
         return a.daysSinceMaintenance! >= 90;
       }).toList();
 
   AssetListState copyWith({
-    List<AssetModel>? assets,
+    List<AssetEntity>? assets,
     bool? isLoading,
     String? errorMessage,
     String? typeFilter,

@@ -128,6 +128,7 @@ class FinancialRecordingService {
         'amount': amount,
         'description': description,
         'recorded_at': DateTime.now().toIso8601String(),
+        // category column will be added to financial_records schema
         if (category != null) 'category': category,
       };
 
@@ -155,3 +156,4 @@ class FinancialRecordingService {
     }
   }
 }
+

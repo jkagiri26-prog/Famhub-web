@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:famhub_app/system/modules_control/module_contract.dart';
-import 'package:famhub_app/features/farm_management/domain/permissions/permissions.dart';
+import 'package:famhub_app/features/farm_management/config/permissions.dart';
 
 class FarmManagementModule extends AppModule {
   static const String moduleId = 'farm_management';

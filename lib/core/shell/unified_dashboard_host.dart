@@ -1,14 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
+import 'package:famhub_app/core/navigation/nav_config.dart';
 import 'package:famhub_app/core/providers/module_provider.dart';
-import 'package:famhub_app/core/modules/domain/models/system_module.dart';
-import 'package:famhub_app/system/registry/module_registry.dart';
-import 'package:famhub_app/shared/utils/icon_resolver.dart';
-import 'package:famhub_app/core/dashboard_engine/application/validation/dashboard_runtime_validator.dart';
-import 'package:famhub_app/core/dashboard_engine/application/providers/dashboard_runtime_validator_provider.dart';
-import 'package:famhub_app/core/dashboard_engine/domain/models/composition_node.dart';
+import 'package:famhub_app/core/dashboard_engine/presentation/renderer/responsive_dashboard_renderer.dart';
 
 /// ============================================================
 /// UNIFIED DASHBOARD HOST (PRIMARY RUNTIME SHELL)
@@ -18,22 +13,21 @@ import 'package:famhub_app/core/dashboard_engine/domain/models/composition_node.
 ///   core/shell/ = OS-level shell layer
 ///
 /// ✅ CORRECT FLOW:
-///   Registry → ModuleService → moduleProvider → Dashboard UI
+///   system.modules (backend) → ModuleService → moduleProvider
+///   → navItem providers → RegistryDashboardRenderer → Dashboard UI
 ///
 /// ✅ Responsibilities:
 ///   - Responsive shell layout
-///   - Render dashboard regions
-///   - Consume moduleProvider only
-///   - Show loading/error/empty states
-///   - Render module tiles dynamically
+///   - Render dashboard regions via RegistryDashboardRenderer
+///   - Show loading/error/empty states from nav_config providers
 ///
 /// ✅ ARCHITECTURE COMPLIANCE:
-///   - FULLY metadata-driven
+///   - FULLY metadata-driven (backend registry is source of truth)
 ///   - FULLY registry-driven
 ///   - FULLY plugin-safe
 ///   - NO switch statements on module IDs
 ///   - NO hardcoded route maps
-///   - NO hardcoded descriptions
+///   - NO hardcoded module names, descriptions, or icons
 ///   - NO conditional module metadata logic
 ///
 /// ❌ Does NOT:
@@ -48,8 +42,13 @@ import 'package:famhub_app/core/dashboard_engine/domain/models/composition_node.
 class UnifiedDashboardHost extends ConsumerWidget {
   const UnifiedDashboardHost({super.key});
 
-    @override
+  @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Watch dashboard items from the backend-driven provider
+    // which already applies Context Engine filtering
+    final dashboardItems = ref.watch(dashboardNavItemsProvider);
+
+    // Show loading state if provider hasn't resolved yet
     final moduleAsync = ref.watch(moduleProvider);
 
     return moduleAsync.when(
@@ -58,44 +57,13 @@ class UnifiedDashboardHost extends ConsumerWidget {
         message: error.toString(),
         onRetry: () => ref.invalidate(moduleProvider),
       ),
-      data: (modules) {
-        final validator = ref.read(dashboardRuntimeValidatorProvider);
-        final visibleModules = _filterVisibleModules(modules, validator);
-        if (visibleModules.isEmpty) {
+      data: (_) {
+        if (dashboardItems.isEmpty) {
           return const _DashboardEmptyLayout();
         }
-        return _DashboardModulesGrid(modules: visibleModules);
+        return const ResponsiveDashboardRenderer();
       },
     );
-  }
-
-  /// Pure filter with runtime validation.
-  /// Uses SystemModule runtime fields + DashboardRuntimeValidator.
-  List<SystemModule> _filterVisibleModules(
-    List<SystemModule> modules,
-    DashboardRuntimeValidator validator,
-  ) {
-    return modules
-        .where((m) {
-          // ── Basic runtime checks (from SystemModule) ──
-          if (!m.isEnabled) return false;
-          if (!m.dashboardVisible) return false;
-          if (m.maintenanceMode) return false;
-
-          // ── Structural validation (from registries) ──
-          final node = CompositionNode(
-            id: m.moduleKey,
-            moduleKey: m.moduleKey,
-            widgetKey: m.moduleKey, // module-level validation
-            zone: 'dashboard',
-            order: m.displayOrder,
-          );
-
-          final result = validator.validateNode(node);
-          return result.isValid;
-        })
-        .toList()
-      ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
   }
 }
 
@@ -368,206 +336,3 @@ class _DashboardEmptyLayout extends StatelessWidget {
   }
 }
 
-/// Responsive grid of module tiles
-///
-/// 🧠 FULLY METADATA-DRIVEN
-/// This widget consumes SystemModule data ONLY.
-/// NO switch statements, NO hardcoded maps, NO conditional logic.
-/// Icon, route, description, and display name come from registry metadata.
-class _DashboardModulesGrid extends StatelessWidget {
-  final List<SystemModule> modules;
-
-  const _DashboardModulesGrid({required this.modules});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return SafeArea(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final crossAxisCount = constraints.maxWidth > 900
-              ? 3
-              : constraints.maxWidth > 600
-                  ? 2
-                  : 1;
-
-          return Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Dashboard header ──
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 24.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Dashboard',
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${modules.length} module${modules.length == 1 ? '' : 's'} available',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // ── Module grid ──
-                Expanded(
-                  child: GridView.builder(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: crossAxisCount,
-                      childAspectRatio: 1.4,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                    ),
-                    itemCount: modules.length,
-                    itemBuilder: (context, index) {
-                      final module = modules[index];
-
-                      // Resolve iconKey from registry blueprint
-                      final def = ModuleRegistry.byId(module.moduleKey);
-                      final iconKey = def?.iconKey ?? 'widgets';
-                      final iconData = IconResolver.resolve(iconKey);
-
-                      // Resolve description from registry blueprint
-                      final description =
-                          def?.description ?? module.displayName;
-
-                      // Resolve route from registry blueprint
-                      final route = def?.entryRoute;
-
-                      return _ModuleTile(
-                        icon: iconData,
-                        title: module.displayName,
-                        description: description,
-                        route: route,
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// Individual module tile card
-///
-/// 🧠 FULLY GENERIC — consumes props only, knows nothing about modules.
-/// No registry references, no switch statements, no hardcoded data.
-class _ModuleTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String description;
-  final String? route;
-
-  const _ModuleTile({
-    required this.icon,
-    required this.title,
-    required this.description,
-    this.route,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      elevation: 0,
-      child: InkWell(
-        onTap: route != null ? () => _navigateToModule(context) : null,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade200),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Icon ──
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    icon,
-                    size: 22,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-                const Spacer(),
-                // ── Title ──
-                Text(
-                  title,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                // ── Description (from registry metadata) ──
-                Text(
-                  description,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.grey.shade600,
-                    height: 1.3,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 8),
-                // ── Entry indicator ──
-                Row(
-                  children: [
-                    Text(
-                      'Open',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.arrow_forward_ios,
-                      size: 10,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-    void _navigateToModule(BuildContext context) {
-    if (route != null) {
-      context.go(route!);
-    }
-  }
-}

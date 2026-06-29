@@ -27,6 +27,28 @@ import 'features/marketplace/application/providers/marketplace_provider.dart';
 import 'core/startup/startup_coordinator.dart';
 import 'core/module_runtime_sync/infrastructure/persistence/persistence_store_factory.dart';
 
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  COMPOSITION ENGINE (RUNTIME COMPOSITION SYSTEM)            ║
+// ╚══════════════════════════════════════════════════════════════╝
+import 'core/composition/router/dynamic_route_registrar.dart'
+    show bootstrapModulePageBuilders;
+import 'core/composition/providers/composition_providers.dart';
+
+import 'core/composition/bootstrap/module_descriptor_bootstrap.dart';
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  PHASE C: RUNTIME CONTRIBUTION ENGINE & OBSERVABILITY       ║
+// ╚══════════════════════════════════════════════════════════════╝
+import 'core/composition/bootstrap/contribution_bootstrap.dart';
+import 'core/composition/providers/contribution_providers.dart';
+import 'core/composition/observability/contribution_observability.dart';
+import 'core/dashboard_engine/application/observability/runtime_metrics_collector.dart';
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  PHASE D: LIVE DATA PROVIDERS & WIDGET REGISTRATIONS       ║
+// ╚══════════════════════════════════════════════════════════════╝
+import 'core/dashboard_engine/presentation/builders/phase_d_dashboard_bootstrap.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   debugPrint('1. Widgets initialized');
@@ -66,7 +88,7 @@ void main() async {
     return;
   }
 
-    debugPrint('2. Supabase initialized');
+  debugPrint('2. Supabase initialized');
 
   // Stage 2: Create root ProviderContainer
   final container = ProviderContainer();
@@ -81,29 +103,35 @@ void main() async {
     runtimeSyncEngine = RuntimeSyncEngine(
       container: container,
       supabase: Supabase.instance.client,
-      coordinator: container.read(
-        moduleRuntimeSyncCoordinatorProvider,
-      ),
+      coordinator: container.read(moduleRuntimeSyncCoordinatorProvider),
       persistenceStore: persistenceStore,
     );
     debugPrint('[BOOT] RuntimeSyncEngine created successfully.');
   } catch (e, stack) {
     debugPrint('[BOOT] RuntimeSyncEngine creation failed: $e');
     debugPrintStack(
-        stackTrace: stack, label: '[BOOT] RuntimeSyncEngine creation');
+      stackTrace: stack,
+      label: '[BOOT] RuntimeSyncEngine creation',
+    );
     // Non-fatal — app can run without sync engine
   }
 
-  // Stage 5: Workflow Orchestrator
+  // Stage 5: Workflow Orchestrator (generic event-to-provider binding)
   final orchestratorConfig = OrchestratorConfig(
-    invalidateFarmDashboard: () {
-      container.invalidate(farmDashboardProvider);
-    },
-    invalidateAssets: () {
-      container.invalidate(assetsProvider);
-    },
-    invalidateMarketplace: () {
-      container.invalidate(marketplaceProvider);
+    eventBridge: {
+      'kpi_automation': [() => container.invalidate(farmDashboardProvider)],
+      'stock_mutation': [
+        () => container.invalidate(assetsProvider),
+        () => container.invalidate(farmDashboardProvider),
+      ],
+      'production_publish': [
+        () => container.invalidate(farmDashboardProvider),
+        () => container.invalidate(marketplaceProvider),
+      ],
+      'production_to_marketplace': [
+        () => container.invalidate(farmDashboardProvider),
+        () => container.invalidate(marketplaceProvider),
+      ],
     },
   );
 
@@ -116,11 +144,68 @@ void main() async {
     debugPrint('[BOOT] WorkflowOrchestrator started successfully.');
   } catch (e, stack) {
     debugPrint('[BOOT] WorkflowOrchestrator start failed: $e');
-    debugPrintStack(
-        stackTrace: stack, label: '[BOOT] WorkflowOrchestrator');
+    debugPrintStack(stackTrace: stack, label: '[BOOT] WorkflowOrchestrator');
   }
 
-    debugPrint('4. runApp()');
+  // ╔══════════════════════════════════════════════════════════════╗
+  // ║  COMPOSITION ENGINE BOOTSTRAP                               ║
+  // ╚══════════════════════════════════════════════════════════════╝
+  // Stage 5b: Bootstrap module page builders for dynamic route generation
+  try {
+    bootstrapModulePageBuilders();
+    debugPrint('[BOOT] Module page builders bootstrapped successfully.');
+  } catch (e, stack) {
+    debugPrint('[BOOT] Module page builders bootstrap failed: $e');
+    debugPrintStack(stackTrace: stack, label: '[BOOT] Module page builders');
+    // Non-fatal — app can fall back to static routes
+  }
+
+  // Stage 5c: Bootstrap module runtime descriptors for composition engine
+  try {
+    bootstrapModuleDescriptors();
+    debugPrint('[BOOT] Module descriptors bootstrapped successfully.');
+  } catch (e, stack) {
+    debugPrint('[BOOT] Module descriptors bootstrap failed: $e');
+    debugPrintStack(stackTrace: stack, label: '[BOOT] Module descriptors');
+    // Non-fatal — composition engine can operate without descriptors
+  }
+
+  // ╔══════════════════════════════════════════════════════════════╗
+  // ║  PHASE C: CONTRIBUTION REGISTRATION BOOTSTRAP              ║
+  // ╚══════════════════════════════════════════════════════════════╝
+  // Stage 5d: Bootstrap module contributions into ContributionRegistry
+  // This bridges all module descriptors into the runtime contribution engine.
+  try {
+    bootstrapModuleContributions();
+    debugPrint('[BOOT] Module contributions bootstrapped successfully.');
+  } catch (e, stack) {
+    debugPrint('[BOOT] Module contributions bootstrap failed: $e');
+    debugPrintStack(stackTrace: stack, label: '[BOOT] Module contributions');
+    // Non-fatal — composition engine can operate without contributions
+  }
+
+    // ╔══════════════════════════════════════════════════════════════╗
+  // ║  PHASE D: LIVE DATA PROVIDERS & WIDGET REGISTRATIONS       ║
+  // ╚══════════════════════════════════════════════════════════════╝
+  // Stage 5e: Bootstrap Phase D workstreams
+  // This connects module descriptors to live data providers,
+  // registers dashboard widgets with the centralized registry,
+  // and initializes observability integration.
+  try {
+    bootstrapPhaseD();
+    debugPrint('[BOOT] Phase D bootstrapped successfully.');
+  } catch (e, stack) {
+    debugPrint('[BOOT] Phase D bootstrap failed: $e');
+    debugPrintStack(stackTrace: stack, label: '[BOOT] Phase D');
+    // Non-fatal — widgets fall back to empty state gracefully
+  }
+
+  // Stage 5f: RuntimeMetricsCollector — initialized lazily via providers
+  // Metrics collector is created on first access via the
+  // runtimeMetricsCollectorProvider in observability_providers.dart.
+  // No eager initialization needed here — it auto-starts on first use.
+
+  debugPrint('4. runApp()');
 
   // ─────────────────────────────────────────────────────────────
   // PHASE 3: runApp() — First frame MUST render now
@@ -129,9 +214,7 @@ void main() async {
   runApp(
     UncontrolledProviderScope(
       container: container,
-      child: MyApp(
-        runtimeSyncEngine: runtimeSyncEngine,
-      ),
+      child: MyApp(runtimeSyncEngine: runtimeSyncEngine),
     ),
   );
 
@@ -141,10 +224,7 @@ void main() async {
 class MyApp extends ConsumerStatefulWidget {
   final RuntimeSyncEngine? runtimeSyncEngine;
 
-  const MyApp({
-    super.key,
-    this.runtimeSyncEngine,
-  });
+  const MyApp({super.key, this.runtimeSyncEngine});
 
   @override
   ConsumerState<MyApp> createState() => _MyAppState();
@@ -171,8 +251,7 @@ class _MyAppState extends ConsumerState<MyApp> {
           debugPrint('[BOOT] ContextEngine initialized successfully.');
         } catch (e, stack) {
           debugPrint('[BOOT] ContextEngine init failed: $e');
-          debugPrintStack(
-              stackTrace: stack, label: '[BOOT] ContextEngine');
+          debugPrintStack(stackTrace: stack, label: '[BOOT] ContextEngine');
         }
       });
 
@@ -181,14 +260,14 @@ class _MyAppState extends ConsumerState<MyApp> {
       if (syncEngine != null) {
         Future.microtask(() async {
           try {
-            await syncEngine
-                .initialize()
-                .timeout(const Duration(seconds: 30));
+            await syncEngine.initialize().timeout(const Duration(seconds: 30));
             debugPrint('[BOOT] RuntimeSyncEngine initialized.');
           } catch (e, stack) {
             debugPrint('[BOOT] RuntimeSyncEngine init failed: $e');
             debugPrintStack(
-                stackTrace: stack, label: '[BOOT] RuntimeSyncEngine');
+              stackTrace: stack,
+              label: '[BOOT] RuntimeSyncEngine',
+            );
             // Non-fatal — sync can retry later
           }
         });
@@ -196,7 +275,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     });
   }
 
-        @override
+  @override
   Widget build(BuildContext context) {
     debugPrint('5. MyApp.build()');
 
@@ -247,9 +326,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     if (ctx.isLoading) {
       return const MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
+        home: Scaffold(body: Center(child: CircularProgressIndicator())),
       );
     }
 
@@ -268,4 +345,3 @@ class _MyAppState extends ConsumerState<MyApp> {
     return ThemeMode.system;
   }
 }
-

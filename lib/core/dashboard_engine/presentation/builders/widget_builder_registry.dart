@@ -52,7 +52,10 @@ class WidgetBuilderRegistry {
     return _builders.containsKey(widgetKey);
   }
 
-  static void clear() {
+    static void clear() {
     _builders.clear();
   }
+
+  /// Get all registered widget keys
+  static List<String> get registeredKeys => _builders.keys.toList();
 }

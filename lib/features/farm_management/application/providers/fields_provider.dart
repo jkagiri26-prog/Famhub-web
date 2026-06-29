@@ -13,14 +13,14 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:famhub_app/features/farm_management/domain/models/field_model.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/field_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
 
 /// Field list state
 class FieldListState {
-  final List<FieldModel> fields;
+  final List<FieldEntity> fields;
   final bool isLoading;
   final String? errorMessage;
 
@@ -40,15 +40,15 @@ class FieldListState {
       fields.fold(0.0, (sum, f) => sum + (f.acreage ?? 0));
 
   /// Fields currently being cultivated
-  List<FieldModel> get cultivatedFields =>
+  List<FieldEntity> get cultivatedFields =>
       fields.where((f) => f.isCultivated).toList();
 
   /// Fields currently fallow/resting
-  List<FieldModel> get fallowFields =>
+  List<FieldEntity> get fallowFields =>
       fields.where((f) => !f.isCultivated).toList();
 
   FieldListState copyWith({
-    List<FieldModel>? fields,
+    List<FieldEntity>? fields,
     bool? isLoading,
     String? errorMessage,
   }) {

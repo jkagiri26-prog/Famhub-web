@@ -14,6 +14,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/features/farm_management/application/workflows/dynamic_activity_engine.dart';
+import 'package:famhub_app/features/farm_management/application/providers/activity_template_provider.dart';
+import 'package:famhub_app/features/farm_management/domain/models/activity_template.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/dynamic_activity_execution_page.dart';
 
 class ActivityTemplateSelectionPage extends ConsumerStatefulWidget {
