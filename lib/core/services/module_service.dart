@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:famhub_app/core/modules/domain/models/system_module.dart';
 
@@ -26,6 +27,9 @@ class ModuleService {
   Future<List<SystemModule>> getActiveModules() async {
     if (_cache != null) return _cache!;
 
+    debugPrint('[MODULE_SVC] Fetching modules via .schema(system).from(modules)...');
+
+    try {
                 final response = await _client
         .schema('system')
         .from('modules')
@@ -43,7 +47,12 @@ class ModuleService {
             'parent_module, sort_group, '
             'default_open, pinned');
 
+      debugPrint('[MODULE_SVC] Response type: ${response.runtimeType}');
     final List data = response;
+      debugPrint('[MODULE_SVC] Row count: ${data.length}');
+      if (data.isNotEmpty) {
+        debugPrint('[MODULE_SVC] First row keys: ${(data.first as Map).keys}');
+      }
 
     final modules = data
         .map<SystemModule>((m) {
@@ -51,7 +60,21 @@ class ModuleService {
     }).toList();
 
     _cache = modules;
+      debugPrint('[MODULE_SVC] Parsed ${modules.length} modules successfully');
     return modules;
+    } catch (e, stack) {
+      debugPrint('[MODULE_SVC] QUERY FAILED: $e');
+      debugPrint('[MODULE_SVC] Stack: $stack');
+
+      if (e is PostgrestException) {
+        debugPrint('[MODULE_SVC] PostgrestException:');
+        debugPrint('  message: ${e.message}');
+        debugPrint('  code: ${e.code}');
+        debugPrint('  details: ${e.details}');
+        debugPrint('  hint: ${e.hint}');
+  }
+      rethrow; // Let the provider's error state catch it
+    }
   }
 
   /// 🔄 Manual refresh (admin, feature flags, etc.)
