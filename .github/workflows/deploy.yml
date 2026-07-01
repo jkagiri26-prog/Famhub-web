@@ -43,11 +43,9 @@ jobs:
 
       # ── Production Build (skips pub if already fetched) ──
       - name: Build Web (WASM)
-        run: flutter build web --release --wasm --base-href / --source-maps=false --no-pub
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://placeholder.supabase.co' }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'placeholder-key' }}
-
+        run: flutter build web --release --wasm --base-href / --source-maps=false --no-pub \
+          --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
+          --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
       # ── Deploy to Cloudflare Pages ──
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
@@ -55,3 +53,4 @@ jobs:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
           command: pages deploy build/web --project-name=famhub --branch=main
+
