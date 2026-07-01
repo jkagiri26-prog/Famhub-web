@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:famhub_app/core/shell/unified_app_shell.dart';
-import 'package:famhub_app/core/shell/unified_dashboard_host.dart';
+import 'package:famhub_app/core/shell/presentation/pages/new_unified_app_shell.dart';
+import 'package:famhub_app/core/shell/presentation/regions/unified_dashboard_host.dart';
 import 'package:famhub_app/core/router/route_names.dart';
 
 // ── Module pages (registry-driven imports) ──
@@ -60,7 +60,7 @@ class AppRouter {
       routes: [
         ShellRoute(
           builder: (context, state, child) {
-            return UnifiedAppShell(child: child);
+            return UnifiedAppShellV2(child: child);
           },
 
           routes: [

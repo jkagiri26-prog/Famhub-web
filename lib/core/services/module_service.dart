@@ -27,7 +27,8 @@ class ModuleService {
     if (_cache != null) return _cache!;
 
                 final response = await _client
-        .from('system.modules')
+        .schema('system')
+        .from('modules')
         .select('module_key, module_name, is_enabled, '
             'dashboard_visible, sidebar_visible, bottom_nav_visible, '
             'quick_action_visible, launcher_visible, '
@@ -57,5 +58,5 @@ class ModuleService {
   Future<List<SystemModule>> refreshModules() async {
     _cache = null;
     return getActiveModules();
-  }
+}
 }

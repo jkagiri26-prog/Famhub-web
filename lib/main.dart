@@ -7,6 +7,9 @@ import 'core/router/app_router_provider.dart';
 /// 🧠 Context Engine (SINGLE SOURCE OF TRUTH)
 import 'core/context_engine/providers/context_provider.dart';
 
+/// 🎨 Shell Theme (Domain-agnostic theming system)
+import 'core/theme/app_theme.dart';
+
 /// 🧠 Dashboard bootstrap system (OS layer)
 import 'core/dashboard_engine/bootstrap/dashboard_bootstrap.dart';
 
@@ -318,15 +321,27 @@ class _MyAppState extends ConsumerState<MyApp> {
     //   ),
     // );
 
-    // ==========================================================
-    // PRODUCTION: Use when diagnostics are complete.
+        // ==========================================================
+    // PRODUCTION: Use ShellTheme for domain-agnostic theming.
     // ==========================================================
     final ctx = ref.watch(contextProvider);
+    final shellTheme = ref.watch(shellThemeProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
     if (ctx.isLoading) {
-      return const MaterialApp(
+      return MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: Scaffold(body: Center(child: CircularProgressIndicator())),
+        theme: shellTheme.toThemeData(ThemeMode.light),
+        darkTheme: shellTheme.toThemeData(ThemeMode.dark),
+        themeMode: themeMode,
+        home: Scaffold(
+          backgroundColor: shellTheme.forMode(themeMode).background,
+          body: Center(
+            child: CircularProgressIndicator(
+              color: shellTheme.forMode(themeMode).primary,
+            ),
+          ),
+        ),
       );
     }
 
@@ -335,13 +350,9 @@ class _MyAppState extends ConsumerState<MyApp> {
     return MaterialApp.router(
       routerConfig: router,
       debugShowCheckedModeBanner: false,
-      themeMode: _mapThemeMode(ctx.role ?? 'farmer'),
-      theme: ThemeData.light(),
-      darkTheme: ThemeData.dark(),
+      theme: shellTheme.toThemeData(ThemeMode.light),
+      darkTheme: shellTheme.toThemeData(ThemeMode.dark),
+      themeMode: themeMode,
     );
-  }
-
-  ThemeMode _mapThemeMode(String role) {
-    return ThemeMode.system;
   }
 }

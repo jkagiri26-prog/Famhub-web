@@ -1,24 +1,57 @@
-name: FAMHUB Fast Deploy
+name: FAMHUB Deploy to Cloudflare Pages
 on:
   push:
     branches: [ main ]
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+
+      # ── Flutter SDK Cache ──
+      - name: Cache Flutter SDK
+        id: cache-flutter
+        uses: actions/cache@v3
+        with:
+          path: /opt/hostedtoolcache/flutter
+          key: flutter-stable-3.38.8-${{ hashFiles('pubspec.lock') }}
+
+      # ── Flutter Setup (with SDK caching) ──
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          cache: true # This makes it lightning fast
-      
-      - run: flutter build web --release --wasm --base-href /
-      
-      - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v20
+          flutter-version: '3.38.8'
+          cache: true
+
+      # ── Pub Dependency Cache ──
+      - name: Cache Pub Dependencies
+        id: cache-pub
+        uses: actions/cache@v3
         with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.ORG_ID }}
-          vercel-project-id: ${{ secrets.PROJECT_ID }}
-          working-directory: ./build/web
+          path: |
+            ~/.pub-cache
+            .dart_tool
+          key: pub-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            pub-
+
+      # ── Get Dependencies (only if cache miss) ──
+      - name: Get Dependencies
+        if: steps.cache-pub.outputs.cache-hit != 'true'
+        run: flutter pub get
+
+      # ── Production Build (skips pub if already fetched) ──
+      - name: Build Web (WASM)
+        run: flutter build web --release --wasm --base-href / --source-maps=false --no-pub
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'placeholder-key' }}
+
+      # ── Deploy to Cloudflare Pages ──
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          command: pages deploy build/web --project-name=famhub --branch=main

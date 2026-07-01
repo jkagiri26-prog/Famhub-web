@@ -171,3 +171,28 @@ final moduleRouteDescriptorsProvider = FutureProvider<List<RouteDescriptor>>((re
   final modules = await ref.watch(enabledRuntimeModulesProvider.future);
   return runtimeDescriptorEngine.getModuleRoutes(modules);
 });
+
+/// ============================================================
+/// PROVIDER: SHELL EXTENSION DESCRIPTORS
+/// ============================================================
+///
+/// Returns all ShellExtensionDescriptors from enabled, non-maintenance
+/// modules. The shell ExtensionSlot widget watches this provider
+/// to render runtime-driven extensions.
+///
+/// 🎯 This replaces the static ShellExtensionRegistry:
+///   - Disabled modules → extensions automatically disappear
+///   - Maintenance mode → extensions automatically hidden
+///   - Feature flags → evaluated at build time
+///   - Hot reload / module install → extensions update reactively
+///
+/// ⚡ The shell remains a consumer only:
+///   - Module → Module Runtime → Descriptor Engine → Provider → Shell
+///   - Shell never imports feature modules
+///   - Shell never hardcodes extension IDs
+/// ============================================================
+final shellExtensionDescriptorsProvider =
+    FutureProvider<List<ShellExtensionDescriptor>>((ref) async {
+  final modules = await ref.watch(enabledRuntimeModulesProvider.future);
+  return runtimeDescriptorEngine.getShellExtensions(modules);
+});

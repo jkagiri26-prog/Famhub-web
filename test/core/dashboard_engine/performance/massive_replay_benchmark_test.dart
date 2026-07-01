@@ -26,7 +26,7 @@ void main() {
     late ConflictBuffer buffer;
 
     setUp(() {
-      buffer = ConflictBuffer(ConflictResolver());
+      buffer = ConflictBuffer(const ConflictResolver());
     });
 
     List<ConflictEvent> generateEvents(int count) {

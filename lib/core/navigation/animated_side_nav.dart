@@ -28,7 +28,7 @@ import 'package:go_router/go_router.dart';
 import 'package:famhub_app/core/navigation/nav_config.dart';
 import 'package:famhub_app/core/navigation/nav_item.dart';
 import 'package:famhub_app/core/navigation/nav_item_styles.dart';
-import 'package:famhub_app/core/shell/sidebar_controller.dart';
+import 'package:famhub_app/core/shell/application/controllers/sidebar_controller.dart';
 
 /// ============================================================
 /// ANIMATED SIDE NAV

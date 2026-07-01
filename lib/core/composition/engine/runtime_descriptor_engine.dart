@@ -317,6 +317,44 @@ class RuntimeDescriptorEngine {
 
     return typeMap;
   }
+
+  /// ============================================================
+  /// GET SHELL EXTENSION DESCRIPTORS
+  /// ============================================================
+  ///
+  /// Returns all ShellExtensionDescriptors from currently enabled
+  /// modules. Governance is applied:
+  ///   - Disabled modules are skipped
+  ///   - Maintenance mode modules hide their extensions
+  ///   - Extensions with requireModuleEnabled=true require module active
+  ///
+  /// The shell consumes these via a runtime provider and never
+  /// knows what individual extensions represent.
+  /// ============================================================
+  List<ShellExtensionDescriptor> getShellExtensions(
+    List<RuntimeModule> enabledModules,
+  ) {
+    final extensions = <ShellExtensionDescriptor>[];
+
+    for (final module in enabledModules) {
+      if (!module.isEnabled) continue;
+
+      final descriptor = ModuleDescriptorRegistry.get(module.moduleId);
+      if (descriptor == null) continue;
+
+      for (final ext in descriptor.shellExtensions) {
+        // Skip extensions hidden in maintenance mode
+        if (ext.hideInMaintenance && module.maintenanceMode) continue;
+
+        extensions.add(ext);
+      }
+    }
+
+    // Sort by priority (lower = higher priority)
+    extensions.sort((a, b) => a.priority.compareTo(b.priority));
+
+    return extensions;
+  }
 }
 
 /// Singleton instance for app-wide access

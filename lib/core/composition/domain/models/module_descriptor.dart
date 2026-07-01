@@ -119,6 +119,9 @@ class ModuleRuntimeDescriptor {
   // ── Enterprise Phase: Approval Actions ──
   final List<ApprovalActionDescriptor> approvalActions;
 
+  // ── Shell Extension Points ──
+  final List<ShellExtensionDescriptor> shellExtensions;
+
   const ModuleRuntimeDescriptor({
     required this.moduleKey,
     required this.displayName,
@@ -148,6 +151,7 @@ class ModuleRuntimeDescriptor {
     this.entityActions = const [],
     this.workflowSteps = const [],
     this.approvalActions = const [],
+    this.shellExtensions = const [],
   });
 }
 
@@ -738,5 +742,59 @@ class ApprovalActionDescriptor {
     required this.entityType,
     this.requiredRoles = const [],
     this.enabledByDefault = true,
+  });
+}
+
+/// ============================================================
+/// SHELL EXTENSION DESCRIPTOR (SHELL CONTRIBUTION POINT)
+/// ============================================================
+///
+/// A module contributes a shell extension to specify that it wants
+/// to place a widget in a shell region slot. The descriptor contains
+/// ONLY metadata — no widget trees, no rendering logic.
+///
+/// The shell renders these by matching the slot identifier. The shell
+/// never knows what the widget represents — it just renders it.
+///
+/// 🧠 LOCATION CONTEXT:
+///   core/composition/domain/models/ = composition domain models
+///
+/// ✅ Responsibilities:
+///   - Pure data model for shell extension metadata
+///   - Defines slot, priority, feature flag key
+///   - NO widget builders, NO rendering logic
+///
+/// ❌ Does NOT:
+///   - Import Flutter widgets
+///   - Reference shell internals
+///   - Contain business logic
+/// ============================================================
+class ShellExtensionDescriptor {
+  /// Unique identifier for this extension
+  final String id;
+
+  /// Shell slot this extension belongs to
+  /// Matches ShellExtensionSlot enum values in shell/domain/contracts
+  final String slot;
+
+  /// Priority for ordering (lower = higher priority)
+  final int priority;
+
+  /// Key used for feature flag evaluation
+  final String? featureFlagKey;
+
+  /// Whether this extension requires the module to be enabled
+  final bool requireModuleEnabled;
+
+  /// Whether this extension should be hidden in maintenance mode
+  final bool hideInMaintenance;
+
+  const ShellExtensionDescriptor({
+    required this.id,
+    required this.slot,
+    this.priority = 100,
+    this.featureFlagKey,
+    this.requireModuleEnabled = true,
+    this.hideInMaintenance = true,
   });
 }

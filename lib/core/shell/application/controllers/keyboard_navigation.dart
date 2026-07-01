@@ -25,7 +25,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:famhub_app/core/shell/sidebar_controller.dart';
+import 'package:famhub_app/core/shell/application/controllers/sidebar_controller.dart';
 
 // =================================================================
 // ACTION CLASSES (Flutter Actions)

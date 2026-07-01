@@ -1,24 +1,18 @@
 /// ============================================================
-/// COMPLETE ENTERPRISE DESKTOP APP BAR (PHASE B)
+/// SHELL APP BAR — Domain-agnostic desktop app bar
 /// ============================================================
 ///
-/// 🧠 LOCATION CONTEXT:
-///   core/shell/ = OS-level shell layer
+/// 🎯 PURPOSE:
+///   Replace agriculture-specific DesktopAppBar with a neutral,
+///   configurable app bar. All colors from ShellTheme.
+///   No hardcoded icons, colors, or brand references.
 ///
-/// ✅ Responsibilities:
-///   - Notifications panel access
-///   - Global search access
-///   - AI assistant access
-///   - Settings access
-///   - Profile menu
-///   - Context selector
-///   - Module status indicator
-///   - Every action comes from runtime providers
-///
-/// ❌ Does NOT:
-///   - Contain business logic
-///   - Hardcode module lists
-///   - Reference registries directly
+/// ✅ Domain-Agnostic:
+///   - No agriculture-specific icons or colors
+///   - All actions configurable via TopBarConfig
+///   - Context selector, notifications, search, settings all optional
+///   - Profile menu with configurable actions
+///   - Module status indicator (not farm-specific)
 /// ============================================================
 library;
 
@@ -26,37 +20,40 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:famhub_app/core/providers/module_provider.dart';
-import 'package:famhub_app/core/providers/user_provider.dart';
-import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
-import 'package:famhub_app/core/context_engine/domain/models/entity_context.dart';
+import '../../../theme/shell_theme.dart';
+import '../../config/shell_config.dart';
+import '../../../providers/module_provider.dart';
+import '../../../providers/user_provider.dart';
+import '../../../context_engine/providers/context_provider.dart';
 
 /// ============================================================
-/// DESKTOP APP BAR
+/// SHELL APP BAR — Replaces DesktopAppBar
 /// ============================================================
-class DesktopAppBar extends ConsumerWidget {
-  const DesktopAppBar({super.key});
+class ShellAppBar extends ConsumerWidget {
+  final TopBarConfig config;
+
+  const ShellAppBar({super.key, this.config = const TopBarConfig()});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
+    if (!config.visible) return const SizedBox.shrink();
+
+    final palette = Theme.of(context).extension<ShellThemeColors>()?.palette ??
+        ShellTheme.defaultLight;
     final moduleAsync = ref.watch(moduleProvider);
     final user = ref.watch(userProvider);
-    final context_ = ref.watch(contextProvider);
-    final notifications = ref.watch(unreadNotificationCountProvider);
 
-    // Derive module status for indicator
     final moduleCount = moduleAsync.whenOrNull(data: (m) => m.length) ?? 0;
     final hasMaintenance = moduleAsync.whenOrNull(
       data: (modules) => modules.any((m) => m.maintenanceMode),
     ) ?? false;
 
     return Container(
-      height: 56,
+      height: config.height,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: palette.surface,
         border: Border(
-          bottom: BorderSide(color: Colors.grey.shade200),
+          bottom: BorderSide(color: palette.border),
         ),
       ),
       child: Padding(
@@ -64,74 +61,117 @@ class DesktopAppBar extends ConsumerWidget {
         child: Row(
           children: [
             // ── Left: Context Selector ──
-            _ContextSelector(context_: context_),
+            if (config.showContextSelector)
+              _ContextSelector(palette: palette),
 
-            const SizedBox(width: 16),
+            if (config.showContextSelector) const SizedBox(width: 16),
 
             // ── Module Status Indicator ──
-            _ModuleStatusIndicator(
-              moduleCount: moduleCount,
-              hasMaintenance: hasMaintenance,
-            ),
+            if (config.showModuleStatus)
+              _ModuleStatusIndicator(
+                moduleCount: moduleCount,
+                hasMaintenance: hasMaintenance,
+                palette: palette,
+              ),
 
             const Spacer(),
 
             // ── Right: Actions ──
 
-            // Global Search
-            _AppBarActionButton(
-              icon: Icons.search_rounded,
-              tooltip: 'Global Search (Ctrl+/)',
-              onPressed: () => context.go('/search'),
-            ),
+            // Custom actions
+            ...config.customActions.map((action) => _buildCustomAction(action, palette)),
 
-            const SizedBox(width: 4),
+            if (config.customActions.isNotEmpty) const SizedBox(width: 4),
+
+            // Global Search
+            if (config.showSearch)
+              _AppBarButton(
+                icon: Icons.search_rounded,
+                tooltip: 'Search (Ctrl+/)',
+                palette: palette,
+                onPressed: () => context.go('/search'),
+              ),
+
+            if (config.showSearch) const SizedBox(width: 4),
 
             // AI Assistant
-            _AppBarActionButton(
-              icon: Icons.auto_awesome_rounded,
-              tooltip: 'AI Assistant',
-              onPressed: () {
-                // Future: AI assistant panel
-              },
-              color: Colors.purple,
-            ),
+            if (config.showAiAssistant)
+              _AppBarButton(
+                icon: Icons.auto_awesome_rounded,
+                tooltip: 'AI Assistant',
+                palette: palette,
+                color: palette.info,
+                onPressed: () {
+                  // Future: AI assistant panel
+                },
+              ),
 
-            const SizedBox(width: 4),
+            if (config.showAiAssistant) const SizedBox(width: 4),
 
             // Notifications
-            _AppBarActionButton(
-              icon: Icons.notifications_outlined,
-              tooltip: 'Notifications',
-              badgeCount: notifications,
-              onPressed: () => context.go('/notifications'),
-            ),
+            if (config.showNotifications)
+              _AppBarButton(
+                icon: Icons.notifications_outlined,
+                tooltip: 'Notifications',
+                palette: palette,
+                onPressed: () => context.go('/notifications'),
+                badgeCount: 0, // TODO: wire up notification count
+              ),
 
-            const SizedBox(width: 4),
+            if (config.showNotifications) const SizedBox(width: 4),
 
             // Settings
-            _AppBarActionButton(
-              icon: Icons.settings_outlined,
-              tooltip: 'Settings',
-              onPressed: () => context.go('/settings'),
-            ),
+            if (config.showSettings)
+              _AppBarButton(
+                icon: Icons.settings_outlined,
+                tooltip: 'Settings',
+                palette: palette,
+                onPressed: () => context.go('/settings'),
+              ),
 
-            const SizedBox(width: 12),
+            if (config.showSettings) const SizedBox(width: 12),
 
             // ── Divider ──
-            Container(
-              width: 1,
-              height: 32,
-              color: Colors.grey.shade200,
-            ),
+            if (config.showProfile)
+              Container(
+                width: 1,
+                height: 32,
+                color: palette.divider,
+              ),
 
-            const SizedBox(width: 12),
+            if (config.showProfile) const SizedBox(width: 12),
 
             // ── Profile ──
-            _ProfileWidget(user: user),
+            if (config.showProfile)
+              _ProfileWidget(user: user, palette: palette),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildCustomAction(ShellAction action, ShellColorPalette palette) {
+    Widget iconWidget = Icon(
+      action.icon,
+      color: action.color ?? palette.secondaryText,
+      size: 22,
+    );
+
+    if (action.showBadge && action.badgeText != null) {
+      iconWidget = Badge(
+        label: Text(
+          action.badgeText!,
+          style: const TextStyle(fontSize: 9, color: Colors.white),
+        ),
+        child: iconWidget,
+      );
+    }
+
+    return IconButton(
+      icon: iconWidget,
+      tooltip: action.tooltip,
+      onPressed: action.onPressed,
+      splashRadius: 20,
     );
   }
 }
@@ -139,20 +179,15 @@ class DesktopAppBar extends ConsumerWidget {
 /// ============================================================
 /// CONTEXT SELECTOR
 /// ============================================================
-///
-/// Shows the current entity/context and allows switching.
-/// Driven by EntityContext from runtime provider.
-/// ============================================================
-class _ContextSelector extends StatelessWidget {
-  final EntityContext context_;
+class _ContextSelector extends ConsumerWidget {
+  final ShellColorPalette palette;
 
-  const _ContextSelector({required this.context_});
+  const _ContextSelector({required this.palette});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-
-    // Get entity display name from context
+    final context_ = ref.watch(contextProvider);
     final entityName = context_.entityId ?? 'No Entity';
     final role = context_.role ?? 'user';
 
@@ -170,13 +205,13 @@ class _ContextSelector extends StatelessWidget {
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                color: palette.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Icon(
                 Icons.business_outlined,
                 size: 16,
-                color: theme.colorScheme.primary,
+                color: palette.primary,
               ),
             ),
             const SizedBox(width: 8),
@@ -186,17 +221,17 @@ class _ContextSelector extends StatelessWidget {
               children: [
                 Text(
                   entityName,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: palette.primaryText,
                   ),
                 ),
                 Text(
                   role,
                   style: TextStyle(
                     fontSize: 10,
-                    color: Colors.grey.shade500,
+                    color: palette.secondaryText,
                   ),
                 ),
               ],
@@ -205,7 +240,7 @@ class _ContextSelector extends StatelessWidget {
             Icon(
               Icons.arrow_drop_down,
               size: 18,
-              color: Colors.grey.shade500,
+              color: palette.secondaryText,
             ),
           ],
         ),
@@ -217,17 +252,15 @@ class _ContextSelector extends StatelessWidget {
 /// ============================================================
 /// MODULE STATUS INDICATOR
 /// ============================================================
-///
-/// Shows live module count and status.
-/// Uses moduleProvider to derive status.
-/// ============================================================
 class _ModuleStatusIndicator extends StatelessWidget {
   final int moduleCount;
   final bool hasMaintenance;
+  final ShellColorPalette palette;
 
   const _ModuleStatusIndicator({
     required this.moduleCount,
     required this.hasMaintenance,
+    required this.palette,
   });
 
   @override
@@ -235,14 +268,12 @@ class _ModuleStatusIndicator extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: hasMaintenance
-            ? Colors.orange.shade50
-            : Colors.green.shade50,
+        color: hasMaintenance ? palette.warningBg : palette.successBg,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: hasMaintenance
-              ? Colors.orange.shade200
-              : Colors.green.shade200,
+              ? palette.warning.withValues(alpha: 0.3)
+              : palette.success.withValues(alpha: 0.3),
         ),
       ),
       child: Row(
@@ -253,9 +284,7 @@ class _ModuleStatusIndicator extends StatelessWidget {
                 ? Icons.engineering_outlined
                 : Icons.check_circle_outline,
             size: 14,
-            color: hasMaintenance
-                ? Colors.orange.shade700
-                : Colors.green.shade700,
+            color: hasMaintenance ? palette.warning : palette.success,
           ),
           const SizedBox(width: 6),
           Text(
@@ -263,9 +292,7 @@ class _ModuleStatusIndicator extends StatelessWidget {
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w500,
-              color: hasMaintenance
-                  ? Colors.orange.shade800
-                  : Colors.green.shade800,
+              color: hasMaintenance ? palette.warning : palette.success,
             ),
           ),
           if (hasMaintenance) ...[
@@ -273,8 +300,8 @@ class _ModuleStatusIndicator extends StatelessWidget {
             Container(
               width: 6,
               height: 6,
-              decoration: const BoxDecoration(
-                color: Colors.orange,
+              decoration: BoxDecoration(
+                color: palette.warning,
                 shape: BoxShape.circle,
               ),
             ),
@@ -286,30 +313,28 @@ class _ModuleStatusIndicator extends StatelessWidget {
 }
 
 /// ============================================================
-/// APP BAR ACTION BUTTON
+/// APP BAR BUTTON
 /// ============================================================
-///
-/// Consistent action button with optional badge.
-/// ============================================================
-class _AppBarActionButton extends StatelessWidget {
+class _AppBarButton extends StatelessWidget {
   final IconData icon;
   final String tooltip;
-  final VoidCallback onPressed;
+  final ShellColorPalette palette;
+  final VoidCallback? onPressed;
   final Color? color;
   final int? badgeCount;
 
-  const _AppBarActionButton({
+  const _AppBarButton({
     required this.icon,
     required this.tooltip,
-    required this.onPressed,
+    required this.palette,
+    this.onPressed,
     this.color,
     this.badgeCount,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final effectiveColor = color ?? Colors.grey.shade600;
+    final effectiveColor = color ?? palette.secondaryText;
 
     Widget iconWidget = Icon(icon, color: effectiveColor, size: 22);
 
@@ -335,14 +360,11 @@ class _AppBarActionButton extends StatelessWidget {
 /// ============================================================
 /// PROFILE WIDGET
 /// ============================================================
-///
-/// Shows user profile with popup menu for user actions.
-/// Uses userProvider for user data.
-/// ============================================================
 class _ProfileWidget extends ConsumerWidget {
   final AppUser user;
+  final ShellColorPalette palette;
 
-  const _ProfileWidget({required this.user});
+  const _ProfileWidget({required this.user, required this.palette});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -369,7 +391,6 @@ class _ProfileWidget extends ConsumerWidget {
         }
       },
       itemBuilder: (context) => [
-        // ── User Info Header ──
         PopupMenuItem<String>(
           enabled: false,
           child: Column(
@@ -377,9 +398,9 @@ class _ProfileWidget extends ConsumerWidget {
             children: [
               Text(
                 userName,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+                  color: palette.primaryText,
                 ),
               ),
               if (user.email != null)
@@ -387,46 +408,52 @@ class _ProfileWidget extends ConsumerWidget {
                   user.email!,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey.shade500,
+                    color: palette.secondaryText,
                   ),
                 ),
             ],
           ),
         ),
         const PopupMenuDivider(),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'profile',
           child: ListTile(
-            leading: Icon(Icons.person_outline, size: 20),
-            title: Text('Profile'),
+            leading: Icon(Icons.person_outline, size: 20,
+                color: palette.secondaryText),
+            title: Text('Profile',
+                style: TextStyle(color: palette.primaryText)),
             dense: true,
             contentPadding: EdgeInsets.zero,
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'settings',
           child: ListTile(
-            leading: Icon(Icons.settings_outlined, size: 20),
-            title: Text('Settings'),
+            leading: Icon(Icons.settings_outlined, size: 20,
+                color: palette.secondaryText),
+            title: Text('Settings',
+                style: TextStyle(color: palette.primaryText)),
             dense: true,
             contentPadding: EdgeInsets.zero,
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'help',
           child: ListTile(
-            leading: Icon(Icons.help_outline, size: 20),
-            title: Text('Help & Support'),
+            leading: Icon(Icons.help_outline, size: 20,
+                color: palette.secondaryText),
+            title: Text('Help & Support',
+                style: TextStyle(color: palette.primaryText)),
             dense: true,
             contentPadding: EdgeInsets.zero,
           ),
         ),
         const PopupMenuDivider(),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'logout',
           child: ListTile(
-            leading: Icon(Icons.logout, size: 20, color: Colors.red),
-            title: Text('Logout', style: TextStyle(color: Colors.red)),
+            leading: Icon(Icons.logout, size: 20, color: palette.error),
+            title: Text('Logout', style: TextStyle(color: palette.error)),
             dense: true,
             contentPadding: EdgeInsets.zero,
           ),
@@ -436,7 +463,7 @@ class _ProfileWidget extends ConsumerWidget {
         width: 32,
         height: 32,
         decoration: BoxDecoration(
-          color: theme.colorScheme.primary.withValues(alpha: 0.1),
+          color: palette.primary.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Center(
@@ -445,7 +472,7 @@ class _ProfileWidget extends ConsumerWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: theme.colorScheme.primary,
+              color: palette.primary,
             ),
           ),
         ),
@@ -461,15 +488,3 @@ class _ProfileWidget extends ConsumerWidget {
     return name.isNotEmpty ? name[0].toUpperCase() : '?';
   }
 }
-
-/// ============================================================
-/// UNREAD NOTIFICATION COUNT PROVIDER
-/// ============================================================
-///
-/// Placeholder provider for notification badge count.
-/// Replace with actual notification service provider.
-/// ============================================================
-final unreadNotificationCountProvider = Provider<int>((ref) {
-  // TODO: Replace with actual notification count from NotificationService
-  return 0;
-});

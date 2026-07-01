@@ -53,7 +53,7 @@ final farmKpiDataProvider = FutureProvider<FarmDashboardSummary>((ref) async {
     _reportProviderExecution('farm_kpis', stopwatch.elapsedMilliseconds, null);
 
     return summary;
-  } catch (e, st) {
+  } catch (e) {
     _reportProviderExecution('farm_kpis', stopwatch.elapsedMilliseconds, e.toString());
     rethrow;
   }
@@ -263,7 +263,7 @@ final farmAlertsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) asyn
 
     _reportProviderExecution('farm_alerts', stopwatch.elapsedMilliseconds, null);
     return alerts;
-  } catch (e, st) {
+  } catch (e) {
     _reportProviderExecution('farm_alerts', stopwatch.elapsedMilliseconds, e.toString());
     rethrow;
   }

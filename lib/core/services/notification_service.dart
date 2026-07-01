@@ -49,7 +49,7 @@ class NotificationService {
     );
 
             await _plugin.initialize(
-      settings: settings,
+      settings,
       onDidReceiveNotificationResponse:
           (NotificationResponse response) {
         _handleTap(response);
@@ -88,10 +88,10 @@ class NotificationService {
     );
 
         await _plugin.show(
-      id: id,
-      title: title,
-      body: body,
-      notificationDetails: details,
+      id,
+      title,
+      body,
+      details,
       payload: payload,
     );
   }
@@ -136,10 +136,11 @@ class NotificationService {
   /// =======================================================
 
   Future<void> cancel(int id) async {
-    await _plugin.cancel(id: id);
+    await _plugin.cancel(id);
   }
 
   Future<void> cancelAll() async {
     await _plugin.cancelAll();
   }
 }
+

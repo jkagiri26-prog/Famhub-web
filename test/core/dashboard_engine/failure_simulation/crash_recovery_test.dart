@@ -46,7 +46,7 @@ void main() {
       final journal = EventJournal(db);
 
       // Event object exists but append is never called (simulated crash)
-      final event = ConflictEvent(
+      final _event = ConflictEvent(
         entityId: 'entity-1',
         source: ConflictSource.realtime,
         timestamp: DateTime.now(),

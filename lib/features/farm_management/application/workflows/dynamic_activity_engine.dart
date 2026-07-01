@@ -23,5 +23,7 @@
 ///   config/workflow_templates.dart
 ///
 /// ⚠️  This file is kept as a migration shim. Import directly
+// ignore_for_file: dangling_library_doc_comments
+
 ///     from the specific files above instead.
 /// ============================================================

@@ -22,7 +22,7 @@ void main() {
       // without coalescing, this would trigger 100 pipeline runs
       // with coalescing, they should collapse into far fewer
 
-      final buffer = ConflictBuffer(ConflictResolver());
+      final buffer = ConflictBuffer(const ConflictResolver());
       final now = DateTime.now();
 
       // Burst: all events within same millisecond window
@@ -54,7 +54,7 @@ void main() {
     });
 
     test('coalescing does not cause event loss', () async {
-      final buffer = ConflictBuffer(ConflictResolver());
+      final buffer = ConflictBuffer(const ConflictResolver());
       final now = DateTime.now();
 
       // Simulate multiple coalescing windows
@@ -94,7 +94,7 @@ void main() {
       const largeBatchSize = 200;
       const totalEvents = smallBacklogThreshold - 1; // Below threshold
 
-      final buffer = ConflictBuffer(ConflictResolver());
+      final buffer = ConflictBuffer(const ConflictResolver());
       final now = DateTime.now();
 
       // Simulate non-adaptive (direct) insertion
@@ -124,7 +124,7 @@ void main() {
     test('large backlog can be processed in batched steps', () async {
       const totalEvents = 500;
 
-      final buffer = ConflictBuffer(ConflictResolver());
+      final buffer = ConflictBuffer(const ConflictResolver());
       final now = DateTime.now();
 
       for (int i = 0; i < totalEvents; i++) {
@@ -157,7 +157,7 @@ void main() {
       const bufferMaxSize = 500;
       const overflowCount = 1000; // More events than buffer capacity
 
-      final buffer = ConflictBuffer(ConflictResolver(), maxBufferSize: bufferMaxSize);
+      final buffer = ConflictBuffer(const ConflictResolver(), maxBufferSize: bufferMaxSize);
       final now = DateTime.now();
 
       // Simulate disconnect storm: 1000 unique entities
@@ -188,7 +188,7 @@ void main() {
       const bufferMaxSize = 100;
       const overshootCount = 200;
 
-      final buffer = ConflictBuffer(ConflictResolver(), maxBufferSize: bufferMaxSize);
+      final buffer = ConflictBuffer(const ConflictResolver(), maxBufferSize: bufferMaxSize);
       final now = DateTime.now();
 
       // Overflow the buffer
@@ -230,7 +230,7 @@ void main() {
       // → journal replay recovers all events in correct order
 
       const bufferMaxSize = 100;
-      final buffer = ConflictBuffer(ConflictResolver(), maxBufferSize: bufferMaxSize);
+      final buffer = ConflictBuffer(const ConflictResolver(), maxBufferSize: bufferMaxSize);
       final now = DateTime.now();
       final allEvents = <ConflictEvent>[];
 

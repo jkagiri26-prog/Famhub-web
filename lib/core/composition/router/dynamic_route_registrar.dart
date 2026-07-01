@@ -13,8 +13,8 @@ import 'package:go_router/go_router.dart';
 
 import 'package:famhub_app/core/composition/domain/models/runtime_module.dart';
 import 'package:famhub_app/core/router/route_names.dart';
-import 'package:famhub_app/core/shell/unified_app_shell.dart';
-import 'package:famhub_app/core/shell/unified_dashboard_host.dart';
+import 'package:famhub_app/core/shell/presentation/pages/new_unified_app_shell.dart';
+import 'package:famhub_app/core/shell/presentation/regions/unified_dashboard_host.dart';
 import 'package:famhub_app/core/composition/domain/models/composition_metrics.dart';
 
 // ── Module Page Imports ──
@@ -112,7 +112,7 @@ class DynamicRouteRegistrar {
       routes: [
         ShellRoute(
           builder: (context, state, child) =>
-              UnifiedAppShell(child: child),
+              UnifiedAppShellV2(child: child),
           routes: [
             GoRoute(
               path: AppRoutes.root,

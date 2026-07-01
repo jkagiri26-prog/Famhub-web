@@ -523,3 +523,44 @@ class ApprovalActionContribution {
     this.enabledByDefault = true,
   });
 }
+
+// ============================================================
+// 22. SHELL EXTENSION CONTRIBUTION
+// ============================================================
+///
+/// Represents a module's desire to place a widget in a shell slot.
+/// The shell ExtensionSlot renders these by consulting this contribution.
+///
+/// Governance is applied by the contribution engine:
+///   - Disabled modules → extensions are filtered out
+///   - Maintenance mode → extensions hidden (if hideInMaintenance)
+///   - Feature flag → evaluated at build time
+/// ============================================================
+class ShellExtensionContribution {
+  /// Unique identifier for this extension
+  final String id;
+
+  /// The module this extension originates from
+  final String moduleId;
+
+  /// Shell slot identifier (matches ShellExtensionSlot enum values)
+  final String slot;
+
+  /// Priority for ordering (lower = higher priority)
+  final int priority;
+
+  /// Key used for feature flag evaluation
+  final String? featureFlagKey;
+
+  /// Whether this extension should be hidden when the module is in maintenance
+  final bool hideInMaintenance;
+
+  const ShellExtensionContribution({
+    required this.id,
+    required this.moduleId,
+    required this.slot,
+    this.priority = 100,
+    this.featureFlagKey,
+    this.hideInMaintenance = true,
+  });
+}
