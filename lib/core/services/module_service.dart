@@ -27,13 +27,17 @@ class ModuleService {
   Future<List<SystemModule>> getActiveModules() async {
     if (_cache != null) return _cache!;
 
-    debugPrint('[MODULE_SVC] Fetching modules via .schema(system).from(modules)...');
-
+    debugPrint('[1] Enter getActiveModules');
     try {
-                final response = await _client
-        .schema('system')
-        .from('modules')
-        .select('module_key, module_name, is_enabled, '
+      final client = _client;
+      debugPrint('[2] Client acquired');
+
+      final schema = client.schema('system');
+      debugPrint('[3] Schema selected');
+
+      final table = schema.from('modules');
+      debugPrint('[4] Table selected');
+      final select = table.select('module_key, module_name, is_enabled, '
             'dashboard_visible, sidebar_visible, bottom_nav_visible, '
             'quick_action_visible, launcher_visible, '
             'desktop_only, mobile_only, tablet_only, '
@@ -46,37 +50,30 @@ class ModuleService {
             'section, category, group, '
             'parent_module, sort_group, '
             'default_open, pinned');
+      debugPrint('[5] About to execute select');
 
-      debugPrint('[MODULE_SVC] Response type: ${response.runtimeType}');
-    final List data = response;
-      debugPrint('[MODULE_SVC] Row count: ${data.length}');
-      if (data.isNotEmpty) {
-        debugPrint('[MODULE_SVC] First row keys: ${(data.first as Map).keys}');
+      final response = await select;
+      debugPrint('[6] Select completed');
+      debugPrint('[7] Rows: ${response.length}');
+      if (response.isNotEmpty) {
+        debugPrint('[8] First row keys: ${(response.first as Map).keys}');
       }
 
+      final List data = response;
     final modules = data
         .map<SystemModule>((m) {
       return SystemModule.fromMap(m as Map<String, dynamic>);
     }).toList();
 
     _cache = modules;
-      debugPrint('[MODULE_SVC] Parsed ${modules.length} modules successfully');
+      debugPrint('[9] Parsed ${modules.length} modules successfully');
     return modules;
-    } catch (e, stack) {
-      debugPrint('[MODULE_SVC] QUERY FAILED: $e');
-      debugPrint('[MODULE_SVC] Stack: $stack');
-
-      if (e is PostgrestException) {
-        debugPrint('[MODULE_SVC] PostgrestException:');
-        debugPrint('  message: ${e.message}');
-        debugPrint('  code: ${e.code}');
-        debugPrint('  details: ${e.details}');
-        debugPrint('  hint: ${e.hint}');
-  }
-      rethrow; // Let the provider's error state catch it
+    } catch (e, st) {
+      debugPrint('[ERROR] $e');
+      debugPrint('$st');
+      rethrow;
     }
   }
-
   /// 🔄 Manual refresh (admin, feature flags, etc.)
   Future<List<SystemModule>> refreshModules() async {
     _cache = null;
