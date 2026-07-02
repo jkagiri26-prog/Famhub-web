@@ -233,15 +233,37 @@ class RuntimeSyncEngine {
   }
 
   // ============================================================
-  // WIDGET HYDRATION
+  // WIDGET HYDRATION (NON-CRITICAL — GRACEFUL DEGRADATION)
   // ============================================================
+  ///
+  /// widget_states is purely for restoring UI preferences (scroll
+  /// position, filter selections, collapsed sections, etc.). If
+  /// the widget_states table doesn't exist or the query fails,
+  /// the engine should continue initialization without interruption.
+  ///
+  /// Module loading (system.modules), checkpoint restore, delta
+  /// replay, and realtime subscriptions are NOT dependent on
+  /// widget_states and proceed normally regardless.
+  ///
   Future<void> _hydrateWidgetState() async {
     _log('Hydrating widget state...');
-    final widgetStore = container.read(widgetStateStoreProvider);
-    final repo = WidgetHydrationRepository(supabase);
-    _hydrationEngine = WidgetHydrationEngine(repository: repo, store: widgetStore);
-    await _hydrationEngine.hydrate();
-    _log('Widget hydration complete.');
+    try {
+      final widgetStore = container.read(widgetStateStoreProvider);
+      final repo = WidgetHydrationRepository(supabase);
+      _hydrationEngine = WidgetHydrationEngine(repository: repo, store: widgetStore);
+      await _hydrationEngine.hydrate();
+      _log('Widget hydration complete.');
+    } catch (e, st) {
+      // Non-fatal — widget states are UI preferences only.
+      // The engine continues with checkpoint restore, delta replay,
+      // and realtime subscriptions. Widgets will initialize with
+      // default state and re-hydrate on next interaction.
+      _log('Widget hydration failed (non-fatal, continuing): $e');
+      debugPrintStack(
+        stackTrace: st,
+        label: '[RuntimeSyncEngine] Widget hydration',
+      );
+    }
   }
 
   // ============================================================

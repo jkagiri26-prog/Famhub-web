@@ -27,56 +27,83 @@ class ModuleService {
   Future<List<SystemModule>> getActiveModules() async {
     if (_cache != null) return _cache!;
 
-    debugPrint('[1] Enter getActiveModules');
+    debugPrint('==============================');
+    debugPrint('Starting module fetch');
     try {
-      final client = _client;
-      debugPrint('[2] Client acquired');
+      debugPrint(
+          '[MODULE_SERVICE] Calling schema("system").from("modules").select()...');
+      final response = await _client
+          .schema('system')
+          .from('modules')
+          .select();
 
-      final schema = client.schema('system');
-      debugPrint('[3] Schema selected');
+            debugPrint('SUCCESS');
+      debugPrint('Response type: ${response.runtimeType}');
+      debugPrint('Rows: ${response.length}');
 
-      final table = schema.from('modules');
-      debugPrint('[4] Table selected');
-      final select = table.select('module_key, module_name, is_enabled, '
-            'dashboard_visible, sidebar_visible, bottom_nav_visible, '
-            'quick_action_visible, launcher_visible, '
-            'desktop_only, mobile_only, tablet_only, '
-            'maintenance_mode, maintenance_message, '
-            'premium_only, requires_subscription, '
-            'requires_entity, requires_farm, requires_business, '
-            'requires_verification, '
-            'display_order, badge_text, badge_color, '
-            'notification_count_source, icon_color, '
-            'section, category, group, '
-            'parent_module, sort_group, '
-            'default_open, pinned');
-      debugPrint('[5] About to execute select');
-
-      final response = await select;
-      debugPrint('[6] Select completed');
-      debugPrint('[7] Rows: ${response.length}');
       if (response.isNotEmpty) {
-        debugPrint('[8] First row keys: ${(response.first as Map).keys}');
+        debugPrint('First row keys: ${response.first.keys}');
+        debugPrint('First row: ${response.first}');
+      } else {
+        debugPrint(
+            'WARNING: Response is empty array — no modules in database');
       }
 
-      final List data = response;
-    final modules = data
-        .map<SystemModule>((m) {
-      return SystemModule.fromMap(m as Map<String, dynamic>);
-    }).toList();
+      // Handle empty response gracefully
+      if (response.isEmpty) {
+        _cache = [];
+        return _cache!;
+      }
 
-    _cache = modules;
-      debugPrint('[9] Parsed ${modules.length} modules successfully');
-    return modules;
+      _cache = response
+          .map<SystemModule>(
+              (m) => SystemModule.fromMap(m))
+          .toList();
+      debugPrint(
+          '[MODULE_SERVICE] Parsed ${_cache!.length} SystemModule instances');
+      return _cache!;
+    } on PostgrestException catch (e) {
+      debugPrint('MODULE FETCH FAILED — PostgrestException');
+      debugPrint('  code: ${e.code}');
+      debugPrint('  message: ${e.message}');
+            debugPrint('  details: ${e.details}');
+      debugPrint('  hint: ${e.hint}');
+
+      // ── FALLBACK: Try public schema ──
+      // PostgREST may not have 'system' in its db-schemas config.
+      // If modules also exist (or are queried) in public schema, try that.
+      try {
+        debugPrint('[FALLBACK] Trying public schema...');
+        final fallbackResponse =
+            await _client.from('modules').select();
+        debugPrint(
+            '[FALLBACK] Public schema returned ${fallbackResponse.length} rows');
+                if (fallbackResponse.isNotEmpty) {
+          debugPrint('[FALLBACK] First row keys: ${fallbackResponse.first.keys}');
+          _cache = fallbackResponse
+              .map<SystemModule>((m) => SystemModule.fromMap(m))
+              .toList();
+          debugPrint(
+              '[FALLBACK] Parsed ${_cache!.length} SystemModule instances');
+          return _cache!;
+        }
+      } catch (fallbackError) {
+        debugPrint('[FALLBACK] Also failed: $fallbackError');
+      }
+
+      rethrow;
     } catch (e, st) {
-      debugPrint('[ERROR] $e');
-      debugPrint('$st');
+      debugPrint('MODULE FETCH FAILED');
+      debugPrint('Error type: ${e.runtimeType}');
+      debugPrint('Error: $e');
+      debugPrint('Stack: $st');
       rethrow;
     }
   }
+
   /// 🔄 Manual refresh (admin, feature flags, etc.)
   Future<List<SystemModule>> refreshModules() async {
     _cache = null;
     return getActiveModules();
-}
+  }
 }

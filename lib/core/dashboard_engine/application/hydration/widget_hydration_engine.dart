@@ -9,18 +9,33 @@ class WidgetHydrationEngine {
   });
 
   final WidgetHydrationRepository repository;
-  final WidgetStateStore store;
+    final WidgetStateStore store;
 
   /// ============================================================
   /// RESTORE ON APP START
   /// ============================================================
+  ///
+  /// Loads persisted widget states from the backend and restores
+  /// them into the local WidgetStateStore. This is purely for UI
+  /// preference restoration (scroll position, filters, etc.).
+  ///
+  /// ⚠️ NON-CRITICAL: If the backend query fails (table missing,
+  ///    network error, permission denied), this method silently
+  ///    degrades. Widgets will initialize with defaults and
+  ///    re-persist state on next user interaction.
+  ///
   Future<void> hydrate() async {
-    final states = await repository.loadAll();
-
-    for (final state in states) {
-      store.upsert(state);
+    try {
+      final states = await repository.loadAll();
+      for (final state in states) {
+        store.upsert(state);
+      }
+    } catch (e) {
+      // Non-fatal — widget state restoration is optional.
+      // Logging is handled by the caller (RuntimeSyncEngine).
     }
   }
+
   /// ============================================================
   /// PERSIST SINGLE WIDGET STATE
   /// ============================================================

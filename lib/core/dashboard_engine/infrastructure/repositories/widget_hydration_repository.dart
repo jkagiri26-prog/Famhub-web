@@ -16,7 +16,7 @@ class WidgetHydrationRepository {
     });
   }
 
-  /// LOAD ALL STATES
+    /// LOAD ALL STATES
   Future<List<WidgetStateModel>> loadAll() async {
     final data = await client
         .from('widget_states')
@@ -24,9 +24,9 @@ class WidgetHydrationRepository {
 
     return (data as List).map((e) {
       return WidgetStateModel(
-        widgetId: e['widget_id'],
-        state: Map<String, dynamic>.from(e['state']),
-        lastUpdated: DateTime.parse(e['updated_at']),
+        widgetId: e['widget_id'] as String,
+        state: Map<String, dynamic>.from(e['state'] as Map),
+        lastUpdated: DateTime.parse(e['updated_at'] as String),
       );
     }).toList();
   }
