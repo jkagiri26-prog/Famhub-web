@@ -274,23 +274,23 @@ class _MyAppState extends ConsumerState<MyApp> {
         }
       });
 
-      // Stage 7: RuntimeSyncEngine deferred initialization
-      final syncEngine = widget.runtimeSyncEngine;
-      if (syncEngine != null) {
-        Future.microtask(() async {
-          try {
-            await syncEngine.initialize().timeout(const Duration(seconds: 30));
-            debugPrint('[BOOT] RuntimeSyncEngine initialized.');
-          } catch (e, stack) {
-            debugPrint('[BOOT] RuntimeSyncEngine init failed: $e');
-            debugPrintStack(
-              stackTrace: stack,
-              label: '[BOOT] RuntimeSyncEngine',
-            );
-            // Non-fatal — sync can retry later
-          }
-        });
-      }
+            // Stage 7: RuntimeSyncEngine deferred initialization
+            final syncEngine = widget.runtimeSyncEngine;
+            if (syncEngine != null) {
+              Future.microtask(() async {
+                try {
+                  await syncEngine.initialize().timeout(const Duration(seconds: 30));
+                  debugPrint('[BOOT] RuntimeSyncEngine initialized.');
+                } catch (e, stack) {
+                  debugPrint('[BOOT] RuntimeSyncEngine init failed: $e');
+                  debugPrintStack(
+                    stackTrace: stack,
+                    label: '[BOOT] RuntimeSyncEngine',
+                  );
+                  // Non-fatal — sync can retry later
+                }
+              });
+            }
     });
   }
 
