@@ -81,7 +81,7 @@ class TabletShellLayout extends StatelessWidget {
                           showSectionLabels: false,
                       ),
                         // ── Extension slot: navigation bottom ──
-                        ExtensionSlot(
+                        const ExtensionSlot(
                           slot: ShellExtensionSlot.navigationBottom,
                         ),
                       ],

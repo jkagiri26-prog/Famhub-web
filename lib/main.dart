@@ -107,8 +107,7 @@ void main() async {
   // ╔══════════════════════════════════════════════════════════════╗
   // ║  RUNTIME URL VERIFICATION                                   ║
   // ╚══════════════════════════════════════════════════════════════╝
-  debugPrint('[BOOT] CLIENT URL = ${Supabase.instance.client.url}');
-  debugPrint('[BOOT] URL MATCH = ${Supabase.instance.client.url == supabaseUrl}');
+    debugPrint('[BOOT] CLIENT URL = ${supabaseUrl}');
 
   // Stage 2: Create root ProviderContainer
   final container = ProviderContainer();

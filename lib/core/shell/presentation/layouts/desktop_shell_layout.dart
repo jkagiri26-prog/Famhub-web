@@ -83,7 +83,7 @@ class DesktopShellLayout extends StatelessWidget {
                           showSectionLabels: config.navigation.showSectionLabels,
                       ),
                         // ── Extension slot: navigation bottom ──
-                        ExtensionSlot(
+                        const ExtensionSlot(
                           slot: ShellExtensionSlot.navigationBottom,
                         ),
                       ],
