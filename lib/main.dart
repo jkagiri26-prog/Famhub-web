@@ -72,11 +72,13 @@ void main() async {
   // PHASE 2: CRITICAL — Must complete before first frame
   // ─────────────────────────────────────────────────────────────
 
-  // Stage 1: Supabase initialization (critical, with timeout & error handling)
+    // Stage 1: Supabase initialization (critical, with timeout & error handling)
+  final supabaseUrl = const String.fromEnvironment('SUPABASE_URL');
+  debugPrint('[BOOT] Compile-time SUPABASE_URL = $supabaseUrl');
   final supabaseResult = await runStage(
     BootStage.supabaseInit,
     () => Supabase.initialize(
-      url: const String.fromEnvironment('SUPABASE_URL'),
+      url: supabaseUrl,
       anonKey: const String.fromEnvironment('SUPABASE_ANON_KEY'),
     ),
     timeout: const Duration(seconds: 15),
