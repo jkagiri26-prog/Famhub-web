@@ -72,14 +72,23 @@ void main() async {
   // PHASE 2: CRITICAL — Must complete before first frame
   // ─────────────────────────────────────────────────────────────
 
-    // Stage 1: Supabase initialization (critical, with timeout & error handling)
-  final supabaseUrl = const String.fromEnvironment('SUPABASE_URL');
-  debugPrint('[BOOT] Compile-time SUPABASE_URL = $supabaseUrl');
+        // Stage 1: Supabase initialization (critical, with timeout & error handling)
+  const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+  const anonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+
+  debugPrint('===================================');
+  debugPrint('[BOOT] COMPILE-TIME CONFIG');
+  debugPrint('[BOOT] SUPABASE_URL = $supabaseUrl');
+  debugPrint('[BOOT] URL endsWith(".co") = ${supabaseUrl.endsWith(".co")}');
+  debugPrint('[BOOT] URL endsWith(".com") = ${supabaseUrl.endsWith(".com")}');
+  debugPrint('[BOOT] ANON KEY LENGTH = ${anonKey.length}');
+  debugPrint('===================================');
+
   final supabaseResult = await runStage(
     BootStage.supabaseInit,
     () => Supabase.initialize(
       url: supabaseUrl,
-      anonKey: const String.fromEnvironment('SUPABASE_ANON_KEY'),
+      anonKey: anonKey,
     ),
     timeout: const Duration(seconds: 15),
   );
@@ -94,6 +103,12 @@ void main() async {
   }
 
   debugPrint('2. Supabase initialized');
+
+  // ╔══════════════════════════════════════════════════════════════╗
+  // ║  RUNTIME URL VERIFICATION                                   ║
+  // ╚══════════════════════════════════════════════════════════════╝
+  debugPrint('[BOOT] CLIENT URL = ${Supabase.instance.client.url}');
+  debugPrint('[BOOT] URL MATCH = ${Supabase.instance.client.url == supabaseUrl}');
 
   // Stage 2: Create root ProviderContainer
   final container = ProviderContainer();
