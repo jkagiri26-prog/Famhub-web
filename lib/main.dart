@@ -48,7 +48,7 @@ import 'core/composition/observability/contribution_observability.dart';
 import 'core/dashboard_engine/application/observability/runtime_metrics_collector.dart';
 
 // ╔══════════════════════════════════════════════════════════════╗
-// ║  PHASE D: LIVE DATA PROVIDERS & WIDGET REGISTRATIONS       ║
+// ║  PHASE D: LIVE DATA PROVIDERS & WIDGET REGISTRATIONS.       ║
 // ╚══════════════════════════════════════════════════════════════╝
 import 'core/dashboard_engine/presentation/builders/phase_d_dashboard_bootstrap.dart';
 
