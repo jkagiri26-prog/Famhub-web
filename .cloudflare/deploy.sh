@@ -13,6 +13,13 @@ if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then
   exit 1
 fi
 
+# ── Warn if URL uses .com instead of .co ──
+if echo "$SUPABASE_URL" | grep -q "\.supabase\.com"; then
+  echo "[DEPLOY] WARNING: SUPABASE_URL uses .supabase.com instead of .supabase.co"
+  echo "[DEPLOY] Please update to: $(echo $SUPABASE_URL | sed 's/\.supabase\.com/\.supabase\.co/')"
+  echo "[DEPLOY] Proceeding anyway..."
+fi
+
 # ── Check Flutter availability ──
 FLUTTER_CMD="flutter"
 echo "[DEPLOY] Flutter version: $($FLUTTER_CMD --version | head -1)"
@@ -21,14 +28,14 @@ echo "[DEPLOY] Flutter version: $($FLUTTER_CMD --version | head -1)"
 echo "[DEPLOY] Getting dependencies..."
 $FLUTTER_CMD pub get
 
-# ── Production build with WASM ──
-echo "[DEPLOY] Building Flutter web (WASM)..."
-$FLUTTER_CMD build web --release --wasm \
+# ── Production build ──
+echo "[DEPLOY] Building Flutter web..."
+$FLUTTER_CMD build web --release \
   --base-href / \
-  --source-maps=false \
   --no-pub \
   --dart-define=SUPABASE_URL="$SUPABASE_URL" \
   --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" 2>&1
 
 echo "[DEPLOY] Build complete!"
 echo "[DEPLOY] Output: $(du -sh build/web | cut -f1)"
+
