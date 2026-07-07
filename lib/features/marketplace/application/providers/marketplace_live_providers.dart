@@ -39,7 +39,7 @@ final marketplaceKpiDataProvider = FutureProvider<Map<String, dynamic>>((ref) as
     final totalListings = listings.length;
     final activeListings = listings.where((l) => l.status == ListingStatus.active).length;
     final activeItems = listings.where((l) => l.status == ListingStatus.active);
-    final totalValue = activeItems.fold<double>(0, (sum, l) => sum + l.price);
+    final totalValue = activeItems.fold<double>(0, (sum, l) => sum + l.pricePerUnit);
 
     final result = {
       'total_listings': totalListings,
@@ -96,7 +96,7 @@ final marketplaceSalesMetricsProvider = FutureProvider<Map<String, dynamic>>((re
 
     // soldOut listing = sold completely
     final soldListings = listings.where((l) => l.status == ListingStatus.soldOut).toList();
-    final totalRevenue = soldListings.fold<double>(0, (sum, l) => sum + l.price);
+    final totalRevenue = soldListings.fold<double>(0, (sum, l) => sum + l.pricePerUnit);
     final totalSales = soldListings.length;
 
     final result = {
@@ -132,7 +132,7 @@ final marketplaceListingPerformanceProvider = FutureProvider<List<Map<String, dy
       'id': l.id,
       'title': l.title,
       'status': l.status.name,
-      'price': l.price,
+      'price': l.pricePerUnit,
       'views': 0,
       'inquiries': 0,
       'is_featured': false,

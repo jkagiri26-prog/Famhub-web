@@ -85,8 +85,8 @@ class _ProductDetailContent extends StatelessWidget {
       ListingStatus.archived => Colors.grey,
     };
 
-    final availabilityText = switch (listing.status) {
-      ListingStatus.active => '${listing.availableQuantity.toStringAsFixed(0)} ${listing.unit} available',
+        final availabilityText = switch (listing.status) {
+      ListingStatus.active => '${listing.availableQuantity.toStringAsFixed(0)} ${listing.unitName ?? ''} available',
       ListingStatus.soldOut => 'Sold Out',
       ListingStatus.draft => 'Draft',
       ListingStatus.paused => 'Paused',
@@ -105,11 +105,11 @@ class _ProductDetailContent extends StatelessWidget {
           const SizedBox(height: 20),
 
           // Main listing card
-          ListingCardWidget(
+                    ListingCardWidget(
             title: listing.title,
             subtitle: listing.description ?? 'Market ready quality',
-            price: 'KSh ${listing.price.toStringAsFixed(0)}/${listing.unit}',
-            location: listing.location ?? listing.unit,
+            price: listing.displayPrice,
+            location: listing.locationName ?? listing.locationId ?? 'Unknown',
           ),
 
           const SizedBox(height: 16),
@@ -151,8 +151,8 @@ class _ProductDetailContent extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 2),
-                      Text(
-                        'Sold: ${listing.soldQuantity.toStringAsFixed(0)} | Reserved: ${listing.reservedQuantity.toStringAsFixed(0)}',
+                                            Text(
+                        'Reserved: ${listing.reservedQuantity.toStringAsFixed(0)}',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey.shade600,
@@ -176,12 +176,12 @@ class _ProductDetailContent extends StatelessWidget {
                   ? 'Rating: ${listing.sellerRating}'
                   : 'Seller',
               icon: Icons.person,
-              onTap: listing.sellerId != null
+                            onTap: listing.entityId.isNotEmpty
                   ? () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => SellerProfilePage(
-                            sellerId: listing.sellerId!,
+                            sellerId: listing.entityId,
                             sellerName: listing.sellerName,
                           ),
                         ),

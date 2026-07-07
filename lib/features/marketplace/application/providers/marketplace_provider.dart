@@ -89,16 +89,14 @@ class MarketplaceController extends AsyncNotifier<List<Listing>> {
     ref.invalidate(listingDetailsProvider(id));
   }
 
-  Future<void> updateInventory({
+    Future<void> updateInventory({
     required String listingId,
     double? availableQuantity,
-    double? soldQuantity,
     double? reservedQuantity,
   }) async {
     await _repo.updateInventory(
       listingId: listingId,
       availableQuantity: availableQuantity,
-      soldQuantity: soldQuantity,
       reservedQuantity: reservedQuantity,
     );
 

@@ -158,8 +158,8 @@ class _MarketplaceFeaturedWidget extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(listing.title ?? 'Listing', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.black87)),
-                Text('\$${listing.price.toStringAsFixed(2) ?? '0.00'}', style: TextStyle(fontSize: 11, color: Colors.green.shade700)),
+                Text(listing.title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.black87)),
+                Text('\$${listing.pricePerUnit.toStringAsFixed(2)}', style: TextStyle(fontSize: 11, color: Colors.green.shade700)),
               ],
             ),
           ),

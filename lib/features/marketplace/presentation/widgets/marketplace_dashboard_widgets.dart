@@ -103,13 +103,13 @@ class MarketplaceSalesMetrics extends ConsumerWidget {
       data: (listings) {
         final totalItems = listings.length;
         final avgPrice = totalItems > 0
-            ? listings.fold(0.0, (sum, l) => sum + l.price) / totalItems
+            ? listings.fold(0.0, (sum, l) => sum + l.pricePerUnit) / totalItems
             : 0.0;
         final minPrice = totalItems > 0
-            ? listings.map((l) => l.price).reduce((a, b) => a < b ? a : b)
+            ? listings.map((l) => l.pricePerUnit).reduce((a, b) => a < b ? a : b)
             : 0.0;
         final maxPrice = totalItems > 0
-            ? listings.map((l) => l.price).reduce((a, b) => a > b ? a : b)
+            ? listings.map((l) => l.pricePerUnit).reduce((a, b) => a > b ? a : b)
             : 0.0;
 
         return Container(
@@ -246,7 +246,7 @@ class ListingPerformanceWidget extends ConsumerWidget {
         }
 
         final sorted = List.from(listings)
-          ..sort((a, b) => b.price.compareTo(a.price));
+          ..sort((a, b) => b.pricePerUnit.compareTo(a.pricePerUnit));
 
         return Container(
           padding: const EdgeInsets.all(16),
@@ -302,7 +302,7 @@ class ListingPerformanceWidget extends ConsumerWidget {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        '${listing.price.toStringAsFixed(0)}/${listing.unit}',
+                        listing.displayPrice,
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,

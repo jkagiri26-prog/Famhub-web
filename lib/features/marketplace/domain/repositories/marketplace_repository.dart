@@ -20,11 +20,11 @@ abstract class MarketplaceRepository {
 
   Future<void> archiveListing(String id);
 
-  Future<Listing> publishListing(String id);
+    Future<Listing> publishListing(String id);
+
   Future<void> updateInventory({
     required String listingId,
     double? availableQuantity,
-    double? soldQuantity,
     double? reservedQuantity,
   });
 

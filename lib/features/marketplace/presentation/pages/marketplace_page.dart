@@ -172,8 +172,8 @@ class _MarketplacePageState extends ConsumerState<MarketplacePage> {
     var result = listings;
 
     if (tab != 'ALL') {
-      result = result.where((l) {
-        final category = l.unit.toLowerCase();
+            result = result.where((l) {
+        final category = (l.unitName ?? '').toLowerCase();
         switch (tab) {
           case 'LIVESTOCK':
             return category == 'head' || category == 'animal' || category == 'livestock';
@@ -193,10 +193,10 @@ class _MarketplacePageState extends ConsumerState<MarketplacePage> {
 
     if (query.isNotEmpty) {
       final q = query.toLowerCase();
-      result = result.where((l) =>
+            result = result.where((l) =>
         l.title.toLowerCase().contains(q) ||
         (l.description?.toLowerCase().contains(q) ?? false) ||
-        (l.location?.toLowerCase().contains(q) ?? false) ||
+        (l.locationName?.toLowerCase().contains(q) ?? false) ||
         (l.sellerName?.toLowerCase().contains(q) ?? false)
       ).toList();
     }

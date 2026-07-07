@@ -29,10 +29,11 @@ class ListingTile extends ConsumerWidget {
       child: ListingCardWidget(
         title: listing.title,
         subtitle: listing.description ?? 'No description available',
-        price: 'KSh ${listing.price.toStringAsFixed(0)}/${listing.unit}',
-        location: listing.location ?? 'Unknown',
+        price: listing.displayPrice,
+        location: listing.locationName ?? listing.locationId ?? 'Unknown',
         trailing: showBadge ? ListingStatusBadge(status: listing.status) : null,
       ),
     );
   }
 }
+

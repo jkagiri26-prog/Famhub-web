@@ -12,13 +12,30 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Remote data source for marketplace listings.
 ///
-/// Handles all Supabase queries for the `listings` table.
+/// Handles all Supabase queries for `marketplace.listings`.
+/// Uses PostgREST joins to resolve FK relationships:
+///   - unit_id     → core.units(name)
+///   - location_id → core.locations(name)
+///   - stock_id    → commerce.stock_registry(quantity, reserved_quantity)
+///
+/// sellerName/sellerRating resolved via separate 2-hop query:
+///   entity_id → core.entities → commerce.business_profiles
 /// All queries are scoped via RLS — no user_id from frontend.
 class MarketplaceRemoteDataSource {
   final SupabaseClient _client;
 
   MarketplaceRemoteDataSource({SupabaseClient? client})
       : _client = client ?? Supabase.instance.client;
+
+  /// PostgREST select fragment with FK joins.
+  static const String _listingSelectQuery = '''
+    id, title, description, price_per_unit, currency, status, images,
+    contact_visibility, is_promoted, promoted_until, created_at, updated_at,
+    entity_id, variant_id, stock_id, unit_id, location_id,
+    unit:unit_id(name),
+    location:location_id(name),
+    stock:stock_id(quantity, reserved_quantity)
+  ''';
 
   /// Fetch all listings (with optional filters).
   Future<List<Map<String, dynamic>>> fetchListings({
@@ -28,23 +45,20 @@ class MarketplaceRemoteDataSource {
     String? statusFilter,
   }) async {
     try {
-      var query = _client.from('listings').select();
+      var query = _client
+          .schema('marketplace')
+          .from('listings')
+          .select(_listingSelectQuery);
 
-      // Apply filters at DB level
       if (statusFilter != null && statusFilter.isNotEmpty) {
         final statusValues = statusFilter;
         query = query.or('status.in.($statusValues)');
       } else {
-        // Default: hide archived
         query = query.not('status', 'eq', 'archived');
       }
 
-      if (category != null && category != 'ALL') {
-        query = query.eq('category', category);
-      }
-
       if (sellerId != null) {
-        query = query.eq('seller_id', sellerId);
+        query = query.eq('entity_id', sellerId);
       }
 
       if (searchQuery != null && searchQuery.isNotEmpty) {
@@ -64,8 +78,9 @@ class MarketplaceRemoteDataSource {
   Future<Map<String, dynamic>?> fetchListingById(String id) async {
     try {
       final response = await _client
+          .schema('marketplace')
           .from('listings')
-          .select()
+          .select(_listingSelectQuery)
           .eq('id', id)
           .maybeSingle();
       return response;
@@ -76,11 +91,32 @@ class MarketplaceRemoteDataSource {
     }
   }
 
+  /// Fetch seller business profile by entity_id.
+  ///
+  /// 2-hop: entity_id → core.entities → commerce.business_profiles
+  /// PostgREST cannot natively do this, so it's a separate query.
+  Future<Map<String, dynamic>?> fetchSellerProfile(String entityId) async {
+    try {
+      final response = await _client
+          .schema('commerce')
+          .from('business_profiles')
+          .select('supplier_name, rating')
+          .eq('entity_id', entityId)
+          .maybeSingle();
+      return response;
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to fetch seller profile: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to fetch seller profile: $e');
+    }
+  }
+
   /// Create a new listing.
   Future<Map<String, dynamic>> createListing(
       Map<String, dynamic> payload) async {
     try {
       final response = await _client
+          .schema('marketplace')
           .from('listings')
           .insert({
             ...payload,
@@ -102,7 +138,7 @@ class MarketplaceRemoteDataSource {
       String id, Map<String, dynamic> payload) async {
     try {
       final response = await _client
-          .from('listings')
+          .schema('marketplace').from('listings')
           .update({
             ...payload,
             'updated_at': DateTime.now().toIso8601String(),
@@ -121,7 +157,7 @@ class MarketplaceRemoteDataSource {
   /// Archive (soft-delete) a listing.
   Future<void> archiveListing(String id) async {
     try {
-      await _client.from('listings').update({
+      await _client.schema('marketplace').from('listings').update({
         'status': 'archived',
         'updated_at': DateTime.now().toIso8601String(),
       }).eq('id', id);
@@ -136,7 +172,7 @@ class MarketplaceRemoteDataSource {
   Future<Map<String, dynamic>> publishListing(String id) async {
     try {
       final response = await _client
-          .from('listings')
+          .schema('marketplace').from('listings')
           .update({
             'status': 'active',
             'updated_at': DateTime.now().toIso8601String(),
@@ -152,30 +188,55 @@ class MarketplaceRemoteDataSource {
     }
   }
 
-  /// Update inventory quantities.
+  /// Update inventory — writes to commerce.stock_registry via stock_id.
   Future<void> updateInventory({
     required String listingId,
     double? availableQuantity,
-    double? soldQuantity,
     double? reservedQuantity,
   }) async {
     try {
-      final updates = <String, dynamic>{};
+      // Lookup stock_id from the listing
+      final listing = await _client
+          .schema('marketplace')
+          .from('listings')
+          .select('stock_id')
+          .eq('id', listingId)
+          .maybeSingle();
+
+      if (listing == null) throw Exception('Listing not found');
+
+      final stockId = listing['stock_id'];
+      if (stockId == null) {
+        throw Exception('Listing has no associated stock record');
+      }
+
+      // Update commerce.stock_registry
+      final stockUpdates = <String, dynamic>{};
       if (availableQuantity != null) {
-        updates['available_quantity'] = availableQuantity;
+        stockUpdates['quantity'] = availableQuantity;
       }
-      if (soldQuantity != null) updates['sold_quantity'] = soldQuantity;
       if (reservedQuantity != null) {
-        updates['reserved_quantity'] = reservedQuantity;
+        stockUpdates['reserved_quantity'] = reservedQuantity;
       }
-      updates['updated_at'] = DateTime.now().toIso8601String();
+      stockUpdates['updated_at'] = DateTime.now().toIso8601String();
 
-      // Auto-mark sold_out if available reaches zero
+      await _client
+          .schema('commerce')
+          .from('stock_registry')
+          .update(stockUpdates)
+          .eq('id', stockId);
+
+      // Auto-mark sold_out if stock reaches zero
       if (availableQuantity != null && availableQuantity <= 0) {
-        updates['status'] = 'sold_out';
+        await _client
+            .schema('marketplace')
+            .from('listings')
+            .update({
+              'status': 'sold_out',
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', listingId);
       }
-
-      await _client.from('listings').update(updates).eq('id', listingId);
     } on PostgrestException catch (e) {
       throw Exception('Failed to update inventory: ${e.message}');
     } catch (e) {
@@ -184,26 +245,23 @@ class MarketplaceRemoteDataSource {
   }
 
   /// Get seller listing stats.
-  Future<Map<String, dynamic>> fetchSellerStats(String sellerId) async {
+  Future<Map<String, dynamic>> fetchSellerStats(String entityId) async {
     try {
       final response = await _client
+          .schema('marketplace')
           .from('listings')
-          .select()
-          .eq('seller_id', sellerId);
+          .select('status')
+          .eq('entity_id', entityId);
 
       final listings = (response as List).cast<Map<String, dynamic>>();
       final active =
           listings.where((l) => l['status'] == 'active').length;
       final total = listings.length;
-      final totalSold = listings.fold<double>(
-          0,
-          (sum, l) =>
-              sum + ((l['sold_quantity'] as num?)?.toDouble() ?? 0));
 
       return {
         'total_listings': total,
         'active_listings': active,
-        'total_sold': totalSold,
+        'total_sold': 0,
       };
     } on PostgrestException catch (e) {
       throw Exception('Failed to fetch seller stats: ${e.message}');

@@ -16,12 +16,14 @@ class ListingFormWidget extends ConsumerStatefulWidget {
 class _ListingFormWidgetState extends ConsumerState<ListingFormWidget> {
   final _formKey = GlobalKey<FormState>();
 
-  final _titleController = TextEditingController();
+    final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _priceController = TextEditingController();
-  final _unitController = TextEditingController(text: 'kg');
-  final _locationController = TextEditingController();
-  final _quantityController = TextEditingController(text: '1');
+  final _unitIdController = TextEditingController();    // FK to core.units
+  final _locationIdController = TextEditingController(); // FK to core.locations
+  final _variantIdController = TextEditingController();  // FK to core.item_variants
+  final _stockIdController = TextEditingController();    // FK to commerce.stock_registry
+  final _entityIdController = TextEditingController();   // FK to core.entities
   final _imageUrlsController = TextEditingController();
 
   bool _isSubmitting = false;
@@ -30,26 +32,29 @@ class _ListingFormWidgetState extends ConsumerState<ListingFormWidget> {
   void initState() {
     super.initState();
 
-    final data = widget.initialData;
+        final data = widget.initialData;
     if (data != null) {
       _titleController.text = data['title']?.toString() ?? '';
       _descriptionController.text = data['description']?.toString() ?? '';
-      _priceController.text = data['price']?.toString() ?? '';
-      _unitController.text = data['unit']?.toString() ?? 'kg';
-      _locationController.text = data['location']?.toString() ?? '';
-      _quantityController.text =
-          data['available_quantity']?.toString() ?? '1';
+      _priceController.text = data['price_per_unit']?.toString() ?? '';
+      _unitIdController.text = data['unit_id']?.toString() ?? '';
+      _locationIdController.text = data['location_id']?.toString() ?? '';
+      _variantIdController.text = data['variant_id']?.toString() ?? '';
+      _stockIdController.text = data['stock_id']?.toString() ?? '';
+      _entityIdController.text = data['entity_id']?.toString() ?? '';
     }
   }
 
   @override
   void dispose() {
-    _titleController.dispose();
+        _titleController.dispose();
     _descriptionController.dispose();
     _priceController.dispose();
-    _unitController.dispose();
-    _locationController.dispose();
-    _quantityController.dispose();
+    _unitIdController.dispose();
+    _locationIdController.dispose();
+    _variantIdController.dispose();
+    _stockIdController.dispose();
+    _entityIdController.dispose();
     _imageUrlsController.dispose();
     super.dispose();
   }
@@ -70,14 +75,25 @@ class _ListingFormWidgetState extends ConsumerState<ListingFormWidget> {
               .toList()
           : <String>[];
 
-      final payload = <String, dynamic>{
+            final payload = <String, dynamic>{
         'title': _titleController.text.trim(),
         'description': _descriptionController.text.trim(),
-        'price': double.tryParse(_priceController.text) ?? 0,
-        'unit': _unitController.text.trim(),
-        'location': _locationController.text.trim(),
-        'available_quantity':
-            double.tryParse(_quantityController.text) ?? 1,
+        'price_per_unit': double.tryParse(_priceController.text) ?? 0,
+        'unit_id': _unitIdController.text.trim().isEmpty
+            ? null
+            : _unitIdController.text.trim(),
+        'location_id': _locationIdController.text.trim().isEmpty
+            ? null
+            : _locationIdController.text.trim(),
+        'variant_id': _variantIdController.text.trim().isEmpty
+            ? null
+            : _variantIdController.text.trim(),
+        'stock_id': _stockIdController.text.trim().isEmpty
+            ? null
+            : _stockIdController.text.trim(),
+        'entity_id': _entityIdController.text.trim().isEmpty
+            ? null
+            : _entityIdController.text.trim(),
         'images': images,
       };
 
@@ -148,52 +164,67 @@ class _ListingFormWidgetState extends ConsumerState<ListingFormWidget> {
           ),
           const SizedBox(height: 16),
 
-          Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: TextFormField(
-                  controller: _priceController,
-                  decoration: const InputDecoration(
-                    labelText: 'Price *',
-                    prefixText: 'KSh ',
-                  ),
-                  keyboardType: TextInputType.number,
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) return 'Required';
-                    if (double.tryParse(v) == null) return 'Invalid number';
-                    return null;
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextFormField(
-                  controller: _unitController,
-                  decoration: const InputDecoration(
-                    labelText: 'Unit',
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          TextFormField(
-            controller: _quantityController,
+                    TextFormField(
+            controller: _priceController,
             decoration: const InputDecoration(
-              labelText: 'Available Quantity',
+              labelText: 'Price Per Unit *',
+              prefixText: 'KSh ',
             ),
             keyboardType: TextInputType.number,
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) return 'Required';
+              if (double.tryParse(v) == null) return 'Invalid number';
+              return null;
+            },
+          ),
+
+                    const SizedBox(height: 16),
+
+          TextFormField(
+            controller: _unitIdController,
+            decoration: const InputDecoration(
+              labelText: 'Unit ID',
+              hintText: 'UUID of core.units (e.g. kg)',
+            ),
           ),
 
           const SizedBox(height: 16),
 
           TextFormField(
-            controller: _locationController,
+            controller: _locationIdController,
             decoration: const InputDecoration(
-              labelText: 'Location',
+              labelText: 'Location ID',
+              hintText: 'UUID of core.locations',
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          TextFormField(
+            controller: _variantIdController,
+            decoration: const InputDecoration(
+              labelText: 'Variant ID',
+              hintText: 'UUID of core.item_variants',
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          TextFormField(
+            controller: _stockIdController,
+            decoration: const InputDecoration(
+              labelText: 'Stock ID',
+              hintText: 'UUID of commerce.stock_registry',
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          TextFormField(
+            controller: _entityIdController,
+            decoration: const InputDecoration(
+              labelText: 'Entity ID (Seller)',
+              hintText: 'UUID of core.entities',
             ),
           ),
 

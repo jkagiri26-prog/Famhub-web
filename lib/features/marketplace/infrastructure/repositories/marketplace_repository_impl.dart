@@ -22,6 +22,51 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
 
   MarketplaceRepositoryImpl(this.dataSource);
 
+  /// Enrich a list of listings with seller profile data.
+  ///
+  /// Seller name and rating require a 2-hop join
+  /// (entity_id → core.entities → commerce.business_profiles)
+  /// which PostgREST cannot express natively.
+  Future<List<Listing>> _enrichWithSellerProfiles(
+      List<Map<String, dynamic>> rawListings) async {
+    final enriched = <Listing>[];
+    for (final raw in rawListings) {
+      final entityId = raw['entity_id']?.toString();
+      Listing listing;
+      if (entityId != null && entityId.isNotEmpty) {
+        try {
+          final sellerProfile = await dataSource.fetchSellerProfile(entityId);
+          if (sellerProfile != null) {
+            raw['seller_name'] = sellerProfile['supplier_name']?.toString();
+            raw['seller_rating'] = sellerProfile['rating'];
+          }
+        } catch (_) {
+          // Silently continue without seller info
+        }
+      }
+      listing = ListingMapper.fromJson(raw);
+      enriched.add(listing);
+    }
+    return enriched;
+  }
+
+  /// Enrich a single listing with seller profile data.
+  Future<Listing> _enrichSingleSellerProfile(
+      Map<String, dynamic> raw) async {
+    final entityId = raw['entity_id']?.toString();
+    if (entityId != null && entityId.isNotEmpty) {
+      try {
+        final sellerProfile = await dataSource.fetchSellerProfile(entityId);
+        if (sellerProfile != null) {
+          raw['seller_name'] = sellerProfile['supplier_name']?.toString();
+          raw['seller_rating'] = sellerProfile['rating'];
+        }
+      } catch (_) {
+        // Silently continue without seller info
+      }
+    }
+    return ListingMapper.fromJson(raw);
+  }
   @override
   Future<List<Listing>> fetchListings({
     String? category,
@@ -36,14 +81,14 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
       sellerId: sellerId,
       statusFilter: statusValue,
     );
-    return data.map((e) => ListingMapper.fromJson(e)).toList();
+    return _enrichWithSellerProfiles(data);
   }
 
   @override
   Future<Listing?> fetchListingById(String id) async {
     final data = await dataSource.fetchListingById(id);
     if (data == null) return null;
-    return ListingMapper.fromJson(data);
+    return _enrichSingleSellerProfile(data);
   }
 
   @override
@@ -74,13 +119,11 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
   Future<void> updateInventory({
     required String listingId,
     double? availableQuantity,
-    double? soldQuantity,
     double? reservedQuantity,
   }) async {
     await dataSource.updateInventory(
       listingId: listingId,
       availableQuantity: availableQuantity,
-      soldQuantity: soldQuantity,
       reservedQuantity: reservedQuantity,
     );
   }
@@ -90,3 +133,4 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
     return dataSource.fetchSellerStats(sellerId);
   }
 }
+
