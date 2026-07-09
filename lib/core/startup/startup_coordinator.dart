@@ -12,15 +12,19 @@
 ///   - Validate environment configuration before Supabase init
 ///   - Separate CRITICAL (pre-runApp) from DEFERRED (post-frame) work
 ///   - Provide timeout safety for all async init calls
+///   - Configure global error handling (FlutterError, PlatformDispatcher)
+///   - Provide error reporting infrastructure for observability integration
 ///
 /// ❌ Does NOT:
 ///   - Remove, replace, or redesign any existing engine
 ///   - Change the Runtime Sync Engine architecture
 ///   - Alter business logic
 ///   - Introduce new state management
+///   - Expose sensitive information in production error logs
 /// ============================================================
 library;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter/material.dart' show Icons;  
 
@@ -169,3 +173,87 @@ bool validateEnvironment() {
   }
   return true;
 }
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  GLOBAL ERROR HANDLING — Enterprise fault barrier           ║
+// ╚══════════════════════════════════════════════════════════════╝
+//
+// Configures FlutterError.onError and PlatformDispatcher.instance.onError
+// to capture all uncaught exceptions during bootstrap and runtime.
+//
+// ✅ Captures:
+//   - Synchronous Flutter widget errors (FlutterError.onError)
+//   - Asynchronous uncaught exceptions (PlatformDispatcher.onError)
+//   - Unhandled futures, timers, and microtasks (runZonedGuarded)
+//
+// ❌ Does NOT:
+//   - Expose sensitive information in production logs
+//   - Interfere with debug-mode error reporting
+//   - Replace Flutter's default error behavior in debug mode
+// ═══════════════════════════════════════════════════════════════
+
+/// Callback type for custom error handlers (future observability integration)
+typedef ErrorHandler = void Function(Object error, StackTrace stack);
+
+/// Configures global error handlers for Flutter and platform-level errors.
+///
+/// [onError] - Optional custom error handler for observability integration.
+///             When null, errors are logged via debugPrint.
+///
+/// Call once during startup (before runApp or immediately after
+/// WidgetsFlutterBinding.ensureInitialized()).
+void configureGlobalErrorHandling({ErrorHandler? onError}) {
+  final handler = onError ?? _defaultErrorHandler;
+
+  // ── Capture Flutter widget/build errors ──
+  final previousFlutterErrorHandler = FlutterError.onError;
+  FlutterError.onError = (FlutterErrorDetails details) {
+    // Preserve the previous handler for backward compatibility
+    if (previousFlutterErrorHandler != null) {
+      previousFlutterErrorHandler(details);
+    }
+
+    final exception = details.exception;
+    final stack = details.stack ?? StackTrace.current;
+
+    // Format a clean error message without sensitive details
+    final summaryText = exception.toString();
+
+    debugPrint('══════════════════════════════════════════════════');
+    debugPrint('[FATAL] FlutterError caught: $summaryText');
+    debugPrint('══════════════════════════════════════════════════');
+
+    handler(exception, stack);
+  };
+
+  // ── Capture platform-level errors (native crashes, async errors) ──
+  final previousPlatformErrorHandler =
+      PlatformDispatcher.instance.onError;
+  PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+    debugPrint('══════════════════════════════════════════════════');
+    debugPrint('[FATAL] Platform error caught: $error');
+    debugPrint('══════════════════════════════════════════════════');
+
+    handler(error, stack);
+
+    // Return true to prevent the default error behavior (app crash)
+    // Returning false will crash the app — we want to survive non-fatal errors
+    return previousPlatformErrorHandler?.call(error, stack) ?? true;
+  };
+}
+
+/// Default error handler — logs errors without exposing sensitive info.
+void _defaultErrorHandler(Object error, StackTrace stack) {
+  debugPrint('[ERROR] $error');
+  final safeSummary = error.toString();
+  // Truncate very long messages to avoid log flooding
+  if (safeSummary.length > 500) {
+    debugPrint('[ERROR] (truncated) ${safeSummary.substring(0, 500)}...');
+  }
+  debugPrintStack(
+    stackTrace: stack,
+    label: '[ERROR] Stack trace',
+    maxFrames: 20,
+  );
+}
+

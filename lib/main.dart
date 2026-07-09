@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -21,6 +22,9 @@ import 'core/module_runtime_sync/application/providers/module_runtime_sync_provi
 import 'core/events/workflow_orchestrator.dart';
 import 'core/events/event_bus_provider.dart';
 
+/// 👁️ Event Observer — system-wide event telemetry
+import 'core/observability/event_observer.dart';
+
 /// 🏪 Provider invalidations for workflow orchestration
 import 'features/farm_management/application/providers/farm_dashboard_provider.dart';
 import 'features/farm_management/application/providers/assets_provider.dart';
@@ -29,6 +33,12 @@ import 'features/marketplace/application/providers/marketplace_provider.dart';
 /// 🚀 Startup Coordinator & Platform Persistence
 import 'core/startup/startup_coordinator.dart';
 import 'core/module_runtime_sync/infrastructure/persistence/persistence_store_factory.dart';
+
+/// 📡 Centralized Supabase access
+import 'core/services/supabase_service.dart';
+
+/// 🧩 Module provider — fetches system.modules from backend
+import 'core/providers/module_provider.dart';
 
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  COMPOSITION ENGINE (RUNTIME COMPOSITION SYSTEM)            ║
@@ -47,15 +57,57 @@ import 'core/composition/providers/contribution_providers.dart';
 import 'core/composition/observability/contribution_observability.dart';
 import 'core/dashboard_engine/application/observability/runtime_metrics_collector.dart';
 
-// ╔══════════════════════════════════════════════════════════════╗
-// ║  PHASE D: LIVE DATA PROVIDERS & WIDGET REGISTRATIONS       ║
-// ╚══════════════════════════════════════════════════════════════╝
 import 'core/dashboard_engine/presentation/builders/phase_d_dashboard_bootstrap.dart';
 
+/// ─────────────────────────────────────────────────────────────
+/// ENTRY POINT
+///
+/// Startup flow:
+///   runZonedGuarded()
+///     ↓ WidgetsFlutterBinding.ensureInitialized()
+///     ↓ configureGlobalErrorHandling()
+///     ↓ Environment Validation
+///     ↓ Supabase Initialization
+///     ↓ Core Services & Composition Bootstrap
+///     ↓ ProviderScope + runApp()
+/// ─────────────────────────────────────────────────────────────
 void main() async {
+  // ── Phase 0: Platform initialization (must be outside zone) ──
   WidgetsFlutterBinding.ensureInitialized();
   debugPrint('1. Widgets initialized');
 
+  // ── Phase 0b: Configure FlutterError + PlatformDispatcher ──
+  // These must be set up before the zone so that errors that occur
+  // within the zone's guard callback are still handled by the
+  // same error handling infrastructure.
+  configureGlobalErrorHandling();
+  debugPrint('1a. Global error handling configured');
+
+  // ── Phase 0c: Wrap all remaining startup in runZonedGuarded ──
+  // This captures asynchronous uncaught exceptions that would
+  // otherwise be lost (timers, stream callbacks, raw futures, etc.)
+  runZonedGuarded(() async {
+    await _bootstrap();
+  }, (Object error, StackTrace stack) {
+    // Fallback for any async error that:
+    // - Wasn't caught by FlutterError.onError (non-Flutter errors)
+    // - Wasn't caught by PlatformDispatcher.onError (async gaps)
+    // - Happens in timers, raw isolates, or zone-unaware callbacks
+    debugPrint('══════════════════════════════════════════════════');
+    debugPrint('[ZONE] Uncaught async error in zone: $error');
+    debugPrint('══════════════════════════════════════════════════');
+    debugPrintStack(
+      stackTrace: stack,
+      label: '[ZONE] Stack trace',
+      maxFrames: 20,
+    );
+  });
+}
+
+/// ─────────────────────────────────────────────────────────────
+/// CORE BOOTSTRAP — Runs inside runZonedGuarded()
+/// ─────────────────────────────────────────────────────────────
+Future<void> _bootstrap() async {
   // ─────────────────────────────────────────────────────────────
   // PHASE 1: Validate configuration before any initialization
   // ─────────────────────────────────────────────────────────────
@@ -107,7 +159,7 @@ void main() async {
   // ╔══════════════════════════════════════════════════════════════╗
   // ║  RUNTIME URL VERIFICATION                                   ║
   // ╚══════════════════════════════════════════════════════════════╝
-    debugPrint('[BOOT] CLIENT URL = ${supabaseUrl}');
+    debugPrint('[BOOT] CLIENT URL = $supabaseUrl');
 
   // Stage 2: Create root ProviderContainer
   final container = ProviderContainer();
@@ -119,9 +171,9 @@ void main() async {
   // Stage 4: Create RuntimeSyncEngine (do NOT initialize yet)
   RuntimeSyncEngine? runtimeSyncEngine;
   try {
-    runtimeSyncEngine = RuntimeSyncEngine(
+        runtimeSyncEngine = RuntimeSyncEngine(
       container: container,
-      supabase: Supabase.instance.client,
+      supabase: SupabaseService.instance.client,
       coordinator: container.read(moduleRuntimeSyncCoordinatorProvider),
       persistenceStore: persistenceStore,
     );
@@ -219,10 +271,26 @@ void main() async {
     // Non-fatal — widgets fall back to empty state gracefully
   }
 
-  // Stage 5f: RuntimeMetricsCollector — initialized lazily via providers
+    // Stage 5f: RuntimeMetricsCollector — initialized lazily via providers
   // Metrics collector is created on first access via the
   // runtimeMetricsCollectorProvider in observability_providers.dart.
   // No eager initialization needed here — it auto-starts on first use.
+
+  // ╔══════════════════════════════════════════════════════════════╗
+  // ║  EVENT OBSERVER — Start system-wide event telemetry        ║
+  // ╚══════════════════════════════════════════════════════════════╝
+  // Stage 5g: Start EventObserver for system-wide event telemetry.
+  //           Non-critical — gracefully continues if it fails.
+  try {
+    final eventBus = container.read(eventBusProvider);
+    final eventObserver = EventObserver(eventBus);
+    eventObserver.start();
+    debugPrint('[BOOT] EventObserver started successfully.');
+  } catch (e, stack) {
+    debugPrint('[BOOT] EventObserver start failed: $e');
+    debugPrintStack(stackTrace: stack, label: '[BOOT] EventObserver');
+    // Non-fatal — app can run without event observability
+  }
 
   debugPrint('4. runApp()');
 
@@ -259,7 +327,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     // ─────────────────────────────────────────────────────────
     // PHASE 4: DEFERRED — After first frame via post-frame callback
     // ─────────────────────────────────────────────────────────
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_deferredInitStarted) return;
       _deferredInitStarted = true;
 
@@ -268,6 +336,13 @@ class _MyAppState extends ConsumerState<MyApp> {
         try {
           await ref.read(contextProvider.notifier).init();
           debugPrint('[BOOT] ContextEngine initialized successfully.');
+          // Invalidate composition providers to trigger re-render
+          // with correct user context
+          ref.invalidate(moduleProvider);
+          ref.invalidate(enabledRuntimeModulesProvider);
+          ref.invalidate(runtimeModuleRegistryProvider);
+          ref.invalidate(appRouterProvider);
+          debugPrint('[BOOT] Composition providers invalidated after context init.');
         } catch (e, stack) {
           debugPrint('[BOOT] ContextEngine init failed: $e');
           debugPrintStack(stackTrace: stack, label: '[BOOT] ContextEngine');
@@ -281,6 +356,14 @@ class _MyAppState extends ConsumerState<MyApp> {
           try {
             await syncEngine.initialize().timeout(const Duration(seconds: 30));
             debugPrint('[BOOT] RuntimeSyncEngine initialized.');
+            // Invalidate runtime state providers so dashboard
+            // picks up module enable/disable/maintenance changes
+            ref.invalidate(moduleRuntimeSyncProvider);
+            ref.invalidate(moduleProvider);
+            ref.invalidate(enabledRuntimeModulesProvider);
+            ref.invalidate(runtimeModuleRegistryProvider);
+            ref.invalidate(appRouterProvider);
+            debugPrint('[BOOT] Composition providers invalidated after sync init.');
           } catch (e, stack) {
             debugPrint('[BOOT] RuntimeSyncEngine init failed: $e');
             debugPrintStack(
