@@ -33,6 +33,7 @@ ModuleRuntimeDescriptor createExtensionServicesDescriptor() {
     // ── Dashboard Widget Contributions ──
     dashboardWidgets: [
       DashboardWidgetDescriptor(
+        moduleKey: 'extension_services',
         widgetKey: 'extension_advisory',
         displayName: 'Advisory Services',
         sectionKey: 'extension',
@@ -42,6 +43,7 @@ ModuleRuntimeDescriptor createExtensionServicesDescriptor() {
         iconKey: 'support_agent',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'extension_services',
         widgetKey: 'extension_field_visits',
         displayName: 'Field Visits',
         sectionKey: 'extension',
@@ -51,6 +53,7 @@ ModuleRuntimeDescriptor createExtensionServicesDescriptor() {
         iconKey: 'explore',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'extension_services',
         widgetKey: 'extension_requests',
         displayName: 'Service Requests',
         sectionKey: 'extension',
@@ -60,6 +63,7 @@ ModuleRuntimeDescriptor createExtensionServicesDescriptor() {
         iconKey: 'assignment',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'extension_services',
         widgetKey: 'extension_training',
         displayName: 'Training Programs',
         sectionKey: 'extension',

@@ -33,6 +33,7 @@ ModuleRuntimeDescriptor createOpportunitiesDescriptor() {
     // ── Dashboard Widget Contributions ──
     dashboardWidgets: [
       DashboardWidgetDescriptor(
+        moduleKey: 'opportunities',
         widgetKey: 'opportunities_active_grants',
         displayName: 'Active Grants',
         sectionKey: 'opportunities',
@@ -42,6 +43,7 @@ ModuleRuntimeDescriptor createOpportunitiesDescriptor() {
         iconKey: 'volunteer_activism',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'opportunities',
         widgetKey: 'opportunities_tenders',
         displayName: 'Open Tenders',
         sectionKey: 'opportunities',
@@ -51,6 +53,7 @@ ModuleRuntimeDescriptor createOpportunitiesDescriptor() {
         iconKey: 'gavel',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'opportunities',
         widgetKey: 'opportunities_recommended',
         displayName: 'Recommended',
         sectionKey: 'opportunities',
@@ -61,6 +64,7 @@ ModuleRuntimeDescriptor createOpportunitiesDescriptor() {
         refreshIntervalSeconds: 3600,
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'opportunities',
         widgetKey: 'opportunities_deadlines',
         displayName: 'Upcoming Deadlines',
         sectionKey: 'opportunities',

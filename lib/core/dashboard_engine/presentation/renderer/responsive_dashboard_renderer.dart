@@ -14,15 +14,14 @@
 ///   - NO LayoutBuilder — uses breakpoint provider
 ///
 /// ✅ ARCHITECTURE COMPLIANCE:
-///   - Consumes the exact same runtime composition pipeline
-///   - Same dashboardNavItemsProvider
-///   - Same WidgetRegistry
-///   - Same feature flags
-///   - Same governance
-///   - Only the layout/presentation changes
+///   - Consumes dashboardNavItemsProvider for pre-filtered items
+///   - Uses WidgetRegistry for widget resolution
+///   - Pure presentation component - no business decisions
 ///
 /// ❌ Does NOT:
 ///   - Duplicate business logic
+///   - Evaluate feature flags or governance rules
+///   - Filter items based on context or device
 ///   - Hardcode module names, routes, or sections
 ///   - Bypass runtime providers
 /// ============================================================
@@ -36,13 +35,9 @@ import 'package:famhub_app/core/navigation/nav_config.dart';
 import 'package:famhub_app/core/navigation/nav_item.dart';
 import 'package:famhub_app/core/navigation/responsive_breakpoints.dart';
 import 'package:famhub_app/core/navigation/resize_optimizer.dart';
-import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
-import 'package:famhub_app/core/context_engine/domain/models/entity_context.dart';
 import 'package:famhub_app/core/dashboard_engine/domain/models/dashboard_section.dart';
-import 'package:famhub_app/core/feature_flags/application/services/runtime_feature_flags.dart';
 import 'package:famhub_app/core/dashboard_engine/presentation/builders/widget_registry.dart';
 import 'package:famhub_app/shared/widgets/module_error_boundary.dart';
-import 'package:famhub_app/shared/utils/icon_resolver.dart';
 
 /// ============================================================
 /// RESPONSIVE DASHBOARD RENDERER
@@ -58,7 +53,6 @@ class ResponsiveDashboardRenderer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboardItems = ref.watch(dashboardNavItemsProvider);
-    final entityContext = ref.watch(contextProvider);
     final breakpoint = ref.watch(breakpointProvider);
     final theme = Theme.of(context);
 
@@ -66,8 +60,7 @@ class ResponsiveDashboardRenderer extends ConsumerWidget {
       return _buildEmptyState(theme);
     }
 
-    final deviceType = breakpoint.deviceType;
-    final sections = _buildSections(dashboardItems, entityContext, deviceType);
+    final sections = _buildSections(dashboardItems);
 
     return SafeArea(
       child: Center(
@@ -108,20 +101,15 @@ class ResponsiveDashboardRenderer extends ConsumerWidget {
   }
 
   /// ============================================================
-  /// BUILD SECTIONS FROM BACKEND MODULE DATA
+  /// GROUP ITEMS INTO SECTIONS
   /// ============================================================
   List<_DashboardSectionData> _buildSections(
     List<NavItem> items,
-    EntityContext context,
-    String deviceType,
   ) {
     final sectionMap = <String, _DashboardSectionData>{};
 
     for (final item in items) {
       if (item.isChildModule) continue;
-
-      final result = _evaluateItem(item, context, deviceType);
-      if (!result.isAllowed) continue;
 
       final sectionKey = item.section ?? item.category ?? 'general';
       final sectionDisplayName = item.section ?? item.category ?? 'General';
@@ -132,8 +120,7 @@ class ResponsiveDashboardRenderer extends ConsumerWidget {
             sectionKey: sectionKey,
             displayName: sectionDisplayName,
             displayOrder: item.displayOrder,
-            iconKey: _getSectionIcon(sectionKey),
-            layoutStyle: deviceType == 'mobile' ? 'stacked' : 'grid',
+            layoutStyle: 'grid',
           ),
           items: [],
         );
@@ -146,54 +133,6 @@ class ResponsiveDashboardRenderer extends ConsumerWidget {
       ..sort((a, b) => a.section.displayOrder.compareTo(b.section.displayOrder));
 
     return sortedSections;
-  }
-
-  /// Evaluate a single nav item through RuntimeFeatureFlags
-  FeatureFlagResult _evaluateItem(
-    NavItem item,
-    EntityContext context,
-    String deviceType,
-  ) {
-    if (!item.isEnabled) return FeatureFlagResult.denied('disabled');
-    if (item.maintenanceMode) return FeatureFlagResult.denied('maintenance');
-    if (!item.isVisibleOnDevice(deviceType)) {
-      return FeatureFlagResult.denied('not_visible_on_device');
-    }
-    if (context.isGuest && item.moduleKey != 'dashboard') {
-      return FeatureFlagResult.denied('guest_restricted');
-    }
-    return FeatureFlagResult.allowed;
-  }
-
-  /// Icon for each section
-  String _getSectionIcon(String key) {
-    switch (key.toLowerCase()) {
-      case 'farm':
-        return 'agriculture';
-      case 'marketplace':
-        return 'store';
-      case 'analytics':
-      case 'reports':
-        return 'analytics';
-      case 'finance':
-        return 'finance';
-      case 'logistics':
-        return 'shipping';
-      case 'traceability':
-        return 'qr_code';
-      case 'knowledge':
-        return 'library';
-      case 'opportunities':
-        return 'opportunities';
-      case 'community':
-        return 'community';
-      case 'referral':
-        return 'referral';
-      case 'general':
-        return 'dashboard';
-      default:
-        return 'widgets';
-    }
   }
 
   Widget _buildHeader(int sectionCount, ThemeData theme) {
@@ -296,7 +235,8 @@ class _ResponsiveSectionView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final sectionIcon = IconResolver.resolve(section.section.iconKey);
+    // Use the first item's icon as the section icon (metadata from NavItem)
+    final sectionIcon = section.items.isNotEmpty ? section.items.first.icon : null;
     final crossAxisCount = breakpoint.columnCount;
     final spacing = breakpoint.spacing;
 
@@ -310,8 +250,10 @@ class _ResponsiveSectionView extends StatelessWidget {
             padding: EdgeInsets.only(bottom: spacing),
             child: Row(
               children: [
-                Icon(sectionIcon, size: 18, color: theme.colorScheme.primary),
-                const SizedBox(width: 8),
+                if (sectionIcon != null) ...[
+                  Icon(sectionIcon, size: 18, color: theme.colorScheme.primary),
+                  const SizedBox(width: 8),
+                ],
                 Text(
                   section.section.displayName,
                   style: theme.textTheme.titleSmall?.copyWith(

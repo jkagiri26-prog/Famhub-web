@@ -81,14 +81,10 @@ enum ShellExtensionSlot {
 /// The shell reads extensions from shellExtensionProvider (Riverpod)
 /// which is driven by the platform's module runtime (composition layer).
 ///
-/// 🎯 Usage (modern — runtime-driven):
+/// 🎯 Usage (runtime-driven only):
 ///   Modules contribute ShellExtensionDescriptors in their
 ///   ModuleRuntimeDescriptor. The composition engine resolves
 ///   them and the shellExtensionProvider converts them.
-///
-/// 🚫 Usage (legacy — deprecated):
-///   ShellExtensionRegistry.register(...) — still works but
-///   is superseded by the runtime-driven provider.
 ///
 /// The shell never reads [id] for rendering — it's only for
 /// deduplication and ordering.
@@ -133,49 +129,3 @@ class ShellExtension {
   });
 }
 
-/// ============================================================
-/// SHELL EXTENSION REGISTRY (LEGACY) — Static registry
-/// ============================================================
-///
-/// ⚠️ DEPRECATED: Use shellExtensionProvider instead.
-///
-/// The static registry is maintained for backward compatibility.
-/// All new extensions should use ModuleRuntimeDescriptor.shellExtensions
-/// and the runtime-driven shellExtensionProvider.
-///
-/// Modules that still use this registry will continue to work,
-/// but their extensions will not participate in:
-///   - Module governance (disable/enable)
-///   - Maintenance mode auto-hide
-///   - Feature flag evaluation
-///   - Hot-reload module updates
-///
-/// To migrate: add ShellExtensionDescriptor to ModuleRuntimeDescriptor
-/// instead of calling ShellExtensionRegistry.register().
-/// ============================================================
-class ShellExtensionRegistry {
-  static final List<ShellExtension> _extensions = [];
-
-  /// Register a shell extension
-  static void register(ShellExtension extension) {
-    _extensions.removeWhere((e) => e.id == extension.id);
-    _extensions.add(extension);
-    _extensions.sort((a, b) => a.priority.compareTo(b.priority));
-  }
-
-  /// Get all extensions for a given slot
-  static List<ShellExtension> forSlot(ShellExtensionSlot slot) {
-    return _extensions.where((e) => e.slot == slot).toList();
-  }
-
-  /// Get all registered extensions
-  static List<ShellExtension> get all => List.unmodifiable(_extensions);
-
-  /// Clear all extensions (for testing)
-  static void clear() => _extensions.clear();
-
-  /// Remove a specific extension by id
-  static void unregister(String id) {
-    _extensions.removeWhere((e) => e.id == id);
-  }
-}

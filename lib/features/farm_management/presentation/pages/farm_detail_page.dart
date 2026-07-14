@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:famhub_app/shared/layouts/feature_page_scaffold.dart';
+import 'package:famhub_app/shared/layouts/shell_page_content.dart';
 import 'package:famhub_app/shared/widgets/cards/kpi_card.dart';
 import 'package:famhub_app/shared/layouts/adaptive_content_grid.dart';
 import 'package:famhub_app/shared/widgets/states/loading_state_widget.dart';
@@ -28,6 +28,9 @@ import 'package:famhub_app/features/farm_management/presentation/pages/livestock
 ///
 /// Route: /farm/:id
 /// Provides a full operational view of a single farm.
+///
+/// Shell-compliant: no Scaffold, no AppBar (owned by UnifiedAppShellV2).
+/// TabBar is rendered as page content, not inside AppBar.
 class FarmDetailPage extends ConsumerStatefulWidget {
   final String farmId;
   final String farmName;
@@ -77,56 +80,71 @@ class _FarmDetailPageState extends ConsumerState<FarmDetailPage>
   Widget build(BuildContext context) {
     final contextState = ref.watch(farmContextProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.farmName,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
-            if (contextState.farm?.description != null)
+    // No Scaffold or AppBar — these are owned by UnifiedAppShellV2.
+    // TabBar becomes part of page content.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Title section (replaces AppBar title) ──
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
-                contextState.farm!.description!,
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                widget.farmName,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
               ),
-          ],
+              if (contextState.farm?.description != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    contextState.farm!.description!,
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                ),
+            ],
+          ),
         ),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        iconTheme: IconThemeData(color: Colors.grey.shade700),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: SizedBox(
-              width: MediaQuery.of(context).size.width,
-              child: TabBar(
-                controller: _tabController,
-                isScrollable: true,
-                tabs: _tabs,
-                indicatorColor: Theme.of(context).colorScheme.primary,
-                labelColor: Theme.of(context).colorScheme.primary,
-                unselectedLabelColor: Colors.grey.shade600,
-                labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-              ),
+        const SizedBox(height: 8),
+
+        // ── TabBar as page content ──
+        SizedBox(
+          width: MediaQuery.of(context).size.width,
+          child: TabBar(
+            controller: _tabController,
+            isScrollable: true,
+            tabs: _tabs,
+            indicatorColor: Theme.of(context).colorScheme.primary,
+            labelColor: Theme.of(context).colorScheme.primary,
+            unselectedLabelColor: Colors.grey.shade600,
+            labelStyle: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _OverviewTab(farmId: widget.farmId, tabController: _tabController),
-          const CropsPage(),
-          const LivestockPage(),
-          const FieldsPage(),
-          const AssetsPage(),
-          const ActivitiesPage(),
-          const ProductionRecordingPage(),
-        ],
-      ),
+
+        // ── Tab content ──
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _OverviewTab(farmId: widget.farmId, tabController: _tabController),
+              const CropsPage(),
+              const LivestockPage(),
+              const FieldsPage(),
+              const AssetsPage(),
+              const ActivitiesPage(),
+              const ProductionRecordingPage(),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -143,22 +161,20 @@ class _OverviewTab extends ConsumerWidget {
     final contextState = ref.watch(farmContextProvider);
 
     return dashboardAsync.when(
-      loading: () => const FeaturePageScaffold(
+      loading: () => const ShellPageContent(
         title: 'Dashboard',
         subtitle: 'Loading farm data...',
-        children: [LoadingStateWidget(useSkeleton: true)],
+        child: LoadingStateWidget(useSkeleton: true),
       ),
-      error: (err, stack) => FeaturePageScaffold(
+      error: (err, stack) => ShellPageContent(
         title: 'Dashboard',
         subtitle: 'Failed to load farm data',
-        children: [
-          ErrorStateWidget(
-            title: 'Error Loading Dashboard',
-            message: err.toString(),
-            retryLabel: 'Retry',
-            onRetry: () => ref.invalidate(farmDashboardProvider),
-          ),
-        ],
+        child: ErrorStateWidget(
+          title: 'Error Loading Dashboard',
+          message: err.toString(),
+          retryLabel: 'Retry',
+          onRetry: () => ref.invalidate(farmDashboardProvider),
+        ),
       ),
       data: (state) {
         final summary = state.summary;

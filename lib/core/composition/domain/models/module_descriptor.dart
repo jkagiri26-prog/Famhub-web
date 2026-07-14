@@ -163,6 +163,9 @@ class ModuleRuntimeDescriptor {
 /// The dashboard engine composes these into sections.
 /// ============================================================
 class DashboardWidgetDescriptor {
+  /// Module key this widget belongs to
+  final String moduleKey;
+
   /// Unique widget key for registry lookup
   final String widgetKey;
 
@@ -191,6 +194,7 @@ class DashboardWidgetDescriptor {
   final int refreshIntervalSeconds;
 
   const DashboardWidgetDescriptor({
+    required this.moduleKey,
     required this.widgetKey,
     required this.displayName,
     required this.sectionKey,

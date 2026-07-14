@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:famhub_app/core/composition/domain/models/section_registry.dart';
 import 'package:famhub_app/core/navigation/nav_config.dart';
 import 'package:famhub_app/core/navigation/nav_item.dart';
+import 'package:famhub_app/core/navigation/resize_optimizer.dart';
 import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
 import 'package:famhub_app/core/context_engine/domain/models/entity_context.dart';
 import 'package:famhub_app/core/dashboard_engine/domain/models/dashboard_section.dart';
@@ -52,48 +53,41 @@ class RegistryDashboardRenderer extends ConsumerWidget {
       return _buildEmptyState(theme);
     }
 
-    // Determine device type from screen width
-    final deviceType = _resolveDeviceType(MediaQuery.of(context).size.width);
+    // Determine device type from shared breakpoint provider
+    final breakpoint = ref.watch(breakpointProvider);
+    final deviceType = breakpoint.deviceType;
 
     // Build sections from backend module data
     final sections = _buildSections(dashboardItems, entityContext, deviceType);
 
+    final crossAxisCount = breakpoint.columnCount;
+
     return SafeArea(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final crossAxisCount = constraints.maxWidth > 900
-              ? 3
-              : constraints.maxWidth > 600
-                  ? 2
-                  : 1;
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Dashboard header ──
+            _buildHeader(sections.length, theme),
+            const SizedBox(height: 16),
 
-          return Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Dashboard header ──
-                _buildHeader(sections.length, theme),
-                const SizedBox(height: 16),
-
-                // ── Dynamic sections ──
-                Expanded(
-                  child: ListView.builder(
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: sections.length,
-                    itemBuilder: (context, index) {
-                      final section = sections[index];
-                      return _DashboardSectionView(
-                        section: section,
-                        crossAxisCount: crossAxisCount,
-                      );
-                    },
-                  ),
-                ),
-              ],
+            // ── Dynamic sections ──
+            Expanded(
+              child: ListView.builder(
+                physics: const BouncingScrollPhysics(),
+                itemCount: sections.length,
+                itemBuilder: (context, index) {
+                  final section = sections[index];
+                  return _DashboardSectionView(
+                    section: section,
+                    crossAxisCount: crossAxisCount,
+                  );
+                },
+              ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
@@ -228,13 +222,6 @@ class RegistryDashboardRenderer extends ConsumerWidget {
       default:
         return 'widgets';
     }
-  }
-
-  /// Resolve device type from screen width
-  String _resolveDeviceType(double width) {
-    if (width < 600) return 'mobile';
-    if (width < 1024) return 'tablet';
-    return 'desktop';
   }
 
   Widget _buildHeader(int sectionCount, ThemeData theme) {

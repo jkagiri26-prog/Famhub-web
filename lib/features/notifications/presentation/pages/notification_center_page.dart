@@ -22,6 +22,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/composition/domain/models/module_descriptor.dart';
 import 'package:famhub_app/core/composition/providers/descriptor_providers.dart';
+import 'package:famhub_app/shared/layouts/shell_page_content.dart';
 
 /// ============================================================
 /// NOTIFICATION CENTER PROVIDER
@@ -41,32 +42,21 @@ class NotificationCenterPage extends ConsumerWidget {
     final theme = Theme.of(context);
     final providersAsync = ref.watch(notificationProvidersProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: Text(
-          'Notifications',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: Colors.black87,
-          ),
+    return ShellPageContent(
+      title: 'Notifications',
+      actions: [
+        IconButton(
+          icon: Icon(Icons.done_all, color: Colors.grey.shade600),
+          onPressed: () {},
+          tooltip: 'Mark all as read',
         ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.done_all, color: Colors.grey.shade600),
-            onPressed: () {},
-            tooltip: 'Mark all as read',
-          ),
-          IconButton(
-            icon: Icon(Icons.settings_outlined, color: Colors.grey.shade600),
-            onPressed: () {},
-            tooltip: 'Notification settings',
-          ),
-        ],
-      ),
-      body: providersAsync.when(
+        IconButton(
+          icon: Icon(Icons.settings_outlined, color: Colors.grey.shade600),
+          onPressed: () {},
+          tooltip: 'Notification settings',
+        ),
+      ],
+      child: providersAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Error: $err')),
         data: (providers) {

@@ -33,6 +33,7 @@ ModuleRuntimeDescriptor createReferralHubDescriptor() {
     // ── Dashboard Widget Contributions ──
     dashboardWidgets: [
       DashboardWidgetDescriptor(
+        moduleKey: 'referral_hub',
         widgetKey: 'referral_summary',
         displayName: 'Referral Summary',
         sectionKey: 'engagement',
@@ -42,6 +43,7 @@ ModuleRuntimeDescriptor createReferralHubDescriptor() {
         iconKey: 'share',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'referral_hub',
         widgetKey: 'referral_rewards',
         displayName: 'Rewards Earned',
         sectionKey: 'engagement',
@@ -51,6 +53,7 @@ ModuleRuntimeDescriptor createReferralHubDescriptor() {
         iconKey: 'card_giftcard',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'referral_hub',
         widgetKey: 'referral_leaderboard',
         displayName: 'Leaderboard',
         sectionKey: 'engagement',
@@ -61,6 +64,7 @@ ModuleRuntimeDescriptor createReferralHubDescriptor() {
         refreshIntervalSeconds: 300,
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'referral_hub',
         widgetKey: 'referral_invite',
         displayName: 'Invite Friends',
         sectionKey: 'engagement',

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:famhub_app/shared/layouts/feature_page_scaffold.dart';
+import 'package:famhub_app/shared/layouts/shell_page_content.dart';
 import 'package:famhub_app/shared/widgets/states/loading_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
@@ -75,36 +75,34 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
   Widget build(BuildContext context) {
     final farmId = ref.watch(farmContextProvider).farmId;
 
-    if (farmId == null) {
-      return const FeaturePageScaffold(
+        if (farmId == null) {
+      return const ShellPageContent(
         title: 'Activities',
         subtitle: 'Select a farm to view activities',
-        children: [],
+        child: SizedBox.shrink(),
       );
     }
 
     final activityState = ref.watch(activitiesProvider);
 
     if (activityState.isLoading) {
-      return const FeaturePageScaffold(
+      return const ShellPageContent(
         title: 'Activities',
         subtitle: 'Loading activity timeline...',
-        children: [LoadingStateWidget(useSkeleton: true)],
+        child: LoadingStateWidget(useSkeleton: true),
       );
     }
 
     if (activityState.errorMessage != null) {
-      return FeaturePageScaffold(
+      return ShellPageContent(
         title: 'Activities',
         subtitle: 'Failed to load activity data',
-        children: [
-          ErrorStateWidget(
-            title: 'Error Loading Activities',
-            message: activityState.errorMessage!,
-            retryLabel: 'Retry',
-            onRetry: _loadActivities,
-          ),
-        ],
+        child: ErrorStateWidget(
+          title: 'Error Loading Activities',
+          message: activityState.errorMessage!,
+          retryLabel: 'Retry',
+          onRetry: _loadActivities,
+        ),
       );
     }
 
@@ -121,17 +119,21 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
       );
     }).toList();
 
-    return FeaturePageScaffold(
+    return ShellPageContent(
       title: 'Activities',
       subtitle: '${activities.length} activit${activities.length == 1 ? 'y' : 'ies'}',
-      trailing: IconButton(
-        onPressed: () => _navigateToCreateActivity(context),
-        icon: const Icon(Icons.add_circle_outline),
-        tooltip: 'Record Activity',
-      ),
-      children: [
-        // ── KPIs ──
-        AdaptiveContentGrid(
+      actions: [
+        IconButton(
+          onPressed: () => _navigateToCreateActivity(context),
+          icon: const Icon(Icons.add_circle_outline),
+          tooltip: 'Record Activity',
+        ),
+      ],
+            child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── KPIs ──
+          AdaptiveContentGrid(
           items: [
             KPICard(
               label: 'Total Activities',
@@ -205,18 +207,19 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
                   emptyTitle: 'No farm activities yet',
                   emptySubtitle: 'Start recording farm operations and events.',
                 ),
-        ),
+                ),
       ],
+    ),
     );
   }
 
-  void _navigateToCreateActivity(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const ActivityCreationPage(),
-      ),
-    );
-  }
+    void _navigateToCreateActivity(BuildContext context) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const ActivityCreationPage(),
+        ),
+      );
+    }
 
   String _formatTimestamp(DateTime dt) {
     final now = DateTime.now();
@@ -228,4 +231,3 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
     return '${dt.day}/${dt.month}/${dt.year}';
   }
 }
-

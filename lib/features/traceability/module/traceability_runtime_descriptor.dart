@@ -33,6 +33,7 @@ ModuleRuntimeDescriptor createTraceabilityDescriptor() {
     // ── Dashboard Widget Contributions ──
     dashboardWidgets: [
       DashboardWidgetDescriptor(
+        moduleKey: 'traceability',
         widgetKey: 'traceability_recent_scans',
         displayName: 'Recent Scans',
         sectionKey: 'traceability',
@@ -42,6 +43,7 @@ ModuleRuntimeDescriptor createTraceabilityDescriptor() {
         iconKey: 'qr_code_scanner',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'traceability',
         widgetKey: 'traceability_certifications',
         displayName: 'Certifications',
         sectionKey: 'traceability',
@@ -51,6 +53,7 @@ ModuleRuntimeDescriptor createTraceabilityDescriptor() {
         iconKey: 'verified',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'traceability',
         widgetKey: 'traceability_supply_chain',
         displayName: 'Supply Chain',
         sectionKey: 'traceability',
@@ -61,6 +64,7 @@ ModuleRuntimeDescriptor createTraceabilityDescriptor() {
         refreshIntervalSeconds: 300,
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'traceability',
         widgetKey: 'traceability_alerts',
         displayName: 'Traceability Alerts',
         sectionKey: 'traceability',

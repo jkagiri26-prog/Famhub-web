@@ -48,10 +48,11 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
   void set(ThemeMode mode) => state = mode;
 
   void toggle() {
+    // Toggle between light and dark only (no system mode in manual toggle)
     state = switch (state) {
       ThemeMode.light => ThemeMode.dark,
-      ThemeMode.dark => ThemeMode.system,
-      ThemeMode.system => ThemeMode.light,
+      ThemeMode.dark => ThemeMode.light,
+      ThemeMode.system => ThemeMode.dark,
     };
   }
 }

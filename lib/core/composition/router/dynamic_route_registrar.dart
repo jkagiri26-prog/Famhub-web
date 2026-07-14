@@ -11,6 +11,8 @@ library;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:famhub_app/core/shell/presentation/layouts/common/shell_not_found.dart';
+
 import 'package:famhub_app/core/composition/domain/models/runtime_module.dart';
 import 'package:famhub_app/core/router/route_names.dart';
 import 'package:famhub_app/core/shell/presentation/pages/new_unified_app_shell.dart';
@@ -33,6 +35,7 @@ import 'package:famhub_app/features/agri_connect/presentation/pages/agri_connect
 import 'package:famhub_app/features/agri_tech_lab/presentation/pages/agri_tech_lab_page.dart';
 import 'package:famhub_app/features/refferal_hub/presentation/pages/referral_hub_page.dart';
 import 'package:famhub_app/features/profile/presentation/pages/profile_page.dart';
+import 'package:famhub_app/features/profile/presentation/pages/settings_page.dart';
 import 'package:famhub_app/features/admin_console/presentation/pages/admin_dashboard_page.dart';
 import 'package:famhub_app/features/guest/guest_homepage.dart';
 
@@ -162,29 +165,17 @@ class DynamicRouteRegistrar {
               builder: (context, state) =>
                   const GuestHomePage(),
             ),
+            GoRoute(
+              path: AppRoutes.settings,
+              name: AppRoutes.settingsName,
+              builder: (context, state) =>
+                  const SettingsPage(),
+            ),
             ...moduleRoutes,
           ],
         ),
       ],
-      errorBuilder: (context, state) => const Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.warning_amber_rounded,
-                  size: 48, color: Colors.orange),
-              SizedBox(height: 16),
-              Text('Page Not Found',
-                  style: TextStyle(
-                      fontSize: 20, fontWeight: FontWeight.w600)),
-              SizedBox(height: 8),
-              Text('The requested page could not be found.',
-                  style: TextStyle(fontSize: 14, color: Colors.grey),
-                  textAlign: TextAlign.center),
-            ],
-          ),
-        ),
-      ),
+      errorBuilder: (context, state) => const ShellNotFound(),
     );
 
     stopwatch.stop();
@@ -238,6 +229,8 @@ void bootstrapModulePageBuilders() {
       'referral_hub', (_) => const ReferralHubPage());
   ModulePageRegistry.register(
       'profile', (_) => const ProfilePage());
+  ModulePageRegistry.register(
+      'profile_settings', (_) => const SettingsPage());
   ModulePageRegistry.register(
       'admin_console', (_) => const AdminDashboardPage());
 

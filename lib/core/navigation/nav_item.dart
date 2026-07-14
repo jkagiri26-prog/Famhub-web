@@ -109,12 +109,28 @@ class NavItem {
   /// Safe getter for navigation route
   String get navigationRoute => route;
 
-  /// Whether this item is visible on the given device
+    /// Whether this item is visible on the given device
+  ///
+  /// Treats 'compactXs' as 'mobile' and 'ultraWide' as 'desktop'
+  /// for device restriction checks.
   bool isVisibleOnDevice(String deviceType) {
-    if (desktopOnly && deviceType != 'desktop') return false;
-    if (mobileOnly && deviceType != 'mobile') return false;
-    if (tabletOnly && deviceType != 'tablet') return false;
+    final normalizedType = _normalizeDeviceType(deviceType);
+    if (desktopOnly && normalizedType != 'desktop') return false;
+    if (mobileOnly && normalizedType != 'mobile') return false;
+    if (tabletOnly && normalizedType != 'tablet') return false;
     return true;
+  }
+
+  /// Normalize device type string for backward compatibility.
+  static String _normalizeDeviceType(String deviceType) {
+    switch (deviceType) {
+      case 'compactXs':
+        return 'mobile';
+      case 'ultraWide':
+        return 'desktop';
+      default:
+        return deviceType;
+    }
   }
 
   /// Whether this item has an active badge

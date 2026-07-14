@@ -111,13 +111,16 @@ class DashboardWidgetDefinition {
     );
   }
 
-  /// Whether this widget can be shown on a given device type
+  /// Whether this widget can be shown on a given device type.
+  /// Treats 'compactXs' as 'mobile' and 'ultraWide' as 'desktop'.
   bool isVisibleOnDevice(String deviceType) {
     switch (deviceType) {
+      case 'compactXs':
       case 'mobile':
         return showOnMobile;
       case 'tablet':
         return showOnTablet;
+      case 'ultraWide':
       case 'desktop':
         return showOnDesktop;
       default:

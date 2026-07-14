@@ -88,11 +88,24 @@ class CompositionNavItem {
   });
 
   /// Whether this item is visible on the given device
+  /// Treats 'compactXs' as 'mobile' and 'ultraWide' as 'desktop'.
   bool isVisibleOnDevice(String deviceType) {
-    if (desktopOnly && deviceType != 'desktop') return false;
-    if (mobileOnly && deviceType != 'mobile') return false;
-    if (tabletOnly && deviceType != 'tablet') return false;
+    final normalized = _normalizeDeviceType(deviceType);
+    if (desktopOnly && normalized != 'desktop') return false;
+    if (mobileOnly && normalized != 'mobile') return false;
+    if (tabletOnly && normalized != 'tablet') return false;
     return true;
+  }
+
+  static String _normalizeDeviceType(String deviceType) {
+    switch (deviceType) {
+      case 'compactXs':
+        return 'mobile';
+      case 'ultraWide':
+        return 'desktop';
+      default:
+        return deviceType;
+    }
   }
 
   /// Whether this item has an active badge

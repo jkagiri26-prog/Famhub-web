@@ -14,9 +14,13 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../config/shell_config.dart';
 import '../../../theme/shell_theme.dart';
+import '../../../navigation/nav_config.dart';
+import '../../../navigation/nav_item.dart';
 import '../widgets/shell_region.dart';
 import 'common/maintenance_banner.dart';
 /// ============================================================
@@ -61,18 +65,37 @@ class CompactXsShellLayout extends StatelessWidget {
 }
 
 /// ============================================================
-/// COMPACT BOTTOM NAV
+/// COMPACT BOTTOM NAV — Runtime-driven, no hardcoded items
 /// ============================================================
 ///
 /// Ultra-compact bottom navigation with no labels, only icons.
+/// Items are supplied by bottomNavItemsProvider — the same runtime
+/// provider used by MobileShellLayout via ShellBottomNav.
 /// ============================================================
-class _CompactBottomNav extends StatelessWidget {
+class _CompactBottomNav extends ConsumerWidget {
   const _CompactBottomNav();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final palette = Theme.of(context).extension<ShellThemeColors>()?.palette ??
         ShellTheme.defaultLight;
+    final location = GoRouterState.of(context).uri.toString();
+    final navItems = ref.watch(bottomNavItemsProvider);
+
+    // Always include Dashboard as first item (same pattern as ShellBottomNav)
+    final allItems = [
+      const NavItem(
+        moduleKey: 'dashboard',
+        displayName: 'Home',
+        route: '/',
+        icon: Icons.home_rounded,
+        displayOrder: 0,
+        bottomNavVisible: true,
+      ),
+      ...navItems,
+    ];
+
+    final selectedIndex = _resolveIndex(location, allItems);
 
     return Container(
       height: 48,
@@ -85,21 +108,56 @@ class _CompactBottomNav extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: List.generate(
-          4, // Placeholder: simplified nav items
-          (index) => IconButton(
-            onPressed: () {},
-            icon: Icon(
-              [Icons.home_outlined, Icons.dashboard_outlined, Icons.search, Icons.person_outline][index],
-              size: 20,
-              color: index == 0 ? palette.primary : palette.secondaryText,
-            ),
-            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-            padding: EdgeInsets.zero,
-            splashRadius: 18,
-          ),
+          allItems.length,
+          (index) {
+            final item = allItems[index];
+            final isSelected = index == selectedIndex;
+
+            return IconButton(
+              onPressed: () => _onNavigate(context, item),
+              icon: item.hasBadge
+                  ? Badge(
+                      label: Text(
+                        item.badgeText ?? '${item.unreadCount}',
+                        style: const TextStyle(fontSize: 9, color: Colors.white),
+                      ),
+                      child: Icon(
+                        item.icon,
+                        size: 20,
+                        color: isSelected ? palette.primary : palette.secondaryText,
+                      ),
+                    )
+                  : Icon(
+                      item.icon,
+                      size: 20,
+                      color: isSelected ? palette.primary : palette.secondaryText,
+                    ),
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+              padding: EdgeInsets.zero,
+              splashRadius: 18,
+              tooltip: item.displayName,
+            );
+          },
         ),
       ),
     );
+  }
+
+  int _resolveIndex(String location, List<NavItem> items) {
+    for (int i = 0; i < items.length; i++) {
+      if (items[i].route == '/') {
+        if (location == '/' || location == '') return i;
+      } else if (location.startsWith(items[i].route)) {
+        return i;
+      }
+    }
+    return 0;
+  }
+
+  void _onNavigate(BuildContext context, NavItem item) {
+    if (item.route.isNotEmpty) {
+      context.go(item.route);
+    }
   }
 }
 

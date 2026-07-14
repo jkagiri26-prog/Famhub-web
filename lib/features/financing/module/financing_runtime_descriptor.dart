@@ -33,6 +33,7 @@ ModuleRuntimeDescriptor createFinancingDescriptor() {
     // ── Dashboard Widget Contributions ──
     dashboardWidgets: [
       DashboardWidgetDescriptor(
+        moduleKey: 'financing',
         widgetKey: 'finance_wallet',
         displayName: 'Wallet Overview',
         sectionKey: 'finance',
@@ -42,6 +43,7 @@ ModuleRuntimeDescriptor createFinancingDescriptor() {
         iconKey: 'wallet',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'financing',
         widgetKey: 'finance_loans',
         displayName: 'Active Loans',
         sectionKey: 'finance',
@@ -52,6 +54,7 @@ ModuleRuntimeDescriptor createFinancingDescriptor() {
         refreshIntervalSeconds: 120,
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'financing',
         widgetKey: 'finance_transactions',
         displayName: 'Recent Transactions',
         sectionKey: 'finance',
@@ -61,6 +64,7 @@ ModuleRuntimeDescriptor createFinancingDescriptor() {
         iconKey: 'receipt_long',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'financing',
         widgetKey: 'finance_credit_health',
         displayName: 'Credit Health',
         sectionKey: 'finance',
@@ -70,6 +74,7 @@ ModuleRuntimeDescriptor createFinancingDescriptor() {
         iconKey: 'health_and_safety',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'financing',
         widgetKey: 'finance_loan_offers',
         displayName: 'Loan Offers',
         sectionKey: 'finance',

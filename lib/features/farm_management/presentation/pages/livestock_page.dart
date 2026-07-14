@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:famhub_app/shared/layouts/feature_page_scaffold.dart';
+import 'package:famhub_app/shared/layouts/shell_page_content.dart';
 import 'package:famhub_app/shared/widgets/states/loading_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
@@ -37,36 +37,34 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
   Widget build(BuildContext context) {
     final farmId = ref.watch(farmContextProvider).farmId;
 
-    if (farmId == null) {
-      return const FeaturePageScaffold(
+        if (farmId == null) {
+      return const ShellPageContent(
         title: 'Livestock',
         subtitle: 'Select a farm to view livestock',
-        children: [],
+        child: SizedBox.shrink(),
       );
     }
 
     final livestockState = ref.watch(livestockProvider);
 
     if (livestockState.isLoading) {
-      return const FeaturePageScaffold(
+      return const ShellPageContent(
         title: 'Livestock',
         subtitle: 'Loading livestock records...',
-        children: [LoadingStateWidget(useSkeleton: true)],
+        child: LoadingStateWidget(useSkeleton: true),
       );
     }
 
     if (livestockState.errorMessage != null) {
-      return FeaturePageScaffold(
+      return ShellPageContent(
         title: 'Livestock',
         subtitle: 'Failed to load livestock data',
-        children: [
-          ErrorStateWidget(
-            title: 'Error Loading Livestock',
-            message: livestockState.errorMessage!,
-            retryLabel: 'Retry',
-            onRetry: _loadLivestock,
-          ),
-        ],
+        child: ErrorStateWidget(
+          title: 'Error Loading Livestock',
+          message: livestockState.errorMessage!,
+          retryLabel: 'Retry',
+          onRetry: _loadLivestock,
+        ),
       );
     }
 
@@ -75,10 +73,12 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
         livestock.fold<int>(0, (sum, l) => sum + (l.count ?? 0));
     final speciesCount = livestock.map((l) => l.species).toSet().length;
 
-    return FeaturePageScaffold(
+    return ShellPageContent(
       title: 'Livestock',
       subtitle: '${livestock.length} animal type${livestock.length == 1 ? '' : 's'}',
-      children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
         // ── KPIs ──
         AdaptiveContentGrid(
           items: [
@@ -124,8 +124,9 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
                 return _LivestockCard(animal: animal);
               },
             ),
-          ),
+                    ),
       ],
+    ),
     );
   }
 }

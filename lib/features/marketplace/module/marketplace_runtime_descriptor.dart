@@ -39,6 +39,7 @@ ModuleRuntimeDescriptor createMarketplaceDescriptor() {
     // ── Dashboard Widget Contributions ──
     dashboardWidgets: [
       DashboardWidgetDescriptor(
+        moduleKey: 'marketplace',
         widgetKey: 'marketplace_kpi_card',
         displayName: 'Marketplace KPI',
         sectionKey: 'marketplace',
@@ -48,6 +49,7 @@ ModuleRuntimeDescriptor createMarketplaceDescriptor() {
         iconKey: 'analytics',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'marketplace',
         widgetKey: 'marketplace_featured_listings',
         displayName: 'Featured Listings',
         sectionKey: 'marketplace',
@@ -57,6 +59,7 @@ ModuleRuntimeDescriptor createMarketplaceDescriptor() {
         iconKey: 'store',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'marketplace',
         widgetKey: 'marketplace_quick_sell',
         displayName: 'Quick Sell',
         sectionKey: 'marketplace',
@@ -66,6 +69,7 @@ ModuleRuntimeDescriptor createMarketplaceDescriptor() {
         iconKey: 'sell',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'marketplace',
         widgetKey: 'marketplace_sales_metrics',
         displayName: 'Sales Metrics',
         sectionKey: 'marketplace',
@@ -76,6 +80,7 @@ ModuleRuntimeDescriptor createMarketplaceDescriptor() {
         refreshIntervalSeconds: 60,
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'marketplace',
         widgetKey: 'marketplace_listing_performance',
         displayName: 'Listing Performance',
         sectionKey: 'marketplace',

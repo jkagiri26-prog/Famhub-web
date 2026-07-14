@@ -11,13 +11,13 @@
 ///   - Filter by slot for ExtensionSlot widget consumption
 ///   - Never import feature modules
 ///
-/// 🎯 Why this exists (replacing static ShellExtensionRegistry):
+/// 🎯 Why this exists (runtime-driven extension bridge):
 ///   The platform has a complete module runtime with:
 ///     - Module Registry
 ///     - Module Activation
 ///     - Feature Flags
 ///     - Maintenance Mode
-///   A static registry cannot participate in these runtime capabilities.
+///   This is the single extension registration mechanism.
 ///
 ///   This provider sits in the dependency flow:
 ///     Module → ModuleRuntime → RuntimeDescriptorEngine →
@@ -50,12 +50,10 @@ import '../../domain/contracts/shell_extension.dart';
 /// Converts ShellExtensionDescriptors from the composition engine
 /// into ShellExtension objects consumable by the shell.
 ///
-/// This replaces the static ShellExtensionRegistry.
-///
-/// Governance is applied by the composition layer:
-///   - Only enabled modules contribute descriptors
-///   - Maintenance mode modules are skipped
-///   - The provider auto-updates when modules change
+/// This is the single source of truth for extension registration.
+/// All extension lifecycles (enable, disable, maintenance, etc.)
+/// are governed by the module runtime.
+/// ============================================================
 /// ============================================================
 final shellExtensionProvider = Provider<List<ShellExtension>>((ref) {
   // Watch the composition layer's descriptors

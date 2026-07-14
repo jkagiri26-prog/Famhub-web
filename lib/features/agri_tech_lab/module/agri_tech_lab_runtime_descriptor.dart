@@ -33,6 +33,7 @@ ModuleRuntimeDescriptor createAgriTechLabDescriptor() {
     // ── Dashboard Widget Contributions ──
     dashboardWidgets: [
       DashboardWidgetDescriptor(
+        moduleKey: 'agri_tech_lab',
         widgetKey: 'techlab_experiments',
         displayName: 'Active Experiments',
         sectionKey: 'innovation',
@@ -42,6 +43,7 @@ ModuleRuntimeDescriptor createAgriTechLabDescriptor() {
         iconKey: 'science',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'agri_tech_lab',
         widgetKey: 'techlab_sensors',
         displayName: 'Sensor Network',
         sectionKey: 'innovation',
@@ -52,6 +54,7 @@ ModuleRuntimeDescriptor createAgriTechLabDescriptor() {
         refreshIntervalSeconds: 60,
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'agri_tech_lab',
         widgetKey: 'techlab_insights',
         displayName: 'Tech Insights',
         sectionKey: 'innovation',
@@ -61,6 +64,7 @@ ModuleRuntimeDescriptor createAgriTechLabDescriptor() {
         iconKey: 'insights',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'agri_tech_lab',
         widgetKey: 'techlab_iot_devices',
         displayName: 'IoT Devices',
         sectionKey: 'innovation',

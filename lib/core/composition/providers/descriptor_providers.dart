@@ -180,7 +180,7 @@ final moduleRouteDescriptorsProvider = FutureProvider<List<RouteDescriptor>>((re
 /// modules. The shell ExtensionSlot widget watches this provider
 /// to render runtime-driven extensions.
 ///
-/// 🎯 This replaces the static ShellExtensionRegistry:
+/// 🎯 Single source of truth for shell extensions:
 ///   - Disabled modules → extensions automatically disappear
 ///   - Maintenance mode → extensions automatically hidden
 ///   - Feature flags → evaluated at build time

@@ -20,6 +20,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:famhub_app/shared/layouts/shell_page_content.dart';
 import 'package:famhub_app/core/composition/contributions/contribution_models.dart';
 import 'package:famhub_app/core/composition/contributions/runtime_contribution_engine.dart';
 import 'package:famhub_app/core/composition/providers/composition_providers.dart';
@@ -44,20 +45,9 @@ class RuntimeSettingsPage extends ConsumerWidget {
     final theme = Theme.of(context);
     final settingsAsync = ref.watch(runtimeSettingsProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: Text(
-          'Settings',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: Colors.black87,
-          ),
-        ),
-      ),
-      body: settingsAsync.when(
+    return ShellPageContent(
+      title: 'Settings',
+      child: settingsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Error: $err')),
         data: (categorized) {

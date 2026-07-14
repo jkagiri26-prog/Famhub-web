@@ -33,6 +33,7 @@ ModuleRuntimeDescriptor createLogisticsDescriptor() {
     // ── Dashboard Widget Contributions ──
     dashboardWidgets: [
       DashboardWidgetDescriptor(
+        moduleKey: 'logistics',
         widgetKey: 'logistics_active_shipments',
         displayName: 'Active Shipments',
         sectionKey: 'logistics',
@@ -43,6 +44,7 @@ ModuleRuntimeDescriptor createLogisticsDescriptor() {
         refreshIntervalSeconds: 60,
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'logistics',
         widgetKey: 'logistics_transporters',
         displayName: 'Available Transporters',
         sectionKey: 'logistics',
@@ -52,6 +54,7 @@ ModuleRuntimeDescriptor createLogisticsDescriptor() {
         iconKey: 'person_pin',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'logistics',
         widgetKey: 'logistics_delivery_status',
         displayName: 'Delivery Status',
         sectionKey: 'logistics',
@@ -61,6 +64,7 @@ ModuleRuntimeDescriptor createLogisticsDescriptor() {
         iconKey: 'check_circle',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'logistics',
         widgetKey: 'logistics_route_planning',
         displayName: 'Route Planning',
         sectionKey: 'logistics',

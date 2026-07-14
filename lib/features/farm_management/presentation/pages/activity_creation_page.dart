@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:famhub_app/shared/layouts/shell_page_content.dart';
 import 'package:famhub_app/shared/widgets/states/loading_state_widget.dart';
+import 'package:famhub_app/features/guest/guest_guard.dart';
 
 import 'package:famhub_app/features/farm_management/domain/models/activity_model.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
@@ -59,14 +61,9 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
     final farmId = ref.watch(farmContextProvider).farmId;
     final assetState = farmId != null ? ref.watch(assetsProvider) : null;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Record Activity'),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        iconTheme: IconThemeData(color: Colors.grey.shade700),
-      ),
-      body: farmId == null
+    return ShellPageContent(
+      title: 'Record Activity',
+      child: farmId == null
           ? const Center(child: Text('Select a farm first'))
           : SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -297,6 +294,15 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
 
   Future<void> _submitActivity(BuildContext context, String farmId) async {
     if (!_formKey.currentState!.validate()) return;
+
+    // ── Guest mode: show sign-up prompt instead of saving ──
+    final shouldProceed = await showProtectedActionPrompt(
+      context,
+      ref,
+      action: 'save this activity record',
+    );
+    if (!shouldProceed) return;
+
     setState(() => _isSubmitting = true);
     try {
       final repository = ref.read(farmRepositoryProvider);

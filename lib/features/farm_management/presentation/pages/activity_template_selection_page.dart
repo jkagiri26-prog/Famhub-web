@@ -13,6 +13,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:famhub_app/shared/layouts/shell_page_content.dart';
 import 'package:famhub_app/features/farm_management/application/workflows/dynamic_activity_engine.dart';
 import 'package:famhub_app/features/farm_management/application/providers/activity_template_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/models/activity_template.dart';
@@ -39,22 +40,18 @@ class _ActivityTemplateSelectionPageState
   Widget build(BuildContext context) {
     final asyncTemplates = ref.watch(activityTemplatesProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Agricultural Activity Templates'),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        iconTheme: IconThemeData(color: Colors.grey.shade700),
-      ),
-      body: asyncTemplates.when(
+    return ShellPageContent(
+      title: 'Agricultural Activity Templates',
+      scrollable: false,
+      child: asyncTemplates.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Failed to load templates: $e')),
-        data: (templates) => _buildTemplateList(context, templates),
+        data: (templates) => _buildTemplateContent(templates),
       ),
     );
   }
 
-  Widget _buildTemplateList(BuildContext context, Map<String, ActivityTemplate> templates) {
+  Widget _buildTemplateContent(Map<String, ActivityTemplate> templates) {
     // Filter by category
     final filtered = _selectedCategory == 'all'
         ? templates.values.toList()
@@ -62,67 +59,75 @@ class _ActivityTemplateSelectionPageState
             .where((t) => t.category == _selectedCategory)
             .toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // ── Category Filter ──
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: _categories.map((cat) {
-                final isSelected = _selectedCategory == cat.$1;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(cat.$3, size: 16),
-                        const SizedBox(width: 6),
-                        Text(cat.$2),
-                      ],
-                    ),
-                    selected: isSelected,
-                    onSelected: (_) {
-                      setState(() => _selectedCategory = cat.$1);
-                    },
-                  ),
-                );
-              }).toList(),
+    // Category filter chips
+    final filters = Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: _categories.map((cat) {
+            final isSelected = _selectedCategory == cat.$1;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: FilterChip(
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(cat.$3, size: 16),
+                    const SizedBox(width: 6),
+                    Text(cat.$2),
+                  ],
+                ),
+                selected: isSelected,
+                onSelected: (_) {
+                  setState(() => _selectedCategory = cat.$1);
+                },
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+
+    if (filtered.isEmpty) {
+      return Column(
+        children: [
+          filters,
+          const Expanded(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.search_off, size: 48),
+                  SizedBox(height: 16),
+                  Text('No templates for this category'),
+                ],
+              ),
             ),
           ),
-      ),
+        ],
+      );
+    }
 
-        // ── Template List ──
+    return Column(
+      children: [
+        filters,
         Expanded(
-          child: filtered.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.search_off, size: 48, color: Colors.grey.shade300),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No templates for this category',
-                        style: TextStyle(color: Colors.grey.shade500),
-                      ),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, index) {
-                    final template = filtered[index];
-                    return _TemplateCard(
-                      template: template,
-                      onTap: () => _startWorkflow(context, template),
-                    );
-                  },
+          child: ListView.builder(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemCount: filtered.length,
+            itemBuilder: (context, index) {
+              final template = filtered[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _TemplateCard(
+                  template: template,
+                  onTap: () => _startWorkflow(context, template),
                 ),
+              );
+            },
+          ),
         ),
       ],
     );

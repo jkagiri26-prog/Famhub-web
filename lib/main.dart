@@ -59,6 +59,11 @@ import 'core/dashboard_engine/application/observability/runtime_metrics_collecto
 
 import 'core/dashboard_engine/presentation/builders/phase_d_dashboard_bootstrap.dart';
 
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  POLICY FRAMEWORK                                           ║
+// ╚══════════════════════════════════════════════════════════════╝
+import 'core/policies/bootstrap/policy_bootstrap.dart';
+
 /// ─────────────────────────────────────────────────────────────
 /// ENTRY POINT
 ///
@@ -271,7 +276,19 @@ Future<void> _bootstrap() async {
     // Non-fatal — widgets fall back to empty state gracefully
   }
 
-    // Stage 5f: RuntimeMetricsCollector — initialized lazily via providers
+        // Stage 5f: Bootstrap policy framework
+  // Registers all policy rule declarations. Must happen before
+  // any policy queries are made. After capability bootstrap.
+  try {
+    await bootstrapPolicies();
+    debugPrint('[BOOT] Policy framework bootstrapped successfully.');
+  } catch (e, stack) {
+    debugPrint('[BOOT] Policy framework bootstrap failed: $e');
+    debugPrintStack(stackTrace: stack, label: '[BOOT] Policy framework');
+    // Non-fatal — policies default to permissive
+  }
+
+    // Stage 5g: RuntimeMetricsCollector — initialized lazily via providers
   // Metrics collector is created on first access via the
   // runtimeMetricsCollectorProvider in observability_providers.dart.
   // No eager initialization needed here — it auto-starts on first use.
@@ -331,39 +348,40 @@ class _MyAppState extends ConsumerState<MyApp> {
       if (_deferredInitStarted) return;
       _deferredInitStarted = true;
 
-      // Stage 6: Context Engine initialization
+            // Stage 6: Context Engine initialization
       Future.microtask(() async {
         try {
           await ref.read(contextProvider.notifier).init();
           debugPrint('[BOOT] ContextEngine initialized successfully.');
-          // Invalidate composition providers to trigger re-render
-          // with correct user context
-          ref.invalidate(moduleProvider);
-          ref.invalidate(enabledRuntimeModulesProvider);
-          ref.invalidate(runtimeModuleRegistryProvider);
-          ref.invalidate(appRouterProvider);
-          debugPrint('[BOOT] Composition providers invalidated after context init.');
+          // REMOVED (2025): Manual invalidation of moduleProvider,
+          // enabledRuntimeModulesProvider, runtimeModuleRegistryProvider,
+          // and appRouterProvider is now redundant.
+          // runtimeAutoInvalidatorProvider (consumed by
+          // UnifiedAppShellV2) reactively invalidates navigation
+          // providers when contextProvider changes, and composition
+          // providers auto-rebuild via their reactive deps.
+          debugPrint('[BOOT] Composition providers auto-refresh via runtimeAutoInvalidatorProvider.');
         } catch (e, stack) {
           debugPrint('[BOOT] ContextEngine init failed: $e');
           debugPrintStack(stackTrace: stack, label: '[BOOT] ContextEngine');
         }
       });
 
-      // Stage 7: RuntimeSyncEngine deferred initialization
+            // Stage 7: RuntimeSyncEngine deferred initialization
       final syncEngine = widget.runtimeSyncEngine;
       if (syncEngine != null) {
         Future.microtask(() async {
           try {
             await syncEngine.initialize().timeout(const Duration(seconds: 30));
             debugPrint('[BOOT] RuntimeSyncEngine initialized.');
-            // Invalidate runtime state providers so dashboard
-            // picks up module enable/disable/maintenance changes
-            ref.invalidate(moduleRuntimeSyncProvider);
-            ref.invalidate(moduleProvider);
-            ref.invalidate(enabledRuntimeModulesProvider);
-            ref.invalidate(runtimeModuleRegistryProvider);
-            ref.invalidate(appRouterProvider);
-            debugPrint('[BOOT] Composition providers invalidated after sync init.');
+            // REMOVED (2025): Manual invalidation of
+            // moduleRuntimeSyncProvider, moduleProvider,
+            // enabledRuntimeModulesProvider, runtimeModuleRegistryProvider,
+            // and appRouterProvider is now redundant.
+            // runtimeAutoInvalidatorProvider reactively watches
+            // moduleProvider and contextProvider, and composition
+            // providers auto-rebuild on their reactive deps.
+            debugPrint('[BOOT] Runtime sync complete — providers auto-refresh.');
           } catch (e, stack) {
             debugPrint('[BOOT] RuntimeSyncEngine init failed: $e');
             debugPrintStack(
@@ -427,17 +445,31 @@ class _MyAppState extends ConsumerState<MyApp> {
     final shellTheme = ref.watch(shellThemeProvider);
     final themeMode = ref.watch(themeModeProvider);
 
-    if (ctx.isLoading) {
+        if (ctx.isLoading) {
+      final palette = shellTheme.forMode(themeMode);
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: shellTheme.toThemeData(ThemeMode.light),
         darkTheme: shellTheme.toThemeData(ThemeMode.dark),
         themeMode: themeMode,
         home: Scaffold(
-          backgroundColor: shellTheme.forMode(themeMode).background,
+          backgroundColor: palette.background,
           body: Center(
-            child: CircularProgressIndicator(
-              color: shellTheme.forMode(themeMode).primary,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(
+                  color: palette.primary,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Loading...',
+                  style: TextStyle(
+                    color: palette.secondaryText,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
             ),
           ),
         ),

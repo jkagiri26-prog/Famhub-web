@@ -7,3 +7,5 @@ export 'responsive_wrappers_widget.dart';
 export 'section_container_widget.dart';
 export 'feature_page_scaffold.dart';
 export 'adaptive_content_grid.dart';
+export 'shell_page_content.dart';
+

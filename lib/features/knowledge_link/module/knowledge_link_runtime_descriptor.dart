@@ -33,6 +33,7 @@ ModuleRuntimeDescriptor createKnowledgeLinkDescriptor() {
     // ── Dashboard Widget Contributions ──
     dashboardWidgets: [
       DashboardWidgetDescriptor(
+        moduleKey: 'knowledge_link',
         widgetKey: 'knowledge_recommended',
         displayName: 'Recommended Content',
         sectionKey: 'knowledge',
@@ -42,6 +43,7 @@ ModuleRuntimeDescriptor createKnowledgeLinkDescriptor() {
         iconKey: 'recommend',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'knowledge_link',
         widgetKey: 'knowledge_recent_articles',
         displayName: 'Recent Articles',
         sectionKey: 'knowledge',
@@ -51,6 +53,7 @@ ModuleRuntimeDescriptor createKnowledgeLinkDescriptor() {
         iconKey: 'article',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'knowledge_link',
         widgetKey: 'knowledge_learning_progress',
         displayName: 'Learning Progress',
         sectionKey: 'knowledge',
@@ -60,6 +63,7 @@ ModuleRuntimeDescriptor createKnowledgeLinkDescriptor() {
         iconKey: 'school',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'knowledge_link',
         widgetKey: 'knowledge_tips',
         displayName: 'Daily Tips',
         sectionKey: 'knowledge',

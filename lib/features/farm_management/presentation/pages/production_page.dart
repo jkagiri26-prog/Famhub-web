@@ -20,7 +20,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:famhub_app/shared/layouts/feature_page_scaffold.dart';
+import 'package:famhub_app/shared/layouts/shell_page_content.dart';
 
 import 'package:famhub_app/features/farm_management/domain/entities/production_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/field_entity.dart';
@@ -85,14 +85,9 @@ class _ProductionRecordingPageState extends ConsumerState<ProductionRecordingPag
     final farmId = ref.watch(farmContextProvider).farmId;
     final fieldState = ref.watch(fieldsProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Record Production'),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        iconTheme: IconThemeData(color: Colors.grey.shade700),
-      ),
-      body: farmId == null
+        return ShellPageContent(
+      title: 'Record Production',
+      child: farmId == null
           ? const Center(child: Text('Select a farm first'))
           : Form(
               key: _formKey,

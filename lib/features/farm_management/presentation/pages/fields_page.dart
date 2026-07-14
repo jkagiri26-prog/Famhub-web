@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:famhub_app/shared/layouts/feature_page_scaffold.dart';
+import 'package:famhub_app/shared/layouts/shell_page_content.dart';
 import 'package:famhub_app/shared/widgets/states/loading_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
@@ -37,36 +37,34 @@ class _FieldsPageState extends ConsumerState<FieldsPage> {
   Widget build(BuildContext context) {
     final farmId = ref.watch(farmContextProvider).farmId;
 
-    if (farmId == null) {
-      return const FeaturePageScaffold(
+        if (farmId == null) {
+      return const ShellPageContent(
         title: 'Fields',
         subtitle: 'Select a farm to view fields',
-        children: [],
+        child: SizedBox.shrink(),
       );
     }
 
     final fieldState = ref.watch(fieldsProvider);
 
     if (fieldState.isLoading) {
-      return const FeaturePageScaffold(
+      return const ShellPageContent(
         title: 'Fields',
         subtitle: 'Loading field registry...',
-        children: [LoadingStateWidget(useSkeleton: true)],
+        child: LoadingStateWidget(useSkeleton: true),
       );
     }
 
     if (fieldState.errorMessage != null) {
-      return FeaturePageScaffold(
+      return ShellPageContent(
         title: 'Fields',
         subtitle: 'Failed to load field data',
-        children: [
-          ErrorStateWidget(
-            title: 'Error Loading Fields',
-            message: fieldState.errorMessage!,
-            retryLabel: 'Retry',
-            onRetry: _loadFields,
-          ),
-        ],
+        child: ErrorStateWidget(
+          title: 'Error Loading Fields',
+          message: fieldState.errorMessage!,
+          retryLabel: 'Retry',
+          onRetry: _loadFields,
+        ),
       );
     }
 
@@ -75,10 +73,12 @@ class _FieldsPageState extends ConsumerState<FieldsPage> {
     final cultivated = fields.where((f) => f.isCultivated).length;
     final fallow = fields.where((f) => !f.isCultivated).length;
 
-    return FeaturePageScaffold(
+    return ShellPageContent(
       title: 'Fields',
       subtitle: '${fields.length} field${fields.length == 1 ? '' : 's'}',
-      children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
         // ── KPIs ──
         AdaptiveContentGrid(
           items: [
@@ -130,8 +130,9 @@ class _FieldsPageState extends ConsumerState<FieldsPage> {
                 return FieldCard(field: field);
               },
             ),
-          ),
+                    ),
       ],
+    ),
     );
   }
 }

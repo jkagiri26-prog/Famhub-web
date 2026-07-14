@@ -16,7 +16,7 @@ import 'package:flutter/material.dart';
 
 import '../../config/shell_config.dart';
 import '../../../theme/shell_theme.dart';
-import '../../../navigation/shell_sidebar.dart';
+import '../../../navigation/shell_navigation_rail.dart';
 import '../regions/shell_app_bar.dart';
 import '../regions/shell_status_bar.dart';
 import '../regions/shell_floating_actions.dart';
@@ -69,23 +69,11 @@ class TabletShellLayout extends StatelessWidget {
             Expanded(
               child: Row(
                 children: [
-                  // ── Compact Navigation Rail ──
+                  // ── Material 3 NavigationRail ──
                   ShellRegion(
                     name: 'navigation',
                     visible: config.navigation.visible,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ShellSidebar(
-                          showPinnedSection: config.navigation.showPinnedSection,
-                          showSectionLabels: false,
-                      ),
-                        // ── Extension slot: navigation bottom ──
-                        const ExtensionSlot(
-                          slot: ShellExtensionSlot.navigationBottom,
-                        ),
-                      ],
-                    ),
+                    child: const ShellNavigationRail(),
                   ),
 
                   if (config.navigation.visible)

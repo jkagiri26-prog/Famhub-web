@@ -50,7 +50,22 @@ class RuntimeDescriptorEngine {
 
       final descriptor = ModuleDescriptorRegistry.get(module.moduleId);
       if (descriptor != null) {
-        widgets.addAll(descriptor.dashboardWidgets);
+        // Inject moduleKey into each widget descriptor so the
+        // capability bridge can look up the widget's module context.
+        widgets.addAll(
+          descriptor.dashboardWidgets.map((widget) => DashboardWidgetDescriptor(
+            moduleKey: module.moduleId,
+            widgetKey: widget.widgetKey,
+            displayName: widget.displayName,
+            sectionKey: widget.sectionKey,
+            displayOrder: widget.displayOrder,
+            width: widget.width,
+            height: widget.height,
+            isVisibleByDefault: widget.isVisibleByDefault,
+            iconKey: widget.iconKey,
+            refreshIntervalSeconds: widget.refreshIntervalSeconds,
+          )),
+        );
       }
     }
 

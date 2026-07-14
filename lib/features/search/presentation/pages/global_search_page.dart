@@ -26,6 +26,7 @@ import 'package:famhub_app/core/composition/domain/models/module_descriptor.dart
 import 'package:famhub_app/core/composition/providers/descriptor_providers.dart';
 import 'package:famhub_app/core/composition/contributions/contribution_models.dart';
 import 'package:famhub_app/core/composition/contributions/contribution_registry.dart';
+import 'package:famhub_app/shared/layouts/shell_page_content.dart';
 import 'package:famhub_app/shared/utils/icon_resolver.dart';
 
 /// ============================================================
@@ -68,34 +69,47 @@ class _GlobalSearchPageState extends ConsumerState<GlobalSearchPage> {
     final theme = Theme.of(context);
     final providersAsync = ref.watch(globalSearchProvidersProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: TextField(
-          controller: _searchController,
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText: 'Search across all modules...',
-            hintStyle: TextStyle(color: Colors.grey.shade400),
-            border: InputBorder.none,
-            prefixIcon: Icon(Icons.search, color: Colors.grey.shade500),
-            suffixIcon: _query.isNotEmpty
-                ? IconButton(
-                    icon: Icon(Icons.clear, color: Colors.grey.shade500),
-                    onPressed: () => _searchController.clear(),
-                  )
-                : null,
+    return ShellPageContent(
+      title: 'Search',
+      padding: EdgeInsets.zero,
+      scrollable: false,
+      child: Column(
+        children: [
+          // ── Search text field ──
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: TextField(
+              controller: _searchController,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'Search across all modules...',
+                hintStyle: TextStyle(color: Colors.grey.shade400),
+                border: InputBorder.none,
+                prefixIcon: Icon(Icons.search, color: Colors.grey.shade500),
+                suffixIcon: _query.isNotEmpty
+                    ? IconButton(
+                        icon: Icon(Icons.clear, color: Colors.grey.shade500),
+                        onPressed: () => _searchController.clear(),
+                      )
+                    : null,
+              ),
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: Colors.black87,
+              ),
+            ),
           ),
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: Colors.black87,
+          // ── Search content ──
+          Expanded(
+            child: _query.isEmpty
+                ? _buildInitialState(theme, providersAsync)
+                : _buildSearchResults(theme, providersAsync),
           ),
-        ),
+        ],
       ),
-      body: _query.isEmpty
-          ? _buildInitialState(theme, providersAsync)
-          : _buildSearchResults(theme, providersAsync),
     );
   }
 

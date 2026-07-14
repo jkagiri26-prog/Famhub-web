@@ -3,35 +3,42 @@
 /// DYNAMIC ACTIVITY EXECUTION PAGE
 /// ============================================================
 ///
-/// 🧠 SECTION 5 — DYNAMIC ACTIVITY ENGINE
+/// 🎯 PURPOSE:
+///   Thin UI controller for dynamic activity workflows.
+///   All business logic has been extracted to
+///   DynamicActivityWorkflowService.
 ///
-/// This page executes agricultural workflows WITHOUT hardcoded forms.
-/// It uses the DynamicActivityFormRenderer and WorkflowProgressEngine
-/// to dynamically render forms based on activity templates.
+/// ✅ This widget ONLY:
+///   - Renders the workflow UI (progress bar, form, buttons)
+///   - Collects form values
+///   - Validates the form
+///   - Calls workflowService.executeWorkflow(...)
+///   - Displays loading state
+///   - Shows success/error SnackBars
+///   - Invalidates providers
+///   - Navigates back
 ///
-/// SUPPORTED WORKFLOWS:
-/// - Maize planting, dairy milking, poultry feeding
-/// - Avocado irrigation, fish feeding, horticulture
-/// - And any future template loaded from activity_templates table
+/// ❌ Contains NO business logic:
+///   - No activity creation
+///   - No stock mutation logic
+///   - No financial recording
+///   - No KPI automation
+///   - No event emission
+///   - No rollback logic
 /// ============================================================
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:famhub_app/shared/layouts/feature_page_scaffold.dart';
-import 'package:famhub_app/features/farm_management/application/workflows/dynamic_activity_engine.dart';
+import 'package:famhub_app/shared/layouts/shell_page_content.dart';
 import 'package:famhub_app/features/farm_management/application/workflows/workflow_progress_engine.dart';
 import 'package:famhub_app/features/farm_management/application/providers/activity_template_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/workflow_service_provider.dart';
+import 'package:famhub_app/features/farm_management/application/services/dynamic_activity_workflow_service.dart';
 import 'package:famhub_app/features/farm_management/config/workflow_templates.dart';
-import 'package:famhub_app/features/farm_management/domain/models/activity_model.dart';
 import 'package:famhub_app/features/farm_management/domain/models/activity_template.dart';
-import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/activities_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_dashboard_provider.dart';
-import 'package:famhub_app/features/farm_management/application/providers/operational_services_provider.dart';
 import 'package:famhub_app/features/farm_management/presentation/widgets/dynamic_activity_form_renderer.dart';
-import 'package:famhub_app/core/events/app_event_bus.dart';
-import 'package:famhub_app/core/events/event_bus_provider.dart';
-import 'package:famhub_app/core/events/workflow_events.dart';
 
 class DynamicActivityExecutionPage extends ConsumerStatefulWidget {
   final String templateId;
@@ -42,10 +49,12 @@ class DynamicActivityExecutionPage extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<DynamicActivityExecutionPage> createState() => _DynamicActivityExecutionPageState();
+  ConsumerState<DynamicActivityExecutionPage> createState() =>
+      _DynamicActivityExecutionPageState();
 }
 
-class _DynamicActivityExecutionPageState extends ConsumerState<DynamicActivityExecutionPage> {
+class _DynamicActivityExecutionPageState
+    extends ConsumerState<DynamicActivityExecutionPage> {
   late WorkflowProgressEngine _workflowEngine;
   final Map<String, dynamic> _values = {};
   final _formKey = GlobalKey<FormState>();
@@ -74,23 +83,19 @@ class _DynamicActivityExecutionPageState extends ConsumerState<DynamicActivityEx
     final farmId = ref.watch(farmContextProvider).farmId;
 
     if (template == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Activity Execution')),
-        body: const Center(child: Text('Template not found')),
+      return const ShellPageContent(
+        title: 'Activity Execution',
+        child: Center(child: Text('Template not found')),
       );
     }
 
     final stage = _workflowEngine.state.currentStage;
     final progress = _workflowEngine.state.progress;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(template.name),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-        iconTheme: IconThemeData(color: Colors.grey.shade700),
-      ),
-      body: farmId == null
+    return ShellPageContent(
+      title: template.name,
+      scrollable: false,
+      child: farmId == null
           ? const Center(child: Text('Select a farm first'))
           : Form(
               key: _formKey,
@@ -139,7 +144,8 @@ class _DynamicActivityExecutionPageState extends ConsumerState<DynamicActivityEx
                                   width: 8,
                                   height: 8,
                                   decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.primary,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
                                     shape: BoxShape.circle,
                                   ),
                                 ),
@@ -149,7 +155,8 @@ class _DynamicActivityExecutionPageState extends ConsumerState<DynamicActivityEx
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
-                                    color: Theme.of(context).colorScheme.primary,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
                                   ),
                                 ),
                               ],
@@ -176,17 +183,23 @@ class _DynamicActivityExecutionPageState extends ConsumerState<DynamicActivityEx
                       child: Row(
                         children: template.stages.asMap().entries.map((entry) {
                           final idx = entry.key;
-                          final isActive = idx == _workflowEngine.state.currentStageIndex;
-                          final isPast = idx < _workflowEngine.state.currentStageIndex;
+                          final isActive =
+                              idx == _workflowEngine.state.currentStageIndex;
+                          final isPast =
+                              idx < _workflowEngine.state.currentStageIndex;
                           return Expanded(
                             child: Container(
                               height: 3,
-                              margin: const EdgeInsets.symmetric(horizontal: 2),
+                              margin:
+                                  const EdgeInsets.symmetric(horizontal: 2),
                               decoration: BoxDecoration(
                                 color: isPast
                                     ? Theme.of(context).colorScheme.primary
                                     : isActive
-                                        ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)
+                                        ? Theme.of(context)
+                                            .colorScheme
+                                            .primary
+                                            .withValues(alpha: 0.5)
                                         : Colors.grey.shade200,
                                 borderRadius: BorderRadius.circular(2),
                               ),
@@ -203,8 +216,10 @@ class _DynamicActivityExecutionPageState extends ConsumerState<DynamicActivityEx
                     Padding(
                       padding: const EdgeInsets.all(16),
                       child: Text(
-                        template.description ?? 'Complete the form below to record this activity',
-                        style: TextStyle(color: Colors.grey.shade600),
+                        template.description ??
+                            'Complete the form below to record this activity',
+                        style:
+                            TextStyle(color: Colors.grey.shade600),
                       ),
                     ),
 
@@ -234,10 +249,12 @@ class _DynamicActivityExecutionPageState extends ConsumerState<DynamicActivityEx
                           Expanded(
                             child: OutlinedButton(
                               onPressed: () {
-                                setState(() => _workflowEngine.previousStage());
+                                setState(
+                                    () => _workflowEngine.previousStage());
                               },
                               style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -254,10 +271,13 @@ class _DynamicActivityExecutionPageState extends ConsumerState<DynamicActivityEx
                           child: ElevatedButton(
                             onPressed: _isSubmitting
                                 ? null
-                                : () => _handleNextOrSubmit(context, farmId, template),
+                                : () =>
+                                    _handleNextOrSubmit(context, farmId, template),
                             style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              backgroundColor: Theme.of(context).colorScheme.primary,
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 14),
+                              backgroundColor:
+                                  Theme.of(context).colorScheme.primary,
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -289,7 +309,8 @@ class _DynamicActivityExecutionPageState extends ConsumerState<DynamicActivityEx
   }
 
   bool _isLastStage(ActivityTemplate template) {
-    return _workflowEngine.state.currentStageIndex >= template.stages.length - 1;
+    return _workflowEngine.state.currentStageIndex >=
+        template.stages.length - 1;
   }
 
   Future<void> _handleNextOrSubmit(
@@ -297,8 +318,8 @@ class _DynamicActivityExecutionPageState extends ConsumerState<DynamicActivityEx
     if (!_formKey.currentState!.validate()) return;
 
     if (_isLastStage(template)) {
-      // Final submission
-      await _submitActivity(context, farmId, template);
+      // Delegate to the workflow service — no business logic here
+      await _executeWorkflow(context, farmId, template);
     } else {
       // Advance to next stage
       setState(() {
@@ -307,148 +328,22 @@ class _DynamicActivityExecutionPageState extends ConsumerState<DynamicActivityEx
     }
   }
 
-  Future<void> _submitActivity(
+  Future<void> _executeWorkflow(
       BuildContext context, String farmId, ActivityTemplate template) async {
     setState(() => _isSubmitting = true);
     try {
       // Advance to complete the workflow
       _workflowEngine.advanceStage(_values);
 
-      // Build a structured notes summary from the collected values
-      final notes = _values.entries
-          .where((e) => e.value != null && e.value.toString().isNotEmpty)
-          .map((e) => '${e.key}: ${e.value}')
-          .join('\n');
-
-      final repository = ref.read(farmRepositoryProvider);
-      final stockEngine = ref.read(stockMutationEngineProvider);
-      final kpiService = ref.read(kpiAutomationServiceProvider);
-      final financialService = ref.read(financialRecordingServiceProvider);
-      final eventBus = ref.read(eventBusProvider);
-
-      // Step 1: Create the activity (with attribute values for persistence)
-      final activity = ActivityModel(
-        id: '',
-        activityTypeId: template.id,
-        performedAt: DateTime.now(),
-        notes: '${template.name}\n$notes',
-        assetId: null,
-        planId: null,
-        attributeValues: _values,
+      // ── DELEGATE ALL BUSINESS LOGIC TO SERVICE ──
+      final workflowService = ref.read(dynamicActivityWorkflowServiceProvider);
+      await workflowService.executeWorkflow(
+        farmId: farmId,
+        template: template,
+        formValues: _values,
       );
 
-      await repository.createActivity(farmId: farmId, activity: activity);
-      if (!mounted) return;
-
-      // ════════════════════════════════════════════════════════════
-      // STEP 2 — STOCK MUTATION
-      // ════════════════════════════════════════════════════════════
-      // Based on activity category + template ID heuristics:
-      //   Outflow (feeding, planting, spraying) → consume stock
-      //   Inflow  (milking, harvesting, collection) → add stock
-      // ════════════════════════════════════════════════════════════
-      if (template.category == 'crops' || template.category == 'livestock') {
-        final isOutflow = template.id.contains('feeding') ||
-            template.id.contains('planting') ||
-            template.id.contains('spraying') ||
-            template.id.contains('fertilization');
-        final isInflow = template.id.contains('milking') ||
-            template.id.contains('harvesting') ||
-            template.id.contains('collection');
-
-        if (isOutflow) {
-          final quantity = _values['feed_quantity'] ??
-              _values['seed_rate'] ??
-              _values['quantity'] ??
-              0;
-          if (quantity is num && quantity > 0) {
-            final assets = await repository.getAssets(farmId: farmId);
-            if (!mounted) return;
-            final matchingAsset = assets.where((a) =>
-                template.id.contains('feeding')
-                    ? a.assetType == 'feed' || a.assetName.toLowerCase().contains('feed')
-                    : a.assetType == 'input' || a.assetName.toLowerCase().contains('seed')
-            ).firstOrNull;
-            if (matchingAsset != null) {
-              await stockEngine.consumeStock(
-                farmId: farmId,
-                assetId: matchingAsset.id,
-                quantity: quantity.toDouble(),
-                description: '${template.name}: stock consumption',
-              );
-            }
-          }
-        } else if (isInflow) {
-          final quantity = _values['milk_volume'] ??
-              _values['yield'] ??
-              _values['quantity'] ??
-              0;
-          if (quantity is num && quantity > 0) {
-            final assets = await repository.getAssets(farmId: farmId);
-            if (!mounted) return;
-            final matchingAsset = assets.where((a) =>
-                a.assetType == 'production' ||
-                (template.id.contains('milking') && a.assetName.toLowerCase().contains('milk')) ||
-                (template.id.contains('harvest') && a.assetType == 'crop')
-            ).firstOrNull;
-            if (matchingAsset != null) {
-              await stockEngine.addStock(
-                farmId: farmId,
-                assetId: matchingAsset.id,
-                quantity: quantity.toDouble(),
-                description: '${template.name}: production inflow',
-              );
-            }
-          }
-        }
-      }
-
-      // ════════════════════════════════════════════════════════════
-      // STEP 3 — FINANCIAL RECORDING
-      // ════════════════════════════════════════════════════════════
-      final costPrice = _values['cost_price'];
-      final salePrice = _values['sale_price'] ?? _values['income'];
-      if (costPrice is num && costPrice > 0) {
-        await financialService.recordExpense(
-          farmId: farmId,
-          amount: costPrice.toDouble(),
-          description: 'Cost for ${template.name}',
-        );
-      }
-      if (salePrice is num && salePrice > 0) {
-        await financialService.recordIncome(
-          farmId: farmId,
-          amount: salePrice.toDouble(),
-          description: 'Income from ${template.name}',
-        );
-      }
-
-      // ════════════════════════════════════════════════════════════
-      // STEP 4 — KPI AUTOMATION
-      // ════════════════════════════════════════════════════════════
-      await kpiService.updateProductionKpis(farmId: farmId);
-      await kpiService.updateStockValueKpi(farmId: farmId);
-      if (costPrice is num || salePrice is num) {
-        await kpiService.updateFinancialKpis(farmId: farmId);
-      }
-
-      // ════════════════════════════════════════════════════════════
-      // STEP 5 — TELEMETRY
-      // ════════════════════════════════════════════════════════════
-      eventBus.emit(WorkflowEvent.completed(
-        workflowName: 'dynamic_activity',
-        stepName: 'execute_${template.id}',
-        payload: {
-          'farm_id': farmId,
-          'template_id': template.id,
-          'template_name': template.name,
-          'category': template.category,
-        },
-      ));
-
-      // ════════════════════════════════════════════════════════════
-      // STEP 6 — PROVIDER INVALIDATION
-      // ════════════════════════════════════════════════════════════
+      // ── PROVIDER INVALIDATION ──
       ref.invalidate(activitiesProvider);
       ref.invalidate(farmDashboardProvider);
 
@@ -461,23 +356,11 @@ class _DynamicActivityExecutionPageState extends ConsumerState<DynamicActivityEx
       );
       Navigator.of(context).pop();
     } catch (e) {
-      // Emit failure event for retry orchestration
-      ref.read(eventBusProvider).emit(WorkflowEvent.failed(
-        workflowName: 'dynamic_activity',
-        stepName: 'execute_${template.id}',
-        error: e.toString(),
-      ));
-
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to record activity: $e'),
           backgroundColor: Colors.red,
-          action: SnackBarAction(
-            label: 'Retry',
-            textColor: Colors.white,
-            onPressed: () => _submitActivity(context, farmId, template),
-          ),
         ),
       );
     } finally {

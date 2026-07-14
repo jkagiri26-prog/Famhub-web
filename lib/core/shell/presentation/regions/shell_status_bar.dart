@@ -19,6 +19,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../theme/shell_theme.dart';
 import '../../config/shell_config.dart';
+import '../../../providers/connectivity_provider.dart';
+import '../../../providers/sync_state_provider.dart';
 
 /// ============================================================
 /// SHELL STATUS BAR
@@ -106,16 +108,17 @@ class _StatusItem extends StatelessWidget {
 /// ============================================================
 /// CONNECTION STATUS
 /// ============================================================
-class _ConnectionStatus extends StatelessWidget {
+class _ConnectionStatus extends ConsumerWidget {
   final ShellColorPalette palette;
 
   const _ConnectionStatus({required this.palette});
 
   @override
-  Widget build(BuildContext context) {
-    // TODO: Replace with actual connectivity state
-    const isConnected = true;
-
+  Widget build(BuildContext context, WidgetRef ref) {
+    final connectivityAsync = ref.watch(connectivityProvider);
+    final isConnected = connectivityAsync.whenOrNull(
+      data: (connected) => connected,
+    ) ?? true;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Row(
@@ -146,22 +149,20 @@ class _ConnectionStatus extends StatelessWidget {
 /// ============================================================
 /// SYNC STATUS
 /// ============================================================
-class _SyncStatus extends StatelessWidget {
+class _SyncStatus extends ConsumerWidget {
   final ShellColorPalette palette;
 
   const _SyncStatus({required this.palette});
 
   @override
-  Widget build(BuildContext context) {
-    // TODO: Replace with actual sync state
-    const isSyncing = false;
-
+  Widget build(BuildContext context, WidgetRef ref) {
+    final syncState = ref.watch(syncStateProvider);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          isSyncing
+          syncState == SyncStatus.syncing
               ? SizedBox(
                   width: 10,
                   height: 10,
@@ -170,10 +171,18 @@ class _SyncStatus extends StatelessWidget {
                     color: palette.info,
                   ),
                 )
-              : Icon(Icons.sync, size: 12, color: palette.statusBarText),
+              : Icon(
+                  syncState == SyncStatus.error
+                      ? Icons.sync_problem
+                      : Icons.sync,
+                  size: 12,
+                  color: syncState == SyncStatus.error
+                      ? palette.warning
+                      : palette.statusBarText,
+                ),
           const SizedBox(width: 4),
           Text(
-            isSyncing ? 'Syncing...' : 'Synced',
+            _syncLabel(syncState),
             style: TextStyle(
               fontSize: 11,
               color: palette.statusBarText,
@@ -183,4 +192,18 @@ class _SyncStatus extends StatelessWidget {
       ),
     );
   }
+
+  String _syncLabel(SyncStatus status) {
+    switch (status) {
+      case SyncStatus.syncing:
+        return 'Syncing...';
+      case SyncStatus.synced:
+        return 'Synced';
+      case SyncStatus.pending:
+        return 'Pending sync';
+      case SyncStatus.error:
+        return 'Sync error';
+    }
+  }
 }
+

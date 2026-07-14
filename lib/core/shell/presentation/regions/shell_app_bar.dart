@@ -24,6 +24,7 @@ import '../../../theme/shell_theme.dart';
 import '../../config/shell_config.dart';
 import '../../../providers/module_provider.dart';
 import '../../../providers/user_provider.dart';
+import '../../../providers/notification_count_provider.dart';
 import '../../../context_engine/providers/context_provider.dart';
 
 /// ============================================================
@@ -115,7 +116,7 @@ class ShellAppBar extends ConsumerWidget {
                 tooltip: 'Notifications',
                 palette: palette,
                 onPressed: () => context.go('/notifications'),
-                badgeCount: 0, // TODO: wire up notification count
+                badgeCount: ref.watch(unreadNotificationCountProvider),
               ),
 
             if (config.showNotifications) const SizedBox(width: 4),

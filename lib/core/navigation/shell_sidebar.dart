@@ -21,6 +21,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../theme/shell_theme.dart';
+import '../theme/shell_theme_provider.dart';
 import '../shell/application/controllers/sidebar_controller.dart';
 import 'nav_item.dart';
 import 'nav_config.dart';
@@ -32,19 +33,21 @@ import 'shell_nav_item.dart';
 class ShellSidebar extends ConsumerWidget {
   final bool showPinnedSection;
   final bool showSectionLabels;
+  final bool collapsible;
 
   const ShellSidebar({
     super.key,
     this.showPinnedSection = true,
     this.showSectionLabels = true,
+    this.collapsible = true,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final sidebarState = ref.watch(sidebarControllerProvider);
     final palette = Theme.of(context).extension<ShellThemeColors>()?.palette ??
         ShellTheme.defaultLight;
     final location = GoRouterState.of(context).uri.toString();
+    final brandName = ref.watch(shellThemeProvider).brand.name;
     final sidebarItems = ref.watch(sidebarNavItemsProvider);
 
     // Build all items with Dashboard first
@@ -66,6 +69,64 @@ class ShellSidebar extends ConsumerWidget {
       ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
 
     final selectedIndex = _resolveIndex(location, allItems);
+
+    // ── When collapsible is false: always expanded, no toggle ──
+    if (!collapsible) {
+      return AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        width: SidebarState.expandedWidth,
+        color: palette.navigationBg,
+        child: Column(
+          children: [
+            _BrandHeader(
+              isExpanded: true,
+              palette: palette,
+              brandName: ref.watch(shellThemeProvider).brand.name,
+            ),
+            const Divider(height: 1, color: Colors.transparent),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                children: [
+                  if (showPinnedSection && pinnedItems.isNotEmpty) ...[
+                    _SectionLabel('Pinned', palette),
+                    ...pinnedItems.map((item) {
+                      final idx = allItems.indexOf(item);
+                      return _SidebarItem(
+                        item: item,
+                        isSelected: idx == selectedIndex,
+                        isExpanded: true,
+                        palette: palette,
+                        onTap: () => _onNavigate(context, item),
+                      );
+                    }),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      child: Divider(height: 1, color: palette.divider),
+                    ),
+                  ],
+                  ...regularItems.map((item) {
+                    final idx = allItems.indexOf(item);
+                    return _SidebarItem(
+                      item: item,
+                      isSelected: idx == selectedIndex,
+                      isExpanded: true,
+                      palette: palette,
+                      onTap: () => _onNavigate(context, item),
+                    );
+                  }),
+                ],
+              ),
+            ),
+            // No collapse toggle when collapsible is false
+          ],
+        ),
+      );
+    }
+
+    // ── Collapsible behavior: watch sidebar state, show toggle ──
+    final sidebarState = ref.watch(sidebarControllerProvider);
     final isExpanded = sidebarState.isExpanded;
 
     return AnimatedContainer(
@@ -78,7 +139,11 @@ class ShellSidebar extends ConsumerWidget {
       child: Column(
         children: [
           // ── Brand Header ──
-          _BrandHeader(isExpanded: isExpanded, palette: palette),
+          _BrandHeader(
+            isExpanded: isExpanded,
+            palette: palette,
+            brandName: brandName,
+          ),
 
           const Divider(height: 1, color: Colors.transparent),
 
@@ -180,18 +245,16 @@ class ShellSidebar extends ConsumerWidget {
 class _BrandHeader extends StatelessWidget {
   final bool isExpanded;
   final ShellColorPalette palette;
+  final String brandName;
 
   const _BrandHeader({
     required this.isExpanded,
     required this.palette,
+    required this.brandName,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final shellTheme = theme.extension<ShellThemeColors>()?.palette ?? palette;
-    final brandName = _getBrandName(context);
-
     return Container(
       padding: EdgeInsets.symmetric(
         vertical: 20,
@@ -240,12 +303,6 @@ class _BrandHeader extends StatelessWidget {
         size: 20,
       ),
     );
-  }
-
-  String _getBrandName(BuildContext context) {
-    // Brand name is configured via the ShellTheme provider config
-    // and rendered through ShellConfig. This is a fallback.
-    return 'App';
   }
 }
 

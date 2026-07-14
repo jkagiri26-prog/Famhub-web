@@ -81,6 +81,7 @@ class DesktopShellLayout extends StatelessWidget {
                         ShellSidebar(
                           showPinnedSection: config.navigation.showPinnedSection,
                           showSectionLabels: config.navigation.showSectionLabels,
+                          collapsible: config.navigation.collapsible,
                       ),
                         // ── Extension slot: navigation bottom ──
                         const ExtensionSlot(

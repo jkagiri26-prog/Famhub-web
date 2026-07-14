@@ -23,6 +23,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famhub_app/core/composition/contributions/contribution_models.dart';
 import 'package:famhub_app/core/composition/contributions/runtime_contribution_engine.dart';
 import 'package:famhub_app/core/composition/providers/composition_providers.dart';
+import 'package:famhub_app/shared/layouts/shell_page_content.dart';
 import 'package:famhub_app/shared/utils/icon_resolver.dart';
 
 /// ============================================================
@@ -44,27 +45,16 @@ class ReportsCenterPage extends ConsumerWidget {
     final theme = Theme.of(context);
     final reportsAsync = ref.watch(reportsProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: Text(
-          'Reports',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: Colors.black87,
-          ),
+    return ShellPageContent(
+      title: 'Reports',
+      actions: [
+        IconButton(
+          icon: Icon(Icons.filter_list, color: Colors.grey.shade600),
+          onPressed: () {},
+          tooltip: 'Filter',
         ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.filter_list, color: Colors.grey.shade600),
-            onPressed: () {},
-            tooltip: 'Filter',
-          ),
-        ],
-      ),
-      body: reportsAsync.when(
+      ],
+      child: reportsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Error: $err')),
         data: (categorized) {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:famhub_app/shared/layouts/feature_page_scaffold.dart';
+import 'package:famhub_app/shared/layouts/shell_page_content.dart';
 import 'package:famhub_app/shared/widgets/states/loading_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
@@ -38,36 +38,34 @@ class _AssetsPageState extends ConsumerState<AssetsPage> {
   Widget build(BuildContext context) {
     final farmId = ref.watch(farmContextProvider).farmId;
 
-    if (farmId == null) {
-      return const FeaturePageScaffold(
+        if (farmId == null) {
+      return const ShellPageContent(
         title: 'Assets',
         subtitle: 'Select a farm to view assets',
-        children: [],
+        child: SizedBox.shrink(),
       );
     }
 
     final assetState = ref.watch(assetsProvider);
 
     if (assetState.isLoading) {
-      return const FeaturePageScaffold(
+      return const ShellPageContent(
         title: 'Assets',
         subtitle: 'Loading asset registry...',
-        children: [LoadingStateWidget(useSkeleton: true)],
+        child: LoadingStateWidget(useSkeleton: true),
       );
     }
 
     if (assetState.errorMessage != null) {
-      return FeaturePageScaffold(
+      return ShellPageContent(
         title: 'Assets',
         subtitle: 'Failed to load asset data',
-        children: [
-          ErrorStateWidget(
-            title: 'Error Loading Assets',
-            message: assetState.errorMessage!,
-            retryLabel: 'Retry',
-            onRetry: _loadAssets,
-          ),
-        ],
+        child: ErrorStateWidget(
+          title: 'Error Loading Assets',
+          message: assetState.errorMessage!,
+          retryLabel: 'Retry',
+          onRetry: _loadAssets,
+        ),
       );
     }
 
@@ -75,12 +73,14 @@ class _AssetsPageState extends ConsumerState<AssetsPage> {
     final assetTypes = assetState.assetTypes;
     final needsMaintenance = assetState.needsMaintenance.length;
 
-    return FeaturePageScaffold(
+        return ShellPageContent(
       title: 'Assets',
       subtitle: '${assetState.assets.length} asset${assetState.assets.length == 1 ? '' : 's'}',
-      children: [
-        // ── KPIs ──
-        AdaptiveContentGrid(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── KPIs ──
+          AdaptiveContentGrid(
           items: [
             KPICard(
               label: 'Total Assets',
@@ -129,7 +129,7 @@ class _AssetsPageState extends ConsumerState<AssetsPage> {
             ),
           )
         else
-          Expanded(
+                    Expanded(
             child: ListView.separated(
               physics: const BouncingScrollPhysics(),
               itemCount: filtered.length,
@@ -140,7 +140,8 @@ class _AssetsPageState extends ConsumerState<AssetsPage> {
               },
             ),
           ),
-      ],
+        ],
+      ),
     );
   }
 

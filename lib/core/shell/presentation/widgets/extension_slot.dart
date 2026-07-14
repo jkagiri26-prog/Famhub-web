@@ -6,16 +6,12 @@
 ///   Renders all extensions for a given shell region slot.
 ///   The shell never knows what the widgets are — it just renders them.
 ///
-/// ✅ Runtime-Driven (replaces static registry):
+/// ✅ Runtime-Driven (single source of truth):
 ///   - Watches shellExtensionsBySlotProvider (Riverpod)
 ///   - Extensions come from the platform module runtime
 ///   - Disabled modules → extensions disappear automatically
 ///   - Maintenance mode → extensions auto-hidden
 ///   - Module install/removal → reactive via Riverpod refresh
-///
-/// ✅ Backward Compatible:
-///   - Falls back to legacy ShellExtensionRegistry.forSlot()
-///     for modules not yet migrated to runtime descriptors
 ///
 /// ✅ Domain-Agnostic:
 ///   - Shell does not import feature modules
@@ -61,23 +57,17 @@ class ExtensionSlot extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Primary source: runtime-driven provider from module composition
+    // Single source of truth: runtime-driven provider from module composition
     final runtimeExtensions = ref.watch(shellExtensionsBySlotProvider(slot));
 
-    // Secondary source: legacy static registry (backward compat)
-    final legacyExtensions = ShellExtensionRegistry.forSlot(slot);
-
-    // Merge: runtime takes priority, legacy is fallback
-    final allExtensions = _mergeExtensions(runtimeExtensions, legacyExtensions);
-
-    if (allExtensions.isEmpty) return const SizedBox.shrink();
+    if (runtimeExtensions.isEmpty) return const SizedBox.shrink();
 
     final children = <Widget>[];
-    for (int i = 0; i < allExtensions.length; i++) {
+    for (int i = 0; i < runtimeExtensions.length; i++) {
       if (i > 0 && separator != null) {
         children.add(separator!);
       }
-      children.add(allExtensions[i].builder(context));
+      children.add(runtimeExtensions[i].builder(context));
     }
 
     if (wrapper != null) {
@@ -89,21 +79,5 @@ class ExtensionSlot extends ConsumerWidget {
       children: children,
     );
   }
-
-  /// Merge runtime and legacy extensions.
-  /// Runtime extensions take priority; legacy extensions fill gaps.
-  List<ShellExtension> _mergeExtensions(
-    List<ShellExtension> runtime,
-    List<ShellExtension> legacy,
-  ) {
-    if (runtime.isEmpty) return legacy;
-    if (legacy.isEmpty) return runtime;
-
-    // Deduplicate by id (runtime wins)
-    final runtimeIds = runtime.map((e) => e.id).toSet();
-    final uniqueLegacy = legacy.where((e) => !runtimeIds.contains(e.id)).toList();
-
-    return [...runtime, ...uniqueLegacy]
-      ..sort((a, b) => a.priority.compareTo(b.priority));
-  }
 }
+

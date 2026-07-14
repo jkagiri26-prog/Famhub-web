@@ -33,6 +33,7 @@ ModuleRuntimeDescriptor createProfileDescriptor() {
     // ── Dashboard Widget Contributions ──
     dashboardWidgets: [
       DashboardWidgetDescriptor(
+        moduleKey: 'profile',
         widgetKey: 'profile_overview',
         displayName: 'Profile Overview',
         sectionKey: 'profile',
@@ -42,6 +43,7 @@ ModuleRuntimeDescriptor createProfileDescriptor() {
         iconKey: 'person',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'profile',
         widgetKey: 'profile_account_status',
         displayName: 'Account Status',
         sectionKey: 'profile',
@@ -51,6 +53,7 @@ ModuleRuntimeDescriptor createProfileDescriptor() {
         iconKey: 'verified_user',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'profile',
         widgetKey: 'profile_activity',
         displayName: 'Recent Activity',
         sectionKey: 'profile',

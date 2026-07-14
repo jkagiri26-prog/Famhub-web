@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:famhub_app/shared/layouts/feature_page_scaffold.dart';
+import 'package:famhub_app/shared/layouts/shell_page_content.dart';
 import 'package:famhub_app/shared/widgets/states/loading_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
@@ -40,38 +40,34 @@ class _CropsPageState extends ConsumerState<CropsPage> {
   Widget build(BuildContext context) {
     final farmId = ref.watch(farmContextProvider).farmId;
 
-        if (farmId == null) {
-      return const FeaturePageScaffold(
+                if (farmId == null) {
+      return const ShellPageContent(
         title: 'Crops',
         subtitle: 'Select a farm to view crops',
-        children: [],
+        child: SizedBox.shrink(),
       );
     }
 
     final cropState = ref.watch(cropsProvider);
 
     if (cropState.isLoading) {
-      return const FeaturePageScaffold(
+      return const ShellPageContent(
         title: 'Crops',
         subtitle: 'Loading crop records...',
-        children: [
-          LoadingStateWidget(useSkeleton: true),
-        ],
+        child: LoadingStateWidget(useSkeleton: true),
       );
     }
 
     if (cropState.errorMessage != null) {
-      return FeaturePageScaffold(
+      return ShellPageContent(
         title: 'Crops',
         subtitle: 'Failed to load crop data',
-        children: [
-          ErrorStateWidget(
-            title: 'Error Loading Crops',
-            message: cropState.errorMessage!,
-            retryLabel: 'Retry',
-            onRetry: _loadCrops,
-          ),
-        ],
+        child: ErrorStateWidget(
+          title: 'Error Loading Crops',
+          message: cropState.errorMessage!,
+          retryLabel: 'Retry',
+          onRetry: _loadCrops,
+        ),
       );
     }
 
@@ -88,10 +84,12 @@ class _CropsPageState extends ConsumerState<CropsPage> {
       (c) => c.status == CropStatus.harvested,
     ).length;
 
-    return FeaturePageScaffold(
+    return ShellPageContent(
       title: 'Crops',
       subtitle: '${cropState.crops.length} crop records',
-      children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
         // ── KPI Summary ──
         AdaptiveContentGrid(
           items: [
@@ -136,7 +134,7 @@ class _CropsPageState extends ConsumerState<CropsPage> {
             ),
           )
         else
-          Expanded(
+                    Expanded(
             child: ListView.separated(
               physics: const BouncingScrollPhysics(),
               itemCount: filtered.length,
@@ -147,7 +145,8 @@ class _CropsPageState extends ConsumerState<CropsPage> {
               },
             ),
           ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -302,4 +301,3 @@ class _InfoChip extends StatelessWidget {
     );
   }
 }
-

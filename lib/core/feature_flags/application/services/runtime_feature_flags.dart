@@ -266,19 +266,33 @@ class RuntimeFeatureFlags {
     SystemModule module,
     String deviceType,
   ) {
-    if (module.desktopOnly && deviceType != 'desktop') {
+    final normalized = _normalizeDeviceType(deviceType);
+    if (module.desktopOnly && normalized != 'desktop') {
       return FeatureFlagResult.denied(
           'Module "${module.moduleKey}" is desktop-only');
     }
-    if (module.mobileOnly && deviceType != 'mobile') {
+    if (module.mobileOnly && normalized != 'mobile') {
       return FeatureFlagResult.denied(
           'Module "${module.moduleKey}" is mobile-only');
     }
-    if (module.tabletOnly && deviceType != 'tablet') {
+    if (module.tabletOnly && normalized != 'tablet') {
       return FeatureFlagResult.denied(
           'Module "${module.moduleKey}" is tablet-only');
     }
 
     return FeatureFlagResult.allowed;
+  }
+
+  /// Normalize device type for backward compatibility with
+  /// three-device-type restrictions (mobile/tablet/desktop).
+  static String _normalizeDeviceType(String deviceType) {
+    switch (deviceType) {
+      case 'compactXs':
+        return 'mobile';
+      case 'ultraWide':
+        return 'desktop';
+      default:
+        return deviceType;
+    }
   }
 }

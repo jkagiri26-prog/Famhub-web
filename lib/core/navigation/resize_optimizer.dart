@@ -25,10 +25,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famhub_app/core/navigation/responsive_breakpoints.dart';
 
 /// ============================================================
-/// BREAKPOINT STATE
+/// BREAKPOINT STATE — Single source of truth for responsive layout
+/// ============================================================
+///
+/// Device types (aligned with ResponsiveBreakpoints):
+///   'compactXs' — < 360px
+///   'mobile'    — 360px  – 599px
+///   'tablet'    — 600px  – 1023px
+///   'desktop'   — 1024px – 1439px
+///   'ultraWide' — >= 1440px
 /// ============================================================
 class BreakpointState {
-  /// Current device type: 'mobile', 'tablet', 'desktop'
+  /// Current device type
   final String deviceType;
 
   /// Current width
@@ -61,26 +69,33 @@ class BreakpointState {
     );
   }
 
+  /// Grid column count derived from device type
   int get columnCount {
     switch (deviceType) {
+      case 'compactXs':
       case 'mobile':
         return 1;
       case 'tablet':
         return 2;
       case 'desktop':
+      case 'ultraWide':
         return 3;
       default:
         return 3;
     }
   }
 
+  /// Spacing derived from device type
   double get spacing {
     switch (deviceType) {
+      case 'compactXs':
+        return 6;
       case 'mobile':
         return 8;
       case 'tablet':
         return 12;
       case 'desktop':
+      case 'ultraWide':
         return 16;
       default:
         return 16;
@@ -121,9 +136,10 @@ class BreakpointNotifier extends Notifier<BreakpointState> {
   @override
   BreakpointState build() {
     ref.onDispose(() => _debounceTimer?.cancel());
+    // Neutral initial state — will be updated immediately by LayoutBuilder.
     return const BreakpointState(
       deviceType: 'desktop',
-      width: 1440,
+      width: 0,
     );
   }
 

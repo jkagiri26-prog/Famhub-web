@@ -33,7 +33,8 @@ ModuleRuntimeDescriptor createAgriConnectDescriptor() {
     // ── Dashboard Widget Contributions ──
     dashboardWidgets: [
       DashboardWidgetDescriptor(
-        widgetKey: 'connect_network',
+        moduleKey: 'agri_connect',
+        widgetKey: 'my Network',
         displayName: 'My Network',
         sectionKey: 'community',
         displayOrder: 1,
@@ -42,6 +43,7 @@ ModuleRuntimeDescriptor createAgriConnectDescriptor() {
         iconKey: 'people',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'agri_connect',
         widgetKey: 'connect_discussions',
         displayName: 'Active Discussions',
         sectionKey: 'community',
@@ -51,6 +53,7 @@ ModuleRuntimeDescriptor createAgriConnectDescriptor() {
         iconKey: 'forum',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'agri_connect',
         widgetKey: 'connect_events',
         displayName: 'Community Events',
         sectionKey: 'community',
@@ -60,6 +63,7 @@ ModuleRuntimeDescriptor createAgriConnectDescriptor() {
         iconKey: 'event',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'agri_connect',
         widgetKey: 'connect_groups',
         displayName: 'Groups',
         sectionKey: 'community',

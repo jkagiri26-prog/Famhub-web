@@ -33,6 +33,7 @@ ModuleRuntimeDescriptor createAdminConsoleDescriptor() {
     // ── Dashboard Widget Contributions ──
     dashboardWidgets: [
       DashboardWidgetDescriptor(
+        moduleKey: 'admin_console',
         widgetKey: 'admin_system_health',
         displayName: 'System Health',
         sectionKey: 'administration',
@@ -43,6 +44,7 @@ ModuleRuntimeDescriptor createAdminConsoleDescriptor() {
         refreshIntervalSeconds: 30,
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'admin_console',
         widgetKey: 'admin_user_management',
         displayName: 'User Management',
         sectionKey: 'administration',
@@ -52,6 +54,7 @@ ModuleRuntimeDescriptor createAdminConsoleDescriptor() {
         iconKey: 'people',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'admin_console',
         widgetKey: 'admin_audit_log',
         displayName: 'Audit Log',
         sectionKey: 'administration',
@@ -61,6 +64,7 @@ ModuleRuntimeDescriptor createAdminConsoleDescriptor() {
         iconKey: 'receipt_long',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'admin_console',
         widgetKey: 'admin_module_control',
         displayName: 'Module Control',
         sectionKey: 'administration',
@@ -70,6 +74,7 @@ ModuleRuntimeDescriptor createAdminConsoleDescriptor() {
         iconKey: 'tune',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'admin_console',
         widgetKey: 'admin_metrics',
         displayName: 'System Metrics',
         sectionKey: 'administration',
@@ -80,6 +85,7 @@ ModuleRuntimeDescriptor createAdminConsoleDescriptor() {
         refreshIntervalSeconds: 30,
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'admin_console',
         widgetKey: 'admin_configuration',
         displayName: 'Configuration',
         sectionKey: 'administration',

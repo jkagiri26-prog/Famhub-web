@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:famhub_app/shared/layouts/shell_page_content.dart';
+
 /// ============================================================
 /// FARM MANAGEMENT PAGE (PRIMARY MODULE PAGE)
 /// ============================================================
@@ -18,6 +20,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 ///   - Uses providers (never direct Supabase calls)
 ///   - Reusable widgets from presentation/widgets/
 ///   - Unified dashboard engine for cross-module dashboard
+///   - Shell-compliant: no Scaffold, no AppBar (owned by UnifiedAppShellV2)
 /// ============================================================
 
 /// Primary module page for Farm Management.
@@ -39,13 +42,9 @@ class FarmManagementPage extends ConsumerWidget {
     //
     // For now, it renders a simple placeholder that the unified dashboard
     // engine will replace at runtime.
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Farm Management'),
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-      ),
-      body: const Center(
+    return const ShellPageContent(
+      title: 'Farm Management',
+      child: Center(
         child: Text('Farm Management Dashboard'),
       ),
     );

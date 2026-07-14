@@ -15,7 +15,7 @@
 ///   - Immutable config models (ShellConfig + copyWith)
 ///
 /// ✅ Extension Points (Phase 10):
-///   - Extension slots in every region via ShellExtensionRegistry
+///   - Extension slots in every region via runtime shellExtensionProvider
 ///   - Shell never knows what widgets represent
 ///   - No feature module imports in shell
 ///
@@ -54,10 +54,12 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../navigation/resize_optimizer.dart';
+import '../../../navigation/runtime_refresh_provider.dart';
 import '../../../theme/shell_theme.dart';
-import '../../../navigation/responsive_breakpoints.dart';
 import '../../../dashboard_engine/application/observability/navigation_metrics.dart';
 import '../../../providers/system_state_provider.dart';
+import '../../../session/session_provider.dart';
 import '../../domain/models/app_shell_context.dart';
 import '../../config/shell_config.dart';
 import '../../application/controllers/keyboard_navigation.dart';
@@ -67,32 +69,7 @@ import '../layouts/mobile_shell_layout.dart';
 import '../layouts/tablet_shell_layout.dart';
 import '../layouts/desktop_shell_layout.dart';
 import '../layouts/ultra_wide_shell_layout.dart';
-
-/// ============================================================
-/// BREAKPOINT — Immutable breakpoint value for layout caching
-/// ============================================================
-///
-/// Using an enum instead of raw width comparisons ensures:
-/// - Layout switches only on breakpoint changes
-/// - No continuous recalculations during normal rebuilds
-/// - Stable widget identity for Flutter's diffing
-/// ============================================================
-enum ScreenBreakpoint {
-  compactXs,
-  mobile,
-  tablet,
-  desktop,
-  ultraWide;
-
-  /// Determine breakpoint from width (single pass, no chain)
-  static ScreenBreakpoint fromWidth(double width) {
-    if (ResponsiveBreakpoints.isCompactXs(width)) return compactXs;
-    if (ResponsiveBreakpoints.isMobile(width)) return mobile;
-    if (ResponsiveBreakpoints.isTablet(width)) return tablet;
-    if (ResponsiveBreakpoints.isUltraWide(width)) return ultraWide;
-    return desktop;
-  }
-}
+import '../layouts/common/common.dart';
 
 /// ============================================================
 /// UNIFIED APP SHELL V2.0
@@ -119,6 +96,10 @@ class UnifiedAppShellV2 extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Activate runtime auto-invalidation — listens to module/context changes
+    // and automatically refreshes navigation, extensions, and dashboard state.
+    ref.listen(runtimeAutoInvalidatorProvider, (_, __) {});
+
     final systemState = ref.watch(systemStateProvider);
     final palette = Theme.of(context).extension<ShellThemeColors>()?.palette ??
         ShellTheme.defaultLight;
@@ -127,34 +108,7 @@ class UnifiedAppShellV2 extends ConsumerWidget {
     // SYSTEM DOWN GATE (GLOBAL BLOCKER)
     // ============================================================
     if (systemState.isSystemDown) {
-      return Scaffold(
-        backgroundColor: palette.background,
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.cloud_off_rounded, size: 48, color: palette.warning),
-              const SizedBox(height: 16),
-              Text(
-                'System maintenance in progress',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: palette.primaryText,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Please check back later.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: palette.secondaryText,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+      return const ShellSystemDown();
     }
 
     // ============================================================
@@ -183,7 +137,7 @@ class UnifiedAppShellV2 extends ConsumerWidget {
 /// avoid re-running the LayoutBuilder closure on every provider
 /// update.
 /// ============================================================
-class _ShellLayoutBuilder extends StatelessWidget {
+class _ShellLayoutBuilder extends ConsumerStatefulWidget {
   final Widget child;
   final ShellConfig config;
   final ShellColorPalette palette;
@@ -197,78 +151,89 @@ class _ShellLayoutBuilder extends StatelessWidget {
   });
 
   @override
+  ConsumerState<_ShellLayoutBuilder> createState() => _ShellLayoutBuilderState();
+}
+
+class _ShellLayoutBuilderState extends ConsumerState<_ShellLayoutBuilder> {
+  @override
   Widget build(BuildContext context) {
     // ── Start timing for observability ──
     final stopwatch = Stopwatch()..start();
 
+    // Watch the single breakpoint provider (shared with dashboard)
+    final breakpointState = ref.watch(breakpointProvider);
+    final deviceType = breakpointState.deviceType;
+
+    // Apply mode transforms once per build (pure function)
+    final effectiveConfig = applyShellMode(widget.config, widget.config.mode);
+
+    // Build the appropriate layout widget from device type string
+    final Widget shell = _buildLayoutForDevice(deviceType, effectiveConfig);
+
+    // Record build time
+    stopwatch.stop();
+    navigationMetrics.recordDashboardRender(stopwatch.elapsedMilliseconds);
+
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = constraints.maxWidth;
-
-        // Determine breakpoint once (stable identity for widget tree)
-        final breakpoint = ScreenBreakpoint.fromWidth(width);
-
-        // Apply mode transforms once per build (pure function)
-        final effectiveConfig = applyShellMode(config, config.mode);
-
-        // Build the appropriate layout widget
-        final Widget shell = _buildLayout(breakpoint, effectiveConfig);
-
-        // Record build time
-        stopwatch.stop();
-        navigationMetrics.recordDashboardRender(stopwatch.elapsedMilliseconds);
-
+        // Feed width into the shared breakpoint notifier
+        ref.read(breakpointProvider.notifier).updateWidth(constraints.maxWidth);
         return shell;
       },
     );
   }
 
-  /// Build the appropriate layout for the current breakpoint
-  Widget _buildLayout(ScreenBreakpoint breakpoint, ShellConfig effectiveConfig) {
+  /// Build the appropriate layout for the current device type
+  Widget _buildLayoutForDevice(String deviceType, ShellConfig effectiveConfig) {
+    final isGuest = ref.watch(isGuestProvider);
     final wrappedChild = AppShellContext(
-      isGuest: false,
-      isSystemDown: systemState.isSystemDown,
-      child: child,
+      isGuest: isGuest,
+      isSystemDown: widget.systemState.isSystemDown,
+      child: widget.child,
     );
 
     Widget shell;
 
-    switch (breakpoint) {
-      case ScreenBreakpoint.compactXs:
+    switch (deviceType) {
+      case 'compactXs':
         shell = CompactXsShellLayout(
           config: effectiveConfig,
-          palette: palette,
+          palette: widget.palette,
           child: wrappedChild,
         );
-      case ScreenBreakpoint.mobile:
+      case 'mobile':
         shell = MobileShellLayout(
           config: effectiveConfig,
-          palette: palette,
+          palette: widget.palette,
           child: wrappedChild,
         );
-      case ScreenBreakpoint.tablet:
+      case 'tablet':
         shell = TabletShellLayout(
           config: effectiveConfig,
-          palette: palette,
+          palette: widget.palette,
           child: wrappedChild,
         );
-      case ScreenBreakpoint.ultraWide:
+      case 'ultraWide':
         shell = UltraWideShellLayout(
           config: effectiveConfig,
-          palette: palette,
+          palette: widget.palette,
           child: wrappedChild,
         );
-      case ScreenBreakpoint.desktop:
+      case 'desktop':
+      default:
         shell = DesktopShellLayout(
           config: effectiveConfig,
-          palette: palette,
+          palette: widget.palette,
           child: wrappedChild,
         );
     }
 
     // ── Wrap with keyboard navigation and focus management ──
-    if (config.enableKeyboardNavigation) {
-      shell = KeyboardShortcutsHandler(child: shell);
+    if (widget.config.enableKeyboardNavigation) {
+      shell = KeyboardShortcutsHandler(
+        overlays: effectiveConfig.overlays,
+        child: shell,
+      );
       shell = ShellFocusScope(child: shell);
     }
 

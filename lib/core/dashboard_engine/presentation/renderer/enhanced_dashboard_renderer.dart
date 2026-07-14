@@ -27,6 +27,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famhub_app/core/composition/domain/models/module_descriptor.dart';
 import 'package:famhub_app/core/composition/domain/models/section_registry.dart';
 import 'package:famhub_app/core/composition/providers/descriptor_providers.dart';
+import 'package:famhub_app/core/navigation/resize_optimizer.dart';
 import 'package:famhub_app/core/dashboard_engine/presentation/builders/widget_registry.dart';
 import 'package:famhub_app/shared/widgets/module_error_boundary.dart';
 import 'package:famhub_app/shared/utils/icon_resolver.dart';
@@ -44,14 +45,13 @@ class EnhancedDashboardRenderer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final width = MediaQuery.of(context).size.width;
 
     // Watch widgets organized by section from runtime descriptors
     final widgetsAsync = ref.watch(dashboardWidgetsBySectionProvider);
 
-    // Determine device layout
-    final isMobile = width < 600;
-    final crossAxisCount = width > 900 ? 3 : (width > 600 ? 2 : 1);
+    // Determine device layout from shared breakpoint provider
+    final breakpoint = ref.watch(breakpointProvider);
+    final crossAxisCount = breakpoint.columnCount;
 
     return widgetsAsync.when(
       loading: () => const _DashboardLoading(),
@@ -63,6 +63,8 @@ class EnhancedDashboardRenderer extends ConsumerWidget {
         if (sectionMap.isEmpty) {
           return const _DashboardEmpty();
         }
+
+        final isMobile = breakpoint.deviceType == 'compactXs' || breakpoint.deviceType == 'mobile';
 
         return SafeArea(
           child: LayoutBuilder(

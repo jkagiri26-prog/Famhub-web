@@ -33,6 +33,7 @@ ModuleRuntimeDescriptor createAnalyticsDescriptor() {
     // ── Dashboard Widget Contributions ──
     dashboardWidgets: [
       DashboardWidgetDescriptor(
+        moduleKey: 'analytics',
         widgetKey: 'analytics_overview',
         displayName: 'Analytics Overview',
         sectionKey: 'analytics',
@@ -43,6 +44,7 @@ ModuleRuntimeDescriptor createAnalyticsDescriptor() {
         refreshIntervalSeconds: 300,
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'analytics',
         widgetKey: 'analytics_charts',
         displayName: 'Performance Charts',
         sectionKey: 'analytics',
@@ -52,6 +54,7 @@ ModuleRuntimeDescriptor createAnalyticsDescriptor() {
         iconKey: 'bar_chart',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'analytics',
         widgetKey: 'analytics_reports',
         displayName: 'Saved Reports',
         sectionKey: 'analytics',
@@ -61,6 +64,7 @@ ModuleRuntimeDescriptor createAnalyticsDescriptor() {
         iconKey: 'description',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'analytics',
         widgetKey: 'analytics_trends',
         displayName: 'Trend Analysis',
         sectionKey: 'analytics',

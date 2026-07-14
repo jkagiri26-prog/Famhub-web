@@ -26,6 +26,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:famhub_app/core/shell/application/controllers/sidebar_controller.dart';
+import 'package:famhub_app/core/shell/config/shell_config.dart';
 
 // =================================================================
 // ACTION CLASSES (Flutter Actions)
@@ -46,11 +47,13 @@ class ToggleSidebarAction extends Action<ToggleSidebarIntent> {
 /// Action: Open command palette (Ctrl+K)
 class OpenCommandPaletteAction extends Action<OpenCommandPaletteIntent> {
   final BuildContext context;
+  final bool enabled;
 
-  OpenCommandPaletteAction(this.context);
+  OpenCommandPaletteAction(this.context, {this.enabled = true});
 
   @override
   void invoke(covariant OpenCommandPaletteIntent intent) {
+    if (!enabled) return;
     // Show command palette - use ScaffoldMessenger or dialog
     _showCommandPalette(context);
   }
@@ -125,10 +128,12 @@ class CloseOverlaysIntent extends Intent {
 /// Place this at the root of your widget tree.
 class KeyboardShortcutsHandler extends ConsumerStatefulWidget {
   final Widget child;
+  final OverlayConfig overlays;
 
   const KeyboardShortcutsHandler({
     super.key,
     required this.child,
+    this.overlays = const OverlayConfig(),
   });
 
   @override
@@ -180,7 +185,10 @@ class _KeyboardShortcutsHandlerState
         child: Actions(
           actions: <Type, Action<Intent>>{
             ToggleSidebarIntent: ToggleSidebarAction(ref),
-            OpenCommandPaletteIntent: OpenCommandPaletteAction(context),
+            OpenCommandPaletteIntent: OpenCommandPaletteAction(
+              context,
+              enabled: widget.overlays.enableCommandPalette,
+            ),
             OpenSearchIntent: OpenSearchAction(context),
             CloseOverlaysIntent: CloseOverlaysAction(context),
           },

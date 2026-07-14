@@ -7,11 +7,51 @@
 /// ============================================================
 library;
 
-import '../../domain/entities/listing.dart';
-import '../../domain/enums/listing_status.dart';
-import '../../domain/repositories/marketplace_repository.dart';
-import '../data_sources/marketplace_remote_data_source.dart';
-import '../services/listing_mapper.dart';
+import 'package:famhub_app/features/marketplace/domain/entities/listing.dart';
+import 'package:famhub_app/features/marketplace/domain/enums/listing_status.dart';
+import 'package:famhub_app/features/marketplace/domain/repositories/marketplace_repository.dart';
+import 'package:famhub_app/features/marketplace/infrastructure/data_sources/marketplace_remote_data_source.dart';
+
+/// Local mapper implementation for marketplace listing JSON payloads.
+class ListingMapper {
+  static Listing fromJson(Map<String, dynamic> json) {
+    return Listing(
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      description: json['description']?.toString(),
+      pricePerUnit: (json['price_per_unit'] ?? 0).toDouble(),
+      currency: json['currency']?.toString() ?? 'KES',
+      images: (json['images'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      entityId: json['entity_id']?.toString() ?? '',
+      variantId: json['variant_id']?.toString() ?? '',
+      stockId: json['stock_id']?.toString() ?? '',
+      unitId: json['unit_id']?.toString(),
+      locationId: json['location_id']?.toString(),
+      contactVisibility: json['contact_visibility']?.toString() ?? 'locked',
+      isPromoted: json['is_promoted'] == true,
+      promotedUntil: json['promoted_until'] != null
+          ? DateTime.tryParse(json['promoted_until'].toString())
+          : null,
+      status: ListingStatus.values.firstWhere(
+        (s) => s.value == json['status']?.toString(),
+        orElse: () => ListingStatus.active,
+      ),
+      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ??
+          DateTime.now(),
+      updatedAt: DateTime.tryParse(json['updated_at']?.toString() ?? '') ??
+          DateTime.now(),
+      unitName: json['unit_name']?.toString(),
+      locationName: json['location_name']?.toString(),
+      sellerName: json['seller_name']?.toString(),
+      sellerRating: (json['seller_rating'] as num?)?.toDouble(),
+      availableQuantity: (json['available_quantity'] ?? 0).toDouble(),
+      reservedQuantity: (json['reserved_quantity'] ?? 0).toDouble(),
+    );
+  }
+}
 
 /// Concrete implementation of [MarketplaceRepository].
 ///

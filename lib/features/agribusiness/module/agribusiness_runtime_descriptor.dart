@@ -33,6 +33,7 @@ ModuleRuntimeDescriptor createAgribusinessDescriptor() {
     // ── Dashboard Widget Contributions ──
     dashboardWidgets: [
       DashboardWidgetDescriptor(
+        moduleKey: 'agribusiness',
         widgetKey: 'agribusiness_pnl',
         displayName: 'Profit & Loss',
         sectionKey: 'business',
@@ -43,6 +44,7 @@ ModuleRuntimeDescriptor createAgribusinessDescriptor() {
         refreshIntervalSeconds: 3600,
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'agribusiness',
         widgetKey: 'agribusiness_inventory',
         displayName: 'Business Inventory',
         sectionKey: 'business',
@@ -52,6 +54,7 @@ ModuleRuntimeDescriptor createAgribusinessDescriptor() {
         iconKey: 'inventory',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'agribusiness',
         widgetKey: 'agribusiness_expenses',
         displayName: 'Expense Tracking',
         sectionKey: 'business',
@@ -61,6 +64,7 @@ ModuleRuntimeDescriptor createAgribusinessDescriptor() {
         iconKey: 'receipt_long',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'agribusiness',
         widgetKey: 'agribusiness_staff',
         displayName: 'Staff Overview',
         sectionKey: 'business',

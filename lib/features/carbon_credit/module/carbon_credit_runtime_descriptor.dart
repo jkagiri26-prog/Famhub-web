@@ -33,6 +33,7 @@ ModuleRuntimeDescriptor createCarbonCreditDescriptor() {
     // ── Dashboard Widget Contributions ──
     dashboardWidgets: [
       DashboardWidgetDescriptor(
+        moduleKey: 'carbon_credit',
         widgetKey: 'carbon_footprint',
         displayName: 'Carbon Footprint',
         sectionKey: 'sustainability',
@@ -42,6 +43,7 @@ ModuleRuntimeDescriptor createCarbonCreditDescriptor() {
         iconKey: 'footprint',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'carbon_credit',
         widgetKey: 'carbon_credits_earned',
         displayName: 'Credits Earned',
         sectionKey: 'sustainability',
@@ -51,6 +53,7 @@ ModuleRuntimeDescriptor createCarbonCreditDescriptor() {
         iconKey: 'emoji_events',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'carbon_credit',
         widgetKey: 'carbon_trading',
         displayName: 'Credit Trading',
         sectionKey: 'sustainability',
@@ -60,6 +63,7 @@ ModuleRuntimeDescriptor createCarbonCreditDescriptor() {
         iconKey: 'swap_horiz',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'carbon_credit',
         widgetKey: 'carbon_sequestration',
         displayName: 'Sequestration',
         sectionKey: 'sustainability',

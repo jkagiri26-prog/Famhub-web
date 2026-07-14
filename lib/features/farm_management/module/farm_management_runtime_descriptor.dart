@@ -39,6 +39,7 @@ ModuleRuntimeDescriptor createFarmManagementDescriptor() {
     // ── Dashboard Widget Contributions ──
     dashboardWidgets: [
       DashboardWidgetDescriptor(
+        moduleKey: 'farm_management',
         widgetKey: 'farm_kpis',
         displayName: 'Farm KPIs',
         sectionKey: 'farm',
@@ -48,6 +49,7 @@ ModuleRuntimeDescriptor createFarmManagementDescriptor() {
         iconKey: 'analytics',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'farm_management',
         widgetKey: 'farm_summary',
         displayName: 'Farm Summary',
         sectionKey: 'farm',
@@ -57,6 +59,7 @@ ModuleRuntimeDescriptor createFarmManagementDescriptor() {
         iconKey: 'agriculture',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'farm_management',
         widgetKey: 'farm_livestock',
         displayName: 'Livestock Overview',
         sectionKey: 'farm',
@@ -66,6 +69,7 @@ ModuleRuntimeDescriptor createFarmManagementDescriptor() {
         iconKey: 'pets',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'farm_management',
         widgetKey: 'farm_weather',
         displayName: 'Weather',
         sectionKey: 'farm',
@@ -76,6 +80,7 @@ ModuleRuntimeDescriptor createFarmManagementDescriptor() {
         refreshIntervalSeconds: 300,
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'farm_management',
         widgetKey: 'farm_activity_timeline',
         displayName: 'Activity Timeline',
         sectionKey: 'farm',
@@ -85,6 +90,7 @@ ModuleRuntimeDescriptor createFarmManagementDescriptor() {
         iconKey: 'timeline',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'farm_management',
         widgetKey: 'farm_production_summary',
         displayName: 'Production Summary',
         sectionKey: 'farm',
@@ -94,6 +100,7 @@ ModuleRuntimeDescriptor createFarmManagementDescriptor() {
         iconKey: 'production_quantity_limits',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'farm_management',
         widgetKey: 'farm_stock_summary',
         displayName: 'Stock Summary',
         sectionKey: 'farm',
@@ -103,6 +110,7 @@ ModuleRuntimeDescriptor createFarmManagementDescriptor() {
         iconKey: 'inventory',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'farm_management',
         widgetKey: 'farm_alerts',
         displayName: 'Farm Alerts',
         sectionKey: 'farm',
@@ -113,6 +121,7 @@ ModuleRuntimeDescriptor createFarmManagementDescriptor() {
         refreshIntervalSeconds: 60,
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'farm_management',
         widgetKey: 'farm_quick_actions',
         displayName: 'Quick Actions',
         sectionKey: 'farm',
@@ -122,6 +131,7 @@ ModuleRuntimeDescriptor createFarmManagementDescriptor() {
         iconKey: 'flash_on',
       ),
       DashboardWidgetDescriptor(
+        moduleKey: 'farm_management',
         widgetKey: 'farm_farm_selector',
         displayName: 'Farm Selector',
         sectionKey: 'farm',
