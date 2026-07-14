@@ -25,6 +25,8 @@ import 'package:famhub_app/features/farm_management/application/providers/farm_l
 import 'package:famhub_app/features/farm_management/domain/models/farm_dashboard_summary.dart';
 import 'package:famhub_app/features/farm_management/domain/models/activity_model.dart';
 import 'package:famhub_app/shared/widgets/module_error_boundary.dart';
+import 'package:famhub_app/features/farm_management/presentation/widgets/farm_selector_widget.dart';
+import 'package:famhub_app/features/farm_management/presentation/widgets/quick_actions_widget.dart';
 
 /// ============================================================
 /// BOOTSTRAP ALL FARM WIDGETS
@@ -68,6 +70,17 @@ void bootstrapFarmWidgets() {
   WidgetRegistry.register(
     widgetKey: 'farm_weather',
     builder: () => const _FarmWeatherWidget(),
+  );
+
+  // ── Phase E: Additional Widgets ──
+  WidgetRegistry.register(
+    widgetKey: 'farm_farm_selector',
+    builder: () => const FarmSelectorWidget(),
+  );
+
+  WidgetRegistry.register(
+    widgetKey: 'farm_quick_actions',
+    builder: () => const QuickActionsWidget(),
   );
 }
 

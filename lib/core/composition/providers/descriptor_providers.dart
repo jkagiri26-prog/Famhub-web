@@ -173,6 +173,25 @@ final moduleRouteDescriptorsProvider = FutureProvider<List<RouteDescriptor>>((re
 });
 
 /// ============================================================
+/// PROVIDER: MODULE-SPECIFIC WIDGET DESCRIPTORS (FAMILY)
+/// ============================================================
+///
+/// Returns only DashboardWidgetDescriptors for a specific moduleKey.
+/// Module pages use this to render their own dashboard widgets.
+/// ============================================================
+final moduleWidgetDescriptorsProvider =
+    FutureProvider.family<List<DashboardWidgetDescriptor>, String>(
+  (ref, moduleKey) async {
+    final allWidgets =
+        await ref.watch(dashboardWidgetDescriptorsProvider.future);
+    return allWidgets
+        .where((w) => w.moduleKey == moduleKey)
+        .toList()
+      ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+  },
+);
+
+/// ============================================================
 /// PROVIDER: SHELL EXTENSION DESCRIPTORS
 /// ============================================================
 ///
