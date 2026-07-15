@@ -89,15 +89,15 @@ class ModuleRegistry {
       maintenanceModeDefault: false,
     ),
 
-    // ─────────────────────────────────────────────
-    // Financing Module
+        // ─────────────────────────────────────────────
+    // Finance Module
     // ─────────────────────────────────────────────
     ModuleDefinition(
-      moduleId: 'financing',
-      name: 'Financing',
+      moduleId: 'finance',
+      name: 'Finance',
       description: 'Agricultural loans, credit, and financial services',
       version: '1.0.0',
-      entryRoute: '/financing',
+      entryRoute: '/finance',
       iconKey: 'finance',
       displayOrder: 4,
       isEnabledDefault: true,

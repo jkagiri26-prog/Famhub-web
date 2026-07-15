@@ -27,7 +27,7 @@ import 'package:famhub_app/core/session/app_session.dart';
 class SessionController extends Notifier<AppSession> {
   @override
   AppSession build() {
-    return const GuestSession();
+    return const UnauthenticatedSession();
   }
 
   /// Initialize the session from Supabase + local storage.
@@ -56,11 +56,11 @@ class SessionController extends Notifier<AppSession> {
       }
 
       // No active session — unauthenticated
-      state = const GuestSession();
+      state = const UnauthenticatedSession();
       return SessionStatus.unauthenticated;
     } catch (e) {
       // On error, default to unauthenticated
-      state = const GuestSession();
+      state = const UnauthenticatedSession();
       return SessionStatus.unauthenticated;
     }
   }
@@ -131,7 +131,7 @@ class SessionController extends Notifier<AppSession> {
       // Continue with local sign out
     }
 
-    state = const GuestSession();
+    state = const UnauthenticatedSession();
   }
 
   /// Save selected roles (capabilities) for the user

@@ -83,6 +83,29 @@ class GuestSession implements AppSession {
   bool get hasCompletedOnboarding => false;
 }
 
+/// Session state for unauthenticated users who have NOT chosen guest mode yet.
+/// This is the default state before session initialization completes.
+/// Distinguished from GuestSession so the UI knows whether to show
+/// the Welcome screen (UnauthenticatedSession) vs the Guest Home (GuestSession).
+class UnauthenticatedSession implements AppSession {
+  const UnauthenticatedSession();
+
+  @override
+  SessionStatus get status => SessionStatus.unauthenticated;
+  @override
+  bool get isAuthenticated => false;
+  @override
+  bool get isGuest => false;
+  @override
+  String get displayName => '';
+  @override
+  String? get userId => null;
+  @override
+  List<String> get selectedRoles => const [];
+  @override
+  bool get hasCompletedOnboarding => false;
+}
+
 /// Session for authenticated users with real Supabase identity.
 class AuthenticatedSession implements AppSession {
   @override
@@ -93,7 +116,6 @@ class AuthenticatedSession implements AppSession {
   final List<String> selectedRoles;
   @override
   final bool hasCompletedOnboarding;
-
   const AuthenticatedSession({
     this.userId,
     required this.displayName,

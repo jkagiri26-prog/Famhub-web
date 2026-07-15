@@ -103,7 +103,7 @@ class ValidationRecoveryBridge {
       _ModuleIdRef('farm_management'),
       _ModuleIdRef('marketplace'),
       _ModuleIdRef('analytics'),
-      _ModuleIdRef('financing'),
+      _ModuleIdRef('finance'),
       _ModuleIdRef('logistics'),
       _ModuleIdRef('traceability'),
       _ModuleIdRef('carbon_credit'),

@@ -68,12 +68,12 @@ class DependencyRegistry {
 
     // ── Financing depends on Profile ─────────────
     DependencyEdge(
-      fromModuleId: 'financing',
+      fromModuleId: 'finance',
       toModuleId: 'profile',
       isRequired: true,
     ),
     DependencyEdge(
-      fromModuleId: 'financing',
+      fromModuleId: 'finance',
       toModuleId: 'farm_management',
       isRequired: false,
     ),

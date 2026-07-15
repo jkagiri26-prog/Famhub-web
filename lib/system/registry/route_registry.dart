@@ -59,9 +59,9 @@ class RouteRegistry {
       routeName: 'analytics',
     ),
     RouteMapping(
-      moduleId: 'financing',
-      route: '/financing',
-      routeName: 'financing',
+      moduleId: 'finance',
+      route: '/finance',
+      routeName: 'finance',
     ),
     RouteMapping(
       moduleId: 'logistics',

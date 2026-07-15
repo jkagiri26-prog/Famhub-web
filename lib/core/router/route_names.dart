@@ -45,9 +45,9 @@ class AppRoutes {
   static const analytics = '/analytics';
   static const analyticsName = 'analytics';
 
-  /// Financing module
-  static const financing = '/financing';
-  static const financingName = 'financing';
+    /// Finance module
+  static const finance = '/finance';
+  static const financeName = 'finance';
 
   /// Logistics module
   static const logistics = '/logistics';

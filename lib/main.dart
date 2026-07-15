@@ -64,6 +64,9 @@ import 'core/dashboard_engine/presentation/builders/phase_d_dashboard_bootstrap.
 // ╚══════════════════════════════════════════════════════════════╝
 import 'core/policies/bootstrap/policy_bootstrap.dart';
 
+/// 🚪 Session Gate — startup orchestration with splash → welcome → app flow
+import 'core/session/session_gate.dart';
+
 /// ─────────────────────────────────────────────────────────────
 /// ENTRY POINT
 ///
@@ -438,52 +441,34 @@ class _MyAppState extends ConsumerState<MyApp> {
     //   ),
     // );
 
-        // ==========================================================
-    // PRODUCTION: Use ShellTheme for domain-agnostic theming.
+                // ==========================================================
+    // PRODUCTION: SessionGate orchestrates startup flow.
+    // ---------------------------------------------------------
+    // Flow:
+    //   1. SessionGate shows SplashScreenPage during session init
+    //   2. Unauthenticated → WelcomeScreenPage (Sign In / Guest)
+    //   3. Guest or Authenticated → GoRouter-based app with ShellTheme
     // ==========================================================
-    final ctx = ref.watch(contextProvider);
     final shellTheme = ref.watch(shellThemeProvider);
     final themeMode = ref.watch(themeModeProvider);
 
-        if (ctx.isLoading) {
-      final palette = shellTheme.forMode(themeMode);
-      return MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: shellTheme.toThemeData(ThemeMode.light),
-        darkTheme: shellTheme.toThemeData(ThemeMode.dark),
-        themeMode: themeMode,
-        home: Scaffold(
-          backgroundColor: palette.background,
-          body: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(
-                  color: palette.primary,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Loading...',
-                  style: TextStyle(
-                    color: palette.secondaryText,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    final router = ref.watch(appRouterProvider);
-
-    return MaterialApp.router(
-      routerConfig: router,
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: shellTheme.toThemeData(ThemeMode.light),
       darkTheme: shellTheme.toThemeData(ThemeMode.dark),
       themeMode: themeMode,
+      home: SessionGate(
+        authenticatedBuilder: () {
+          final router = ref.watch(appRouterProvider);
+          return MaterialApp.router(
+            routerConfig: router,
+            debugShowCheckedModeBanner: false,
+            theme: shellTheme.toThemeData(ThemeMode.light),
+            darkTheme: shellTheme.toThemeData(ThemeMode.dark),
+            themeMode: themeMode,
+          );
+        },
+      ),
     );
   }
 }

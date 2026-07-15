@@ -23,17 +23,17 @@ import 'package:famhub_app/core/composition/domain/models/module_descriptor.dart
 /// ============================================================
 ModuleRuntimeDescriptor createFinancingDescriptor() {
   return const ModuleRuntimeDescriptor(
-    moduleKey: 'financing',
-    displayName: 'Financing',
+    moduleKey: 'finance',
+    displayName: 'Finance',
     description: 'Agricultural loans, credit, and financial services',
     iconKey: 'finance',
-    route: '/financing',
+    route: '/finance',
     displayOrder: 4,
 
     // ── Dashboard Widget Contributions ──
     dashboardWidgets: [
       DashboardWidgetDescriptor(
-        moduleKey: 'financing',
+        moduleKey: 'finance',
         widgetKey: 'finance_wallet',
         displayName: 'Wallet Overview',
         sectionKey: 'finance',
@@ -43,7 +43,7 @@ ModuleRuntimeDescriptor createFinancingDescriptor() {
         iconKey: 'wallet',
       ),
       DashboardWidgetDescriptor(
-        moduleKey: 'financing',
+        moduleKey: 'finance',
         widgetKey: 'finance_loans',
         displayName: 'Active Loans',
         sectionKey: 'finance',
@@ -54,7 +54,7 @@ ModuleRuntimeDescriptor createFinancingDescriptor() {
         refreshIntervalSeconds: 120,
       ),
       DashboardWidgetDescriptor(
-        moduleKey: 'financing',
+        moduleKey: 'finance',
         widgetKey: 'finance_transactions',
         displayName: 'Recent Transactions',
         sectionKey: 'finance',
@@ -64,7 +64,7 @@ ModuleRuntimeDescriptor createFinancingDescriptor() {
         iconKey: 'receipt_long',
       ),
       DashboardWidgetDescriptor(
-        moduleKey: 'financing',
+        moduleKey: 'finance',
         widgetKey: 'finance_credit_health',
         displayName: 'Credit Health',
         sectionKey: 'finance',
@@ -74,7 +74,7 @@ ModuleRuntimeDescriptor createFinancingDescriptor() {
         iconKey: 'health_and_safety',
       ),
       DashboardWidgetDescriptor(
-        moduleKey: 'financing',
+        moduleKey: 'finance',
         widgetKey: 'finance_loan_offers',
         displayName: 'Loan Offers',
         sectionKey: 'finance',
@@ -113,7 +113,7 @@ ModuleRuntimeDescriptor createFinancingDescriptor() {
         label: 'Request Loan',
         iconKey: 'add_circle',
         displayOrder: 1,
-        route: '/financing/loans/request',
+        route: '/finance/loans/request',
         isPrimary: true,
       ),
       QuickActionDescriptor(
@@ -121,22 +121,22 @@ ModuleRuntimeDescriptor createFinancingDescriptor() {
         label: 'Make Payment',
         iconKey: 'payment',
         displayOrder: 2,
-        route: '/financing/payment',
+        route: '/finance/payment',
       ),
       QuickActionDescriptor(
         actionKey: 'finance_view_transactions',
         label: 'Transactions',
         iconKey: 'receipt_long',
         displayOrder: 3,
-        route: '/financing',
+        route: '/finance',
       ),
     ],
 
     // ── Notification Providers ──
     notificationProviders: [
       NotificationProviderDescriptor(
-        providerKey: 'financing_notifications',
-        displayName: 'Financing',
+        providerKey: 'finance_notifications',
+        displayName: 'Finance',
         notificationTypes: [
           'payment_due',
           'loan_approved',
@@ -151,8 +151,8 @@ ModuleRuntimeDescriptor createFinancingDescriptor() {
     // ── Search Providers ──
     searchProviders: [
       SearchProviderDescriptor(
-        providerKey: 'financing_search',
-        displayName: 'Financing',
+        providerKey: 'finance_search',
+        displayName: 'Finance',
         entityTypes: ['transactions', 'wallet', 'loans'],
         enabledByDefault: true,
       ),
@@ -161,8 +161,8 @@ ModuleRuntimeDescriptor createFinancingDescriptor() {
     // ── Analytics Providers ──
     analyticsProviders: [
       AnalyticsProviderDescriptor(
-        providerKey: 'financing_analytics',
-        displayName: 'Financing',
+        providerKey: 'finance_analytics',
+        displayName: 'Finance',
         metricKeys: [
           'total_balance',
           'active_loans',
@@ -177,19 +177,19 @@ ModuleRuntimeDescriptor createFinancingDescriptor() {
     // ── Routes ──
     routes: [
       RouteDescriptor(
-        path: '/financing',
-        name: 'financing',
+        path: '/finance',
+        name: 'finance',
         isPrimary: true,
         displayOrder: 1,
       ),
       RouteDescriptor(
-        path: '/financing/loans/request',
-        name: 'financing_loan_request',
+        path: '/finance/loans/request',
+        name: 'finance_loan_request',
         displayOrder: 2,
       ),
       RouteDescriptor(
-        path: '/financing/payment',
-        name: 'financing_payment',
+        path: '/finance/payment',
+        name: 'finance_payment',
         displayOrder: 3,
       ),
     ],
@@ -197,17 +197,17 @@ ModuleRuntimeDescriptor createFinancingDescriptor() {
     // ── Permissions ──
     permissions: [
       PermissionDescriptor(
-        permissionKey: 'financing:view',
-        displayName: 'View Financing',
+        permissionKey: 'finance:view',
+        displayName: 'View Finance',
         description: 'Ability to view financial information',
       ),
       PermissionDescriptor(
-        permissionKey: 'financing:request_loan',
+        permissionKey: 'finance:request_loan',
         displayName: 'Request Loans',
         description: 'Ability to request new loans',
       ),
       PermissionDescriptor(
-        permissionKey: 'financing:make_payment',
+        permissionKey: 'finance:make_payment',
         displayName: 'Make Payments',
         description: 'Ability to make loan payments',
       ),

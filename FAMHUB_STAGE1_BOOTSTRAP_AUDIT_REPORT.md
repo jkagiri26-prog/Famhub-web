@@ -155,7 +155,7 @@ WidgetsFlutterBinding.ensureInitialized()
                                 ├──> contextProvider ─── Initial state from ContextController.build()
                                 ├──> shellThemeProvider
                                 ├──> themeModeProvider
-                                └──> appRouterProvider ─── Calls AppRouter.createRouter()
+                                └──> appRouterProvider ─── Calls DynamicRouteRegistrar.buildRouter()
                                           │
                                           └──> UnifiedAppShellV2
                                                   │
@@ -179,14 +179,16 @@ WidgetsFlutterBinding.ensureInitialized()
 | **Description** | The Phase 3 audit incorrectly flagged `ref.read(contextProvider.notifier).init()` as non-existent. In reality, `contextProvider` (from `lib/core/context_engine/providers/context_provider.dart`) is a `NotifierProvider<ContextController, EntityContext>`, and `ContextController` **does** have an `init()` method. |
 | **Verification** | ✅ Verified against actual source code. Call is valid and properly typed. |
 
-### 🔴 ISSUE #1 [CRITICAL]: Dual router definition — hardcoded routes AND dynamic routes
+### 🔴 ISSUE #1 [CRITICAL — RESOLVED]: Dual router definition — hardcoded routes AND dynamic routes
 
 | Field | Detail |
 |-------|--------|
+| **Status** | ✅ **RESOLVED** |
 | **File** | `lib/core/router/app_router.dart` AND `lib/core/composition/router/dynamic_route_registrar.dart` |
-| **Description** | The application defines routes in **two separate locations** with duplication: `AppRouter.createRouter()` in `core/router/app_router.dart` hardcodes all 16+ module routes + system routes into a `GoRouter` instance. Meanwhile `DynamicRouteRegistrar.buildRouter()` in `core/composition/router/dynamic_route_registrar.dart` rebuilds the **exact same routes** from `ModulePageRegistry` and `RuntimeModule` lists. **Only `AppRouter.createRouter()` is actually used** via `appRouterProvider`. The `DynamicRouteRegistrar.buildRouter()` is never called in production. |
-| **Root Cause** | The architecture intended dynamic routes (backend-driven, feature-flag-controlled), but hardcoded routes in `AppRouter` were kept. `DynamicRouteRegistrar` was created but never integrated into the provider chain. |
-| **Recommended Correction** | Either (a) make `appRouterProvider` use `DynamicRouteRegistrar.buildRouter()` with the current enabled modules, or (b) remove the dead `DynamicRouteRegistrar` code. Option (a) aligns with the architecture. |
+| **Description** | The application defined routes in **two separate locations**: `AppRouter.createRouter()` hardcoded all 16+ module routes, while `DynamicRouteRegistrar.buildRouter()` rebuilt the same routes dynamically. |
+| **Root Cause** | `AppRouter` was kept when `DynamicRouteRegistrar` was introduced for the composition engine architecture. |
+| **Resolution** | (a) `appRouterProvider` now calls `DynamicRouteRegistrar.buildRouter(enabledModules)` watching `runtimeModuleRegistryProvider` — router auto-rebuilds when enabled modules change. (b) `AppRouter` was reduced to a deprecated compatibility wrapper delegating to `DynamicRouteRegistrar`. (c) The missing `/profile/settings` route was added to `DynamicRouteRegistrar`. |
+| **Files Modified** | `lib/core/router/app_router_provider.dart` (switched to dynamic), `lib/core/composition/router/dynamic_route_registrar.dart` (added settings route + theme error builder), `lib/core/router/app_router.dart` (stripped routes → deprecation wrapper) |
 
 ### 🔴 ISSUE #3 [CRITICAL — RESOLVED]: No global error handling configured
 
@@ -278,7 +280,7 @@ WidgetsFlutterBinding.ensureInitialized()
 | **Sequential bootstrap calls** | 4 synchronous, low-cost | ✅ Minimal impact |
 | **Post-frame work** | Context init, RuntimeSync init | ✅ Correct pattern |
 | **Unnecessary backend calls** | None identified so far | ✅ Clean |
-| **Duplicate initialization** | Dual router definitions | ❌ **Waste** |
+| **Duplicate initialization** | Dual router definitions | ✅ **RESOLVED** — Single route definition in DynamicRouteRegistrar |
 | **Heavy synchronous work** | None | ✅ Clean |
 | **Lazy load opportunities** | Multiple available | ⚠️ See below |
 
@@ -294,7 +296,7 @@ WidgetsFlutterBinding.ensureInitialized()
 
 | # | Opportunity | Current | Proposed | Impact |
 |---|-------------|---------|----------|--------|
-| 1 | **Remove dead route code** | `AppRouter` (hardcoded) AND `DynamicRouteRegistrar` both define routes | Use only one | ~2KB code size, less confusion |
+| 1 | **Remove dead route code** | `AppRouter` (hardcoded) AND `DynamicRouteRegistrar` both define routes | ✅ **RESOLVED** — AppRouter reduced to deprecated wrapper; DynamicRouteRegistrar is the only route definition | ~2KB code size reduction, no confusion |
 | 2 | **Lazy widget registration** | All 16 modules' widgets registered at startup via `bootstrapPhaseD` | Only register widgets for enabled modules (post-fetch) | Reduced memory, faster startup |
 | 3 | **Deferred contribution bootstrap** | `bootstrapModuleContributions()` converts ALL descriptors → contributions eagerly | Convert lazily on first access | Faster pre-runApp phase |
 | 4 | **Parallel descriptor bootstrap** | `bootstrapModulePageBuilders`, `bootstrapModuleDescriptors`, `bootstrapModuleContributions`, `bootstrapPhaseD` run sequentially | Run in parallel (they're all synchronous) | Marginal improvement |
@@ -317,7 +319,7 @@ WidgetsFlutterBinding.ensureInitialized()
 | **ProviderContainer** | ✅ **Fully aligned** | Single container, passed to `UncontrolledProviderScope`. |
 | **RuntimeSyncEngine** | ✅ **Fully aligned** | Created pre-runApp, initialized deferred post-frame. Correct dependency injection. |
 | **WorkflowOrchestrator** | ⚠️ **Partially aligned** | Pattern is correct, but hardcoded event bindings couple bootstrap to specific feature modules. Should ideally be module-registered. |
-| **bootstrapModulePageBuilders** | ⚠️ **Partially aligned** | Correct static registration, but duplicates routes already in `AppRouter`. |
+| **bootstrapModulePageBuilders** | ✅ **Fully aligned** | Correct static registration for DynamicRouteRegistrar consumption. AppRouter no longer defines duplicate routes. |
 | **bootstrapModuleDescriptors** | ✅ **Fully aligned** | Clean registration pattern, no hardcoded module logic in the bootstrap function itself. |
 | **bootstrapModuleContributions** | ✅ **Fully aligned** | Bridges descriptors to contributions correctly. 21 contribution types covered. |
 | **bootstrapPhaseD** | ✅ **Fully aligned** | Correctly separate workstreams, all optional (try/catch). |
@@ -325,7 +327,7 @@ WidgetsFlutterBinding.ensureInitialized()
 | **SupabaseService usage** | ✅ **Fully aligned** | `ModuleService` and `RuntimeSyncEngine` now use `SupabaseService.instance.client`. |
 | **ModuleService caching** | ✅ **Fully aligned** | 5-minute TTL cache with stale fallback on failure. `invalidateCache()` method added. |
 | **Startup synchronization** | ✅ **Fully aligned** | Composition providers invalidated after both deferred inits (context + runtime sync). |
-| **Router (appRouterProvider)** | ❌ **Misaligned** | Uses hardcoded `AppRouter.createRouter()` instead of dynamic `DynamicRouteRegistrar.buildRouter()`. |
+| **Router (appRouterProvider)** | ✅ **Fully aligned** | Now uses `DynamicRouteRegistrar.buildRouter(enabledModules)` watching `runtimeModuleRegistryProvider`. Router auto-rebuilds when runtime module state changes. `AppRouter` deprecated as compatibility wrapper. |
 | **Context Engine init** | ⚠️ **Partially aligned** | `ContextController.init()` is called correctly, but runs deferred post-frame without coordinating with moduleProvider. |
 | **DashboardBootstrap** | ❌ **Misaligned** | Dead code — `initialize()` method defined but never called. |
 | **PersistenceStore factory** | ✅ **Fully aligned** | Correct platform-specific implementation via conditional imports. |
@@ -337,9 +339,9 @@ WidgetsFlutterBinding.ensureInitialized()
 
 | Classification | Count |
 |----------------|-------|
-| ✅ Fully aligned | 20 |
+| ✅ Fully aligned | 21 |
 | ⚠️ Partially aligned | 3 |
-| ❌ Misaligned | 2 |
+| ❌ Misaligned | 1 |
 
 ---
 
@@ -350,7 +352,7 @@ WidgetsFlutterBinding.ensureInitialized()
 | # | Issue | File(s) | Fix |
 |---|-------|---------|-----|
 | CF-1 | **Global error handling missing** | `lib/main.dart` | ✅ **RESOLVED** — Added `FlutterError.onError`, `PlatformDispatcher.onError`, and `runZonedGuarded` wrapper in `main()`. Errors logged to console with [FATAL]/[ZONE] prefixes. See `configureGlobalErrorHandling()` in `startup_coordinator.dart`. |
-| CF-2 | **Dual router — hardcoded routes not dynamic** | `lib/core/router/app_router.dart`, `lib/core/router/app_router_provider.dart`, `lib/core/composition/router/dynamic_route_registrar.dart` | Replace `appRouterProvider` to use `DynamicRouteRegistrar.buildRouter()` with enabled modules from `runtimeModuleRegistryProvider`, or consolidate all routes into a single source. |
+| CF-2 | **Dual router — hardcoded routes not dynamic** | `lib/core/router/app_router.dart`, `lib/core/router/app_router_provider.dart`, `lib/core/composition/router/dynamic_route_registrar.dart` | ✅ **RESOLVED** — `appRouterProvider` now calls `DynamicRouteRegistrar.buildRouter(enabledModules)`. `AppRouter` reduced to deprecated compatibility wrapper. Single route definition in `DynamicRouteRegistrar`. Includes missing `/profile/settings` route. |
 
 ### 🟡 Recommended Improvements (Should Fix)
 
@@ -379,29 +381,29 @@ WidgetsFlutterBinding.ensureInitialized()
 
 | Finding | Type | Impact |
 |---------|------|--------|
-| Dual router definitions | 🔴 Duplicate work | Code confusion, potential bugs |
+| Dual router definitions | 🔴 Duplicate work | ✅ **RESOLVED** — Single route definition in DynamicRouteRegistrar |
 | Sequential sync bootstraps (4 calls) | 🟡 Minor | Sub-millisecond delay each — negligible |
 | Eager contribution registration | 🟡 Memory | All 21 types for all 15 modules, even if module disabled |
 | Eager widget registration | 🟡 Memory | Widget builders registered for all modules, regardless of enablement |
-| No cache TTL on ModuleService | 🟡 Staleness risk | Modules cached forever until app restart |
-| No composition invalidation after deferred init | 🟡 Stale UI | Dashboard may not reflect runtime state changes until next moduleProvider refetch |
+| No cache TTL on ModuleService | 🟡 Staleness risk | ✅ **RESOLVED** — 5-minute TTL + stale fallback |
+| No composition invalidation after deferred init | 🟡 Stale UI | ✅ **RESOLVED** — invalidates after context + runtime sync init |
 | `DashboardBootstrap` dead code | 🔵 Code debt | Maintenance burden |
 
 ---
 
 ## RECOMMENDED IMMEDIATE ACTIONS (Priority Order)
 
-### ✅ COMPLETED
+### ✅ COMPLETED (All Critical + All Recommended)
 
 1. **CF-1**: Global error handling ✅ — `configureGlobalErrorHandling()` + `runZonedGuarded()`
-2. **RI-4**: EventObserver started ✅ — Started pre-runApp in `_bootstrap()`
-3. **RI-5**: ModuleService TTL cache ✅ — 5-minute TTL + stale fallback
-4. **RI-6**: SupabaseService standardization ✅ — `ModuleService` + `main.dart` updated
-5. **RI-2 + RI-3**: Startup synchronization ✅ — Composition invalidation after context init + runtime sync init
+2. **CF-2**: Router alignment ✅ — `appRouterProvider` now uses `DynamicRouteRegistrar.buildRouter()` with reactive module state. `AppRouter` deprecated. Single route definition.
+3. **RI-4**: EventObserver started ✅ — Started pre-runApp in `_bootstrap()`
+4. **RI-5**: ModuleService TTL cache ✅ — 5-minute TTL + stale fallback
+5. **RI-6**: SupabaseService standardization ✅ — `ModuleService` + `main.dart` updated
+6. **RI-2 + RI-3**: Startup synchronization ✅ — Composition invalidation after context init + runtime sync init
 
-### 🔴 STILL OPEN (Highest Priority)
+### 🔴 STILL OPEN
 
-6. **CF-2**: Fix router — align with dynamic, backend-driven routing architecture
 7. **RI-1**: Parallel bootstraps — minor optimization (4 synchronous calls)
 
 ### 🔵 OPTIONAL

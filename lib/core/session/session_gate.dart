@@ -20,6 +20,7 @@ library famhub_app.core.session.session_gate;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:famhub_app/core/session/app_session.dart';
 import 'package:famhub_app/core/session/session_provider.dart';
 import 'package:famhub_app/core/theme/shell_theme.dart';
 import 'package:famhub_app/features/auth/presentation/pages/splash_screen_page.dart';
@@ -28,6 +29,12 @@ import 'package:famhub_app/features/auth/presentation/pages/sign_in_screen_page.
 
 /// The main session gate that wraps the app.
 /// Shows the appropriate screen based on session state.
+///
+/// Flow:
+///   1. Loading → SplashScreenPage (until session initializes)
+///   2. Unauthenticated → WelcomeScreenPage (sign in / create account / guest)
+///   3. Guest → authenticatedBuilder (guest mode with demo data)
+///   4. Authenticated → authenticatedBuilder (full mode)
 class SessionGate extends ConsumerStatefulWidget {
   final Widget Function() authenticatedBuilder;
 
@@ -65,18 +72,14 @@ class _SessionGateState extends ConsumerState<SessionGate> {
 
     final session = ref.watch(sessionProvider);
 
-    // Unauthenticated → Show Welcome Screen
-    if (!session.isAuthenticated && session.isGuest) {
+    // Unauthenticated (no session at all) → Show Welcome Screen
+    if (session is UnauthenticatedSession) {
       return _AuthFlow(
         onSignIn: () => _showSignIn(),
-        onCreateAccount: () {
-          // Navigate to sign up / create account flow
-          _showSignUp();
-        },
+        onCreateAccount: () => _showSignUp(),
         onContinueAsGuest: () {
           ref.read(sessionProvider.notifier).startGuestSession();
         },
-        onBack: () => setState(() => _initialized = true),
       );
     }
 
@@ -144,13 +147,10 @@ class _AuthFlow extends StatelessWidget {
   final VoidCallback onSignIn;
   final VoidCallback onCreateAccount;
   final VoidCallback onContinueAsGuest;
-  final VoidCallback onBack;
-
   const _AuthFlow({
     required this.onSignIn,
     required this.onCreateAccount,
     required this.onContinueAsGuest,
-    required this.onBack,
   });
 
   @override

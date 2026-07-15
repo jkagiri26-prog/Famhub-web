@@ -206,7 +206,7 @@ void bootstrapModulePageBuilders() {
   ModulePageRegistry.register(
       'analytics', (_) => const AnalyticsPage());
   ModulePageRegistry.register(
-      'financing', (_) => const FinancingPage());
+      'finance', (_) => const FinancingPage());
   ModulePageRegistry.register(
       'logistics', (_) => const LogisticsPage());
   ModulePageRegistry.register(

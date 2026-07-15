@@ -89,15 +89,15 @@ class AccessRegistry {
       },
     ),
 
-    // ── Financing ───────────────────────────────
+    // ── Finance ──────────────────────────────────
     AccessRule(
-      resourceKey: 'financing',
+      resourceKey: 'finance',
       allowedRoles: ['farmer', 'admin', 'financial_advisor'],
       requiredTier: 'free',
       permissionMappings: {
-        'view': 'financing.view',
-        'apply': 'financing.apply',
-        'manage': 'financing.manage',
+        'view': 'finance.view',
+        'apply': 'finance.apply',
+        'manage': 'finance.manage',
       },
     ),
 

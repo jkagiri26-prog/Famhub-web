@@ -112,24 +112,24 @@ class FeatureRegistry {
       description: 'Predictive analytics and forecasting',
     ),
 
-    // ── Financing Features ──────────────────────
+    // ── Finance Features ─────────────────────────
     FeatureDefinition(
-      featureKey: 'financing_browse',
-      moduleId: 'financing',
+      featureKey: 'finance_browse',
+      moduleId: 'finance',
       defaultEnabled: true,
       requiredTier: 'free',
       description: 'Browse loan offers and partners',
     ),
     FeatureDefinition(
-      featureKey: 'financing_apply',
-      moduleId: 'financing',
+      featureKey: 'finance_apply',
+      moduleId: 'finance',
       defaultEnabled: true,
       requiredTier: 'basic',
       description: 'Apply for financing',
     ),
     FeatureDefinition(
-      featureKey: 'financing_credit_health',
-      moduleId: 'financing',
+      featureKey: 'finance_credit_health',
+      moduleId: 'finance',
       defaultEnabled: false,
       requiredTier: 'premium',
       description: 'Credit health monitoring and insights',
