@@ -63,7 +63,15 @@ abstract class AppSession {
 
 /// Special singleton for unauthenticated guest sessions.
 class GuestSession implements AppSession {
-  const GuestSession();
+  @override
+  final List<String> selectedRoles;
+  @override
+  final bool hasCompletedOnboarding;
+
+  const GuestSession({
+    this.selectedRoles = const [],
+    this.hasCompletedOnboarding = false,
+  });
 
   @override
   SessionStatus get status => SessionStatus.guest;
@@ -77,10 +85,17 @@ class GuestSession implements AppSession {
 
   @override
   String? get userId => null;
-  @override
-  List<String> get selectedRoles => const [];
-  @override
-  bool get hasCompletedOnboarding => false;
+
+  /// Create a copy with updated fields.
+  GuestSession copyWith({
+    List<String>? selectedRoles,
+    bool? hasCompletedOnboarding,
+  }) {
+    return GuestSession(
+      selectedRoles: selectedRoles ?? this.selectedRoles,
+      hasCompletedOnboarding: hasCompletedOnboarding ?? this.hasCompletedOnboarding,
+    );
+  }
 }
 
 /// Session state for unauthenticated users who have NOT chosen guest mode yet.

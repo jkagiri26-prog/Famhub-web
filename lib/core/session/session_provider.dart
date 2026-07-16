@@ -151,8 +151,13 @@ class SessionController extends Notifier<AppSession> {
 
   /// Complete onboarding for guest user (roles only stored in memory)
   void completeGuestOnboarding(List<String> roles) {
-    // Guest doesn't persist roles to storage
-    // Roles in guest mode are session-only
+    final current = state;
+    if (current is GuestSession) {
+      state = current.copyWith(
+        selectedRoles: roles,
+        hasCompletedOnboarding: true,
+      );
+    }
   }
 }
 

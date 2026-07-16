@@ -8,13 +8,15 @@
 /// ✅ Responsibilities:
 ///   - Showcase the entire ecosystem with attractive module cards
 ///   - Each module card includes short description and preview
-///   - Support Demo Mode for every module
-///   - Guests land here after "Continue as Guest" or initial sign-in
+///   - Navigate to real module pages in demo mode
+///   - Guests land here after "Continue as Guest"
+///   - Authenticated users land here for ecosystem overview
 ///
 /// ✅ ARCHITECTURE COMPLIANCE:
 ///   - No guest logic in feature widgets
 ///   - Pure presentation layer
 ///   - Uses DemoBanner for guest mode indicator
+///   - Uses navigation to existing module pages (no duplication)
 /// ============================================================
 library famhub_app.features.guest.guest_homepage;
 
@@ -24,6 +26,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famhub_app/core/session/session_provider.dart';
 import 'package:famhub_app/shared/demo/demo_banner_widget.dart';
 
+// Module page imports for direct navigation from guest home
+import 'package:famhub_app/features/farm_management/presentation/pages/farm_dashboard_page.dart';
+import 'package:famhub_app/features/marketplace/presentation/pages/marketplace_page.dart';
+import 'package:famhub_app/features/knowledge_link/presentation/pages/knowledge_link_page.dart';
+import 'package:famhub_app/features/financing/presentation/pages/financing_page.dart';
+import 'package:famhub_app/features/logistics/presentation/pages/logistics_page.dart';
+import 'package:famhub_app/features/ai_assistant/presentation/pages/ai_assistant_page.dart';
+
 /// Module card data for the FAMHUB Home showcase
 class _ModuleCardData {
   final String id;
@@ -31,7 +41,7 @@ class _ModuleCardData {
   final String description;
   final IconData icon;
   final Color color;
-    final String demoLabel;
+  final String demoLabel;
 
   const _ModuleCardData({
     required this.id,
@@ -161,7 +171,7 @@ class GuestHomePage extends ConsumerWidget {
                     _buildHeroSection(theme, colorScheme, isMobile),
 
                     // ── Ecosystem Modules Grid ──
-                                        _buildModulesSection(
+                    _buildModulesSection(
                       context, theme, colorScheme, isMobile, isTablet, size, ref,
                     ),
                   ],
@@ -313,20 +323,118 @@ class GuestHomePage extends ConsumerWidget {
     );
   }
 
-    void _openModuleDemo(
+  /// Navigate to the appropriate module page based on card id.
+  /// Guests see the same UI as authenticated users — only the
+  /// repository (demo vs real) differs.
+  void _openModuleDemo(
     BuildContext context,
     _ModuleCardData card,
     WidgetRef ref,
   ) {
-    // For modules without dedicated demo pages,
-    // show a coming soon / demo preview snackbar
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${card.title} Demo — Explore the features'),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    final theme = Theme.of(context);
+
+    switch (card.id) {
+      case 'farm_management':
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => Scaffold(
+              appBar: AppBar(
+                title: const Text('Farm Management'),
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+              ),
+              body: const FarmManagementPage(),
+            ),
+          ),
+        );
+        break;
+
+      case 'marketplace':
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => Scaffold(
+              appBar: AppBar(
+                title: const Text('Marketplace'),
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+              ),
+              body: const MarketplacePage(),
+            ),
+          ),
+        );
+        break;
+
+      case 'knowledge':
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => Scaffold(
+              appBar: AppBar(
+                title: const Text('Knowledge Link'),
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+              ),
+              body: const KnowledgeLinkPage(),
+            ),
+          ),
+        );
+        break;
+
+      case 'finance':
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => Scaffold(
+              appBar: AppBar(
+                title: const Text('Finance'),
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+              ),
+              body: const FinancingPage(),
+            ),
+          ),
+        );
+        break;
+
+      case 'logistics':
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => Scaffold(
+              appBar: AppBar(
+                title: const Text('Logistics'),
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+              ),
+              body: const LogisticsPage(),
+            ),
+          ),
+        );
+        break;
+
+      case 'ai_assistant':
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => Scaffold(
+              appBar: AppBar(
+                title: const Text('AI Assistant'),
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+              ),
+              body: const AIAssistantPage(),
+            ),
+          ),
+        );
+        break;
+
+      default:
+        // For modules without dedicated pages yet, show a preview
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${card.title} — Coming soon! Explore other modules.'),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        break;
+    }
   }
 }
 
