@@ -303,9 +303,63 @@ class _AuthFlow extends StatelessWidget {
 /// FAMHUB Home flow — the public ecosystem showcase.
 /// This is the entry point for unauthenticated (browsing) users.
 /// Visitors see the real modules with sample/public data.
-class _FamhubHomeFlow extends ConsumerWidget {
+/// The exploration banner's "Sign In" button can trigger the auth flow.
+class _FamhubHomeFlow extends ConsumerStatefulWidget {
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_FamhubHomeFlow> createState() => _FamhubHomeFlowState();
+}
+
+class _FamhubHomeFlowState extends ConsumerState<_FamhubHomeFlow> {
+  bool _showAuth = false;
+
+  void _navigateToSignIn() {
+    final navigator = Navigator.of(context);
+    navigator.push(
+      MaterialPageRoute(
+        builder: (context) => SignInScreenPage(
+          onAuthenticate: ({
+            required String contact,
+            required ContactMethod method,
+            required String otp,
+          }) async {
+            try {
+              final authService = AuthService();
+              late OtpVerifyResult result;
+              if (method == ContactMethod.email) {
+                result = await authService.verifyOtp(
+                  email: contact,
+                  token: otp,
+                );
+              } else {
+                result = await authService.verifyOtp(
+                  phone: contact,
+                  token: otp,
+                );
+              }
+
+              if (!result.success) return false;
+
+              // Refresh session after successful OTP verification
+              await ref.read(sessionProvider.notifier).refresh();
+              if (!mounted) return true;
+
+              final session = ref.read(sessionProvider);
+              if (session is AuthenticatedSession) {
+                navigator.pop();
+              }
+              return true;
+            } catch (_) {
+              return false;
+            }
+          },
+          onBack: () => navigator.pop(),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final shellTheme = ref.watch(shellThemeProvider);
     final themeMode = ref.watch(themeModeProvider);
 
@@ -314,7 +368,11 @@ class _FamhubHomeFlow extends ConsumerWidget {
       theme: shellTheme.toThemeData(ThemeMode.light),
       darkTheme: shellTheme.toThemeData(ThemeMode.dark),
       themeMode: themeMode,
-      home: const FamhubHomePage(),
+      home: Builder(
+        builder: (context) => FamhubHomePage(
+          onExploreSignIn: _navigateToSignIn,
+        ),
+      ),
     );
   }
 }

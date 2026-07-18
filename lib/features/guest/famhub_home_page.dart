@@ -167,7 +167,11 @@ const List<_ModuleCardData> _allModuleCards = [
 ];
 
 class FamhubHomePage extends ConsumerWidget {
-  const FamhubHomePage({super.key});
+  /// Optional callback for the exploration banner's "Sign In" button.
+  /// When set, the banner's button uses this instead of the default session gate flow.
+  final VoidCallback? onExploreSignIn;
+
+  const FamhubHomePage({super.key, this.onExploreSignIn});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -186,8 +190,8 @@ class FamhubHomePage extends ConsumerWidget {
             // ── Exploration Banner (only for unauthenticated) ──
             if (!isAuthenticated)
               _ExplorationBanner(
-                onSignIn: () {
-                  // Handled by session gate — navigates to sign-in
+                onSignIn: onExploreSignIn ?? () {
+                  // Default: handled by session gate
                 },
               ),
 

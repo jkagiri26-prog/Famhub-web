@@ -99,7 +99,7 @@ class SessionController extends Notifier<AppSession> {
       final response = await SupabaseService.instance
           .from('profiles')
           .select('id')
-          .eq('id', userId)
+          .eq('auth_user_id', userId)
           .maybeSingle();
       return response != null;
     } catch (_) {
@@ -114,7 +114,7 @@ class SessionController extends Notifier<AppSession> {
       final response = await SupabaseService.instance
           .from('profiles')
           .select('display_name')
-          .eq('id', userId)
+          .eq('auth_user_id', userId)
           .maybeSingle();
       if (response != null) {
         return response['display_name'] as String?;
@@ -142,25 +142,42 @@ class SessionController extends Notifier<AppSession> {
 
   /// Create a profile for the authenticated user.
   /// Called after first-time authentication when no profile exists.
+  /// Uses core.locations UUIDs for country_id, county_id, sub_county_id, ward_id.
   Future<bool> createProfile({
     required String displayName,
     String? preferredLanguage,
-    String? county,
-    String? country,
+    String? countryId,
+    String? countryName,
+    String? countyId,
+    String? countyName,
+    String? subCountyId,
+    String? subCountyName,
+    String? wardId,
+    String? wardName,
   }) async {
     final current = state;
     if (current is! AuthenticatedSession) return false;
 
     try {
-      await SupabaseService.instance.from('profiles').insert({
+      final now = DateTime.now().toIso8601String();
+      final data = <String, dynamic>{
         'id': current.userId,
         'display_name': displayName,
+        'first_name': displayName.split(' ').first,
+        'last_name': displayName.split(' ').length > 1
+            ? displayName.split(' ').sublist(1).join(' ')
+            : '',
         'preferred_language': preferredLanguage ?? 'en',
-        'county': county,
-        'country': country,
-        'created_at': DateTime.now().toIso8601String(),
-        'updated_at': DateTime.now().toIso8601String(),
-      });
+        'country_id': countryId,
+        'county_id': countyId,
+        'sub_county_id': subCountyId,
+        'ward_id': wardId,
+        'created_at': now,
+        'updated_at': now,
+        'auth_user_id': current.userId,
+      };
+
+      await SupabaseService.instance.from('profiles').insert(data);
 
       state = current.copyWith(
         displayName: displayName,

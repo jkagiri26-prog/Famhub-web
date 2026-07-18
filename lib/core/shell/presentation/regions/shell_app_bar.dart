@@ -26,6 +26,7 @@ import '../../../providers/module_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../providers/notification_count_provider.dart';
 import '../../../context_engine/providers/context_provider.dart';
+import '../../../../core/session/session_provider.dart';
 
 /// ============================================================
 /// SHELL APP BAR — Replaces DesktopAppBar
@@ -376,7 +377,7 @@ class _ProfileWidget extends ConsumerWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
-      onSelected: (value) {
+      onSelected: (value) async {
         switch (value) {
           case 'profile':
             context.go('/profile');
@@ -385,7 +386,27 @@ class _ProfileWidget extends ConsumerWidget {
           case 'help':
             // Future: help
           case 'logout':
-            // Future: logout
+            final confirmed = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Sign Out'),
+                content: const Text('Are you sure you want to sign out?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(false),
+                    child: const Text('Cancel'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(true),
+                    child: const Text('Sign Out',
+                        style: TextStyle(color: Colors.red)),
+                  ),
+                ],
+              ),
+            );
+            if (confirmed == true) {
+              await ref.read(sessionProvider.notifier).signOut();
+            }
             break;
         }
       },

@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
 import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
 import 'package:famhub_app/shared/widgets/headers/section_header_widget.dart';
 import 'package:famhub_app/shared/widgets/cards/stats_card_widget.dart';
 import 'package:famhub_app/shared/layouts/section_container_widget.dart';
+import 'package:famhub_app/core/session/session_provider.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final primary = Theme.of(context).colorScheme.primary;
 
     return ResponsiveWrapper(
@@ -101,12 +103,34 @@ class ProfilePage extends StatelessWidget {
 
           const SizedBox(height: 20),
 
-          /// LOGOUT
+                    /// LOGOUT
           SectionContainerWidget(
             child: TextButton(
-              onPressed: () {},
+              onPressed: () async {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Sign Out'),
+                    content: const Text('Are you sure you want to sign out?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(true),
+                        child: const Text('Sign Out',
+                            style: TextStyle(color: Colors.red)),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirmed == true) {
+                  await ref.read(sessionProvider.notifier).signOut();
+                }
+              },
               child: const Text(
-                "LOG OUT",
+                "Sign Out",
                 style: TextStyle(color: Colors.red),
               ),
             ),
