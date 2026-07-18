@@ -7,9 +7,11 @@
 ///
 /// ✅ Responsibilities:
 ///   - Determine which screen to show based on session state
-///   - Orchestrate splash → welcome → role selection → dashboard flow
-///   - Guest → FAMHUB Home (ecosystem showcase), NOT dashboard
-///   - Authenticated → Role Selection (if needed) → Dashboard
+///   - Orchestrate splash → welcome → auth → profile → workspace → dashboard
+///   - Unauthenticated → FAMHUB Home (ecosystem showcase)
+///   - Authenticated + no profile → Create Profile
+///   - Authenticated + profile + no workspaces → Workspace Selection
+///   - Authenticated + profile + workspaces → Dashboard
 ///
 /// ❌ Does NOT:
 ///   - Contain business logic
@@ -27,19 +29,25 @@ import 'package:famhub_app/core/theme/shell_theme.dart';
 import 'package:famhub_app/features/auth/presentation/pages/splash_screen_page.dart';
 import 'package:famhub_app/features/auth/presentation/pages/welcome_screen_page.dart';
 import 'package:famhub_app/features/auth/presentation/pages/sign_in_screen_page.dart';
+import 'package:famhub_app/core/services/auth_service.dart';
 import 'package:famhub_app/core/theme/shell_theme_provider.dart';
-import 'package:famhub_app/features/auth/presentation/pages/role_selection_screen_page.dart';
-import 'package:famhub_app/features/guest/guest_homepage.dart';
+import 'package:famhub_app/features/auth/presentation/pages/workspace_selection_page.dart';
+import 'package:famhub_app/features/profile/presentation/pages/create_profile_page.dart';
+import 'package:famhub_app/features/guest/famhub_home_page.dart';
 
 /// The main session gate that wraps the app.
 /// Shows the appropriate screen based on session state.
 ///
-/// Flow:
-///   1. Loading → SplashScreenPage (until session initializes)
-///   2. Unauthenticated → WelcomeScreenPage (sign in / create account / guest)
-///   3. Guest → GuestHomePage (FAMHUB Home — ecosystem showcase)
-///   4. Authenticated (no roles) → RoleSelectionScreenPage → Dashboard
-///   5. Authenticated (with roles) → Dashboard
+/// Startup Flow:
+///   1. Initializing → SplashScreenPage
+///   2. Unauthenticated → WelcomeScreenPage
+///      (Sign In / Create Account / Continue Exploring)
+///   3. Authenticated (no profile) → Create Profile → Workspace Selection → Dashboard
+///   4. Authenticated (profile, no workspaces) → Workspace Selection → Dashboard
+///   5. Authenticated (profile, workspaces) → Dashboard
+///
+/// There is no GuestSession. Guests are unauthenticated visitors.
+/// FAMHUB Home is the public ecosystem entry point.
 class SessionGate extends ConsumerStatefulWidget {
   final Widget Function() authenticatedBuilder;
 
@@ -54,8 +62,10 @@ class SessionGate extends ConsumerStatefulWidget {
 
 class _SessionGateState extends ConsumerState<SessionGate> {
   bool _initialized = false;
-  bool _showRoleSelection = false;
-  List<String> _pendingRoles = [];
+  bool _showCreateProfile = false;
+  bool _showWorkspaceSelection = false;
+  bool _continueExploring = false;
+  List<String> _pendingWorkspaces = [];
 
   @override
   void initState() {
@@ -79,41 +89,51 @@ class _SessionGateState extends ConsumerState<SessionGate> {
 
     final session = ref.watch(sessionProvider);
 
-    // Show role selection if triggered after auth
-    if (_showRoleSelection) {
-      return _buildRoleSelection(session);
+    // Show create profile if triggered after auth
+    if (_showCreateProfile) {
+      return _buildCreateProfile(session);
     }
 
-    // Unauthenticated (no session at all) → Show Welcome Screen
+    // Show workspace selection if triggered after auth
+    if (_showWorkspaceSelection) {
+      return _buildWorkspaceSelection(session);
+    }
+
+    // Unauthenticated → Welcome Screen
     if (session is UnauthenticatedSession) {
+      if (_continueExploring) {
+        return _FamhubHomeFlow();
+      }
       return _AuthFlow(
         onSignIn: () => _showSignIn(),
         onCreateAccount: () => _showSignUp(),
-        onContinueAsGuest: () {
-          ref.read(sessionProvider.notifier).startGuestSession();
+        onContinueExploring: () {
+          setState(() => _continueExploring = true);
         },
       );
     }
 
-    // Guest → Show FAMHUB Home (ecosystem showcase), NOT dashboard
-    if (session is GuestSession) {
-      return _GuestFlow();
-    }
-
-    // Authenticated → Check if onboarding (role selection) is complete
+    // Authenticated
     if (session is AuthenticatedSession) {
-      if (!session.hasCompletedOnboarding) {
-        return _buildRoleSelection(session);
+      // No profile yet → create profile
+      if (!session.hasProfile) {
+        return _buildCreateProfile(session);
       }
-      // Onboarding complete → show dashboard
+
+      // Profile exists but no workspaces selected → workspace selection
+      if (!session.hasCompletedOnboarding) {
+        return _buildWorkspaceSelection(session);
+      }
+
+      // Full onboarded user → dashboard
       return widget.authenticatedBuilder();
     }
 
-    // Fallback for any other state
+    // Fallback
     return const SplashScreenPage();
   }
 
-  Widget _buildRoleSelection(AppSession session) {
+  Widget _buildCreateProfile(AppSession session) {
     final shellTheme = ref.watch(shellThemeProvider);
     final themeMode = ref.watch(themeModeProvider);
 
@@ -122,23 +142,88 @@ class _SessionGateState extends ConsumerState<SessionGate> {
       theme: shellTheme.toThemeData(ThemeMode.light),
       darkTheme: shellTheme.toThemeData(ThemeMode.dark),
       themeMode: themeMode,
-      home: RoleSelectionScreenPage(
-        initialSelectedRoles: session.selectedRoles,
-        onRolesChanged: (roles) {
-          _pendingRoles = roles;
-        },
-        onContinue: () async {
-          if (session is AuthenticatedSession) {
-            await ref.read(sessionProvider.notifier).saveRoles(_pendingRoles);
-          } else if (session is GuestSession) {
-            ref.read(sessionProvider.notifier).completeGuestOnboarding(_pendingRoles);
-          }
+      home: CreateProfilePage(
+        onComplete: (displayName) async {
+          await ref.read(sessionProvider.notifier).refresh();
           if (mounted) {
-            setState(() => _showRoleSelection = false);
+            setState(() => _showCreateProfile = false);
           }
         },
       ),
     );
+  }
+
+  Widget _buildWorkspaceSelection(AppSession session) {
+    final shellTheme = ref.watch(shellThemeProvider);
+    final themeMode = ref.watch(themeModeProvider);
+
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: shellTheme.toThemeData(ThemeMode.light),
+      darkTheme: shellTheme.toThemeData(ThemeMode.dark),
+      themeMode: themeMode,
+      home: WorkspaceSelectionPage(
+        onWorkspacesChanged: (workspaces) {
+          _pendingWorkspaces = workspaces;
+        },
+        onContinue: () async {
+          if (_pendingWorkspaces.isNotEmpty) {
+            await ref
+                .read(sessionProvider.notifier)
+                .saveWorkspaces(_pendingWorkspaces);
+          }
+          if (mounted) {
+            setState(() => _showWorkspaceSelection = false);
+          }
+        },
+      ),
+    );
+  }
+
+  Future<bool> _authenticateWithOtp({
+    required String contact,
+    required ContactMethod method,
+    required String otp,
+  }) async {
+    try {
+      final authService = AuthService();
+      late OtpVerifyResult result;
+
+      if (method == ContactMethod.email) {
+        result = await authService.verifyOtp(
+          email: contact,
+          token: otp,
+        );
+      } else {
+        result = await authService.verifyOtp(
+          phone: contact,
+          token: otp,
+        );
+      }
+
+      if (!result.success) {
+        return false;
+      }
+
+      // Refresh session after successful OTP verification
+      await ref.read(sessionProvider.notifier).refresh();
+
+      if (!mounted) return true;
+
+      // Check session state to decide next step
+      final session = ref.read(sessionProvider);
+      if (session is AuthenticatedSession) {
+        if (!session.hasProfile) {
+          setState(() => _showCreateProfile = true);
+        } else if (!session.hasCompletedOnboarding) {
+          setState(() => _showWorkspaceSelection = true);
+        }
+      }
+
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   void _showSignIn() {
@@ -146,29 +231,17 @@ class _SessionGateState extends ConsumerState<SessionGate> {
     navigator.push(
       MaterialPageRoute(
         builder: (context) => SignInScreenPage(
-          onSignIn: (email, password) async {
-            final success = await ref.read(sessionProvider.notifier).signIn(
-              email: email,
-              password: password,
+          onAuthenticate: ({
+            required String contact,
+            required ContactMethod method,
+            required String otp,
+          }) async {
+            final success = await _authenticateWithOtp(
+              contact: contact,
+              method: method,
+              otp: otp,
             );
             if (success && mounted) {
-              // Check if onboarding is needed
-              final session = ref.read(sessionProvider);
-              if (session is AuthenticatedSession && !session.hasCompletedOnboarding) {
-                setState(() => _showRoleSelection = true);
-              }
-              navigator.pop();
-            }
-            return success;
-          },
-          onSignUp: (email, password) async {
-            final success = await ref.read(sessionProvider.notifier).signUp(
-              email: email,
-              password: password,
-            );
-            if (success && mounted) {
-              // New users always go through role selection
-              setState(() => _showRoleSelection = true);
               navigator.pop();
             }
             return success;
@@ -184,27 +257,17 @@ class _SessionGateState extends ConsumerState<SessionGate> {
     navigator.push(
       MaterialPageRoute(
         builder: (context) => SignInScreenPage(
-          onSignIn: (email, password) async {
-            final success = await ref.read(sessionProvider.notifier).signIn(
-              email: email,
-              password: password,
+          onAuthenticate: ({
+            required String contact,
+            required ContactMethod method,
+            required String otp,
+          }) async {
+            final success = await _authenticateWithOtp(
+              contact: contact,
+              method: method,
+              otp: otp,
             );
             if (success && mounted) {
-              final session = ref.read(sessionProvider);
-              if (session is AuthenticatedSession && !session.hasCompletedOnboarding) {
-                setState(() => _showRoleSelection = true);
-              }
-              navigator.pop();
-            }
-            return success;
-          },
-          onSignUp: (email, password) async {
-            final success = await ref.read(sessionProvider.notifier).signUp(
-              email: email,
-              password: password,
-            );
-            if (success && mounted) {
-              setState(() => _showRoleSelection = true);
               navigator.pop();
             }
             return success;
@@ -220,11 +283,11 @@ class _SessionGateState extends ConsumerState<SessionGate> {
 class _AuthFlow extends StatelessWidget {
   final VoidCallback onSignIn;
   final VoidCallback onCreateAccount;
-  final VoidCallback onContinueAsGuest;
+  final VoidCallback onContinueExploring;
   const _AuthFlow({
     required this.onSignIn,
     required this.onCreateAccount,
-    required this.onContinueAsGuest,
+    required this.onContinueExploring,
   });
 
   @override
@@ -232,15 +295,15 @@ class _AuthFlow extends StatelessWidget {
     return WelcomeScreenPage(
       onSignIn: onSignIn,
       onCreateAccount: onCreateAccount,
-      onContinueAsGuest: onContinueAsGuest,
+      onContinueExploring: onContinueExploring,
     );
   }
 }
 
-/// Guest flow widget showing FAMHUB Home with ecosystem showcase.
-/// This is the entry point for all guest users.
-/// Guests see the ecosystem showcase and can explore demo data.
-class _GuestFlow extends ConsumerWidget {
+/// FAMHUB Home flow — the public ecosystem showcase.
+/// This is the entry point for unauthenticated (browsing) users.
+/// Visitors see the real modules with sample/public data.
+class _FamhubHomeFlow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final shellTheme = ref.watch(shellThemeProvider);
@@ -251,7 +314,7 @@ class _GuestFlow extends ConsumerWidget {
       theme: shellTheme.toThemeData(ThemeMode.light),
       darkTheme: shellTheme.toThemeData(ThemeMode.dark),
       themeMode: themeMode,
-      home: const GuestHomePage(),
+      home: const FamhubHomePage(),
     );
   }
 }

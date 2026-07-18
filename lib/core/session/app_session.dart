@@ -1,5 +1,5 @@
 /// ============================================================
-/// APP SESSION — Abstract session interface
+/// APP SESSION — Three-state session interface
 /// ============================================================
 ///
 /// 🧠 LOCATION CONTEXT:
@@ -7,7 +7,7 @@
 ///
 /// ✅ Responsibilities:
 ///   - Define the session interface
-///   - Distinguish guest vs authenticated sessions
+///   - Distinguish unauthenticated vs authenticated sessions
 ///   - Provide user identity information
 ///   - Manage selected stakeholder roles (capabilities)
 ///
@@ -16,6 +16,7 @@
 ///   - Know about UI or routing
 ///   - Import demo or Supabase repositories directly
 /// ============================================================
+library;
 
 /// Enum representing session initialization status
 enum SessionStatus {
@@ -27,15 +28,12 @@ enum SessionStatus {
 
   /// Ready — authenticated (dashboard should show)
   authenticated,
-
-  /// Ready — guest mode (FAMHUB Home with demo data should show)
-  guest,
 }
 
 /// Abstract session interface representing the current user's session state.
 ///
-/// The UI switches data sources based on session type (guest vs authenticated)
-/// but never needs to know whether data comes from demo or real repositories.
+/// The UI switches data sources based on session type
+/// but never needs to know whether data comes from sample or real repositories.
 abstract class AppSession {
   /// Current session status (initialization state machine)
   SessionStatus get status;
@@ -43,65 +41,27 @@ abstract class AppSession {
   /// Whether this is an authenticated (real) user
   bool get isAuthenticated;
 
-  /// Whether this is a guest (demo) user
-  bool get isGuest;
-
-  /// The display name of the user (or "Guest" for demo)
+  /// The display name of the user
   String get displayName;
 
-  /// The unique user ID (null for guests)
+  /// The unique user ID (null for unauthenticated)
   String? get userId;
 
   /// Stakeholder roles selected by the user during onboarding.
-  /// These are capabilities, not identity restrictions.
+  /// These personalize the platform experience.
   /// Multiple roles can be selected simultaneously.
   List<String> get selectedRoles;
 
-  /// Whether the user has completed onboarding (role selection, etc.)
+  /// Whether the user has completed onboarding (workspace selection)
   bool get hasCompletedOnboarding;
+
+  /// Whether the user has a profile in the profiles table
+  bool get hasProfile;
 }
 
-/// Special singleton for unauthenticated guest sessions.
-class GuestSession implements AppSession {
-  @override
-  final List<String> selectedRoles;
-  @override
-  final bool hasCompletedOnboarding;
-
-  const GuestSession({
-    this.selectedRoles = const [],
-    this.hasCompletedOnboarding = false,
-  });
-
-  @override
-  SessionStatus get status => SessionStatus.guest;
-  @override
-  bool get isAuthenticated => false;
-
-  @override
-  bool get isGuest => true;
-  @override
-  String get displayName => 'Guest';
-
-  @override
-  String? get userId => null;
-
-  /// Create a copy with updated fields.
-  GuestSession copyWith({
-    List<String>? selectedRoles,
-    bool? hasCompletedOnboarding,
-  }) {
-    return GuestSession(
-      selectedRoles: selectedRoles ?? this.selectedRoles,
-      hasCompletedOnboarding: hasCompletedOnboarding ?? this.hasCompletedOnboarding,
-    );
-  }
-}
-
-/// Session state for unauthenticated users who have NOT chosen guest mode yet.
+/// Session state for unauthenticated users.
 /// This is the default state before session initialization completes.
-/// Distinguished from GuestSession so the UI knows whether to show
-/// the Welcome screen (UnauthenticatedSession) vs the Guest Home (GuestSession).
+/// Unauthenticated users can still browse the FAMHUB Home ecosystem.
 class UnauthenticatedSession implements AppSession {
   const UnauthenticatedSession();
 
@@ -110,8 +70,6 @@ class UnauthenticatedSession implements AppSession {
   @override
   bool get isAuthenticated => false;
   @override
-  bool get isGuest => false;
-  @override
   String get displayName => '';
   @override
   String? get userId => null;
@@ -119,6 +77,8 @@ class UnauthenticatedSession implements AppSession {
   List<String> get selectedRoles => const [];
   @override
   bool get hasCompletedOnboarding => false;
+  @override
+  bool get hasProfile => false;
 }
 
 /// Session for authenticated users with real Supabase identity.
@@ -131,20 +91,21 @@ class AuthenticatedSession implements AppSession {
   final List<String> selectedRoles;
   @override
   final bool hasCompletedOnboarding;
+  @override
+  final bool hasProfile;
+
   const AuthenticatedSession({
     this.userId,
     required this.displayName,
     this.selectedRoles = const [],
     this.hasCompletedOnboarding = false,
+    this.hasProfile = false,
   });
+
   @override
   SessionStatus get status => SessionStatus.authenticated;
-
   @override
   bool get isAuthenticated => true;
-
-  @override
-  bool get isGuest => false;
 
   /// Create a copy with updated fields.
   AuthenticatedSession copyWith({
@@ -152,6 +113,7 @@ class AuthenticatedSession implements AppSession {
     String? displayName,
     List<String>? selectedRoles,
     bool? hasCompletedOnboarding,
+    bool? hasProfile,
   }) {
     return AuthenticatedSession(
       userId: userId ?? this.userId,
@@ -159,6 +121,7 @@ class AuthenticatedSession implements AppSession {
       selectedRoles: selectedRoles ?? this.selectedRoles,
       hasCompletedOnboarding:
           hasCompletedOnboarding ?? this.hasCompletedOnboarding,
+      hasProfile: hasProfile ?? this.hasProfile,
     );
   }
 }

@@ -1,58 +1,182 @@
-import 'package:shared_preferences/shared_preferences.dart';
+/// ============================================================
+/// AUTH SERVICE — Single reusable authentication service
+/// ============================================================
+///
+/// 🧠 ROLE:
+///   Centralized authentication service wrapping Supabase Auth.
+///   This is the ONLY service that should handle auth operations.
+///
+/// ✅ RESPONSIBILITIES:
+///   - Send OTP (email or SMS) via Supabase signInWithOtp()
+///   - Verify OTP via Supabase verifyOTP()
+///   - Handle auth errors: invalid OTP, expired OTP, network failures
+///   - Expose reactive auth state via stream
+///
+/// ❌ Does NOT:
+///   - Contain profile/business logic
+///   - Decide what happens after auth
+///   - Manage onboarding state
+///   - Route navigation
+/// ============================================================
+library;
 
-import 'package:famhub_app/core/services/cache_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:famhub_app/core/services/supabase_service.dart';
+
+/// Result of an OTP send operation
+class OtpSendResult {
+  final bool success;
+  final String? error;
+  const OtpSendResult({required this.success, this.error});
+}
+
+/// Result of an OTP verification operation
+class OtpVerifyResult {
+  final bool success;
+  final String? error;
+  final String? userId;
+  const OtpVerifyResult({required this.success, this.error, this.userId});
+}
+
+/// Unified auth service for FAMHUB.
+/// All auth operations go through this service.
 class AuthService {
-  static const String _prefix = 'auth_cache';
+  final SupabaseService _supabase;
 
-  /// Must be called during app/module startup
-  static Future<void> init() async {
-    await SharedPreferences.getInstance();
-  }
+  AuthService({SupabaseService? supabase})
+      : _supabase = supabase ?? SupabaseService.instance;
 
-  static Future<void> login({
-    required String userId,
-    required String role,
+  /// Get the current authenticated user (null if not authenticated)
+  User? get currentUser => _supabase.currentUser;
+
+  /// Whether the user is currently authenticated
+  bool get isAuthenticated => _supabase.isAuthenticated;
+
+  /// Current user ID (null if not authenticated)
+  String? get currentUserId => _supabase.currentUserId;
+
+  /// Stream of auth state changes
+  Stream<AuthState> get authStateChanges => _supabase.authStateChanges;
+
+  /// ============================================================
+  /// SEND OTP
+  /// ============================================================
+  ///
+  /// Sends a one-time password to the user's email or phone.
+  ///
+  /// [email] - Email address for email OTP
+  /// [phone] - Phone number for SMS OTP
+  ///
+  /// Returns an [OtpSendResult] indicating success or failure.
+  /// ============================================================
+  Future<OtpSendResult> sendOtp({
+    String? email,
+    String? phone,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('$_prefix:user_id', userId);
-    await prefs.setString('$_prefix:role', role);
-    await prefs.setBool('$_prefix:logged_in', true);
+    try {
+      if (email != null && email.isNotEmpty) {
+        await _supabase.client.auth.signInWithOtp(email: email);
+      } else if (phone != null && phone.isNotEmpty) {
+        await _supabase.client.auth.signInWithOtp(phone: phone);
+      } else {
+        return const OtpSendResult(
+          success: false,
+          error: 'Please provide an email or phone number.',
+        );
+      }
+
+      return const OtpSendResult(success: true);
+    } on AuthException catch (e) {
+      return OtpSendResult(success: false, error: _mapAuthError(e));
+    } catch (e) {
+      return OtpSendResult(
+        success: false,
+        error: 'Network error. Please check your connection and try again.',
+      );
+    }
   }
 
-  static Future<bool> isLoggedIn() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('$_prefix:logged_in') ?? false;
+  /// ============================================================
+  /// VERIFY OTP
+  /// ============================================================
+  ///
+  /// Verifies the OTP token sent to the user's email or phone.
+  ///
+  /// [email] - Email address (must match the one used in sendOtp)
+  /// [phone] - Phone number (must match the one used in sendOtp)
+  /// [token] - The OTP code entered by the user
+  ///
+  /// Returns an [OtpVerifyResult] with the user ID on success.
+  /// ============================================================
+  Future<OtpVerifyResult> verifyOtp({
+    String? email,
+    String? phone,
+    required String token,
+  }) async {
+    try {
+      if (email != null && email.isNotEmpty) {
+        await _supabase.client.auth.verifyOTP(
+          email: email,
+          token: token,
+          type: OtpType.email,
+        );
+      } else if (phone != null && phone.isNotEmpty) {
+        await _supabase.client.auth.verifyOTP(
+          phone: phone,
+          token: token,
+          type: OtpType.sms,
+        );
+      } else {
+        return const OtpVerifyResult(
+          success: false,
+          error: 'Please provide an email or phone number.',
+        );
+      }
+
+      final user = _supabase.currentUser;
+      return OtpVerifyResult(
+        success: true,
+        userId: user?.id,
+      );
+    } on AuthException catch (e) {
+      return OtpVerifyResult(success: false, error: _mapAuthError(e));
+    } catch (e) {
+      return OtpVerifyResult(
+        success: false,
+        error: 'Network error. Please check your connection and try again.',
+      );
+    }
   }
 
-  static Future<String> getUserId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('$_prefix:user_id') ?? '';
+  /// ============================================================
+  /// SIGN OUT
+  /// ============================================================
+  Future<void> signOut() async {
+    await _supabase.signOut();
   }
 
-  static Future<String> getRole() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('$_prefix:role') ?? 'Farmer';
-  }
-
-    static Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    final keysToRemove = prefs.getKeys().where((k) => k.startsWith('$_prefix:'));
-    for (final key in keysToRemove) {
-      await prefs.remove(key);
-  }
-  }
-
-  /// Returns the access token for the current session.
-  /// In production, this should use Supabase session access token.
-  Future<String?> getAccessToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('$_prefix:access_token');
-  }
-
-  /// Set the access token (called by auth flow after login/Supabase session)
-  static Future<void> setAccessToken(String token) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('$_prefix:access_token', token);
+  /// ============================================================
+  /// ERROR MAPPING
+  /// ============================================================
+  String _mapAuthError(AuthException e) {
+    final message = e.message.toLowerCase();
+    if (message.contains('invalid') && message.contains('otp')) {
+      return 'Invalid verification code. Please try again.';
+    }
+    if (message.contains('expired')) {
+      return 'This code has expired. Please request a new one.';
+    }
+    if (message.contains('rate limit') || message.contains('too many')) {
+      return 'Too many attempts. Please wait a moment and try again.';
+    }
+    if (message.contains('network') || message.contains('timeout')) {
+      return 'Network error. Please check your connection.';
+    }
+    if (message.contains('not found')) {
+      return 'Account not found. Please check your details.';
+    }
+    // Default: return the original message (safe for display)
+    return e.message;
   }
 }

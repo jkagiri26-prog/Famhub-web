@@ -8,29 +8,35 @@
 /// ✅ Responsibilities:
 ///   - Provide the current AppSession via Riverpod
 ///   - React to Supabase auth state changes
-///   - Load/save selected roles from local storage
+///   - Check for user profile on every session init
+///   - Load/save selected workspaces from local storage
 ///   - Provide session initialization status
 ///
 /// ❌ Does NOT:
 ///   - Contain widget logic
 ///   - Know about routing or navigation
 /// ============================================================
+library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:famhub_app/core/services/supabase_service.dart';
+import 'package:famhub_app/core/services/auth_service.dart';
 import 'package:famhub_app/core/session/app_session.dart';
 
 /// ============================================================
 /// SESSION CONTROLLER
 /// ============================================================
 class SessionController extends Notifier<AppSession> {
+  final AuthService _authService = AuthService();
+
   @override
   AppSession build() {
     return const UnauthenticatedSession();
   }
 
-  /// Initialize the session from Supabase + local storage.
+  /// Initialize the session from Supabase.
+  /// Checks for existing Supabase session and user profile.
   /// Returns the determined status.
   Future<SessionStatus> initialize() async {
     try {
@@ -40,17 +46,39 @@ class SessionController extends Notifier<AppSession> {
       final user = supabase.currentUser;
 
       if (session != null && user != null) {
-        // Load saved roles from preferences
-        final prefs = await SharedPreferences.getInstance();
-        final savedRoles = prefs.getStringList('user_roles') ?? [];
-        final onboardingDone = prefs.getBool('onboarding_complete') ?? false;
+        // ── Profile Detection ──
+        final profileExists = await _checkProfileExists(user.id);
 
-        state = AuthenticatedSession(
-          userId: user.id,
-          displayName: user.email ?? user.id ?? 'User',
-          selectedRoles: savedRoles,
-          hasCompletedOnboarding: onboardingDone,
-        );
+        if (profileExists) {
+          // Load profile data
+          final displayName = (await _loadDisplayName(user.id)) ??
+              user.email ??
+              'User';
+
+          // Load saved workspaces from preferences
+          final prefs = await SharedPreferences.getInstance();
+          final savedWorkspaces =
+              prefs.getStringList('user_workspaces') ?? [];
+          final onboardingDone =
+              prefs.getBool('onboarding_complete') ?? false;
+
+          state = AuthenticatedSession(
+            userId: user.id,
+            displayName: displayName,
+            selectedRoles: savedWorkspaces,
+            hasCompletedOnboarding: onboardingDone,
+            hasProfile: true,
+          );
+        } else {
+          // Authenticated but no profile exists yet
+          state = AuthenticatedSession(
+            userId: user.id,
+            displayName: user.email ?? 'User',
+            selectedRoles: const [],
+            hasCompletedOnboarding: false,
+            hasProfile: false,
+          );
+        }
 
         return SessionStatus.authenticated;
       }
@@ -65,98 +93,111 @@ class SessionController extends Notifier<AppSession> {
     }
   }
 
-  /// Activate guest/demo mode
-  void startGuestSession() {
-    state = const GuestSession();
-  }
-
-  /// Sign in with email/password
-  Future<bool> signIn({required String email, required String password}) async {
+  /// Check whether a user profile exists in Supabase.
+  Future<bool> _checkProfileExists(String userId) async {
     try {
-      final supabase = SupabaseService.instance;
-      final response = await supabase.signInWithPassword(
-        email: email,
-        password: password,
-      );
-
-      if (response.user != null) {
-        final prefs = await SharedPreferences.getInstance();
-        final savedRoles = prefs.getStringList('user_roles') ?? [];
-        final onboardingDone = prefs.getBool('onboarding_complete') ?? false;
-
-        state = AuthenticatedSession(
-          userId: response.user!.id,
-          displayName: response.user!.email ?? 'User',
-          selectedRoles: savedRoles,
-          hasCompletedOnboarding: onboardingDone,
-        );
-        return true;
-      }
-      return false;
-    } catch (e) {
+      final response = await SupabaseService.instance
+          .from('profiles')
+          .select('id')
+          .eq('id', userId)
+          .maybeSingle();
+      return response != null;
+    } catch (_) {
+      // If table doesn't exist or error, assume no profile
       return false;
     }
   }
 
-  /// Create account with email/password
-  Future<bool> signUp({required String email, required String password}) async {
+  /// Load the user's display name from their profile.
+  Future<String?> _loadDisplayName(String userId) async {
     try {
-      final supabase = SupabaseService.instance;
-      final response = await supabase.signUp(
-        email: email,
-        password: password,
-      );
-
-      if (response.user != null) {
-        state = AuthenticatedSession(
-          userId: response.user!.id,
-          displayName: email,
-          selectedRoles: const [],
-          hasCompletedOnboarding: false,
-        );
-        return true;
+      final response = await SupabaseService.instance
+          .from('profiles')
+          .select('display_name')
+          .eq('id', userId)
+          .maybeSingle();
+      if (response != null) {
+        return response['display_name'] as String?;
       }
-      return false;
-    } catch (e) {
-      return false;
+      return null;
+    } catch (_) {
+      return null;
     }
+  }
+
+  /// Refresh session state (called after auth operations complete).
+  Future<SessionStatus> refresh() async {
+    return initialize();
   }
 
   /// Sign out
   Future<void> signOut() async {
-    try {
-      final supabase = SupabaseService.instance;
-      await supabase.signOut();
-    } catch (_) {
-      // Continue with local sign out
-    }
-
+    await _authService.signOut();
     state = const UnauthenticatedSession();
   }
 
-  /// Save selected roles (capabilities) for the user
-  Future<void> saveRoles(List<String> roles) async {
+  /// ============================================================
+  /// PROFILE MANAGEMENT
+  /// ============================================================
+
+  /// Create a profile for the authenticated user.
+  /// Called after first-time authentication when no profile exists.
+  Future<bool> createProfile({
+    required String displayName,
+    String? preferredLanguage,
+    String? county,
+    String? country,
+  }) async {
+    final current = state;
+    if (current is! AuthenticatedSession) return false;
+
+    try {
+      await SupabaseService.instance.from('profiles').insert({
+        'id': current.userId,
+        'display_name': displayName,
+        'preferred_language': preferredLanguage ?? 'en',
+        'county': county,
+        'country': country,
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+
+      state = current.copyWith(
+        displayName: displayName,
+        hasProfile: true,
+      );
+
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// ============================================================
+  /// WORKSPACE SELECTION MANAGEMENT
+  /// ============================================================
+
+  /// Save selected workspaces. Marks onboarding as complete.
+  Future<void> saveWorkspaces(List<String> workspaces) async {
     final current = state;
     if (current is AuthenticatedSession) {
       state = current.copyWith(
-        selectedRoles: roles,
+        selectedRoles: workspaces,
         hasCompletedOnboarding: true,
       );
 
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList('user_roles', roles);
+      await prefs.setStringList('user_workspaces', workspaces);
       await prefs.setBool('onboarding_complete', true);
     }
   }
 
-  /// Complete onboarding for guest user (roles only stored in memory)
-  void completeGuestOnboarding(List<String> roles) {
+  /// Add a workspace to the user's selection.
+  Future<void> addWorkspace(String workspace) async {
     final current = state;
-    if (current is GuestSession) {
-      state = current.copyWith(
-        selectedRoles: roles,
-        hasCompletedOnboarding: true,
-      );
+    if (current is AuthenticatedSession) {
+      final updated = [...current.selectedRoles, workspace];
+      await saveWorkspaces(updated);
     }
   }
 }
@@ -180,13 +221,22 @@ final isAuthenticatedProvider = Provider<bool>((ref) {
   return ref.watch(sessionProvider).isAuthenticated;
 });
 
-/// Whether the user is a guest
-final isGuestProvider = Provider<bool>((ref) {
-  return ref.watch(sessionProvider).isGuest;
+/// Whether the user has a profile
+final hasProfileProvider = Provider<bool>((ref) {
+  final session = ref.watch(sessionProvider);
+  if (session is AuthenticatedSession) {
+    return session.hasProfile;
+  }
+  return false;
 });
 
-/// Whether onboarding (role selection) is complete
+/// Whether onboarding (workspace selection) is complete
 final hasOnboardingCompletedProvider = Provider<bool>((ref) {
   return ref.watch(sessionProvider).hasCompletedOnboarding;
+});
+
+/// Auth service provider
+final authServiceProvider = Provider<AuthService>((ref) {
+  return AuthService();
 });
 

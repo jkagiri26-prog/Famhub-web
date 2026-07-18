@@ -4,18 +4,21 @@ import 'dart:convert';
 // ignore: depend_on_referenced_packages
 import 'package:http/http.dart' as http;
 
-import 'package:famhub_app/core/services/auth_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'package:famhub_app/core/services/supabase_service.dart';
 
 class ApiService {
   ApiService({
-    required this.authService,
+    SupabaseService? supabase,
     http.Client? client,
     this.baseUrl = _defaultBaseUrl,
-  }) : _client = client ?? http.Client();
+  }) : _client = client ?? http.Client(),
+       _supabase = supabase ?? SupabaseService.instance;
 
   static const String _defaultBaseUrl = 'https://api.famhub.com';
 
-  final AuthService authService;
+  final SupabaseService _supabase;
   final http.Client _client;
   final String baseUrl;
 
@@ -31,7 +34,9 @@ class ApiService {
       'Accept': 'application/json',
     };
 
-    final token = await authService.getAccessToken();
+    // Get access token from Supabase session
+    final session = _supabase.currentSession;
+    final token = session?.accessToken;
 
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
