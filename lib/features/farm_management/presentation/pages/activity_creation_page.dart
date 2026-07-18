@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/shared/layouts/shell_page_content.dart';
 import 'package:famhub_app/shared/widgets/states/loading_state_widget.dart';
-import 'package:famhub_app/features/guest/guest_guard.dart';
+import 'package:famhub_app/features/guest/auth_guard.dart';
 
 import 'package:famhub_app/features/farm_management/domain/models/activity_model.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';

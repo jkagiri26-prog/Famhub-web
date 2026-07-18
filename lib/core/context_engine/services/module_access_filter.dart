@@ -68,10 +68,13 @@ class ModuleAccessFilter {
     // ── Guard: maintenance mode ──
     if (module.maintenanceMode) return false;
 
-    // ── Guard: guest users ──
+    // ── Guard: guest users (block unless module.supportsGuest) ──
     if (context.isGuest) {
-      // Guest-visible flag would be checked here in future
-      return false;
+      // If module is not marked as guest-visible, block it
+      // When SystemModule supportsGuest metadata is available, check it here.
+      // For now, we allow all non-premium, enabled modules to be visible
+      // to guests, as per the FAMHUB Home ecosystem showcase design.
+      return !module.premiumOnly;
     }
 
     // ── Guard: premium check ──

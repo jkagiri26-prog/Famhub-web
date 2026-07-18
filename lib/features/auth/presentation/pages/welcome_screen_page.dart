@@ -8,7 +8,7 @@
 /// ✅ Responsibilities:
 ///   - Present app brand and value proposition
 ///   - Display: Welcome to FAMHUB, Your Complete Agricultural Platform
-///   - Offer "Sign In", "Create Account", and "Continue as Guest"
+/// - Offer "Sign In", "Create Account", and "Continue Exploring"
 ///   - Modern responsive design
 ///
 /// ❌ Does NOT:
@@ -51,13 +51,13 @@ const List<_EcosystemFeature> _features = [
 class WelcomeScreenPage extends StatelessWidget {
   final VoidCallback onSignIn;
   final VoidCallback onCreateAccount;
-  final VoidCallback onContinueAsGuest;
+  final VoidCallback onContinueExploring;
 
   const WelcomeScreenPage({
     super.key,
     required this.onSignIn,
     required this.onCreateAccount,
-    required this.onContinueAsGuest,
+    required this.onContinueExploring,
   });
 
   @override
@@ -265,24 +265,24 @@ class WelcomeScreenPage extends StatelessWidget {
 
                         const SizedBox(height: 12),
 
-                        // ── Continue as Guest Button (Outlined) ──
+                        // ── Continue Exploring Button ──
                         SizedBox(
                           width: double.infinity,
                           child: TextButton(
-                            onPressed: onContinueAsGuest,
+                            onPressed: onContinueExploring,
                             style: TextButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 12),
                             ),
                             child: Text.rich(
                               TextSpan(
-                                text: 'Continue as ',
+                                text: 'Continue ',
                                 style: TextStyle(
                                   fontSize: 15,
                                   color: colorScheme.onSurfaceVariant,
                                 ),
                                 children: [
                                   TextSpan(
-                                    text: 'Guest',
+                                    text: 'Exploring',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w600,
                                       color: colorScheme.primary,

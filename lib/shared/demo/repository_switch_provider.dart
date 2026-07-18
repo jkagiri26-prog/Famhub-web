@@ -26,8 +26,8 @@ import 'package:famhub_app/shared/demo/demo_marketplace_repository.dart';
 
 /// FarmRepository provider that switches between demo and Supabase.
 final switchingFarmRepositoryProvider = Provider<FarmRepository>((ref) {
-  final session = ref.watch(sessionProvider);
-  if (session.isGuest || !session.isAuthenticated) {
+  final isAuthenticated = ref.watch(isAuthenticatedProvider);
+  if (!isAuthenticated) {
     return DemoFarmRepository();
   }
   return FarmRepositoryImpl();
@@ -35,8 +35,8 @@ final switchingFarmRepositoryProvider = Provider<FarmRepository>((ref) {
 
 /// MarketplaceRepository provider that switches between demo and Supabase.
 final switchingMarketplaceRepositoryProvider = Provider<MarketplaceRepository>((ref) {
-  final session = ref.watch(sessionProvider);
-  if (session.isGuest || !session.isAuthenticated) {
+  final isAuthenticated = ref.watch(isAuthenticatedProvider);
+  if (!isAuthenticated) {
     return DemoMarketplaceRepository();
   }
   final dataSource = ref.watch(marketplaceRemoteDataSourceProvider);

@@ -37,7 +37,7 @@ import 'package:famhub_app/features/refferal_hub/presentation/pages/referral_hub
 import 'package:famhub_app/features/profile/presentation/pages/profile_page.dart';
 import 'package:famhub_app/features/profile/presentation/pages/settings_page.dart';
 import 'package:famhub_app/features/admin_console/presentation/pages/admin_dashboard_page.dart';
-import 'package:famhub_app/features/guest/guest_homepage.dart';
+import 'package:famhub_app/features/guest/famhub_home_page.dart';
 
 // ── Enterprise Phase: System Pages ──
 import 'package:famhub_app/features/home/presentation/pages/home_page.dart';
@@ -163,7 +163,7 @@ class DynamicRouteRegistrar {
               path: AppRoutes.guest,
               name: AppRoutes.guestName,
               builder: (context, state) =>
-                  const GuestHomePage(),
+                  const FamhubHomePage(),
             ),
             GoRoute(
               path: AppRoutes.settings,

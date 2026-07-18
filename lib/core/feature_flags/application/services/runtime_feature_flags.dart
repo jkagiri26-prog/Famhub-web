@@ -109,11 +109,12 @@ class RuntimeFeatureFlags {
     passedChecks.add('not_maintenance');
 
     // ── 3. Authentication ──
-    if (context.isGuest) {
-      denied.add('guest_user');
-      return FeatureFlagResult.denied('User is guest — module access denied');
-    }
-    passedChecks.add('authenticated');
+    // Note: For FAMHUB Home ecosystem showcase, unauthenticated users
+    // (isGuest=true) can browse module pages with sample data.
+    // Protected actions (create, edit, delete, etc.) are guarded
+    // separately by the RuntimeDecisionEngine and auth_guard.dart.
+    // Module-specific premium/entity checks below handle further filtering.
+    passedChecks.add('authenticated_skip_for_browsing');
 
     // ── 4. Subscription/tier ──
     if (module.premiumOnly || module.requiresSubscription) {

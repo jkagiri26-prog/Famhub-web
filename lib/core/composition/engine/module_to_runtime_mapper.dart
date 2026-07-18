@@ -102,7 +102,7 @@ class ModuleToRuntimeMapper {
       // ── Widget ──
       widgetBuilderKey: widgetBuilderKey,
 
-      // ── Capabilities (defaults from module metadata) ──
+      // ── Capabilities (defaults — all modules accessible to visitors) ──
       supportsGuest: true,
       supportsOffline: true,
       supportsSync: true,

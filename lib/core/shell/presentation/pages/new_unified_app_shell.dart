@@ -185,7 +185,8 @@ class _ShellLayoutBuilderState extends ConsumerState<_ShellLayoutBuilder> {
 
   /// Build the appropriate layout for the current device type
   Widget _buildLayoutForDevice(String deviceType, ShellConfig effectiveConfig) {
-    final isGuest = ref.watch(isGuestProvider);
+    final isAuthenticated = ref.watch(isAuthenticatedProvider);
+    final isGuest = !isAuthenticated;
     final wrappedChild = AppShellContext(
       isGuest: isGuest,
       isSystemDown: widget.systemState.isSystemDown,

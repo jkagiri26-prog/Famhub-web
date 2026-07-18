@@ -187,7 +187,6 @@ class _ContextSelector extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final context_ = ref.watch(contextProvider);
     final entityName = context_.entityId ?? 'No Entity';
     final role = context_.role ?? 'user';
@@ -369,7 +368,6 @@ class _ProfileWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final userName = user.displayName;
     final initials = _getInitials(userName);
 

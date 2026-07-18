@@ -14,9 +14,9 @@ import 'package:famhub_app/shared/demo/demo_farm_repository.dart';
 /// Widgets never know which implementation they receive.
 /// No guest/demo logic exists in any widget.
 final farmRepositoryProvider = Provider<FarmRepository>((ref) {
-  final session = ref.watch(sessionProvider);
+  final isAuthenticated = ref.watch(isAuthenticatedProvider);
 
-  if (session.isGuest || !session.isAuthenticated) {
+  if (!isAuthenticated) {
     return DemoFarmRepository();
   }
 

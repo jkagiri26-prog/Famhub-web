@@ -1,42 +1,32 @@
 /// ============================================================
-/// DEMO BANNER — Visual indicator for guest mode
+/// EXPLORE BANNER — Visual indicator for unauthenticated browsing
 /// ============================================================
 ///
 /// 🧠 LOCATION CONTEXT:
 ///   shared/demo/ = reusable demo data widgets
 ///
 /// ✅ Responsibilities:
-///   - Display a banner indicating the user is in demo/guest mode
+///   - Display a subtle banner indicating the user is browsing
 ///   - Offer sign-up/sign-in prompts
-///   - Only appears in guest mode (controlled by session state)
+///   - Only appears for unauthenticated visitors
 /// ============================================================
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/session/session_provider.dart';
-import 'package:famhub_app/core/session/session_gate.dart';
-import 'package:famhub_app/features/auth/presentation/pages/sign_in_screen_page.dart';
 
-/// A top banner that appears in guest mode.
-/// Shows "Demo Mode" message with an option to sign in.
-class DemoBanner extends ConsumerWidget {
+/// A subtle banner that appears for unauthenticated visitors.
+/// Shows a message about exploring with an option to sign in.
+class ExploreBanner extends ConsumerWidget {
   final VoidCallback? onSignIn;
 
-  const DemoBanner({super.key, this.onSignIn});
-
-  void _defaultSignIn(BuildContext context, WidgetRef ref) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const _DemoSignInSheet(),
-      ),
-    );
-  }
+  const ExploreBanner({super.key, this.onSignIn});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isGuest = ref.watch(isGuestProvider);
-    if (!isGuest) return const SizedBox.shrink();
+    final isAuthenticated = ref.watch(isAuthenticatedProvider);
+    if (isAuthenticated) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
@@ -47,29 +37,29 @@ class DemoBanner extends ConsumerWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            Colors.amber.shade800,
-            Colors.amber.shade600,
+            colorScheme.primary.withValues(alpha: 0.08),
+            colorScheme.primary.withValues(alpha: 0.04),
           ],
         ),
       ),
       child: Row(
         children: [
-          Icon(Icons.science_outlined, color: Colors.white, size: 18),
+          Icon(Icons.explore_outlined, color: colorScheme.primary, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Demo Mode — Data shown is for illustration',
+              'Exploring FAMHUB — Sign in to save your data',
               style: TextStyle(
-                color: Colors.white,
+                color: colorScheme.onSurfaceVariant,
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
               ),
             ),
           ),
           TextButton(
-            onPressed: onSignIn ?? () => _defaultSignIn(context, ref),
+            onPressed: onSignIn ?? () {},
             style: TextButton.styleFrom(
-              foregroundColor: Colors.white,
+              foregroundColor: colorScheme.primary,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -88,80 +78,14 @@ class DemoBanner extends ConsumerWidget {
   }
 }
 
-/// ============================================================
-/// FULL-SCREEN SIGN-IN SHEET — Pushed from demo banner
-/// ============================================================
-///
-/// Opens a sign-in screen within the guest context.
-/// On success, the app re-evaluates session state.
-/// ============================================================
-class _DemoSignInSheet extends ConsumerStatefulWidget {
-  const _DemoSignInSheet();
-
-  @override
-  ConsumerState<_DemoSignInSheet> createState() => _DemoSignInSheetState();
-}
-
-class _DemoSignInSheetState extends ConsumerState<_DemoSignInSheet> {
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.close_rounded, color: colorScheme.onSurface),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          'Sign In',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: colorScheme.onSurface,
-          ),
-        ),
-        centerTitle: true,
-      ),
-      body: SignInScreenPage(
-        onSignIn: (email, password) async {
-          final success = await ref.read(sessionProvider.notifier).signIn(
-            email: email,
-            password: password,
-          );
-          if (success && mounted) {
-            Navigator.of(context).pop();
-          }
-          return success;
-        },
-        onSignUp: (email, password) async {
-          final success = await ref.read(sessionProvider.notifier).signUp(
-            email: email,
-            password: password,
-          );
-          if (success && mounted) {
-            // Navigate to onboarding then pop
-            Navigator.of(context).pop();
-          }
-          return success;
-        },
-        onBack: () => Navigator.of(context).pop(),
-      ),
-    );
-  }
-}
-
-/// A card/snackbar style notice for protected actions in demo mode.
+/// A card/snackbar style notice for protected actions.
 /// Used instead of blocking the action entirely.
-class DemoActionNotice extends StatelessWidget {
+class ExploreActionNotice extends StatelessWidget {
   final String actionName;
   final VoidCallback onContinue;
   final VoidCallback? onSignIn;
 
-  const DemoActionNotice({
+  const ExploreActionNotice({
     super.key,
     required this.actionName,
     required this.onContinue,
@@ -176,22 +100,22 @@ class DemoActionNotice extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.amber.shade50,
+        color: colorScheme.primary.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.amber.shade200),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.info_outline, color: Colors.amber.shade800, size: 20),
+              Icon(Icons.info_outline, color: colorScheme.primary, size: 20),
               const SizedBox(width: 8),
               Text(
-                'Demo Mode',
+                'Exploring',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: Colors.amber.shade800,
+                  color: colorScheme.primary,
                   fontSize: 14,
                 ),
               ),
@@ -200,10 +124,9 @@ class DemoActionNotice extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'You are about to $actionName. '
-            'In demo mode, this action will be simulated. '
-            'Sign in to save real data.',
+            'Sign in to save your data permanently.',
             style: TextStyle(
-              color: Colors.brown.shade700,
+              color: colorScheme.onSurfaceVariant,
               fontSize: 13,
               height: 1.4,
             ),
@@ -215,16 +138,19 @@ class DemoActionNotice extends StatelessWidget {
               if (onSignIn != null)
                 TextButton(
                   onPressed: onSignIn,
-                  child: const Text('Sign In'),
+                  child: Text(
+                    'Sign In',
+                    style: TextStyle(color: colorScheme.primary),
+                  ),
                 ),
               const SizedBox(width: 8),
               FilledButton(
                 onPressed: onContinue,
                 style: FilledButton.styleFrom(
-                  backgroundColor: Colors.amber.shade700,
-                  foregroundColor: Colors.white,
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
                 ),
-                child: const Text('Continue in Demo'),
+                child: const Text('Continue Exploring'),
               ),
             ],
           ),
