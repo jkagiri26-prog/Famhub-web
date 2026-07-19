@@ -404,58 +404,46 @@ class FamhubHomePage extends ConsumerWidget {
     bool isTablet,
     Size size,
   ) {
-    final itemWidth = isMobile
-        ? (size.width - 48) / 2
-        : isTablet
-            ? (size.width - 64) / 4
-            : (size.width - 80) / 4;
+    final minCardWidth = isMobile ? 130.0 : 160.0;
 
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 16 : 24,
-        vertical: isMobile ? 32 : 48,
-      ),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+      padding: EdgeInsets.symmetric(vertical: 12),
+      color: colorScheme.surface,
+      child: SizedBox(
+        height: 52,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24),
+          itemCount: _impactStats.length,
+          separatorBuilder: (_, __) => Container(
+            width: 1,
+            height: 28,
+            color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+          ),
+          itemBuilder: (context, index) {
+            final stat = _impactStats[index];
+            return SizedBox(
+              width: minCardWidth,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(stat.icon, size: 18, color: stat.color),
+                  const SizedBox(width: 8),
+                  Text(
+                    stat.value,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: stat.color,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
-      ),
-      child: Column(
-        children: [
-          // Section header
-          Text(
-            'FAMHUB by the Numbers',
-            style: TextStyle(
-              fontSize: isMobile ? 20 : 28,
-              fontWeight: FontWeight.w700,
-              color: colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Real impact across the agricultural ecosystem',
-            style: TextStyle(
-              fontSize: isMobile ? 13 : 15,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          SizedBox(height: isMobile ? 24 : 32),
-
-          // Stats grid
-          Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            alignment: WrapAlignment.center,
-            children: _impactStats.map((stat) {
-              return SizedBox(
-                width: itemWidth,
-                child: _ImpactStatCard(stat: stat, colorScheme: colorScheme, theme: theme),
-              );
-            }).toList(),
-          ),
-        ],
       ),
     );
   }
@@ -1080,8 +1068,8 @@ class FamhubHomePage extends ConsumerWidget {
   ) {
     final size = MediaQuery.of(context).size;
     
-    // Full viewport height minus the exploration banner (if shown)
-    final heroHeight = size.height * 0.30;
+    // Compact hero carousel height - fixed for better visual balance
+    final heroHeight = 200.0;
 
     return SizedBox(
       width: double.infinity,

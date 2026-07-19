@@ -191,9 +191,6 @@ class _SplitScreenHeroState extends State<SplitScreenHero> {
                 ),
               ),
 
-              // ── DIVIDER: Tilted middle border ──
-              _buildDivider(constraints.maxHeight),
-
               // ── RIGHT PANEL: Carousel ──
               Expanded(
                 child: SizedBox(
@@ -211,19 +208,19 @@ class _SplitScreenHeroState extends State<SplitScreenHero> {
   /// ── LEFT PANEL (All screen sizes) ──
   /// Adapts padding, font sizes, and spacing based on [isCompact].
   Widget _buildLeftPanel(double height, {bool isCompact = false}) {
-    // Responsive values
-    final hPadding = isCompact ? 16.0 : 32.0;
-    final logoSize = isCompact ? 28.0 : 36.0;
-    final headlineSize = isCompact ? 20.0 : (height < 500 ? 24.0 : 32.0);
-    final subtextSize = isCompact ? 11.0 : 13.5;
-    final buttonPadding = isCompact ? 12.0 : 16.0;
-    final buttonFontSize = isCompact ? 13.0 : 16.0;
-    final guestFontSize = isCompact ? 11.0 : 14.0;
-    final gapLogoHeadline = isCompact ? 16.0 : 32.0;
-    final gapHeadlineSubtext = isCompact ? 10.0 : 20.0;
-    final gapSubtextButton = isCompact ? 16.0 : 32.0;
-    final gapButtonGuest = isCompact ? 10.0 : 16.0;
-    final bottomAccentWidth = isCompact ? 40.0 : 60.0;
+    // Responsive values - optimized for compact hero height (~200px)
+    final hPadding = isCompact ? 12.0 : 24.0;
+    final logoSize = isCompact ? 20.0 : 24.0;
+    final headlineSize = isCompact ? 16.0 : (height < 300 ? 18.0 : (height < 500 ? 22.0 : 32.0));
+    final subtextSize = isCompact ? 10.0 : (height < 300 ? 11.0 : 12.5);
+    final buttonPadding = isCompact ? 8.0 : (height < 300 ? 8.0 : 14.0);
+    final buttonFontSize = isCompact ? 11.0 : (height < 300 ? 12.0 : 15.0);
+    final guestFontSize = isCompact ? 10.0 : (height < 300 ? 11.0 : 13.0);
+    final gapLogoHeadline = isCompact ? 8.0 : (height < 300 ? 6.0 : 16.0);
+    final gapHeadlineSubtext = isCompact ? 4.0 : (height < 300 ? 4.0 : 10.0);
+    final gapSubtextButton = isCompact ? 8.0 : (height < 300 ? 8.0 : 16.0);
+    final gapButtonGuest = isCompact ? 6.0 : (height < 300 ? 6.0 : 12.0);
+    final bottomAccentWidth = isCompact ? 32.0 : 48.0;
 
     return Container(
       width: double.infinity,
@@ -247,7 +244,7 @@ class _SplitScreenHeroState extends State<SplitScreenHero> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Spacer(flex: 2),
+              const Spacer(flex: 1),
 
               // ── FAMHUB Logo ──
               _buildLogo(logoSize: logoSize),
@@ -257,6 +254,7 @@ class _SplitScreenHeroState extends State<SplitScreenHero> {
               // ── Headline ──
               Text(
                 'Welcome to\nFAMHUB',
+                textAlign: TextAlign.start,
                 style: TextStyle(
                   fontSize: headlineSize,
                   fontWeight: FontWeight.w800,
@@ -271,6 +269,7 @@ class _SplitScreenHeroState extends State<SplitScreenHero> {
               // ── Subheadline ──
               Text(
                 'Kenya\'s digital agriculture platform connecting farmers, traders, suppliers, financiers, and stakeholders to grow together.',
+                textAlign: TextAlign.start,
                 style: TextStyle(
                   fontSize: subtextSize,
                   color: Colors.white.withValues(alpha: 0.85),
@@ -339,48 +338,6 @@ class _SplitScreenHeroState extends State<SplitScreenHero> {
               ),
               const SizedBox(height: 24),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// ── DIVIDER: Tilted middle border ──
-  Widget _buildDivider(double height) {
-    return ClipPath(
-      clipper: _TiltedDividerClipper(),
-      child: Container(
-        width: 28,
-        height: height,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.white.withValues(alpha: 0.0),
-              Colors.white.withValues(alpha: 0.15),
-              Colors.white.withValues(alpha: 0.25),
-              Colors.white.withValues(alpha: 0.15),
-              Colors.white.withValues(alpha: 0.0),
-            ],
-            stops: const [0.0, 0.2, 0.5, 0.8, 1.0],
-          ),
-        ),
-        child: Center(
-          child: Container(
-            width: 2,
-            height: height * 0.4,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.white.withValues(alpha: 0.0),
-                  Colors.white.withValues(alpha: 0.35),
-                  Colors.white.withValues(alpha: 0.0),
-                ],
-              ),
-            ),
           ),
         ),
       ),
@@ -690,17 +647,19 @@ class _CarouselSlideWidgetState extends State<_CarouselSlideWidget>
   }
 
   Widget _buildTextContent(_CarouselSlide slide) {
+    final isCompact = MediaQuery.of(context).size.height < 250;
     return Positioned(
-      left: 40,
-      right: 40,
-      bottom: 80,
+      left: isCompact ? 20 : 32,
+      right: isCompact ? 20 : 32,
+      bottom: isCompact ? 20 : 40,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           // ── Slide Label ──
+          if (!isCompact)
           Padding(
-            padding: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.only(bottom: 8),
             child: FadeTransition(
               opacity: _fadeInHeadline,
               child: Container(
@@ -736,8 +695,8 @@ class _CarouselSlideWidgetState extends State<_CarouselSlideWidget>
               offset: Offset(0, 8 * (1 - _fadeInHeadline.value)),
               child: Text(
                 slide.headline,
-                style: const TextStyle(
-                  fontSize: 32,
+                style: TextStyle(
+                  fontSize: isCompact ? 18 : 28,
                   fontWeight: FontWeight.w800,
                   color: Colors.white,
                   height: 1.15,
@@ -747,7 +706,7 @@ class _CarouselSlideWidgetState extends State<_CarouselSlideWidget>
             ),
           ),
 
-          const SizedBox(height: 14),
+          SizedBox(height: isCompact ? 6 : 10),
 
           // ── Subtext ──
           FadeTransition(
@@ -757,27 +716,28 @@ class _CarouselSlideWidgetState extends State<_CarouselSlideWidget>
               child: Text(
                 slide.subtext,
                 style: TextStyle(
-                  fontSize: 15,
+                  fontSize: isCompact ? 12 : 14,
                   color: Colors.white.withValues(alpha: 0.85),
-                  height: 1.5,
+                  height: 1.4,
                   fontWeight: FontWeight.w400,
                 ),
-                maxLines: 2,
+                maxLines: isCompact ? 1 : 2,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: isCompact ? 10 : 14),
 
           // ── CTA Button ──
+          if (!isCompact)
           FadeTransition(
             opacity: _fadeInCta,
             child: Transform.translate(
               offset: Offset(0, 8 * (1 - _fadeInCta.value)),
               child: OutlinedButton.icon(
                 onPressed: () {},
-                icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                icon: const Icon(Icons.arrow_forward_rounded, size: 14),
                 label: Text(slide.ctaText),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white,
@@ -786,11 +746,11 @@ class _CarouselSlideWidgetState extends State<_CarouselSlideWidget>
                     width: 1.5,
                   ),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
+                    horizontal: 16,
+                    vertical: 8,
                   ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
               ),
@@ -808,26 +768,6 @@ class _CarouselSlideWidgetState extends State<_CarouselSlideWidget>
     if (slide.ctaText.contains('Partner')) return 'FOR STAKEHOLDERS';
     return '';
   }
-}
-
-/// ─────────────────────────────────────────────────────────────
-/// TILTED DIVIDER CLIPPER
-/// ─────────────────────────────────────────────────────────────
-
-class _TiltedDividerClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    final path = Path();
-    path.moveTo(0, 0);
-    path.lineTo(size.width, size.height * 0.02);
-    path.lineTo(size.width, size.height * 0.98);
-    path.lineTo(0, size.height);
-    path.close();
-    return path;
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }
 
 /// Brand green ref for internal use
