@@ -463,8 +463,8 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
         );
       },
       loading: () => DropdownButtonFormField<String>(
-        decoration: const InputDecoration(
-          prefixIcon: Icon(Icons.flag_outlined),
+        decoration: InputDecoration(
+          prefixIcon: const Icon(Icons.flag_outlined),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -551,8 +551,8 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
         );
       },
       loading: () => DropdownButtonFormField<String>(
-        decoration: const InputDecoration(
-          prefixIcon: Icon(Icons.place_outlined),
+        decoration: InputDecoration(
+          prefixIcon: const Icon(Icons.place_outlined),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -562,9 +562,9 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
         hint: const Text('Loading wards...'),
       ),
       error: (err, _) => TextFormField(
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           hintText: 'Enter ward (optional)',
-          prefixIcon: Icon(Icons.place_outlined),
+          prefixIcon: const Icon(Icons.place_outlined),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
           ),

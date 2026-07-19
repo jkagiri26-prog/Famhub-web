@@ -31,6 +31,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/session/session_provider.dart';
 import 'package:famhub_app/shared/demo/demo_banner_widget.dart';
+import 'package:famhub_app/features/auth/presentation/widgets/split_screen_hero.dart';
 
 // Module page imports for direct navigation from FAMHUB Home
 import 'package:famhub_app/features/farm_management/presentation/pages/farm_dashboard_page.dart';
@@ -58,6 +59,55 @@ class _ModuleCardData {
     required this.description,
     required this.icon,
     required this.color,
+  });
+}
+
+/// Impact statistic for the numbers section
+class _ImpactStat {
+  final String value;
+  final String label;
+  final IconData icon;
+  final Color color;
+
+  const _ImpactStat({
+    required this.value,
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
+}
+
+/// Marketplace listing preview data
+class _MarketplacePreviewItem {
+  final String title;
+  final String subtitle;
+  final String price;
+  final IconData icon;
+  final Color color;
+
+  const _MarketplacePreviewItem({
+    required this.title,
+    required this.subtitle,
+    required this.price,
+    required this.icon,
+    required this.color,
+  });
+}
+
+/// Testimonial data
+class _Testimonial {
+  final String quote;
+  final String name;
+  final String role;
+  final String location;
+  final Color avatarColor;
+
+  const _Testimonial({
+    required this.quote,
+    required this.name,
+    required this.role,
+    required this.location,
+    required this.avatarColor,
   });
 }
 
@@ -166,6 +216,91 @@ const List<_ModuleCardData> _allModuleCards = [
   ),
 ];
 
+/// Impact statistics shown in the numbers section
+const List<_ImpactStat> _impactStats = [
+  _ImpactStat(
+    value: '15,000+',
+    label: 'Farmers Empowered',
+    icon: Icons.people_alt_outlined,
+    color: Color(0xFF059669),
+  ),
+  _ImpactStat(
+    value: '120+',
+    label: 'Markets Connected',
+    icon: Icons.store_mall_directory_outlined,
+    color: Color(0xFF0891B2),
+  ),
+  _ImpactStat(
+    value: '₦2.5B+',
+    label: 'Transactions Processed',
+    icon: Icons.account_balance_outlined,
+    color: Color(0xFF7C3AED),
+  ),
+  _ImpactStat(
+    value: '48+',
+    label: 'Partner Counties',
+    icon: Icons.location_on_outlined,
+    color: Color(0xFFD97706),
+  ),
+];
+
+/// Marketplace listings preview
+const List<_MarketplacePreviewItem> _marketplacePreviews = [
+  _MarketplacePreviewItem(
+    title: 'Fresh Maize',
+    subtitle: 'Premium quality, harvested this season',
+    price: '₦32,500/ton',
+    icon: Icons.eco_outlined,
+    color: Color(0xFF059669),
+  ),
+  _MarketplacePreviewItem(
+    title: 'Organic Tomatoes',
+    subtitle: 'Farm-fresh, pesticide-free produce',
+    price: '₦8,200/crate',
+    icon: Icons.spa_outlined,
+    color: Color(0xFFDC2626),
+  ),
+  _MarketplacePreviewItem(
+    title: 'Watermelon',
+    subtitle: 'Sweet & juicy, direct from farm',
+    price: '₦3,500/unit',
+    icon: Icons.water_drop_outlined,
+    color: Color(0xFF0891B2),
+  ),
+];
+
+/// Success stories / testimonials
+const List<_Testimonial> _testimonials = [
+  _Testimonial(
+    quote: 'FAMHUB transformed how I sell my produce. I now reach buyers across three states without leaving my farm.',
+    name: 'Chidi Okonkwo',
+    role: 'Cassava Farmer',
+    location: 'Benue State',
+    avatarColor: Color(0xFF059669),
+  ),
+  _Testimonial(
+    quote: 'The financing module helped me secure a loan to expand my poultry business. The process was seamless.',
+    name: 'Amina Yusuf',
+    role: 'Poultry Farmer',
+    location: 'Kaduna State',
+    avatarColor: Color(0xFF7C3AED),
+  ),
+  _Testimonial(
+    quote: 'As a trader, the real-time market prices and logistics tracking have been game-changers for my business.',
+    name: 'Emeka Okafor',
+    role: 'Agricultural Trader',
+    location: 'Lagos State',
+    avatarColor: Color(0xFF0891B2),
+  ),
+  _Testimonial(
+    quote: 'Our cooperative reduced post-harvest losses by 40% using FAMHUB\'s storage and logistics coordination.',
+    name: 'Grace Mwangi',
+    role: 'Cooperative Leader',
+    location: 'Nakuru, Kenya',
+    avatarColor: Color(0xFFD97706),
+  ),
+];
+
 class FamhubHomePage extends ConsumerWidget {
   /// Optional callback for the exploration banner's "Sign In" button.
   /// When set, the banner's button uses this instead of the default session gate flow.
@@ -200,12 +335,56 @@ class FamhubHomePage extends ConsumerWidget {
               child: SingleChildScrollView(
                 child: Column(
                   children: [
-                    // ── Hero Section ──
-                    _buildHeroSection(theme, colorScheme, isMobile),
+                    // ════════════════════════════════════════════
+                    // SECTION 1: SPLIT-SCREEN HERO CAROUSEL
+                    // ════════════════════════════════════════════
+                    _buildHeroSection(context, theme, colorScheme, isMobile),
 
-                    // ── Ecosystem Modules Grid ──
-                    _buildModulesSection(
+                    // ════════════════════════════════════════════
+                    // SECTION 2: IMPACT NUMBERS (Count-up style)
+                    // ════════════════════════════════════════════
+                    _buildImpactSection(theme, colorScheme, isMobile, isTablet, size),
+
+                    // ════════════════════════════════════════════
+                    // SECTION 3: FAMHUB MODULES (2 vertical + scrollable)
+                    // ════════════════════════════════════════════
+                    _buildFamhubModulesSection(
                       context, theme, colorScheme, isMobile, isTablet, size,
+                    ),
+
+                    // ════════════════════════════════════════════
+                    // SECTION 4: MARKETPLACE LISTINGS PREVIEW
+                    // ════════════════════════════════════════════
+                    _buildMarketplacePreview(
+                      context, theme, colorScheme, isMobile,
+                    ),
+
+                    // ════════════════════════════════════════════
+                    // SECTION 5: WHY CHOOSE FAMHUB
+                    // ════════════════════════════════════════════
+                    _buildWhyChooseSection(
+                      theme, colorScheme, isMobile, isTablet, size,
+                    ),
+
+                    // ════════════════════════════════════════════
+                    // SECTION 6: SUCCESS STORIES / TESTIMONIALS
+                    // ════════════════════════════════════════════
+                    _buildTestimonialSection(
+                      context, theme, colorScheme, isMobile,
+                    ),
+
+                    // ════════════════════════════════════════════
+                    // SECTION 7: FINAL CTA
+                    // ════════════════════════════════════════════
+                    _buildFinalCtaSection(
+                      theme, colorScheme, isMobile,
+                    ),
+
+                    // ════════════════════════════════════════════
+                    // SECTION 8: FOOTER
+                    // ════════════════════════════════════════════
+                    _buildFooterSection(
+                      theme, colorScheme, isMobile, isTablet, size,
                     ),
                   ],
                 ),
@@ -217,83 +396,74 @@ class FamhubHomePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeroSection(
+  /// ── SECTION 2: IMPACT NUMBERS ──
+  Widget _buildImpactSection(
     ThemeData theme,
     ColorScheme colorScheme,
     bool isMobile,
+    bool isTablet,
+    Size size,
   ) {
+    final itemWidth = isMobile
+        ? (size.width - 48) / 2
+        : isTablet
+            ? (size.width - 64) / 4
+            : (size.width - 80) / 4;
+
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(
-        24,
-        isMobile ? 24 : 40,
-        24,
-        isMobile ? 24 : 32,
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 16 : 24,
+        vertical: isMobile ? 32 : 48,
       ),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colorScheme.primary.withValues(alpha: 0.06),
-            colorScheme.surface,
-          ],
+        color: colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
         ),
       ),
       child: Column(
         children: [
-          // ── Logo ──
-          Container(
-            width: isMobile ? 64 : 80,
-            height: isMobile ? 64 : 80,
-            decoration: BoxDecoration(
-              color: colorScheme.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(isMobile ? 16 : 20),
-            ),
-            child: Icon(
-              Icons.agriculture_rounded,
-              size: isMobile ? 32 : 40,
-              color: colorScheme.primary,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // ── Title ──
+          // Section header
           Text(
-            'FAMHUB',
-            style: theme.textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.w800,
+            'FAMHUB by the Numbers',
+            style: TextStyle(
+              fontSize: isMobile ? 20 : 28,
+              fontWeight: FontWeight.w700,
               color: colorScheme.onSurface,
-              letterSpacing: 1.5,
             ),
           ),
-          const SizedBox(height: 8),
-
-          // ── Tagline ──
+          const SizedBox(height: 6),
           Text(
-            'The Agricultural Ecosystem',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: colorScheme.primary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          Text(
-            'Explore every part of the ecosystem.\nNo account required.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
+            'Real impact across the agricultural ecosystem',
+            style: TextStyle(
+              fontSize: isMobile ? 13 : 15,
               color: colorScheme.onSurfaceVariant,
-              height: 1.4,
             ),
+          ),
+          SizedBox(height: isMobile ? 24 : 32),
+
+          // Stats grid
+          Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            alignment: WrapAlignment.center,
+            children: _impactStats.map((stat) {
+              return SizedBox(
+                width: itemWidth,
+                child: _ImpactStatCard(stat: stat, colorScheme: colorScheme, theme: theme),
+              );
+            }).toList(),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildModulesSection(
+  /// ── SECTION 3: FAMHUB MODULES ──
+  /// First two modules are displayed vertically (stacked).
+  /// The rest are shown in a horizontally scrollable row with compact cards.
+  Widget _buildFamhubModulesSection(
     BuildContext context,
     ThemeData theme,
     ColorScheme colorScheme,
@@ -301,56 +471,634 @@ class FamhubHomePage extends ConsumerWidget {
     bool isTablet,
     Size size,
   ) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+    // First two modules (featured) — displayed prominently
+    final featuredModules = _allModuleCards.take(2).toList();
+    // Remaining modules — shown in horizontal scroll
+    final scrollModules = _allModuleCards.skip(2).toList();
+
+    // On mobile, if there are few modules, just show a grid
+    final cardWidth = isMobile
+        ? size.width * 0.7
+        : isTablet
+            ? 280.0
+            : 240.0;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(
+        isMobile ? 16 : 24,
+        isMobile ? 24 : 40,
+        isMobile ? 16 : 24,
+        isMobile ? 24 : 40,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 8, bottom: 16),
-            child: Text(
-              'Explore the Ecosystem',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: colorScheme.onSurface,
+          // Section header
+          Text(
+            'Explore the Ecosystem',
+            style: TextStyle(
+              fontSize: isMobile ? 20 : 28,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Everything you need to thrive in agriculture',
+            style: TextStyle(
+              fontSize: isMobile ? 13 : 15,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          SizedBox(height: isMobile ? 20 : 28),
+
+          // ── Featured modules (first 2) — vertical stack ──
+          ...featuredModules.map(
+            (card) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _ModuleCardWidget(
+                card: card,
+                colorScheme: colorScheme,
+                theme: theme,
+                onTap: () => _openModule(context, card),
               ),
             ),
           ),
 
-          // ── Module Cards Grid ──
-          if (isMobile)
-            ..._allModuleCards.map(
-              (card) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _ModuleCardWidget(
-                  card: card,
-                  colorScheme: colorScheme,
-                  theme: theme,
-                  onTap: () => _openModule(context, card),
-                ),
+          SizedBox(height: isMobile ? 16 : 20),
+
+          // ── Section label for scrollable modules ──
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              'More Modules',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: colorScheme.onSurfaceVariant,
               ),
-            )
-          else
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: _allModuleCards
-                  .map(
-                    (card) => SizedBox(
-                      width: isTablet
-                          ? (size.width - 56) / 2
-                          : (size.width - 56) / 3,
-                      child: _ModuleCardWidget(
-                        card: card,
-                        colorScheme: colorScheme,
-                        theme: theme,
-                        onTap: () => _openModule(context, card),
+            ),
+          ),
+
+          // ── Scrollable horizontal row ──
+          SizedBox(
+            height: 120,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.zero,
+              itemCount: scrollModules.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
+                final card = scrollModules[index];
+                return SizedBox(
+                  width: cardWidth,
+                  child: _CompactModuleCard(
+                    card: card,
+                    colorScheme: colorScheme,
+                    theme: theme,
+                    onTap: () => _openModule(context, card),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// ── SECTION 4: MARKETPLACE LISTINGS PREVIEW ──
+  Widget _buildMarketplacePreview(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+    bool isMobile,
+  ) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(
+        isMobile ? 16 : 24,
+        isMobile ? 24 : 40,
+        isMobile ? 16 : 24,
+        isMobile ? 24 : 40,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section header with action
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Marketplace Listings',
+                      style: TextStyle(
+                        fontSize: isMobile ? 20 : 28,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.onSurface,
                       ),
                     ),
-                  )
-                  .toList(),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Fresh produce, verified sellers, fair prices',
+                      style: TextStyle(
+                        fontSize: isMobile ? 13 : 15,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: () => _openModule(context, _allModuleCards.firstWhere((c) => c.id == 'marketplace')),
+                style: TextButton.styleFrom(
+                  foregroundColor: colorScheme.primary,
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'View All',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    SizedBox(width: 4),
+                    Icon(Icons.arrow_forward_rounded, size: 16),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 24),
+
+          // Preview cards
+          ..._marketplacePreviews.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _MarketplacePreviewCard(
+                item: item,
+                colorScheme: colorScheme,
+                theme: theme,
+              ),
             ),
+          ),
         ],
+      ),
+    );
+  }
+
+  /// ── SECTION 5: WHY CHOOSE FAMHUB ──
+  Widget _buildWhyChooseSection(
+    ThemeData theme,
+    ColorScheme colorScheme,
+    bool isMobile,
+    bool isTablet,
+    Size size,
+  ) {
+    const items = <_WhyChooseItem>[
+      _WhyChooseItem(
+        icon: Icons.verified_outlined,
+        title: 'Trusted & Verified',
+        description: 'Every user, product, and transaction is verified for your peace of mind.',
+        color: Color(0xFF059669),
+      ),
+      _WhyChooseItem(
+        icon: Icons.phone_iphone_outlined,
+        title: 'Works Offline-First',
+        description: 'Access critical features even without internet. Syncs when you reconnect.',
+        color: Color(0xFF0891B2),
+      ),
+      _WhyChooseItem(
+        icon: Icons.language_outlined,
+        title: 'Multi-Lingual',
+        description: 'Available in English, Hausa, Yoruba, Igbo, and more local languages.',
+        color: Color(0xFF7C3AED),
+      ),
+      _WhyChooseItem(
+        icon: Icons.people_outline,
+        title: 'For Everyone',
+        description: 'Designed for farmers, traders, cooperatives, and agribusinesses of all sizes.',
+        color: Color(0xFFD97706),
+      ),
+      _WhyChooseItem(
+        icon: Icons.security_outlined,
+        title: 'Secure Transactions',
+        description: 'End-to-end encrypted payments, contracts, and data protection.',
+        color: Color(0xFFDC2626),
+      ),
+      _WhyChooseItem(
+        icon: Icons.support_outlined,
+        title: '24/7 Support',
+        description: 'Dedicated support team available in multiple languages via chat and phone.',
+        color: Color(0xFF059669),
+      ),
+    ];
+
+    final crossAxisCount = isMobile ? 1 : (isTablet ? 2 : 3);
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(
+        isMobile ? 16 : 24,
+        isMobile ? 32 : 48,
+        isMobile ? 16 : 24,
+        isMobile ? 32 : 48,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        border: Border(
+          bottom: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        ),
+      ),
+      child: Column(
+        children: [
+          Text(
+            'Why Choose FAMHUB?',
+            style: TextStyle(
+              fontSize: isMobile ? 20 : 28,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Built for the African agricultural ecosystem',
+            style: TextStyle(
+              fontSize: isMobile ? 13 : 15,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          SizedBox(height: isMobile ? 20 : 28),
+
+          // Grid
+          ...List.generate(
+            (items.length / crossAxisCount).ceil(),
+            (rowIndex) {
+              final start = rowIndex * crossAxisCount;
+              final end = (start + crossAxisCount).clamp(0, items.length);
+              final rowItems = items.sublist(start, end);
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  children: rowItems
+                      .map(
+                        (item) => Expanded(
+                          child: _WhyChooseCard(
+                            item: item,
+                            colorScheme: colorScheme,
+                            theme: theme,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// ── SECTION 6: SUCCESS STORIES / TESTIMONIALS ──
+  Widget _buildTestimonialSection(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+    bool isMobile,
+  ) {
+    final size = MediaQuery.of(context).size;
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(
+        isMobile ? 16 : 24,
+        isMobile ? 32 : 48,
+        isMobile ? 16 : 24,
+        isMobile ? 32 : 48,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        ),
+      ),
+      child: Column(
+        children: [
+          Text(
+            'Success Stories',
+            style: TextStyle(
+              fontSize: isMobile ? 20 : 28,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Hear from our community members',
+            style: TextStyle(
+              fontSize: isMobile ? 13 : 15,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          SizedBox(height: isMobile ? 20 : 28),
+
+          // Testimonial cards
+          SizedBox(
+            height: isMobile ? 280 : 240,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.zero,
+              itemCount: _testimonials.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 16),
+              itemBuilder: (context, index) {
+                final testimonial = _testimonials[index];
+                return SizedBox(
+                  width: isMobile ? size.width * 0.8 : 380,
+                  child: _TestimonialCard(
+                    testimonial: testimonial,
+                    colorScheme: colorScheme,
+                    theme: theme,
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// ── SECTION 7: FINAL CALL-TO-ACTION ──
+  Widget _buildFinalCtaSection(
+    ThemeData theme,
+    ColorScheme colorScheme,
+    bool isMobile,
+  ) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(
+        isMobile ? 16 : 24,
+        isMobile ? 40 : 64,
+        isMobile ? 16 : 24,
+        isMobile ? 40 : 64,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.primary,
+            colorScheme.primary.withValues(alpha: 0.85),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.rocket_launch_rounded,
+            size: 48,
+            color: colorScheme.onPrimary,
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          Text(
+            'Ready to Transform Your\nAgricultural Journey?',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: isMobile ? 22 : 32,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.onPrimary,
+              height: 1.2,
+            ),
+          ),
+          SizedBox(height: isMobile ? 12 : 16),
+          Text(
+            'Join thousands of farmers, traders, and agribusinesses\nalready growing with FAMHUB.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: isMobile ? 14 : 16,
+              color: colorScheme.onPrimary.withValues(alpha: 0.9),
+              height: 1.4,
+            ),
+          ),
+          SizedBox(height: isMobile ? 24 : 32),
+          ElevatedButton.icon(
+            onPressed: onExploreSignIn,
+            icon: const Icon(Icons.person_add_outlined, size: 20),
+            label: Text(
+              'Create Your Free Account',
+              style: TextStyle(
+                fontSize: isMobile ? 15 : 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: colorScheme.primary,
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 28 : 36,
+                vertical: 16,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              elevation: 4,
+            ),
+          ),
+          SizedBox(height: isMobile ? 12 : 16),
+          TextButton(
+            onPressed: () {
+              // Scroll back to explore modules
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: colorScheme.onPrimary.withValues(alpha: 0.85),
+            ),
+            child: const Text(
+              'Explore first — no account needed',
+              style: TextStyle(fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// ── SECTION 8: FOOTER ──
+  Widget _buildFooterSection(
+    ThemeData theme,
+    ColorScheme colorScheme,
+    bool isMobile,
+    bool isTablet,
+    Size size,
+  ) {
+    final columns = isMobile ? 1 : (isTablet ? 2 : 4);
+    const footerLinks = <_FooterLinkGroup>[
+      _FooterLinkGroup(
+        title: 'Platform',
+        links: ['Marketplace', 'Farm Management', 'Finance', 'Logistics', 'Knowledge'],
+      ),
+      _FooterLinkGroup(
+        title: 'Company',
+        links: ['About Us', 'Careers', 'Blog', 'Press Kit', 'Contact'],
+      ),
+      _FooterLinkGroup(
+        title: 'Support',
+        links: ['Help Center', 'FAQs', 'Community Forum', 'Report Issue', 'Status'],
+      ),
+      _FooterLinkGroup(
+        title: 'Legal',
+        links: ['Privacy Policy', 'Terms of Service', 'Cookie Policy', 'Data Processing', 'Licenses'],
+      ),
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(
+        isMobile ? 16 : 24,
+        isMobile ? 32 : 48,
+        isMobile ? 16 : 24,
+        isMobile ? 16 : 24,
+      ),
+      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Brand
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: colorScheme.primary,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.agriculture_rounded,
+                  color: colorScheme.onPrimary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'FAMHUB',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onSurface,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 20 : 24),
+
+          // Link columns
+          ...List.generate(
+            (footerLinks.length / columns).ceil(),
+            (rowIndex) {
+              final start = rowIndex * columns;
+              final end = (start + columns).clamp(0, footerLinks.length);
+              final rowLinks = footerLinks.sublist(start, end);
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 20),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: rowLinks
+                      .map(
+                        (group) => Expanded(
+                          child: _FooterLinkGroupWidget(
+                            group: group,
+                            colorScheme: colorScheme,
+                            theme: theme,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              );
+            },
+          ),
+
+          // Divider
+          Divider(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+          SizedBox(height: isMobile ? 12 : 16),
+
+          // Bottom bar
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '© 2025 FAMHUB. All rights reserved.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  _SocialIcon(icon: Icons.facebook_outlined, onTap: () {}),
+                  const SizedBox(width: 8),
+                  _SocialIcon(icon: Icons.alternate_email_outlined, onTap: () {}),
+                  const SizedBox(width: 8),
+                  _SocialIcon(icon: Icons.videocam_outlined, onTap: () {}),
+                ],
+              ),
+            ],
+          ),
+
+          SizedBox(height: isMobile ? 16 : 24),
+        ],
+      ),
+    );
+  }
+
+  /// ── PREMIUM SPLIT-SCREEN HERO ──
+  /// Uses SplitScreenHero which always renders as a horizontal
+  /// 30/70 split — adapts font sizes and spacing on narrow screens.
+  Widget _buildHeroSection(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+    bool isMobile,
+  ) {
+    final size = MediaQuery.of(context).size;
+    
+    // Full viewport height minus the exploration banner (if shown)
+    final heroHeight = size.height * 0.88;
+
+    return SizedBox(
+      width: double.infinity,
+      height: heroHeight,
+      child: ClipRRect(
+        borderRadius: isMobile
+            ? const BorderRadius.vertical(bottom: Radius.circular(24))
+            : BorderRadius.zero,
+        child: SplitScreenHero(
+          onGetStarted: () {
+            // "Get Started" triggers sign in via the exploration banner's callback
+            onExploreSignIn?.call();
+          },
+          onExploreAsGuest: () {
+            // Already exploring — no action needed
+          },
+        ),
       ),
     );
   }
@@ -579,7 +1327,7 @@ class _ExplorationBanner extends StatelessWidget {
 }
 
 /// ─────────────────────────────────────────────────────────────
-/// MODULE CARD WIDGET
+/// MODULE CARD WIDGET (Full-width)
 /// ─────────────────────────────────────────────────────────────
 class _ModuleCardWidget extends StatelessWidget {
   final _ModuleCardData card;
@@ -662,6 +1410,485 @@ class _ModuleCardWidget extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// ─────────────────────────────────────────────────────────────
+/// COMPACT MODULE CARD (Horizontal scroll variant)
+/// ─────────────────────────────────────────────────────────────
+class _CompactModuleCard extends StatelessWidget {
+  final _ModuleCardData card;
+  final ColorScheme colorScheme;
+  final ThemeData theme;
+  final VoidCallback onTap;
+
+  const _CompactModuleCard({
+    required this.card,
+    required this.colorScheme,
+    required this.theme,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: colorScheme.surface,
+      borderRadius: BorderRadius.circular(14),
+      elevation: 0,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: colorScheme.outlineVariant),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: card.color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(card.icon, size: 18, color: card.color),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 16,
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                card.title,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                card.description,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontSize: 11,
+                  height: 1.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// ─────────────────────────────────────────────────────────────
+/// IMPACT STAT CARD
+/// ─────────────────────────────────────────────────────────────
+class _ImpactStatCard extends StatelessWidget {
+  final _ImpactStat stat;
+  final ColorScheme colorScheme;
+  final ThemeData theme;
+
+  const _ImpactStatCard({
+    required this.stat,
+    required this.colorScheme,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+      decoration: BoxDecoration(
+        color: stat.color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: stat.color.withValues(alpha: 0.15),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(stat.icon, size: 28, color: stat.color),
+          const SizedBox(height: 8),
+          Text(
+            stat.value,
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: stat.color,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            stat.label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ─────────────────────────────────────────────────────────────
+/// MARKETPLACE PREVIEW CARD
+/// ─────────────────────────────────────────────────────────────
+class _MarketplacePreviewCard extends StatelessWidget {
+  final _MarketplacePreviewItem item;
+  final ColorScheme colorScheme;
+  final ThemeData theme;
+
+  const _MarketplacePreviewCard({
+    required this.item,
+    required this.colorScheme,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          // Product icon
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: item.color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(item.icon, size: 24, color: item.color),
+          ),
+          const SizedBox(width: 14),
+
+          // Details
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  item.subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Price
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              item.price,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+                color: colorScheme.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ─────────────────────────────────────────────────────────────
+/// WHY CHOOSE ITEM DATA
+/// ─────────────────────────────────────────────────────────────
+class _WhyChooseItem {
+  final IconData icon;
+  final String title;
+  final String description;
+  final Color color;
+
+  const _WhyChooseItem({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.color,
+  });
+}
+
+/// ─────────────────────────────────────────────────────────────
+/// WHY CHOOSE CARD
+/// ─────────────────────────────────────────────────────────────
+class _WhyChooseCard extends StatelessWidget {
+  final _WhyChooseItem item;
+  final ColorScheme colorScheme;
+  final ThemeData theme;
+
+  const _WhyChooseCard({
+    required this.item,
+    required this.colorScheme,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: item.color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(item.icon, size: 22, color: item.color),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            item.title,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            item.description,
+            style: TextStyle(
+              fontSize: 12,
+              color: colorScheme.onSurfaceVariant,
+              height: 1.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ─────────────────────────────────────────────────────────────
+/// TESTIMONIAL CARD
+/// ─────────────────────────────────────────────────────────────
+class _TestimonialCard extends StatelessWidget {
+  final _Testimonial testimonial;
+  final ColorScheme colorScheme;
+  final ThemeData theme;
+
+  const _TestimonialCard({
+    required this.testimonial,
+    required this.colorScheme,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Quote mark
+          Icon(
+            Icons.format_quote_rounded,
+            size: 36,
+            color: testimonial.avatarColor.withValues(alpha: 0.3),
+          ),
+          const SizedBox(height: 4),
+          // Quote text
+          Expanded(
+            child: Text(
+              testimonial.quote,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: colorScheme.onSurface,
+                height: 1.4,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Author info
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: testimonial.avatarColor.withValues(alpha: 0.2),
+                child: Text(
+                  testimonial.name.isNotEmpty
+                      ? testimonial.name[0]
+                      : '?',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    color: testimonial.avatarColor,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      testimonial.name,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    Text(
+                      '${testimonial.role} · ${testimonial.location}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ─────────────────────────────────────────────────────────────
+/// FOOTER LINK GROUP
+/// ─────────────────────────────────────────────────────────────
+class _FooterLinkGroup {
+  final String title;
+  final List<String> links;
+
+  const _FooterLinkGroup({
+    required this.title,
+    required this.links,
+  });
+}
+
+/// ─────────────────────────────────────────────────────────────
+/// FOOTER LINK GROUP WIDGET
+/// ─────────────────────────────────────────────────────────────
+class _FooterLinkGroupWidget extends StatelessWidget {
+  final _FooterLinkGroup group;
+  final ColorScheme colorScheme;
+  final ThemeData theme;
+
+  const _FooterLinkGroupWidget({
+    required this.group,
+    required this.colorScheme,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          group.title,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+            color: colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: 8),
+        ...group.links.map(
+          (link) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: InkWell(
+              onTap: () {},
+              child: Text(
+                link,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// ─────────────────────────────────────────────────────────────
+/// SOCIAL ICON
+/// ─────────────────────────────────────────────────────────────
+class _SocialIcon extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _SocialIcon({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Icon(icon, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
       ),
     );
   }
