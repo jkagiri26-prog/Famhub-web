@@ -302,7 +302,7 @@ class FamhubHomePage extends ConsumerWidget {
     Size size,
   ) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, 16, 16, 32),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

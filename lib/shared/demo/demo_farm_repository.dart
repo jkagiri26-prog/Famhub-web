@@ -384,7 +384,7 @@ class DemoFarmRepository implements FarmRepository {
 
   // Production records are associated with farm via assetId in this demo
   static final List<_DemoProductionRecord> _sampleProduction = [
-    _DemoProductionRecord(
+    const _DemoProductionRecord(
       farmId: farm1Id,
       id: 'demo-prod-001',
       activityId: 'demo-act-003',
@@ -395,7 +395,7 @@ class DemoFarmRepository implements FarmRepository {
       assetId: 'demo-asset-001',
       fieldId: 'demo-field-001',
     ),
-    _DemoProductionRecord(
+    const _DemoProductionRecord(
       farmId: farm1Id,
       id: 'demo-prod-002',
       activityId: null,
@@ -406,7 +406,7 @@ class DemoFarmRepository implements FarmRepository {
       assetId: 'demo-asset-001',
       fieldId: 'demo-field-002',
     ),
-    _DemoProductionRecord(
+    const _DemoProductionRecord(
       farmId: farm1Id,
       id: 'demo-prod-003',
       activityId: null,

@@ -76,7 +76,7 @@ class SupabaseSpatialRepository implements SpatialRepository {
         .maybeSingle();
 
     if (response == null) return null;
-    return SpatialAsset.fromJson(response as Map<String, dynamic>);
+    return SpatialAsset.fromJson(response);
   }
 
   @override
@@ -175,7 +175,7 @@ class SupabaseSpatialRepository implements SpatialRepository {
         .maybeSingle();
 
     if (response == null) return null;
-    return CaptureSession.fromJson(response as Map<String, dynamic>);
+    return CaptureSession.fromJson(response);
   }
 
   @override
@@ -193,7 +193,7 @@ class SupabaseSpatialRepository implements SpatialRepository {
         .select()
         .single();
 
-    return CaptureSession.fromJson(response as Map<String, dynamic>);
+    return CaptureSession.fromJson(response);
   }
 
   @override
@@ -257,7 +257,7 @@ class SupabaseSpatialRepository implements SpatialRepository {
         .select()
         .single();
 
-    return CapturePoint.fromJson(response as Map<String, dynamic>);
+    return CapturePoint.fromJson(response);
   }
 
   // ============================================================

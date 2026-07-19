@@ -263,16 +263,16 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
           },
         );
       },
-      loading: () => const DropdownButtonFormField<String>(
-        decoration: InputDecoration(
+      loading: () => DropdownButtonFormField<String>(
+        decoration: const InputDecoration(
           prefixIcon: Icon(Icons.public_outlined),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.all(Radius.circular(12)),
           ),
         ),
-        items: [],
+        items: const [],
         onChanged: null,
-        hint: Text('Loading countries...'),
+        hint: const Text('Loading countries...'),
       ),
       error: (err, _) => TextFormField(
         decoration: InputDecoration(
@@ -298,7 +298,7 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        items: [],
+        items: const [],
         onChanged: null,
         hint: const Text('Select a country first'),
       );
@@ -365,16 +365,16 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
           },
         );
       },
-      loading: () => const DropdownButtonFormField<String>(
-        decoration: InputDecoration(
+      loading: () => DropdownButtonFormField<String>(
+        decoration: const InputDecoration(
           prefixIcon: Icon(Icons.map_outlined),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.all(Radius.circular(12)),
           ),
         ),
-        items: [],
+        items: const [],
         onChanged: null,
-        hint: Text('Loading counties...'),
+        hint: const Text('Loading counties...'),
       ),
       error: (err, _) => TextFormField(
         decoration: InputDecoration(
@@ -407,7 +407,7 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        items: [],
+        items: const [],
         onChanged: null,
         hint: const Text('Select a county first'),
       );
@@ -462,16 +462,16 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
           },
         );
       },
-      loading: () => const DropdownButtonFormField<String>(
-        decoration: InputDecoration(
+      loading: () => DropdownButtonFormField<String>(
+        decoration: const InputDecoration(
           prefixIcon: Icon(Icons.flag_outlined),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        items: [],
+        items: const [],
         onChanged: null,
-        hint: Text('Loading sub-counties...'),
+        hint: const Text('Loading sub-counties...'),
       ),
       error: (err, _) => TextFormField(
         decoration: InputDecoration(
@@ -498,7 +498,7 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        items: [],
+        items: const [],
         onChanged: null,
         hint: const Text('Select a sub-county first'),
       );
@@ -550,21 +550,21 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
           },
         );
       },
-      loading: () => const DropdownButtonFormField<String>(
-        decoration: InputDecoration(
+      loading: () => DropdownButtonFormField<String>(
+        decoration: const InputDecoration(
           prefixIcon: Icon(Icons.place_outlined),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        items: [],
+        items: const [],
         onChanged: null,
-        hint: Text('Loading wards...'),
+        hint: const Text('Loading wards...'),
       ),
       error: (err, _) => TextFormField(
-        decoration: InputDecoration(
+        decoration: const InputDecoration(
           hintText: 'Enter ward (optional)',
-          prefixIcon: const Icon(Icons.place_outlined),
+          prefixIcon: Icon(Icons.place_outlined),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
           ),

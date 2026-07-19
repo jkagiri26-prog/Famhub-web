@@ -10,6 +10,7 @@
 ///   - Offer sign-up/sign-in prompts
 ///   - Only appears for unauthenticated visitors
 /// ============================================================
+library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

@@ -21,6 +21,7 @@
 ///   The frontend should only consume the runtime,
 ///   never backend tables directly.
 /// ============================================================
+library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

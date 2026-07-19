@@ -446,7 +446,7 @@ class SdkApiGuard {
     final violations = <String>[];
 
     // Verify major.minor.patch are consistent
-    final expected = '${SdkVersion.major}.${SdkVersion.minor}.${SdkVersion.patch}';
+    const expected = '${SdkVersion.major}.${SdkVersion.minor}.${SdkVersion.patch}';
     if (SdkVersion.current != expected) {
       violations.add(
         'SdkVersion.current ("${SdkVersion.current}") does not match '

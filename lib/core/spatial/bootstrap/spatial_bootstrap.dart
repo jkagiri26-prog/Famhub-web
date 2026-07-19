@@ -52,7 +52,7 @@ Future<void> bootstrapSpatial() async {
   // Log completion
   // ignore: avoid_print
   print('[SPATIAL] Bootstrap complete — '
-      '${SpatialCompositionBridge().registeredCount} spatial modules registered');
+      '${const SpatialCompositionBridge().registeredCount} spatial modules registered');
 }
 
 /// ============================================================

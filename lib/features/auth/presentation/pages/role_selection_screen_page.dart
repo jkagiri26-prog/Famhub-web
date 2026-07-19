@@ -20,6 +20,7 @@
 ///   - Gate features by role
 ///   - Send role data to backend
 /// ============================================================
+library;
 
 import 'package:flutter/material.dart';
 

@@ -16,6 +16,7 @@
 ///   - Contain business logic
 ///   - Know about routing internals
 /// ============================================================
+library;
 
 import 'package:flutter/material.dart';
 
@@ -159,7 +160,7 @@ class WelcomeScreenPage extends StatelessWidget {
 
                   // ── Ecosystem Features Grid ──
                   Padding(
-                    padding: EdgeInsets.fromLTRB(
+                    padding: const EdgeInsets.fromLTRB(
                       24, 24, 24, 32,
                     ),
                     child: Column(

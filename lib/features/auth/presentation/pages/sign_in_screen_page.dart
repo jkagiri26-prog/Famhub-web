@@ -21,6 +21,7 @@
 ///   - Know about routing
 ///   - Contain business logic
 /// ============================================================
+library;
 
 import 'package:flutter/material.dart';
 import 'package:famhub_app/core/services/auth_service.dart';

@@ -10,6 +10,7 @@
 ///   - Provide realistic sample listings for demo mode
 ///   - Never access Supabase
 /// ============================================================
+library;
 
 import 'package:famhub_app/features/marketplace/domain/entities/listing.dart';
 import 'package:famhub_app/features/marketplace/domain/enums/listing_status.dart';

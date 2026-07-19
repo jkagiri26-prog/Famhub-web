@@ -310,7 +310,7 @@ class _FamhubHomeFlow extends ConsumerStatefulWidget {
 }
 
 class _FamhubHomeFlowState extends ConsumerState<_FamhubHomeFlow> {
-  bool _showAuth = false;
+  final bool _showAuth = false;
 
   void _navigateToSignIn() {
     final navigator = Navigator.of(context);

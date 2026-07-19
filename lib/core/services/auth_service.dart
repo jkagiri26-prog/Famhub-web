@@ -90,7 +90,7 @@ class AuthService {
     } on AuthException catch (e) {
       return OtpSendResult(success: false, error: _mapAuthError(e));
     } catch (e) {
-      return OtpSendResult(
+      return const OtpSendResult(
         success: false,
         error: 'Network error. Please check your connection and try again.',
       );
@@ -142,7 +142,7 @@ class AuthService {
     } on AuthException catch (e) {
       return OtpVerifyResult(success: false, error: _mapAuthError(e));
     } catch (e) {
-      return OtpVerifyResult(
+      return const OtpVerifyResult(
         success: false,
         error: 'Network error. Please check your connection and try again.',
       );
