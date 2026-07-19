@@ -1081,7 +1081,7 @@ class FamhubHomePage extends ConsumerWidget {
     final size = MediaQuery.of(context).size;
     
     // Full viewport height minus the exploration banner (if shown)
-    final heroHeight = size.height * 0.50;
+    final heroHeight = size.height * 0.25;
 
     return SizedBox(
       width: double.infinity,
