@@ -25,6 +25,137 @@ class FarmRepositoryImpl implements FarmRepository {
   })  : _client = client ?? Supabase.instance.client,
         _kpiService = kpiService ?? KpiAutomationService(client: client ?? Supabase.instance.client);
 
+    // ── Farm CRUD ──
+
+  @override
+  Future<FarmEntity?> getFarm({required String farmId}) async {
+    try {
+      final response = await _client
+          .from('farms')
+          .select()
+          .eq('id', farmId)
+          .maybeSingle();
+      if (response == null) return null;
+      return FarmEntity(
+        id: response['id'] as String,
+        farmName: response['farm_name'] as String,
+        description: response['description'] as String?,
+        size: (response['size'] as num?)?.toDouble(),
+        isActive: response['is_active'] as bool? ?? true,
+        isVerified: response['is_verified'] as bool? ?? false,
+      );
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to load farm: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to load farm: $e');
+    }
+  }
+
+  @override
+  Future<List<FarmEntity>> getFarms() async {
+    return getUserFarms();
+  }
+
+  @override
+  Future<FarmEntity> createFarm({required FarmEntity farm}) async {
+    try {
+      final response = await _client
+          .from('farms')
+          .insert({
+            'farm_name': farm.farmName,
+            'description': farm.description,
+            'size': farm.size,
+            'is_active': farm.isActive,
+            'is_verified': farm.isVerified,
+          })
+          .select()
+          .single();
+      return FarmEntity(
+        id: response['id'] as String,
+        farmName: response['farm_name'] as String,
+        description: response['description'] as String?,
+        size: (response['size'] as num?)?.toDouble(),
+        isActive: response['is_active'] as bool? ?? true,
+        isVerified: response['is_verified'] as bool? ?? false,
+      );
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to create farm: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to create farm: $e');
+    }
+  }
+
+  @override
+  Future<FarmEntity> updateFarm({required FarmEntity farm}) async {
+    try {
+      final response = await _client
+          .from('farms')
+          .update({
+            'farm_name': farm.farmName,
+            'description': farm.description,
+            'size': farm.size,
+            'is_active': farm.isActive,
+            'is_verified': farm.isVerified,
+          })
+          .eq('id', farm.id)
+          .select()
+          .single();
+      return FarmEntity(
+        id: response['id'] as String,
+        farmName: response['farm_name'] as String,
+        description: response['description'] as String?,
+        size: (response['size'] as num?)?.toDouble(),
+        isActive: response['is_active'] as bool? ?? true,
+        isVerified: response['is_verified'] as bool? ?? false,
+      );
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to update farm: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to update farm: $e');
+    }
+  }
+
+  @override
+  Future<void> deleteFarm({required String farmId}) async {
+    try {
+      await _client.from('farms').update({'is_active': false}).eq('id', farmId);
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to delete farm: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to delete farm: $e');
+    }
+  }
+
+  @override
+  Future<void> refreshDashboard({required String farmId}) async {
+    // Provider invalidation handles the actual refresh.
+    // This is a lifecycle hook for any server-side refresh needed.
+    try {
+      await _client.from('farm_kpis').select('id').eq('farm_id', farmId).maybeSingle();
+    } catch (_) {
+      // Non-critical
+    }
+  }
+
+  @override
+  Future<void> refreshFarm({required String farmId}) async {
+    try {
+      await _client.from('farms').select('id').eq('id', farmId).maybeSingle();
+    } catch (_) {
+      // Non-critical
+    }
+  }
+
+  @override
+  Future<void> setCurrentFarm({required String farmId}) async {
+    // Handled by farmSelectorProvider — this is a lifecycle hook
+  }
+
+  @override
+  Future<void> clearCurrentFarm() async {
+    // Handled by farmSelectorProvider — this is a lifecycle hook
+  }
+
   // ── Dashboard ──
 
   @override

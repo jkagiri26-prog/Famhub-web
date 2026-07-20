@@ -119,6 +119,62 @@ class DemoFarmRepository implements FarmRepository {
     return DateTime(year, month, day);
   }
 
+  // ── Farm CRUD ──
+
+  @override
+  Future<FarmEntity?> getFarm({required String farmId}) async {
+    await Future.delayed(const Duration(milliseconds: 100));
+    try {
+      return _sampleFarms.firstWhere((f) => f.id == farmId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<List<FarmEntity>> getFarms() async {
+    await Future.delayed(const Duration(milliseconds: 150));
+    return _sampleFarms;
+  }
+
+  @override
+  Future<FarmEntity> createFarm({required FarmEntity farm}) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    return farm; // Simulated success
+  }
+
+  @override
+  Future<FarmEntity> updateFarm({required FarmEntity farm}) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    return farm; // Simulated success
+  }
+
+  @override
+  Future<void> deleteFarm({required String farmId}) async {
+    await Future.delayed(const Duration(milliseconds: 100));
+    // Simulated success
+  }
+
+  @override
+  Future<void> refreshDashboard({required String farmId}) async {
+    await Future.delayed(const Duration(milliseconds: 50));
+  }
+
+  @override
+  Future<void> refreshFarm({required String farmId}) async {
+    await Future.delayed(const Duration(milliseconds: 50));
+  }
+
+  @override
+  Future<void> setCurrentFarm({required String farmId}) async {
+    await Future.delayed(const Duration(milliseconds: 50));
+  }
+
+  @override
+  Future<void> clearCurrentFarm() async {
+    await Future.delayed(const Duration(milliseconds: 50));
+  }
+
   // ── Dashboard ──
 
   @override

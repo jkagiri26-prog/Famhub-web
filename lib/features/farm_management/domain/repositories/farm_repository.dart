@@ -12,25 +12,48 @@ import 'package:famhub_app/features/farm_management/domain/entities/production_e
 /// Note: This is intentionally *not* coupled to Supabase.
 /// Supabase (and RLS) will be handled inside the infrastructure layer.
 abstract class FarmRepository {
+  // ── Farm CRUD ──────────────────────────────────────────────
+  /// Get a single farm by ID
+  Future<FarmEntity?> getFarm({required String farmId});
+
+  /// Get all farms for the current user
+  Future<List<FarmEntity>> getFarms();
+
+  /// Create a new farm
+  Future<FarmEntity> createFarm({required FarmEntity farm});
+
+  /// Update an existing farm
+  Future<FarmEntity> updateFarm({required FarmEntity farm});
+
+  /// Delete a farm
+  Future<void> deleteFarm({required String farmId});
   // ── Dashboard ──────────────────────────────────────────────
   Future<FarmDashboardSummary> getDashboardSummary({required String farmId});
   Future<List<ActivityModel>> getTodayActivities({required String farmId});
   Future<List<FarmEntity>> getUserFarms();
+  // ── Dashboard Refresh ──────────────────────────────────────
+  /// Refresh all dashboard data for a given farm
+  Future<void> refreshDashboard({required String farmId});
+
+  /// Refresh a single farm entity
+  Future<void> refreshFarm({required String farmId});
+
+  /// Set the current active farm
+  Future<void> setCurrentFarm({required String farmId});
+
+  /// Clear the current farm selection
+  Future<void> clearCurrentFarm();
 
   // ── Crops ──────────────────────────────────────────────────
   Future<List<CropEntity>> getCrops({required String farmId});
   Future<void> createCrop({required String farmId, required CropEntity crop});
 
   // ── Livestock ──────────────────────────────────────────────
-
-
   Future<List<LivestockEntity>> getLivestock({required String farmId});
   Future<void> createLivestock({required String farmId, required LivestockEntity livestock});
-
   // ── Assets ─────────────────────────────────────────────────
   Future<List<AssetEntity>> getAssets({required String farmId});
   Future<void> createAsset({required String farmId, required AssetEntity asset});
-
 
 
 
@@ -85,7 +108,6 @@ abstract class FarmRepository {
 
   /// Get available stock for marketplace
   Future<Map<String, double>> getAvailableStock({required String farmId});
-
   // ── Financial Records ──────────────────────────────────────
   /// Record a financial transaction linked to an activity or production
   Future<void> recordFinancialTransaction({
