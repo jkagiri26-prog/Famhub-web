@@ -7,10 +7,11 @@
 ///   This is the ONLY service that should handle auth operations.
 ///
 /// ✅ RESPONSIBILITIES:
-///   - Send OTP (email or SMS) via Supabase signInWithOtp()
+///   - Send OTP via SMS (phone only) via Supabase signInWithOtp()
 ///   - Verify OTP via Supabase verifyOTP()
 ///   - Handle auth errors: invalid OTP, expired OTP, network failures
 ///   - Expose reactive auth state via stream
+///   - Confirm OTP was sent successfully
 ///
 /// ❌ Does NOT:
 ///   - Contain profile/business logic
@@ -28,7 +29,9 @@ import 'package:famhub_app/core/services/supabase_service.dart';
 class OtpSendResult {
   final bool success;
   final String? error;
-  const OtpSendResult({required this.success, this.error});
+  /// Whether Supabase confirmed the OTP was dispatched (no exception)
+  final bool confirmed;
+  const OtpSendResult({required this.success, this.error, this.confirmed = false});
 }
 
 /// Result of an OTP verification operation
@@ -59,34 +62,38 @@ class AuthService {
   /// Stream of auth state changes
   Stream<AuthState> get authStateChanges => _supabase.authStateChanges;
 
-  /// ============================================================
-  /// SEND OTP
+    /// ============================================================
+  /// SEND OTP (Phone only)
   /// ============================================================
   ///
-  /// Sends a one-time password to the user's email or phone.
+  /// Sends a one-time password to the user's phone via SMS.
+  /// This is the ONLY OTP delivery method.
   ///
-  /// [email] - Email address for email OTP
   /// [phone] - Phone number for SMS OTP
   ///
   /// Returns an [OtpSendResult] indicating success or failure.
+  /// The [confirmed] flag is true when Supabase dispatched the OTP.
   /// ============================================================
   Future<OtpSendResult> sendOtp({
     String? email,
     String? phone,
   }) async {
     try {
-      if (email != null && email.isNotEmpty) {
-        await _supabase.client.auth.signInWithOtp(email: email);
-      } else if (phone != null && phone.isNotEmpty) {
-        await _supabase.client.auth.signInWithOtp(phone: phone);
-      } else {
+      if (phone == null || phone.trim().isEmpty) {
         return const OtpSendResult(
           success: false,
-          error: 'Please provide an email or phone number.',
+          error: 'Please enter your phone number.',
         );
       }
 
-      return const OtpSendResult(success: true);
+      // Send OTP via Supabase Auth (phone SMS only)
+      await _supabase.client.auth.signInWithOtp(phone: phone);
+
+      // No exception means OTP was sent successfully
+      return const OtpSendResult(
+        success: true,
+        confirmed: true,
+      );
     } on AuthException catch (e) {
       return OtpSendResult(success: false, error: _mapAuthError(e));
     } catch (e) {
@@ -97,13 +104,12 @@ class AuthService {
     }
   }
 
-  /// ============================================================
-  /// VERIFY OTP
+    /// ============================================================
+  /// VERIFY OTP (Phone only)
   /// ============================================================
   ///
-  /// Verifies the OTP token sent to the user's email or phone.
+  /// Verifies the OTP token sent to the user's phone.
   ///
-  /// [email] - Email address (must match the one used in sendOtp)
   /// [phone] - Phone number (must match the one used in sendOtp)
   /// [token] - The OTP code entered by the user
   ///
@@ -115,24 +121,19 @@ class AuthService {
     required String token,
   }) async {
     try {
-      if (email != null && email.isNotEmpty) {
-        await _supabase.client.auth.verifyOTP(
-          email: email,
-          token: token,
-          type: OtpType.email,
-        );
-      } else if (phone != null && phone.isNotEmpty) {
-        await _supabase.client.auth.verifyOTP(
-          phone: phone,
-          token: token,
-          type: OtpType.sms,
-        );
-      } else {
+      if (phone == null || phone.trim().isEmpty) {
         return const OtpVerifyResult(
           success: false,
-          error: 'Please provide an email or phone number.',
+          error: 'Please provide your phone number.',
         );
       }
+
+      // Verify OTP via Supabase (phone/SMS only)
+      await _supabase.client.auth.verifyOTP(
+        phone: phone,
+        token: token,
+        type: OtpType.sms,
+      );
 
       final user = _supabase.currentUser;
       return OtpVerifyResult(
@@ -173,8 +174,11 @@ class AuthService {
     if (message.contains('network') || message.contains('timeout')) {
       return 'Network error. Please check your connection.';
     }
-    if (message.contains('not found')) {
-      return 'Account not found. Please check your details.';
+        if (message.contains('not found')) {
+      return 'Account not found. Please check your phone number.';
+    }
+    if (message.contains('phone') && message.contains('invalid')) {
+      return 'Invalid phone number. Use format: +2547XXXXXXXX.';
     }
     // Default: return the original message (safe for display)
     return e.message;

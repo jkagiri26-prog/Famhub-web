@@ -1,19 +1,20 @@
 /// ============================================================
-/// SIGN IN SCREEN — OTP-based authentication
+/// SIGN IN SCREEN — Phone OTP-only authentication
 /// ============================================================
 ///
 /// 🧠 LOCATION CONTEXT:
 ///   features/auth/presentation/pages/ = page layer
 ///
 /// ✅ Responsibilities:
-///   - Unified OTP authentication for sign-in and sign-up
-///   - Support phone, WhatsApp, and email as contact methods
+///   - Phone-only OTP authentication for sign-in and sign-up
+///   - No email, no WhatsApp — phone SMS OTP only
 ///   - Four-digit OTP verification
 ///   - Error display and loading state
+///   - Confirms OTP was sent successfully
 ///
 /// ✅ FLOW:
-///   1. User enters phone/email and selects contact method
-///   2. OTP is sent to chosen contact method
+///   1. User enters phone number
+///   2. OTP is sent via SMS (confirmed)
 ///   3. User enters 4-digit OTP
 ///   4. onAuthComplete is called on success
 ///
@@ -25,6 +26,25 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:famhub_app/core/services/auth_service.dart';
+import 'package:famhub_app/core/services/supabase_service.dart';
+
+/// Country code data model from core.countries table
+class _CountryCode {
+  final String id;
+  final String name;
+  final String dialingCode;
+  final String isoAlpha2;
+
+  const _CountryCode({
+    required this.id,
+    required this.name,
+    required this.dialingCode,
+    required this.isoAlpha2,
+  });
+
+  /// Get the dialing code with + prefix
+  String get dialingCodeWithPlus => '+$dialingCode';
+}
 
 /// Simple provider accessor for AuthService.
 /// Avoids requiring Riverpod in this pure widget.
@@ -36,30 +56,13 @@ class _AuthServiceProvider {
   }
 }
 
-/// Contact method for OTP delivery
-enum ContactMethod {
-  phone('Phone', Icons.phone_android_outlined),
-  whatsapp('WhatsApp', Icons.chat_outlined),
-  email('Email', Icons.email_outlined);
-
-  final String label;
-  final IconData icon;
-  const ContactMethod(this.label, this.icon);
-}
-
 class SignInScreenPage extends StatefulWidget {
   /// OTP flow: Called after OTP verification succeeds.
   /// Should return true on success, false on failure.
   final Future<bool> Function({
     required String contact,
-    required ContactMethod method,
     required String otp,
   })? onAuthenticate;
-
-  /// Email/password flow: sign in with credentials.
-  /// Returns true on success.
-  final Future<bool> Function(String email, String password)? onSignIn;
-  final Future<bool> Function(String email, String password)? onSignUp;
 
   /// Called when the user wants to go back.
   final VoidCallback onBack;
@@ -73,11 +76,9 @@ class SignInScreenPage extends StatefulWidget {
   const SignInScreenPage({
     super.key,
     this.onAuthenticate,
-    this.onSignIn,
-    this.onSignUp,
     required this.onBack,
     this.title = 'Welcome to FAMHUB',
-    this.subtitle = 'Enter your phone or email to continue',
+    this.subtitle = 'Enter your phone number to continue',
   });
 
   @override
@@ -85,39 +86,153 @@ class SignInScreenPage extends StatefulWidget {
 }
 
 class _SignInScreenPageState extends State<SignInScreenPage> {
-  final _contactController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _otpControllers = List.generate(4, (_) => TextEditingController());
   final _otpFocusNodes = List.generate(4, (_) => FocusNode());
-  // Email/password controllers for the legacy flow
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
 
-  ContactMethod _selectedMethod = ContactMethod.phone;
   bool _otpSent = false;
   bool _isLoading = false;
+  bool _countriesLoading = true;
   String? _error;
   String? _successMessage;
 
+  // Country code data
+  List<_CountryCode> _countries = [];
+  _CountryCode? _selectedCountry;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCountries();
+  }
+
   @override
   void dispose() {
-    _contactController.dispose();
+    _phoneController.dispose();
     for (final c in _otpControllers) {
       c.dispose();
     }
     for (final f in _otpFocusNodes) {
       f.dispose();
     }
-    _emailController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
-  /// Send OTP via Supabase Auth.
-  /// Uses [AuthService] which wraps Supabase's signInWithOtp.
+  /// Load active countries from backend core.countries table.
+  /// Auto-selects Kenya (KE) as default, falls back to first country.
+  Future<void> _loadCountries() async {
+    try {
+      final supabase = SupabaseService.instance;
+      final response = await supabase
+          .from('countries')
+          .select('id, name, dialing_code, iso_alpha2')
+          .eq('is_active', true)
+          .order('name');
+
+      final countries = (response as List)
+          .map((c) => _CountryCode(
+                id: c['id'] as String,
+                name: c['name'] as String,
+                dialingCode: c['dialing_code'] as String,
+                isoAlpha2: (c['iso_alpha2'] as String).trim(),
+              ))
+          .toList();
+
+      if (!mounted) return;
+
+      setState(() {
+        _countries = countries;
+        _countriesLoading = false;
+        // Auto-select Kenya (+254) as default
+        _selectedCountry = countries.cast<_CountryCode?>().firstWhere(
+              (c) => c!.isoAlpha2 == 'KE',
+              orElse: () => countries.isNotEmpty ? countries.first : null,
+            );
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _countriesLoading = false;
+      });
+      // Provide fallback countries if backend fetch fails
+      _setFallbackCountries();
+    }
+  }
+
+  /// Fallback country list when backend is unreachable
+  void _setFallbackCountries() {
+    _countries = [
+      const _CountryCode(
+        id: 'ke-fallback',
+        name: 'Kenya',
+        dialingCode: '254',
+        isoAlpha2: 'KE',
+      ),
+      const _CountryCode(
+        id: 'ug-fallback',
+        name: 'Uganda',
+        dialingCode: '256',
+        isoAlpha2: 'UG',
+      ),
+      const _CountryCode(
+        id: 'tz-fallback',
+        name: 'Tanzania',
+        dialingCode: '255',
+        isoAlpha2: 'TZ',
+      ),
+      const _CountryCode(
+        id: 'rw-fallback',
+        name: 'Rwanda',
+        dialingCode: '250',
+        isoAlpha2: 'RW',
+      ),
+      const _CountryCode(
+        id: 'et-fallback',
+        name: 'Ethiopia',
+        dialingCode: '251',
+        isoAlpha2: 'ET',
+      ),
+      const _CountryCode(
+        id: 'ng-fallback',
+        name: 'Nigeria',
+        dialingCode: '234',
+        isoAlpha2: 'NG',
+      ),
+      const _CountryCode(
+        id: 'gh-fallback',
+        name: 'Ghana',
+        dialingCode: '233',
+        isoAlpha2: 'GH',
+      ),
+      const _CountryCode(
+        id: 'za-fallback',
+        name: 'South Africa',
+        dialingCode: '27',
+        isoAlpha2: 'ZA',
+      ),
+    ];
+    _selectedCountry = _countries.firstWhere(
+      (c) => c.isoAlpha2 == 'KE',
+      orElse: () => _countries.first,
+    );
+  }
+
+  /// Get full phone number with country code
+  String get _fullPhoneNumber {
+    if (_selectedCountry == null) return _phoneController.text.trim();
+    final code = _selectedCountry!.dialingCode;
+    final number = _phoneController.text.trim().replaceAll(' ', '');
+    // Remove leading zeros from the local number
+    final cleaned = number.startsWith('0') ? number.substring(1) : number;
+    return '+$code$cleaned';
+  }
+
+  /// Send OTP via Supabase Auth (phone SMS only).
+  /// Ensures OTP is sent successfully before proceeding.
   Future<void> _sendOtp() async {
-    final contact = _contactController.text.trim();
-    if (contact.isEmpty) {
-      setState(() => _error = 'Please enter your phone number or email');
+    final phone = _fullPhoneNumber;
+    if (_phoneController.text.trim().isEmpty) {
+      setState(() => _error = 'Please enter your phone number');
       return;
     }
 
@@ -130,21 +245,15 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
     try {
       // Use the reusable AuthService to send OTP via Supabase
       final authService = _AuthServiceProvider.get();
-      late OtpSendResult result;
-
-      if (_selectedMethod == ContactMethod.email) {
-        result = await authService.sendOtp(email: contact);
-      } else {
-        result = await authService.sendOtp(phone: contact);
-      }
+      final result = await authService.sendOtp(phone: phone);
 
       if (!mounted) return;
 
-      if (result.success) {
+      if (result.success && result.confirmed) {
         setState(() {
           _otpSent = true;
           _isLoading = false;
-          _successMessage = 'OTP sent via ${_selectedMethod.label}';
+          _successMessage = 'OTP sent successfully to your phone via SMS';
         });
 
         // Auto-focus first OTP digit field
@@ -181,8 +290,7 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
 
     try {
       final success = await widget.onAuthenticate!(
-        contact: _contactController.text.trim(),
-        method: _selectedMethod,
+        contact: _fullPhoneNumber,
         otp: otp,
       );
 
@@ -268,159 +376,133 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
 
               const SizedBox(height: 32),
 
-              // If an OTP authenticate callback is not provided, render
-              // a simple email/password sign-in UI (legacy flow).
-              if (widget.onAuthenticate == null) ...[
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    labelText: 'Email',
-                    hintText: 'you@example.com',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: 'Password',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: _isLoading
-                        ? null
-                        : () async {
-                            setState(() => _isLoading = true);
-                            final email = _emailController.text.trim();
-                            final pass = _passwordController.text;
-                            bool success = false;
-                            if (widget.onSignIn != null) {
-                              success = await widget.onSignIn!(email, pass);
-                            }
-                            if (!mounted) return;
-                            setState(() => _isLoading = false);
-                            if (success) {
-                              Navigator.of(context).pop();
-                            } else {
-                              setState(() => _error = 'Sign in failed.');
-                            }
-                          },
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text('Sign In'),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: _isLoading
-                        ? null
-                        : () async {
-                            setState(() => _isLoading = true);
-                            final email = _emailController.text.trim();
-                            final pass = _passwordController.text;
-                            bool success = false;
-                            if (widget.onSignUp != null) {
-                              success = await widget.onSignUp!(email, pass);
-                            }
-                            if (!mounted) return;
-                            setState(() => _isLoading = false);
-                            if (success) {
-                              Navigator.of(context).pop();
-                            } else {
-                              setState(() => _error = 'Sign up failed.');
-                            }
-                          },
-                    child: const Text('Create Account'),
-                  ),
-                ),
-              ] else if (!_otpSent) ...[
+              if (!_otpSent) ...[
                 // ═══════════════════════════════════════════════
-                // STEP 1: Contact & Method Selection
+                // STEP 1: Phone Number Input (No method selection)
                 // ═══════════════════════════════════════════════
 
-                // ── Contact Method Chips ──
+                // ── Phone Icon Header ──
+                Center(
+                  child: Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: colorScheme.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Icon(
+                      Icons.phone_android_outlined,
+                      size: 36,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // ── Country Code Dropdown + Phone Input ──
                 Text(
-                  'Choose verification method',
+                  'Phone Number',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: colorScheme.onSurface,
                   ),
                 ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: ContactMethod.values.map((method) {
-                    final isSelected = _selectedMethod == method;
-                    return ChoiceChip(
-                      label: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            method.icon,
-                            size: 18,
-                            color: isSelected
-                                ? colorScheme.onPrimary
-                                : colorScheme.primary,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(method.label),
-                        ],
-                      ),
-                      selected: isSelected,
-                      selectedColor: colorScheme.primary,
-                      labelStyle: TextStyle(
-                        color: isSelected
-                            ? colorScheme.onPrimary
-                            : colorScheme.onSurface,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.normal,
-                      ),
-                      onSelected: (_) {
-                        setState(() => _selectedMethod = method);
-                      },
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 20),
-
-                // ── Contact Input (Phone or Email) ──
-                TextFormField(
-                  controller: _contactController,
-                  keyboardType: _selectedMethod == ContactMethod.email
-                      ? TextInputType.emailAddress
-                      : TextInputType.phone,
-                  decoration: InputDecoration(
-                    labelText: _selectedMethod == ContactMethod.email
-                        ? 'Email'
-                        : 'Phone Number',
-                    hintText: _selectedMethod == ContactMethod.email
-                        ? 'you@example.com'
-                        : '+254 7XX XXX XXX',
-                    prefixIcon: Icon(
-                      _selectedMethod.icon,
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── Country Code Dropdown ──
+                    SizedBox(
+                      width: 130,
+                      child: _countriesLoading
+                          ? DropdownButtonFormField<String>(
+                              decoration: InputDecoration(
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 14,
+                                ),
+                              ),
+                              items: const [],
+                              onChanged: null,
+                              hint: const SizedBox(
+                                width: 80,
+                                child: Text('Loading...', overflow: TextOverflow.ellipsis),
+                              ),
+                            )
+                          : DropdownButtonFormField<String>(
+                              value: _selectedCountry?.id,
+                              isExpanded: true,
+                              decoration: InputDecoration(
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 14,
+                                ),
+                              ),
+                              items: _countries.map((country) {
+                                return DropdownMenuItem<String>(
+                                  value: country.id,
+                                  child: Text(
+                                    country.dialingCodeWithPlus,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (value) {
+                                if (value != null) {
+                                  setState(() {
+                                    _selectedCountry = _countries.firstWhere(
+                                      (c) => c.id == value,
+                                    );
+                                  });
+                                }
+                              },
+                              selectedItemBuilder: (context) {
+                                return _countries.map((country) {
+                                  return Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      country.dialingCodeWithPlus,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  );
+                                }).toList();
+                              },
+                            ),
                     ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                    const SizedBox(width: 12),
+                    // ── Phone Number Input ──
+                    Expanded(
+                      child: TextFormField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        decoration: InputDecoration(
+                          hintText: '7XX XXX XXX',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Text(
+                    'You will receive a 4-digit OTP via SMS',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ),
@@ -458,56 +540,56 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
                   ),
                 const SizedBox(height: 24),
 
-                // ── Contact Display ──
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(_selectedMethod.icon,
-                            size: 16, color: colorScheme.primary),
-                        const SizedBox(width: 8),
-                        Text(
-                          _contactController.text.trim(),
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _otpSent = false;
-                              _error = null;
-                              _successMessage = null;
-                            });
-                          },
-                          child: Icon(Icons.edit_outlined,
+                                // ── Phone Display ──
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.phone_android_outlined,
                               size: 16, color: colorScheme.primary),
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          Text(
+                            _fullPhoneNumber,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _otpSent = false;
+                                _error = null;
+                                _successMessage = null;
+                              });
+                            },
+                            child: Icon(Icons.edit_outlined,
+                                size: 16, color: colorScheme.primary),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Center(
-                  child: Text(
-                    'via ${_selectedMethod.label}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: colorScheme.onSurfaceVariant,
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Text(
+                      'via SMS',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
-                ),
                 const SizedBox(height: 32),
 
                 // ── OTP Input (4 digits) ──

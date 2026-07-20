@@ -182,24 +182,14 @@ class _SessionGateState extends ConsumerState<SessionGate> {
 
   Future<bool> _authenticateWithOtp({
     required String contact,
-    required ContactMethod method,
     required String otp,
   }) async {
     try {
       final authService = AuthService();
-      late OtpVerifyResult result;
-
-      if (method == ContactMethod.email) {
-        result = await authService.verifyOtp(
-          email: contact,
-          token: otp,
-        );
-      } else {
-        result = await authService.verifyOtp(
-          phone: contact,
-          token: otp,
-        );
-      }
+      final result = await authService.verifyOtp(
+        phone: contact,
+        token: otp,
+      );
 
       if (!result.success) {
         return false;
@@ -233,12 +223,10 @@ class _SessionGateState extends ConsumerState<SessionGate> {
         builder: (context) => SignInScreenPage(
           onAuthenticate: ({
             required String contact,
-            required ContactMethod method,
             required String otp,
           }) async {
             final success = await _authenticateWithOtp(
               contact: contact,
-              method: method,
               otp: otp,
             );
             if (success && mounted) {
@@ -259,12 +247,10 @@ class _SessionGateState extends ConsumerState<SessionGate> {
         builder: (context) => SignInScreenPage(
           onAuthenticate: ({
             required String contact,
-            required ContactMethod method,
             required String otp,
           }) async {
             final success = await _authenticateWithOtp(
               contact: contact,
-              method: method,
               otp: otp,
             );
             if (success && mounted) {
@@ -319,23 +305,14 @@ class _FamhubHomeFlowState extends ConsumerState<_FamhubHomeFlow> {
         builder: (context) => SignInScreenPage(
           onAuthenticate: ({
             required String contact,
-            required ContactMethod method,
             required String otp,
           }) async {
             try {
               final authService = AuthService();
-              late OtpVerifyResult result;
-              if (method == ContactMethod.email) {
-                result = await authService.verifyOtp(
-                  email: contact,
-                  token: otp,
-                );
-              } else {
-                result = await authService.verifyOtp(
-                  phone: contact,
-                  token: otp,
-                );
-              }
+              final result = await authService.verifyOtp(
+                phone: contact,
+                token: otp,
+              );
 
               if (!result.success) return false;
 
