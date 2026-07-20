@@ -479,8 +479,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage> {
   ) {
     final theme = Theme.of(context);
     final breakpoint = ref.watch(breakpointProvider);
-    final crossAxisCount = breakpoint.columnCount.clamp(1, 3);
-    final isMobile = breakpoint.columnCount == 1;
+    final isMobile = breakpoint.deviceType == 'compactXs' || breakpoint.deviceType == 'mobile';
 
     // Resolve widgets from registry
     final widgetEntries = <_WidgetEntry>[];
@@ -524,43 +523,47 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage> {
       );
     }
 
-    // Render in a scrollable grid
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Guest mode banner
+          // Guest mode banner (shown inside ShellPageContent padding)
           if (!ref.watch(isAuthenticatedProvider))
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: ExploreBanner(
-                onSignIn: () {
-                  // Navigate to sign in
-                },
-              ),
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: ExploreBanner(),
             ),
 
-          // Widget grid
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: crossAxisCount,
-              childAspectRatio: isMobile ? 1.3 : 1.6,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-            ),
-            itemCount: widgetEntries.length,
-            itemBuilder: (context, index) {
-              final entry = widgetEntries[index];
-              return _DashboardWidgetCard(
+          // 🐛 FIXED: No extra outer padding — ShellPageContent owns horizontal padding.
+          // Widget flow — single Column on mobile, Wrap on tablet/desktop
+          const SizedBox(height: 4),
+          if (isMobile)
+            ...widgetEntries.map((entry) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _DashboardWidgetCard(
                 descriptor: entry.descriptor,
                 child: entry.widget,
-              );
-            },
           ),
+            ))
+          else
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: widgetEntries.map((entry) {
+                final width = breakpoint.deviceType == 'tablet'
+                    ? (MediaQuery.of(context).size.width - 44) / 2  // 32px shell padding + 12 gap
+                    : (MediaQuery.of(context).size.width - 56) / 3; // 32px shell + 12*2 gaps
+                return SizedBox(
+                  width: width,
+                  child: _DashboardWidgetCard(
+                    descriptor: entry.descriptor,
+                    child: entry.widget,
+                  ),
+                );
+              }).toList(),
+            ),
+          const SizedBox(height: 8),
         ],
       ),
     );
@@ -600,12 +603,10 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage> {
     }
 
     final breakpoint = ref.watch(breakpointProvider);
-    final crossAxisCount = breakpoint.columnCount.clamp(1, 3);
-    final isMobile = breakpoint.columnCount == 1;
+    final isMobile = breakpoint.deviceType == 'compactXs' || breakpoint.deviceType == 'mobile';
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -616,19 +617,28 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage> {
               child: ExploreBanner(),
             ),
 
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: crossAxisCount,
-              childAspectRatio: isMobile ? 1.3 : 1.6,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
+          // 🐛 FIXED: No extra outer padding
+          const SizedBox(height: 4),
+          if (isMobile)
+            ...resolvedWidgets.map((w) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _DashboardWidgetCardFallback(child: w),
+            ))
+          else
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: resolvedWidgets.map((w) {
+                final width = breakpoint.deviceType == 'tablet'
+                    ? (MediaQuery.of(context).size.width - 44) / 2
+                    : (MediaQuery.of(context).size.width - 56) / 3;
+                return SizedBox(
+                  width: width,
+                  child: _DashboardWidgetCardFallback(child: w),
+                );
+              }).toList(),
             ),
-            itemCount: resolvedWidgets.length,
-            itemBuilder: (context, index) =>
-                _DashboardWidgetCardFallback(child: resolvedWidgets[index]),
-          ),
+          const SizedBox(height: 8),
         ],
       ),
     );

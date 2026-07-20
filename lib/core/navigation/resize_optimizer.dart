@@ -136,10 +136,12 @@ class BreakpointNotifier extends Notifier<BreakpointState> {
   @override
   BreakpointState build() {
     ref.onDispose(() => _debounceTimer?.cancel());
-    // Neutral initial state — will be updated immediately by LayoutBuilder.
+    // 🐛 FIXED: Default to mobile (1 column) on first build.
+    // The LayoutBuilder will correct width on first real frame.
+    // Prevents flash of 3-column layout on mobile devices.
     return const BreakpointState(
-      deviceType: 'desktop',
-      width: 0,
+      deviceType: 'mobile',
+      width: 360,
     );
   }
 
