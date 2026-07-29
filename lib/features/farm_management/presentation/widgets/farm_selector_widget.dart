@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/farm_selector_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/farm_entity.dart';
 
 /// Farm Selector dashboard widget.
@@ -87,7 +88,7 @@ class FarmSelectorWidget extends ConsumerWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          _selectedFarmName(selectorState),
+                          _selectedFarmName(selectorState, ref),
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -110,7 +111,6 @@ class FarmSelectorWidget extends ConsumerWidget {
                 if (selectorState.farms.length > 1) ...[
                   const SizedBox(height: 8),
                   ...selectorState.farms
-                      .where((f) => f.id != selectorState.selectedFarmId)
                       .map((farm) => _farmOption(farm, ref)),
                 ],
               ],
@@ -119,11 +119,11 @@ class FarmSelectorWidget extends ConsumerWidget {
       ),
     );
   }
-
-  String _selectedFarmName(FarmSelectorState state) {
-    if (state.selectedFarmId == null) return 'No farm selected';
+  String _selectedFarmName(FarmSelectorState state, WidgetRef ref) {
+    final hierarchy = ref.read(hierarchyProvider);
+    if (hierarchy.entityId == null) return 'No farm selected';
     final farm = state.farms.cast<FarmEntity?>().firstWhere(
-      (f) => f?.id == state.selectedFarmId,
+      (f) => f?.id == hierarchy.entityId,
       orElse: () => null,
     );
     return farm?.farmName ?? 'Unknown Farm';
@@ -134,7 +134,7 @@ class FarmSelectorWidget extends ConsumerWidget {
       padding: const EdgeInsets.only(top: 4),
       child: InkWell(
         onTap: () {
-          ref.read(farmSelectorProvider.notifier).selectFarm(farm.id);
+          ref.read(hierarchyProvider.notifier).selectEntity(farm);
         },
         borderRadius: BorderRadius.circular(6),
         child: Padding(

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/shared/layouts/shell_page_content.dart';
@@ -10,7 +10,9 @@ import 'package:famhub_app/shared/layouts/adaptive_content_grid.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/fields_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/field_entity.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/add_field_page.dart';
 
 class FieldsPage extends ConsumerStatefulWidget {
   const FieldsPage({super.key});
@@ -36,8 +38,9 @@ class _FieldsPageState extends ConsumerState<FieldsPage> {
   @override
   Widget build(BuildContext context) {
     final farmId = ref.watch(farmContextProvider).farmId;
+    final hierarchy = ref.watch(hierarchyProvider);
 
-        if (farmId == null) {
+    if (farmId == null) {
       return const ShellPageContent(
         title: 'Fields',
         subtitle: 'Select a farm to view fields',
@@ -73,13 +76,24 @@ class _FieldsPageState extends ConsumerState<FieldsPage> {
     final cultivated = fields.where((f) => f.isCultivated).length;
     final fallow = fields.where((f) => !f.isCultivated).length;
 
-    return ShellPageContent(
+        return ShellPageContent(
       title: 'Fields',
-      subtitle: '${fields.length} field${fields.length == 1 ? '' : 's'}',
+      subtitle: hierarchy.hasField
+          ? 'Selected: ${hierarchy.field!.fieldName}'
+          : '${fields.length} field${fields.length == 1 ? '' : 's'}',
+      actions: [
+        // âœ… CONTEXT: Add Field visible ONLY when a Farm/Entity is selected
+        if (hierarchy.hasEntity)
+          IconButton(
+            onPressed: () => _navigateToAddField(context),
+            icon: const Icon(Icons.add_circle_outline),
+            tooltip: 'Add Field / Block',
+          ),
+      ],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-        // ── KPIs ──
+        // â”€â”€ KPIs â”€â”€
         AdaptiveContentGrid(
           items: [
             KPICard(
@@ -110,7 +124,7 @@ class _FieldsPageState extends ConsumerState<FieldsPage> {
         ),
         const SizedBox(height: 16),
 
-        // ── Field List ──
+        // â”€â”€ Field List â”€â”€
         if (fields.isEmpty)
           const Expanded(
             child: EmptyStateWidget(
@@ -134,6 +148,27 @@ class _FieldsPageState extends ConsumerState<FieldsPage> {
       ],
     ),
     );
+  }
+
+  void _navigateToAddField(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const AddFieldPage()),
+    );
+  }
+}
+
+Color _statusColor(String status) {
+  switch (status) {
+    case 'active':
+      return Colors.green;
+    case 'fallow':
+      return Colors.orange;
+    case 'resting':
+      return Colors.blue;
+    case 'leased':
+      return Colors.purple;
+    default:
+      return Colors.grey;
   }
 }
 
@@ -241,20 +276,20 @@ class FieldCard extends StatelessWidget {
     );
   }
 
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'active':
-        return Colors.green;
-      case 'fallow':
-        return Colors.orange;
-      case 'resting':
-        return Colors.blue;
-      case 'leased':
-        return Colors.purple;
-      default:
-        return Colors.grey;
+    Color _statusColor(String status) {
+      switch (status) {
+        case 'active':
+          return Colors.green;
+        case 'fallow':
+          return Colors.orange;
+        case 'resting':
+          return Colors.blue;
+        case 'leased':
+          return Colors.purple;
+        default:
+          return Colors.grey;
+      }
     }
-  }
 }
 
 class InfoChip extends StatelessWidget {

@@ -22,6 +22,7 @@ import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.
 import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/asset_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/production_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/farm_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
@@ -200,7 +201,7 @@ final farmStockValueProvider = FutureProvider<Map<String, double>>((ref) async {
 /// ============================================================
 /// PROVIDER: FARM USER FARMS (LIVE)
 /// ============================================================
-final farmUserFarmsProvider = FutureProvider<List>((ref) async {
+final farmUserFarmsProvider = FutureProvider<List<FarmEntity>>((ref) async {
   final stopwatch = Stopwatch()..start();
   try {
     final repository = ref.read(farmRepositoryProvider);

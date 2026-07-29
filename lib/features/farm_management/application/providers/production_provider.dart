@@ -18,6 +18,7 @@ import 'package:famhub_app/features/farm_management/domain/entities/production_e
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 
 /// Production state
 class ProductionState {
@@ -65,8 +66,24 @@ class ProductionNotifier extends Notifier<ProductionState> {
 
   @override
   ProductionState build() {
+    // ── Auto-refresh when farm context or hierarchy selection changes ──
+    ref.listen(farmContextProvider, (previous, next) {
+      if (previous?.farmId != next.farmId) {
+        loadProductionRecords();
+      }
+    });
+    ref.listen<int>(_hierarchyVersionSelector, (previous, next) {
+      if (previous != null && next != previous) {
+        loadProductionRecords();
+      }
+    });
     return ProductionState.initial();
   }
+
+  /// Tracks hierarchy version for change detection without circular dependency.
+  static final _hierarchyVersionSelector = Provider<int>((ref) {
+    return ref.watch(hierarchyProvider.select((s) => s.version));
+  });
 
   Future<void> loadProductionRecords({String? farmId}) async {
     final effectiveFarmId = farmId ?? ref.read(farmContextProvider).farmId;

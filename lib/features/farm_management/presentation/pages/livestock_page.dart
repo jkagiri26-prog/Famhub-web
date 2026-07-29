@@ -10,7 +10,9 @@ import 'package:famhub_app/shared/layouts/adaptive_content_grid.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/livestock_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/add_livestock_page.dart';
 
 class LivestockPage extends ConsumerStatefulWidget {
   const LivestockPage({super.key});
@@ -33,15 +35,45 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
     }
   }
 
-  @override
+    @override
   Widget build(BuildContext context) {
     final farmId = ref.watch(farmContextProvider).farmId;
+    final hierarchy = ref.watch(hierarchyProvider);
 
         if (farmId == null) {
       return const ShellPageContent(
         title: 'Livestock',
         subtitle: 'Select a farm to view livestock',
         child: SizedBox.shrink(),
+      );
+    }
+
+    // 🚫 BLOCK: Livestock belong to a field — require field selection
+    if (!hierarchy.hasField) {
+      return ShellPageContent(
+        title: 'Livestock',
+        subtitle: 'Select a field to view and add livestock',
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.pets, size: 48, color: Colors.grey.shade300),
+                const SizedBox(height: 16),
+                const Text('Select a Field/Block first',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey)),
+                const SizedBox(height: 8),
+                Text(
+                  'Navigate to the Fields/Blocks tab and tap a field to select it. '
+                  'Then you can add livestock to that field.',
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
 
@@ -73,9 +105,20 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
         livestock.fold<int>(0, (sum, l) => sum + (l.count ?? 0));
     final speciesCount = livestock.map((l) => l.species).toSet().length;
 
-    return ShellPageContent(
+        return ShellPageContent(
       title: 'Livestock',
-      subtitle: '${livestock.length} animal type${livestock.length == 1 ? '' : 's'}',
+      subtitle: hierarchy.hasField
+          ? '${hierarchy.field!.fieldName} — ${livestock.length} types'
+          : '${livestock.length} animal type${livestock.length == 1 ? '' : 's'}',
+      actions: [
+        // ✅ CONTEXT: Add Livestock visible ONLY when a Field/Block is selected
+        if (hierarchy.hasField)
+          IconButton(
+            onPressed: () => _navigateToAddLivestock(context),
+            icon: const Icon(Icons.add_circle_outline),
+            tooltip: 'Add Livestock to ${hierarchy.field!.fieldName}',
+          ),
+      ],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -127,6 +170,12 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
                     ),
       ],
     ),
+    );
+    }
+
+  void _navigateToAddLivestock(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const AddLivestockPage()),
     );
   }
 }

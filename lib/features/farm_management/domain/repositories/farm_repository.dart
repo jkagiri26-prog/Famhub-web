@@ -9,6 +9,9 @@ import 'package:famhub_app/features/farm_management/domain/entities/production_e
 
 /// Backend-ready contract for all farm-management operations.
 ///
+/// 🏗️ OFFICIAL HIERARCHY:
+///   Farm / Entity → Field / Block → **Crop or Livestock** → **Activity** → **Report**
+///
 /// Note: This is intentionally *not* coupled to Supabase.
 /// Supabase (and RLS) will be handled inside the infrastructure layer.
 abstract class FarmRepository {
@@ -22,71 +25,114 @@ abstract class FarmRepository {
   /// Create a new farm
   Future<FarmEntity> createFarm({required FarmEntity farm});
 
+  /// Create a new farm AND automatically create a default "Main Field"
+  /// that inherits the farm's total area.
+  ///
+  /// Returns a record containing the created farm and the auto-created field.
+  Future<(FarmEntity farm, FieldEntity field)> createFarmWithDefaultField({
+    required FarmEntity farm,
+  });
+
   /// Update an existing farm
   Future<FarmEntity> updateFarm({required FarmEntity farm});
 
   /// Delete a farm
   Future<void> deleteFarm({required String farmId});
+
   // ── Dashboard ──────────────────────────────────────────────
   Future<FarmDashboardSummary> getDashboardSummary({required String farmId});
   Future<List<ActivityModel>> getTodayActivities({required String farmId});
   Future<List<FarmEntity>> getUserFarms();
+
   // ── Dashboard Refresh ──────────────────────────────────────
-  /// Refresh all dashboard data for a given farm
   Future<void> refreshDashboard({required String farmId});
-
-  /// Refresh a single farm entity
   Future<void> refreshFarm({required String farmId});
-
-  /// Set the current active farm
   Future<void> setCurrentFarm({required String farmId});
-
-  /// Clear the current farm selection
   Future<void> clearCurrentFarm();
 
+  // ── Fields / Blocks ────────────────────────────────────────
+  Future<List<FieldEntity>> getFields({required String farmId});
+
+  /// Create a new field/block. Returns the field with backend-generated ID.
+  Future<FieldEntity> createField({required String farmId, required FieldEntity field});
+
   // ── Crops ──────────────────────────────────────────────────
-  Future<List<CropEntity>> getCrops({required String farmId});
-  Future<void> createCrop({required String farmId, required CropEntity crop});
+  Future<List<CropEntity>> getCrops({
+    required String farmId,
+    String? fieldId,
+  });
+
+  Future<List<CropEntity>> getCropsByField({
+    required String farmId,
+    required String fieldId,
+  });
+
+  /// Create a crop. Returns the crop with backend-generated ID.
+  Future<CropEntity> createCrop({required String farmId, required CropEntity crop});
 
   // ── Livestock ──────────────────────────────────────────────
-  Future<List<LivestockEntity>> getLivestock({required String farmId});
-  Future<void> createLivestock({required String farmId, required LivestockEntity livestock});
+  Future<List<LivestockEntity>> getLivestock({
+    required String farmId,
+    String? fieldId,
+  });
+
+  Future<List<LivestockEntity>> getLivestockByField({
+    required String farmId,
+    required String fieldId,
+  });
+
+  /// Create livestock. Returns the livestock with backend-generated ID.
+  Future<LivestockEntity> createLivestock({required String farmId, required LivestockEntity livestock});
+
   // ── Assets ─────────────────────────────────────────────────
   Future<List<AssetEntity>> getAssets({required String farmId});
-  Future<void> createAsset({required String farmId, required AssetEntity asset});
 
-
-
-
-  // ── Fields ─────────────────────────────────────────────────
-  Future<List<FieldEntity>> getFields({required String farmId});
+  /// Create an asset. Returns the asset with backend-generated ID.
+  Future<AssetEntity> createAsset({required String farmId, required AssetEntity asset});
 
   // ── Production ─────────────────────────────────────────────
   Future<List<ProductionEntity>> getProductionRecords({required String farmId});
-  Future<void> recordProduction({
+
+  /// Record production. Returns the production record with backend-generated ID.
+  Future<ProductionEntity> recordProduction({
     required String farmId,
     required ProductionEntity production,
   });
 
   // ── Activities ─────────────────────────────────────────────
+  /// Get activities for a farm. UI filtering by hierarchy is client-side.
   Future<List<ActivityModel>> getActivities({required String farmId});
-  Future<void> createActivity({
-    required String farmId,
-    required ActivityModel activity,
-  });
+
+  /// Create an activity. Returns the activity with backend-generated ID.
+  /// Only columns documented in farm_management.activities are inserted.
+  Future<ActivityModel> createActivity({required ActivityModel activity});
 
   // ── Activity Attribute Values ──────────────────────────────
-  /// Persist dynamic attribute values collected during workflow execution.
-  /// Each entry maps an attribute (from attribute_registry) to its value
-  /// for a given activity.
   Future<void> persistActivityValues({
     required String farmId,
     required String activityId,
     required Map<String, dynamic> values,
   });
 
+  // ── Crop / Livestock Detail ────────────────────────────────
+  Future<CropEntity?> getCropById({
+    required String farmId,
+    required String cropId,
+  });
+
+  Future<LivestockEntity?> getLivestockById({
+    required String farmId,
+    required String livestockId,
+  });
+
+  // ── Report Aggregations ────────────────────────────────────
+  /// Get activity summary for a farm. UI filtering by hierarchy is client-side.
+  Future<Map<String, dynamic>> getActivityReport({required String farmId});
+
+  /// Get production summary for a farm. UI filtering by hierarchy is client-side.
+  Future<Map<String, dynamic>> getProductionReport({required String farmId});
+
   // ── Inventory / Stock ──────────────────────────────────────
-  /// Consume stock (outflow): feeding, input usage, sales
   Future<Map<String, dynamic>> consumeStock({
     required String farmId,
     required String assetId,
@@ -96,7 +142,6 @@ abstract class FarmRepository {
     String? description,
   });
 
-  /// Add stock (inflow): harvest, production, purchase
   Future<Map<String, dynamic>> addStock({
     required String farmId,
     required String assetId,
@@ -106,10 +151,9 @@ abstract class FarmRepository {
     String? description,
   });
 
-  /// Get available stock for marketplace
   Future<Map<String, double>> getAvailableStock({required String farmId});
+
   // ── Financial Records ──────────────────────────────────────
-  /// Record a financial transaction linked to an activity or production
   Future<void> recordFinancialTransaction({
     required String farmId,
     required String recordType,
@@ -119,23 +163,10 @@ abstract class FarmRepository {
   });
 
   // ── KPI Automation ─────────────────────────────────────────
-  /// Trigger KPI update after production recording
-  Future<void> updateProductionKpis({
-    required String farmId,
-    double? quantity,
-  });
-
-  /// Trigger KPI update after financial transaction
-  Future<void> updateFinancialKpis({
-    required String farmId,
-    String? recordType,
-    double? amount,
-  });
-
-  /// Trigger KPI update after stock mutation
+  Future<void> updateProductionKpis({required String farmId, double? quantity});
+  Future<void> updateFinancialKpis({required String farmId, String? recordType, double? amount});
   Future<void> updateStockValueKpi({required String farmId});
 
   // ── Cross-Module ───────────────────────────────────────────
   Future<void> syncMarketplaceListing({required String farmId});
 }
-

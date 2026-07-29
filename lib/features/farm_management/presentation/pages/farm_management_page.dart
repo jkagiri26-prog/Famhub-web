@@ -53,7 +53,12 @@ import 'package:famhub_app/shared/demo/demo_banner_widget.dart' show ExploreBann
 
 import 'package:famhub_app/features/farm_management/application/bootstrap/farm_module_bootstrap.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_selector_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/farm_onboarding_provider.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/add_farm_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/widgets/farm_setup_guide_widget.dart';
+import 'package:famhub_app/features/farm_management/presentation/widgets/farm_onboarding_checklist_widget.dart';
+import 'package:famhub_app/features/farm_management/presentation/widgets/farm_created_success_dialog.dart';
 
 /// ============================================================
 /// FARM MANAGEMENT PAGE (PRIMARY MODULE ENTRY POINT)
@@ -123,7 +128,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage> {
     return ShellPageContent(
       title: 'Farm Management',
       subtitle: 'Manage your farms, fields, crops, and livestock',
-      scrollable: false,
+      scrollable: true,
       child: _buildContent(context, selectorState, isAuthenticated),
     );
   }
@@ -440,21 +445,24 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage> {
     );
   }
 
+  bool _successDialogShown = false;
+
   /// ============================================================
   /// STATE: DATA — DASHBOARD
   /// ============================================================
   ///
   /// Renders farm management dashboard widgets through the
-  /// Widget Registry. Every widget is registered via
-  /// bootstrapFarmWidgets() and resolved dynamically.
+  /// Widget Registry. Prepends onboarding widgets (setup guide,
+  /// checklist) at the top when applicable.
   ///
-  /// No manual KPI cards, Weather, Production, Activities, or
-  /// Alerts — all come from the WidgetRegistry.
-  ///
-  /// Future widgets appear automatically through registration
-  /// WITHOUT modifying this page.
+  /// Also shows the one-time success dialog after farm creation.
   /// ============================================================
   Widget _buildDashboard(BuildContext context) {
+    // Show success dialog if farm was just created (one-time)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _showSuccessDialogIfNeeded(context);
+    });
+
     // Resolve farm management widget descriptors from the runtime engine
     final descriptorsAsync = ref.watch(
       moduleWidgetDescriptorsProvider('farm_management'),
@@ -469,6 +477,55 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage> {
         }
         return _buildDashboardFromDescriptors(context, descriptors);
       },
+    );
+  }
+
+  /// Show the one-time success dialog if the farm was just created.
+  void _showSuccessDialogIfNeeded(BuildContext context) {
+    if (_successDialogShown) return;
+
+    final onboardingState = ref.read(farmOnboardingProvider);
+    final hierarchy = ref.read(hierarchyProvider);
+
+    if (!onboardingState.showSuccessCard) return;
+    if (hierarchy.entity == null || hierarchy.field == null) return;
+
+    _successDialogShown = true;
+
+    FarmCreatedSuccessDialog.show(
+      context: context,
+      farmName: hierarchy.entity!.farmName,
+      fieldName: hierarchy.field!.fieldName,
+      farmSize: hierarchy.entity!.size,
+      onContinueSetup: () {
+        // Keep the setup guide visible — user wants guided flow
+        // The success card is dismissed, but setup guide stays
+        ref.read(farmOnboardingProvider.notifier).dismissSuccessCard();
+      },
+      onGoToDashboard: () {
+        // Dismiss both success card and setup guide
+        ref.read(farmOnboardingProvider.notifier).dismissSuccessCard();
+        ref.read(farmOnboardingProvider.notifier).dismissSetupGuide();
+      },
+    );
+  }
+
+  /// Build the onboarding widgets (setup guide + checklist)
+  /// that appear at the top of the dashboard for new farms.
+  Widget _buildOnboardingSection(BuildContext context) {
+    final hierarchy = ref.watch(hierarchyProvider);
+
+    // Only show onboarding when a farm is selected
+    if (!hierarchy.hasEntity) return const SizedBox.shrink();
+
+    return Column(
+      children: [
+        // ── Guided Setup Card (shown when farm has no crops/livestock) ──
+        const FarmSetupGuideWidget(),
+
+        // ── Onboarding Checklist ──
+        const FarmOnboardingChecklistWidget(),
+      ],
     );
   }
 
@@ -523,57 +580,59 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage> {
       );
     }
 
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Guest mode banner (shown inside ShellPageContent padding)
-          if (!ref.watch(isAuthenticatedProvider))
-            const Padding(
-              padding: EdgeInsets.only(bottom: 12),
-              child: ExploreBanner(),
-            ),
-
-          // 🐛 FIXED: No extra outer padding — ShellPageContent owns horizontal padding.
-          // Widget flow — single Column on mobile, Wrap on tablet/desktop
-          const SizedBox(height: 4),
-          if (isMobile)
-            ...widgetEntries.map((entry) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _DashboardWidgetCard(
-                descriptor: entry.descriptor,
-                child: entry.widget,
+        // 🐛 FIXED: No SingleChildScrollView — ShellPageContent handles scrolling.
+    // Just return the Column of widgets.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Guest mode banner
+        if (!ref.watch(isAuthenticatedProvider))
+          const Padding(
+            padding: EdgeInsets.only(bottom: 12),
+            child: ExploreBanner(),
           ),
-            ))
-          else
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: widgetEntries.map((entry) {
-                final width = breakpoint.deviceType == 'tablet'
-                    ? (MediaQuery.of(context).size.width - 44) / 2  // 32px shell padding + 12 gap
-                    : (MediaQuery.of(context).size.width - 56) / 3; // 32px shell + 12*2 gaps
-                return SizedBox(
-                  width: width,
-                  child: _DashboardWidgetCard(
-                    descriptor: entry.descriptor,
-                    child: entry.widget,
-                  ),
-                );
-              }).toList(),
+
+        // ── Onboarding Section (setup guide + checklist) ──
+        _buildOnboardingSection(context),
+
+        const SizedBox(height: 4),
+        // Widget flow — single Column on mobile, Wrap on tablet/desktop
+        if (isMobile)
+          ...widgetEntries.map((entry) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _DashboardWidgetCard(
+              descriptor: entry.descriptor,
+              child: entry.widget,
             ),
-          const SizedBox(height: 8),
-        ],
-      ),
+          ))
+        else
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: widgetEntries.map((entry) {
+              final width = breakpoint.deviceType == 'tablet'
+                  ? (MediaQuery.of(context).size.width - 44) / 2
+                  : (MediaQuery.of(context).size.width - 56) / 3;
+              return SizedBox(
+                width: width,
+                child: _DashboardWidgetCard(
+                  descriptor: entry.descriptor,
+                  child: entry.widget,
+                ),
+              );
+            }).toList(),
+          ),
+        const SizedBox(height: 8),
+      ],
     );
   }
 
   /// Fallback: Build dashboard directly from WidgetRegistry
-  /// without descriptors (used when descriptors fail to load).
   Widget _buildDashboardFromRegistry(BuildContext context) {
     final farmWidgetKeys = <String>[
+      'farm_lifecycle_stage',
       'farm_farm_selector',
+      'farm_recommendations',
       'farm_kpis',
       'farm_summary',
       'farm_activity_timeline',
@@ -605,42 +664,42 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage> {
     final breakpoint = ref.watch(breakpointProvider);
     final isMobile = breakpoint.deviceType == 'compactXs' || breakpoint.deviceType == 'mobile';
 
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Guest mode banner
-          if (!ref.watch(isAuthenticatedProvider))
-            const Padding(
-              padding: EdgeInsets.only(bottom: 12),
-              child: ExploreBanner(),
-            ),
+    // 🐛 FIXED: No SingleChildScrollView — ShellPageContent handles scrolling.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Guest mode banner
+        if (!ref.watch(isAuthenticatedProvider))
+          const Padding(
+            padding: EdgeInsets.only(bottom: 12),
+            child: ExploreBanner(),
+          ),
 
-          // 🐛 FIXED: No extra outer padding
-          const SizedBox(height: 4),
-          if (isMobile)
-            ...resolvedWidgets.map((w) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _DashboardWidgetCardFallback(child: w),
-            ))
-          else
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: resolvedWidgets.map((w) {
-                final width = breakpoint.deviceType == 'tablet'
-                    ? (MediaQuery.of(context).size.width - 44) / 2
-                    : (MediaQuery.of(context).size.width - 56) / 3;
-                return SizedBox(
-                  width: width,
-                  child: _DashboardWidgetCardFallback(child: w),
-                );
-              }).toList(),
-            ),
-          const SizedBox(height: 8),
-        ],
-      ),
+        // ── Onboarding Section (setup guide + checklist) ──
+        _buildOnboardingSection(context),
+
+        const SizedBox(height: 4),
+        if (isMobile)
+          ...resolvedWidgets.map((w) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _DashboardWidgetCardFallback(child: w),
+          ))
+        else
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: resolvedWidgets.map((w) {
+              final width = breakpoint.deviceType == 'tablet'
+                  ? (MediaQuery.of(context).size.width - 44) / 2
+                  : (MediaQuery.of(context).size.width - 56) / 3;
+              return SizedBox(
+                width: width,
+                child: _DashboardWidgetCardFallback(child: w),
+              );
+            }).toList(),
+          ),
+        const SizedBox(height: 8),
+      ],
     );
   }
 }

@@ -29,7 +29,9 @@ import 'package:famhub_app/features/farm_management/application/providers/farm_c
 import 'package:famhub_app/features/farm_management/application/providers/production_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/fields_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_dashboard_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/farm_lifecycle_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
+import 'package:famhub_app/features/guest/auth_guard.dart';
 
 /// Production Recording Form
 ///
@@ -315,9 +317,17 @@ class _ProductionRecordingPageState extends ConsumerState<ProductionRecordingPag
   }
 
   Future<void> _submitProduction(String farmId) async {
-    if (!_formKey.currentState!.validate()) return;
+      if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isSubmitting = true);
+      // ── Guest mode: show sign-up prompt instead of saving ──
+      final shouldProceed = await showProtectedActionPrompt(
+        context,
+        ref,
+        action: 'record production',
+      );
+      if (!shouldProceed) return;
+
+      setState(() => _isSubmitting = true);
 
     try {
       final repository = ref.read(farmRepositoryProvider);
@@ -363,7 +373,8 @@ class _ProductionRecordingPageState extends ConsumerState<ProductionRecordingPag
 
       // Step 4: Invalidate providers to refresh
       ref.invalidate(productionProvider);
-      ref.invalidate(farmDashboardProvider);
+            ref.invalidate(farmDashboardProvider);
+            ref.invalidate(farmLifecycleProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

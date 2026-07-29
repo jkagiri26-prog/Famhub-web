@@ -11,8 +11,10 @@ import 'package:famhub_app/shared/layouts/adaptive_content_grid.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/crops_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/enums/crop_status.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/add_crop_page.dart';
 
 
 class CropsPage extends ConsumerStatefulWidget {
@@ -36,15 +38,45 @@ class _CropsPageState extends ConsumerState<CropsPage> {
     }
   }
 
-  @override
+    @override
   Widget build(BuildContext context) {
     final farmId = ref.watch(farmContextProvider).farmId;
+    final hierarchy = ref.watch(hierarchyProvider);
 
-                if (farmId == null) {
+    if (farmId == null) {
       return const ShellPageContent(
         title: 'Crops',
         subtitle: 'Select a farm to view crops',
         child: SizedBox.shrink(),
+      );
+    }
+
+    // 🚫 BLOCK: Show hint if no field is selected — crops belong to a field
+    if (!hierarchy.hasField) {
+      return ShellPageContent(
+        title: 'Crops',
+        subtitle: 'Select a field to view and add crops',
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.eco, size: 48, color: Colors.grey.shade300),
+                const SizedBox(height: 16),
+                const Text('Select a Field/Block first',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey)),
+                const SizedBox(height: 8),
+                Text(
+                  'Navigate to the Fields/Blocks tab and tap a field to select it. '
+                  'Then you can add crops to that field.',
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
 
@@ -84,9 +116,20 @@ class _CropsPageState extends ConsumerState<CropsPage> {
       (c) => c.status == CropStatus.harvested,
     ).length;
 
-    return ShellPageContent(
+        return ShellPageContent(
       title: 'Crops',
-      subtitle: '${cropState.crops.length} crop records',
+      subtitle: hierarchy.hasField
+          ? '${hierarchy.field!.fieldName} — ${cropState.crops.length} crops'
+          : '${cropState.crops.length} crop records',
+      actions: [
+        // ✅ CONTEXT: Add Crop visible ONLY when a Field/Block is selected
+        if (hierarchy.hasField)
+          IconButton(
+            onPressed: () => _navigateToAddCrop(context),
+            icon: const Icon(Icons.add_circle_outline),
+            tooltip: 'Add Crop to ${hierarchy.field!.fieldName}',
+          ),
+      ],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -147,6 +190,11 @@ class _CropsPageState extends ConsumerState<CropsPage> {
           ),
         ],
       ),
+    );
+  }
+  void _navigateToAddCrop(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const AddCropPage()),
     );
   }
 }
@@ -276,8 +324,14 @@ class _CropCard extends StatelessWidget {
     }
   }
 
-  String _formatDate(DateTime date) =>
+    String _formatDate(DateTime date) =>
       '${date.day}/${date.month}/${date.year}';
+
+  void _navigateToAddCrop(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const AddCropPage()),
+    );
+  }
 }
 
 class _InfoChip extends StatelessWidget {

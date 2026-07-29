@@ -11,6 +11,7 @@ import 'package:famhub_app/shared/layouts/adaptive_content_grid.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/activities_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 
 import 'package:famhub_app/features/farm_management/presentation/pages/activity_creation_page.dart';
 
@@ -71,15 +72,46 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
     }
   }
 
-  @override
+    @override
   Widget build(BuildContext context) {
     final farmId = ref.watch(farmContextProvider).farmId;
+    final hierarchy = ref.watch(hierarchyProvider);
 
         if (farmId == null) {
       return const ShellPageContent(
         title: 'Activities',
         subtitle: 'Select a farm to view activities',
         child: SizedBox.shrink(),
+      );
+    }
+
+    // 🚫 BLOCK: Activities require a Crop or Livestock to be selected
+    if (!hierarchy.hasCropOrLivestock) {
+      return ShellPageContent(
+        title: 'Activities',
+        subtitle: 'Select a field AND crop/livestock to view activities',
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.list_alt, size: 48, color: Colors.grey.shade300),
+                const SizedBox(height: 16),
+                const Text('Select a Field and Crop/Livestock first',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey)),
+                const SizedBox(height: 8),
+                Text(
+                  'Navigate to the Fields/Blocks tab, tap a field, then go to '
+                  'Crops or Livestock and tap a specific record. '
+                  'Then you can view and record activities.',
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
 
@@ -119,15 +151,19 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
       );
     }).toList();
 
-    return ShellPageContent(
+        return ShellPageContent(
       title: 'Activities',
-      subtitle: '${activities.length} activit${activities.length == 1 ? 'y' : 'ies'}',
+      subtitle: hierarchy.hasCropOrLivestock
+          ? '${hierarchy.cropOrLivestockType == 'livestock' ? '🐄' : '🌱'} ${hierarchy.cropOrLivestockType == 'livestock' ? (hierarchy.cropOrLivestock as dynamic?)?.species ?? 'Livestock' : (hierarchy.cropOrLivestock as dynamic?)?.cropName ?? 'Crop'} — ${activities.length} activities'
+          : '${activities.length} activit${activities.length == 1 ? 'y' : 'ies'}',
       actions: [
-        IconButton(
-          onPressed: () => _navigateToCreateActivity(context),
-          icon: const Icon(Icons.add_circle_outline),
-          tooltip: 'Record Activity',
-        ),
+        // ✅ CONTEXT: Record Activity ONLY when a Crop/Livestock is selected
+        if (hierarchy.hasCropOrLivestock)
+          IconButton(
+            onPressed: () => _navigateToCreateActivity(context),
+            icon: const Icon(Icons.add_circle_outline),
+            tooltip: 'Record Activity',
+          ),
       ],
             child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -213,7 +249,8 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
     );
   }
 
-    void _navigateToCreateActivity(BuildContext context) {
+        void _navigateToCreateActivity(BuildContext context) {
+      // Auto-pass hierarchy context to the creation page
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => const ActivityCreationPage(),

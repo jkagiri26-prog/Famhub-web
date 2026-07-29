@@ -28,6 +28,7 @@ import 'core/observability/event_observer.dart';
 /// 🏪 Provider invalidations for workflow orchestration
 import 'features/farm_management/application/providers/farm_dashboard_provider.dart';
 import 'features/farm_management/application/providers/assets_provider.dart';
+import 'features/farm_management/application/providers/farm_lifecycle_provider.dart';
 import 'features/marketplace/application/providers/marketplace_provider.dart';
 
 /// 🚀 Startup Coordinator & Platform Persistence
@@ -198,19 +199,22 @@ Future<void> _bootstrap() async {
   // Stage 5: Workflow Orchestrator (generic event-to-provider binding)
   final orchestratorConfig = OrchestratorConfig(
     eventBridge: {
-      'kpi_automation': [() => container.invalidate(farmDashboardProvider)],
+      'kpi_automation': [() => container.invalidate(farmDashboardProvider), () => container.invalidate(farmLifecycleProvider)],
       'stock_mutation': [
-        () => container.invalidate(assetsProvider),
-        () => container.invalidate(farmDashboardProvider),
-      ],
-      'production_publish': [
-        () => container.invalidate(farmDashboardProvider),
-        () => container.invalidate(marketplaceProvider),
-      ],
-      'production_to_marketplace': [
-        () => container.invalidate(farmDashboardProvider),
-        () => container.invalidate(marketplaceProvider),
-      ],
+              () => container.invalidate(assetsProvider),
+              () => container.invalidate(farmDashboardProvider),
+              () => container.invalidate(farmLifecycleProvider),
+            ],
+            'production_publish': [
+              () => container.invalidate(farmDashboardProvider),
+              () => container.invalidate(marketplaceProvider),
+              () => container.invalidate(farmLifecycleProvider),
+            ],
+            'production_to_marketplace': [
+              () => container.invalidate(farmDashboardProvider),
+              () => container.invalidate(marketplaceProvider),
+              () => container.invalidate(farmLifecycleProvider),
+            ],
     },
   );
 

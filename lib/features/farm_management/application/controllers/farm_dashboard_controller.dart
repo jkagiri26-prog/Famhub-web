@@ -99,9 +99,8 @@ class FarmDashboardController extends AsyncNotifier<FarmDashboardState> {
 
     final repository = ref.read(farmRepositoryProvider);
     await repository.createActivity(
-      farmId: farmId,
-      activity: activity,
-    );
+          activity: activity,
+        );
 
     ref.invalidateSelf();
   }

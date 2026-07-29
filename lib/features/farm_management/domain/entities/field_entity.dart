@@ -29,6 +29,7 @@ class FieldEntity {
   final String? soilType;
   final String? currentCrop;
   final String status;
+  final String? type;  /// e.g. "Primary", "Secondary"
   final String? notes;
   final DateTime createdAt;
 
@@ -40,6 +41,7 @@ class FieldEntity {
     this.soilType,
     this.currentCrop,
     this.status = 'active',
+    this.type,
     this.notes,
     required this.createdAt,
   });
@@ -71,6 +73,7 @@ class FieldEntity {
     String? soilType,
     String? currentCrop,
     String? status,
+    String? type,
     String? notes,
     DateTime? createdAt,
   }) {
@@ -82,6 +85,7 @@ class FieldEntity {
       soilType: soilType ?? this.soilType,
       currentCrop: currentCrop ?? this.currentCrop,
       status: status ?? this.status,
+      type: type ?? this.type,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
     );

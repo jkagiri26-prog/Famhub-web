@@ -73,12 +73,15 @@ class DynamicActivityWorkflowServiceImpl
   @override
   Future<WorkflowExecutionResult> executeWorkflow({
     required String farmId,
+    required String fieldId,
+    required String cropOrLivestockId,
+    required String cropOrLivestockType,
     required ActivityTemplate template,
     required Map<String, dynamic> formValues,
     String? activityId,
   }) async {
     // Generate a unique activity ID if not provided
-    final finalActivityId = activityId ?? _generateActivityId();
+    // Legacy: activity ID now comes from backend via createActivity response
 
     // ════════════════════════════════════════════════════════════
     // STEP 1 — BUILD NOTES
@@ -86,32 +89,55 @@ class DynamicActivityWorkflowServiceImpl
     final notes = _buildNotes(template, formValues);
 
     // ════════════════════════════════════════════════════════════
-    // STEP 2 — CREATE ACTIVITY
+    // STEP 2 — VALIDATE HIERARCHY CONTEXT
+    // ════════════════════════════════════════════════════════════
+    final hierarchyValidation = _validateHierarchyContext(
+      farmId: farmId,
+      fieldId: fieldId,
+      cropOrLivestockId: cropOrLivestockId,
+      cropOrLivestockType: cropOrLivestockType,
+      template: template,
+    );
+    if (hierarchyValidation != null) {
+      return WorkflowExecutionResult(
+        activityId: null,
+        errorMessage: hierarchyValidation,
+      );
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // STEP 3 — CREATE ACTIVITY (backend generates the ID)
     // ════════════════════════════════════════════════════════════
     final activity = ActivityModel(
-      id: finalActivityId,
+      id: '', // Backend will auto-generate the ID
       activityTypeId: template.id,
+      // UI context fields (NOT sent to backend; only for frontend context)
+      fieldId: fieldId,
+      cropOrLivestockId: cropOrLivestockId,
+      cropOrLivestockType: cropOrLivestockType,
       performedAt: DateTime.now(),
       notes: notes,
       assetId: null,
       planId: null,
-      attributeValues: formValues,
     );
 
-    await _repository.createActivity(farmId: farmId, activity: activity);
+    // Only documented columns are sent to the backend activities table.
+    // farmId, fieldId, cropOrLivestockId, cropOrLivestockType are UI context only.
+    final createdActivity = await _repository.createActivity(activity: activity);
+    final backendId = createdActivity.id; // USE the backend-generated ID
 
     // ════════════════════════════════════════════════════════════
-    // STEP 3 — STOCK MUTATION
+    // STEP 4 — STOCK MUTATION (uses backend-generated activity ID)
     // ════════════════════════════════════════════════════════════
     await _handleStockMutation(
       farmId: farmId,
       template: template,
       formValues: formValues,
-      activityId: finalActivityId,
+      activityId: backendId,
     );
 
     // ════════════════════════════════════════════════════════════
-    // STEP 4 — FINANCIAL RECORDING
+    // STEP 5 — FINANCIAL RECORDING
     // ════════════════════════════════════════════════════════════
     await _handleFinancialRecording(
       farmId: farmId,
@@ -120,7 +146,7 @@ class DynamicActivityWorkflowServiceImpl
     );
 
     // ════════════════════════════════════════════════════════════
-    // STEP 5 — KPI AUTOMATION
+    // STEP 6 — KPI AUTOMATION
     // ════════════════════════════════════════════════════════════
     await _handleKpiUpdates(
       farmId: farmId,
@@ -129,15 +155,66 @@ class DynamicActivityWorkflowServiceImpl
     );
 
     // ════════════════════════════════════════════════════════════
-    // STEP 6 — EVENT EMISSION
+    // STEP 7 — EVENT EMISSION (uses backend-generated activity ID)
     // ════════════════════════════════════════════════════════════
     _emitWorkflowEvent(
       farmId: farmId,
+      fieldId: fieldId,
+      cropOrLivestockId: cropOrLivestockId,
+      cropOrLivestockType: cropOrLivestockType,
       template: template,
-      activityId: finalActivityId,
+      activityId: backendId,
     );
 
-    return WorkflowExecutionResult(activityId: finalActivityId);
+    return WorkflowExecutionResult(activityId: backendId);
+  }
+
+  /// ============================================================
+  /// VALIDATE HIERARCHY CONTEXT
+  /// ============================================================
+  ///
+  /// Ensures the workflow is being executed within a valid hierarchy
+  /// context (farm → field → crop/livestock). Returns an error message
+  /// if validation fails, or null if everything is valid.
+  /// ============================================================
+  String? _validateHierarchyContext({
+    required String farmId,
+    required String fieldId,
+    required String cropOrLivestockId,
+    required String cropOrLivestockType,
+    required ActivityTemplate template,
+  }) {
+    // Farm ID must always be present
+    if (farmId.isEmpty) {
+      return 'Farm ID is required to execute a workflow';
+    }
+
+    // Field ID must be present for crop activities
+    if (template.category == 'crops' && fieldId.isEmpty) {
+      return 'A field must be selected for crop activities';
+    }
+
+    // Crop/livestock ID must be present when expected
+    if (template.category == 'crops' && cropOrLivestockId.isEmpty) {
+      return 'A crop must be selected for crop activities';
+    }
+    if (template.category == 'livestock' && cropOrLivestockId.isEmpty) {
+      return 'A livestock animal must be selected for livestock activities';
+    }
+
+    // Validate cropOrLivestockType matches template category
+    if (cropOrLivestockType.isNotEmpty &&
+        template.category == 'crops' &&
+        cropOrLivestockType != 'crop') {
+      return 'Crop activities require a crop context, but got $cropOrLivestockType';
+    }
+    if (cropOrLivestockType.isNotEmpty &&
+        template.category == 'livestock' &&
+        cropOrLivestockType != 'livestock') {
+      return 'Livestock activities require a livestock context, but got $cropOrLivestockType';
+    }
+
+    return null; // All checks passed
   }
 
   /// ============================================================
@@ -268,6 +345,9 @@ class DynamicActivityWorkflowServiceImpl
   /// ============================================================
   void _emitWorkflowEvent({
     required String farmId,
+    required String fieldId,
+    required String cropOrLivestockId,
+    required String cropOrLivestockType,
     required ActivityTemplate template,
     required String activityId,
   }) {
@@ -276,6 +356,9 @@ class DynamicActivityWorkflowServiceImpl
       stepName: 'execute_${template.id}',
       payload: {
         'farm_id': farmId,
+        'field_id': fieldId,
+        'crop_or_livestock_id': cropOrLivestockId,
+        'crop_or_livestock_type': cropOrLivestockType,
         'template_id': template.id,
         'template_name': template.name,
         'category': template.category,

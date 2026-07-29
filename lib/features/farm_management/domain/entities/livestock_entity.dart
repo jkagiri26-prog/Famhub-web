@@ -25,6 +25,7 @@
 class LivestockEntity {
   final String id;
   final String farmId;
+  final String? fieldId;
   final String species;
   final String? breed;
   final int count;
@@ -37,6 +38,7 @@ class LivestockEntity {
   const LivestockEntity({
     required this.id,
     required this.farmId,
+    this.fieldId,
     required this.species,
     this.breed,
     required this.count,
@@ -63,6 +65,7 @@ class LivestockEntity {
   LivestockEntity copyWith({
     String? id,
     String? farmId,
+    String? fieldId,
     String? species,
     String? breed,
     int? count,
@@ -75,6 +78,7 @@ class LivestockEntity {
     return LivestockEntity(
       id: id ?? this.id,
       farmId: farmId ?? this.farmId,
+      fieldId: fieldId ?? this.fieldId,
       species: species ?? this.species,
       breed: breed ?? this.breed,
       count: count ?? this.count,

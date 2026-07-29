@@ -8,8 +8,11 @@ import 'package:famhub_app/features/guest/auth_guard.dart';
 import 'package:famhub_app/features/farm_management/domain/models/activity_model.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/assets_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/activities_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/farm_lifecycle_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/farm_dashboard_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
 
 import 'package:famhub_app/features/farm_management/presentation/pages/activity_template_selection_page.dart';
@@ -59,10 +62,33 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
   @override
   Widget build(BuildContext context) {
     final farmId = ref.watch(farmContextProvider).farmId;
+    final hierarchy = ref.watch(hierarchyProvider);
     final assetState = farmId != null ? ref.watch(assetsProvider) : null;
+
+    // 🚫 BLOCK: Must have a crop/livestock selected to create an activity
+    if (!hierarchy.hasCropOrLivestock) {
+      return ShellPageContent(
+        title: 'Record Activity',
+        subtitle: 'Select a crop or livestock first',
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.block, size: 48, color: Colors.grey),
+              SizedBox(height: 16),
+              Text('Select a Crop or Livestock record first to create an activity.',
+                style: TextStyle(color: Colors.grey, fontSize: 16)),
+            ],
+          ),
+        ),
+      );
+    }
 
     return ShellPageContent(
       title: 'Record Activity',
+      subtitle: hierarchy.hasCropOrLivestock
+          ? '${hierarchy.cropOrLivestockType == 'livestock' ? '🐄' : '🌱'} ${hierarchy.cropOrLivestockType == 'livestock' ? (hierarchy.cropOrLivestock as dynamic?)?.species ?? '' : (hierarchy.cropOrLivestock as dynamic?)?.cropName ?? ''}'
+          : '',
       child: farmId == null
           ? const Center(child: Text('Select a farm first'))
           : SingleChildScrollView(
@@ -71,6 +97,10 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // ── Hierarchy Context Banner ──
+                  _buildHierarchyContextBanner(hierarchy),
+                  const SizedBox(height: 16),
+
                   // ── Template Workflow Entry ──
                   _buildWorkflowBanner(context),
                   const SizedBox(height: 16),
@@ -85,6 +115,37 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildHierarchyContextBanner(HierarchySelectionState hierarchy) {
+    final fieldName = hierarchy.field?.fieldName ?? 'Field';
+    final cropOrLivestockLabel = hierarchy.cropOrLivestockType == 'livestock'
+        ? (hierarchy.cropOrLivestock as dynamic?)?.species ?? 'Livestock'
+        : (hierarchy.cropOrLivestock as dynamic?)?.cropName ?? 'Crop';
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.blue.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            hierarchy.cropOrLivestockType == 'livestock' ? Icons.pets : Icons.eco,
+            size: 18, color: Colors.blue.shade700,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Recording activity for: $cropOrLivestockLabel in $fieldName',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.blue.shade800),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -306,20 +367,43 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
     setState(() => _isSubmitting = true);
     try {
       final repository = ref.read(farmRepositoryProvider);
-      await repository.createActivity(
-        farmId: farmId,
-        activity: ActivityModel(
-          id: '', activityTypeId: _activityTypeId, performedAt: _performedAt,
-          notes: _notesController.text.trim(), assetId: _selectedAssetId, planId: null,
-        ),
+      final hierarchy = ref.read(hierarchyProvider);
+
+      // Build activity model with UI context fields (NOT persisted to backend)
+      final activity = ActivityModel(
+        id: '', // Backend will generate
+        activityTypeId: _activityTypeId,
+        farmId: farmId, // UI context only
+        fieldId: hierarchy.fieldId, // UI context only
+        cropOrLivestockId: hierarchy.cropOrLivestockId, // UI context only
+        cropOrLivestockType: hierarchy.cropOrLivestockType, // UI context only
+        performedAt: _performedAt,
+        notes: _notesController.text.trim(),
+        assetId: _selectedAssetId,
+        planId: null,
       );
+
+      // Create activity — only documented columns are sent to backend
+      final createdActivity = await repository.createActivity(activity: activity);
+
+      // Use the backend-generated ID for subsequent operations
+      print('Activity created with backend ID: ${createdActivity.id}');
+
+      // Invalidate lifecycle, dashboard, and activities providers
       ref.invalidate(activitiesProvider);
+      ref.invalidate(farmLifecycleProvider);
+      ref.invalidate(farmDashboardProvider);
+
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Activity recorded successfully'), backgroundColor: Colors.green));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Activity recorded successfully'), backgroundColor: Colors.green),
+      );
       Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
+      );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }

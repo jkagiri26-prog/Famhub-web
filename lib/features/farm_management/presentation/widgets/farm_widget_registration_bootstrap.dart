@@ -27,11 +27,14 @@ import 'package:famhub_app/features/farm_management/domain/models/activity_model
 import 'package:famhub_app/shared/widgets/module_error_boundary.dart';
 import 'package:famhub_app/features/farm_management/presentation/widgets/farm_selector_widget.dart';
 import 'package:famhub_app/features/farm_management/presentation/widgets/quick_actions_widget.dart';
+import 'package:famhub_app/features/farm_management/presentation/widgets/farm_lifecycle_widget_registration.dart';
 
 /// ============================================================
 /// BOOTSTRAP ALL FARM WIDGETS
 /// ============================================================
 void bootstrapFarmWidgets() {
+  // Register lifecycle-aware widgets alongside existing widgets
+  bootstrapLifecycleWidgets();
   WidgetRegistry.register(
     widgetKey: 'farm_kpis',
     builder: () => const _FarmKpisWidget(),

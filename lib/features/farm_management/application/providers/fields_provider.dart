@@ -5,9 +5,13 @@
 /// 🧠 LOCATION CONTEXT:
 ///   features/farm_management/application/providers/
 ///
+/// 🏗️ OFFICIAL HIERARCHY:
+///   Farm / Entity → **Field / Block** → Crop or Livestock → Activity → Report
+///
 /// ✅ PATTERN: repository → provider → state → widgets
 ///
 /// Provides field registry, acreage/plot information, and utilization.
+/// Automatically integrates with HierarchyProvider for selection.
 /// ============================================================
 library;
 
@@ -17,6 +21,7 @@ import 'package:famhub_app/features/farm_management/domain/entities/field_entity
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 
 /// Field list state
 class FieldListState {
@@ -92,6 +97,16 @@ class FieldsNotifier extends Notifier<FieldListState> {
         errorMessage: e.toString(),
       );
     }
+  }
+
+  /// Select a field in the hierarchy and load its crops/livestock
+  Future<void> selectFieldAndLoad(FieldEntity field) async {
+    ref.read(hierarchyProvider.notifier).selectField(field);
+  }
+
+  /// Clear field selection back to entity level
+  void clearFieldSelection() {
+    ref.read(hierarchyProvider.notifier).clearToEntity();
   }
 }
 

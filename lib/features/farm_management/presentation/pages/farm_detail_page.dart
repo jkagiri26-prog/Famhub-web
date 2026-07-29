@@ -56,7 +56,6 @@ class _FarmDetailPageState extends ConsumerState<FarmDetailPage>
 
     // Set the farm context to this farm
     Future.microtask(() {
-      ref.read(farmSelectorProvider.notifier).selectFarm(widget.farmId);
     });
   }
 

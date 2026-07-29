@@ -1,17 +1,17 @@
-/// ============================================================
-/// DEMO FARM REPOSITORY — Provides realistic sample data for Guest Mode
+﻿/// ============================================================
+/// DEMO FARM REPOSITORY â€” Provides realistic sample data for Guest Mode
 /// ============================================================
 ///
-/// 🧠 LOCATION CONTEXT:
+/// ðŸ§  LOCATION CONTEXT:
 ///   shared/demo/ = reusable demo data repositories
 ///
-/// ✅ Responsibilities:
+/// âœ… Responsibilities:
 ///   - Implement FarmRepository interface with hardcoded sample data
 ///   - Provide realistic-looking farm data for demo/guest mode
 ///   - Never access Supabase
 ///   - Identical return types as Supabase implementation
 ///
-/// ✅ ARCHITECTURE COMPLIANCE:
+/// âœ… ARCHITECTURE COMPLIANCE:
 ///   - Implements the same FarmRepository interface
 ///   - Widgets don't know whether data comes from demo or Supabase
 ///   - No guest logic inside widgets
@@ -35,11 +35,11 @@ import 'package:famhub_app/features/farm_management/domain/repositories/farm_rep
 /// Data is consistent across calls (same farm IDs, crop IDs, etc.)
 /// so the dashboard appears fully populated and active.
 class DemoFarmRepository implements FarmRepository {
-  // ── Sample Farm IDs ──
+  // â”€â”€ Sample Farm IDs â”€â”€
   static const String farm1Id = 'demo-farm-001';
   static const String farm1Name = 'Green Valley Farm';
 
-  // ── Sample Data ──
+  // â”€â”€ Sample Data â”€â”€
   static final DateTime _now = DateTime.now();
   static final DateTime _today = DateTime(_now.year, _now.month, _now.day);
   static final DateTime _yesterday = _today.subtract(const Duration(days: 1));
@@ -119,7 +119,7 @@ class DemoFarmRepository implements FarmRepository {
     return DateTime(year, month, day);
   }
 
-  // ── Farm CRUD ──
+  // â”€â”€ Farm CRUD â”€â”€
 
   @override
   Future<FarmEntity?> getFarm({required String farmId}) async {
@@ -138,10 +138,42 @@ class DemoFarmRepository implements FarmRepository {
   }
 
   @override
-  Future<FarmEntity> createFarm({required FarmEntity farm}) async {
-    await Future.delayed(const Duration(milliseconds: 200));
-    return farm; // Simulated success
-  }
+    Future<(FarmEntity farm, FieldEntity field)> createFarmWithDefaultField({
+      required FarmEntity farm,
+    }) async {
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      // Step 1: Simulate farm creation (generate an ID)
+      final createdFarm = FarmEntity(
+        id: 'demo-farm-${DateTime.now().millisecondsSinceEpoch}',
+        farmName: farm.farmName,
+        description: farm.description,
+        size: farm.size,
+        isActive: true,
+        isVerified: false,
+      );
+
+      // Step 2: Auto-create default "Main Field" that inherits the farm's total area
+      final defaultField = FieldEntity(
+        id: 'demo-field-${DateTime.now().millisecondsSinceEpoch}',
+        farmId: createdFarm.id,
+        fieldName: 'Main Field',
+        acreage: farm.size ?? 0.0,
+        soilType: null,
+        currentCrop: null,
+        status: 'active',
+        notes: 'Auto-created default field',
+        createdAt: DateTime.now(),
+      );
+
+      return (createdFarm, defaultField);
+    }
+
+    @override
+    Future<FarmEntity> createFarm({required FarmEntity farm}) async {
+      await Future.delayed(const Duration(milliseconds: 200));
+      return farm; // Simulated success
+    }
 
   @override
   Future<FarmEntity> updateFarm({required FarmEntity farm}) async {
@@ -175,7 +207,7 @@ class DemoFarmRepository implements FarmRepository {
     await Future.delayed(const Duration(milliseconds: 50));
   }
 
-  // ── Dashboard ──
+  // â”€â”€ Dashboard â”€â”€
 
   @override
   Future<FarmDashboardSummary> getDashboardSummary({required String farmId}) async {
@@ -202,48 +234,72 @@ class DemoFarmRepository implements FarmRepository {
       id: 'demo-act-001',
       activityTypeId: 'irrigation',
       performedAt: _today.subtract(const Duration(hours: 2)),
+      fieldId: 'demo-field-001',
+      cropOrLivestockId: 'demo-crop-001',
+      cropOrLivestockType: 'crop',
       notes: 'Morning drip irrigation - Field A - Snow Peas - 30 min',
     ),
     ActivityModel(
       id: 'demo-act-002',
       activityTypeId: 'inspection',
       performedAt: _today.subtract(const Duration(hours: 4)),
+      fieldId: 'demo-field-003',
+      cropOrLivestockId: 'demo-crop-003',
+      cropOrLivestockType: 'crop',
       notes: 'Pest scouting - Cabbage section - No significant pests found',
     ),
     ActivityModel(
       id: 'demo-act-003',
       activityTypeId: 'harvesting',
       performedAt: _yesterday.subtract(const Duration(hours: 6)),
+      fieldId: 'demo-field-001',
+      cropOrLivestockId: 'demo-crop-001',
+      cropOrLivestockType: 'crop',
       notes: 'Harvested 45kg Snow Peas - Grade A',
     ),
     ActivityModel(
       id: 'demo-act-004',
       activityTypeId: 'fertilizing',
       performedAt: _yesterday.subtract(const Duration(hours: 3)),
+      fieldId: 'demo-field-002',
+      cropOrLivestockId: 'demo-crop-002',
+      cropOrLivestockType: 'crop',
       notes: 'Applied DAP fertilizer - Field B - 25kg',
     ),
     ActivityModel(
       id: 'demo-act-005',
       activityTypeId: 'maintenance',
       performedAt: _twoDaysAgo.subtract(const Duration(hours: 4)),
+      fieldId: 'demo-field-002',
+      cropOrLivestockId: 'demo-crop-002',
+      cropOrLivestockType: 'crop',
       notes: 'Repaired irrigation line - Section 2 leak',
     ),
     ActivityModel(
       id: 'demo-act-006',
       activityTypeId: 'planting',
       performedAt: _threeDaysAgo.subtract(const Duration(hours: 5)),
+      fieldId: 'demo-field-003',
+      cropOrLivestockId: 'demo-crop-003',
+      cropOrLivestockType: 'crop',
       notes: 'Planted 200 cabbage seedlings - Field C',
     ),
     ActivityModel(
       id: 'demo-act-007',
       activityTypeId: 'spraying',
       performedAt: _lastWeek.subtract(const Duration(hours: 3)),
+      fieldId: 'demo-field-001',
+      cropOrLivestockId: 'demo-crop-001',
+      cropOrLivestockType: 'crop',
       notes: 'Foliar feed application - Mixed vegetables',
     ),
     ActivityModel(
       id: 'demo-act-008',
       activityTypeId: 'irrigation',
       performedAt: _lastWeek.subtract(const Duration(hours: 6)),
+      fieldId: 'demo-field-001',
+      cropOrLivestockId: 'demo-crop-001',
+      cropOrLivestockType: 'crop',
       notes: 'Afternoon irrigation - All fields - 45 min',
     ),
   ];
@@ -254,24 +310,24 @@ class DemoFarmRepository implements FarmRepository {
     return _sampleFarms;
   }
 
-  // ── Crops ──
+  // â”€â”€ Crops â”€â”€
 
   @override
-  Future<List<CropEntity>> getCrops({required String farmId}) async {
+  Future<List<CropEntity>> getCrops({required String farmId, String? fieldId}) async {
     await Future.delayed(const Duration(milliseconds: 150));
     return _sampleCrops.where((c) => c.farmId == farmId).toList();
   }
 
   @override
-  Future<void> createCrop({required String farmId, required CropEntity crop}) async {
-    await Future.delayed(const Duration(milliseconds: 100));
-    // In demo mode, simulate success
-  }
+    Future<CropEntity> createCrop({required String farmId, required CropEntity crop}) async {
+      await Future.delayed(const Duration(milliseconds: 100));
+      return crop; // Simulated success
+    }
 
-  // ── Livestock ──
+  // â”€â”€ Livestock â”€â”€
 
   @override
-  Future<List<LivestockEntity>> getLivestock({required String farmId}) async {
+  Future<List<LivestockEntity>> getLivestock({required String farmId, String? fieldId}) async {
     await Future.delayed(const Duration(milliseconds: 150));
     return _sampleLivestock.where((l) => l.farmId == farmId).toList();
   }
@@ -302,11 +358,12 @@ class DemoFarmRepository implements FarmRepository {
   ];
 
   @override
-  Future<void> createLivestock({required String farmId, required LivestockEntity livestock}) async {
-    await Future.delayed(const Duration(milliseconds: 100));
-  }
+    Future<LivestockEntity> createLivestock({required String farmId, required LivestockEntity livestock}) async {
+      await Future.delayed(const Duration(milliseconds: 100));
+      return livestock; // Simulated success
+    }
 
-  // ── Assets ──
+  // â”€â”€ Assets â”€â”€
 
   @override
   Future<List<AssetEntity>> getAssets({required String farmId}) async {
@@ -359,11 +416,12 @@ class DemoFarmRepository implements FarmRepository {
   ];
 
   @override
-  Future<void> createAsset({required String farmId, required AssetEntity asset}) async {
-    await Future.delayed(const Duration(milliseconds: 100));
-  }
+    Future<AssetEntity> createAsset({required String farmId, required AssetEntity asset}) async {
+      await Future.delayed(const Duration(milliseconds: 100));
+      return asset; // Simulated success
+    }
 
-  // ── Fields ──
+  // â”€â”€ Fields â”€â”€
 
   @override
   Future<List<FieldEntity>> getFields({required String farmId}) async {
@@ -418,7 +476,7 @@ class DemoFarmRepository implements FarmRepository {
     ),
   ];
 
-  // ── Production ──
+  // â”€â”€ Production â”€â”€
 
   @override
   Future<List<ProductionEntity>> getProductionRecords({required String farmId}) async {
@@ -476,24 +534,26 @@ class DemoFarmRepository implements FarmRepository {
   ];
 
   @override
-  Future<void> recordProduction({required String farmId, required ProductionEntity production}) async {
-    await Future.delayed(const Duration(milliseconds: 100));
-  }
+    Future<ProductionEntity> recordProduction({required String farmId, required ProductionEntity production}) async {
+      await Future.delayed(const Duration(milliseconds: 100));
+      return production; // Simulated success
+    }
 
-  // ── Activities ──
-
-  @override
-  Future<List<ActivityModel>> getActivities({required String farmId}) async {
-    await Future.delayed(const Duration(milliseconds: 150));
-    return _sampleActivities;
-  }
+  // â”€â”€ Activities â”€â”€
 
   @override
-  Future<void> createActivity({required String farmId, required ActivityModel activity}) async {
-    await Future.delayed(const Duration(milliseconds: 100));
-  }
+    Future<List<ActivityModel>> getActivities({required String farmId}) async {
+      await Future.delayed(const Duration(milliseconds: 150));
+      return _sampleActivities;
+    }
 
-  // ── Activity Values ──
+    @override
+    Future<ActivityModel> createActivity({required ActivityModel activity}) async {
+      await Future.delayed(const Duration(milliseconds: 100));
+      return activity; // Simulated success
+    }
+
+  // â”€â”€ Activity Values â”€â”€
 
   @override
   Future<void> persistActivityValues({
@@ -504,7 +564,7 @@ class DemoFarmRepository implements FarmRepository {
     await Future.delayed(const Duration(milliseconds: 50));
   }
 
-  // ── Stock ──
+  // â”€â”€ Stock â”€â”€
 
   @override
   Future<Map<String, dynamic>> consumeStock({
@@ -541,7 +601,7 @@ class DemoFarmRepository implements FarmRepository {
     };
   }
 
-  // ── Financial ──
+  // â”€â”€ Financial â”€â”€
 
   @override
   Future<void> recordFinancialTransaction({
@@ -554,7 +614,7 @@ class DemoFarmRepository implements FarmRepository {
     await Future.delayed(const Duration(milliseconds: 50));
   }
 
-  // ── KPI ──
+  // â”€â”€ KPI â”€â”€
 
   @override
   Future<void> updateProductionKpis({required String farmId, double? quantity}) async {}
@@ -565,10 +625,85 @@ class DemoFarmRepository implements FarmRepository {
   @override
   Future<void> updateStockValueKpi({required String farmId}) async {}
 
-  // ── Cross-Module ──
+  // â”€â”€ Cross-Module â”€â”€
 
   @override
   Future<void> syncMarketplaceListing({required String farmId}) async {}
+
+  // ── Field creation ──
+
+  @override
+    Future<FieldEntity> createField({required String farmId, required FieldEntity field}) async {
+      await Future.delayed(const Duration(milliseconds: 100));
+      return field; // Simulated success
+    }
+
+  // ── Crops (continued) ──
+
+  @override
+  Future<List<CropEntity>> getCropsByField({required String farmId, required String fieldId}) async {
+    await Future.delayed(const Duration(milliseconds: 150));
+    return _sampleCrops.where((c) => c.farmId == farmId && c.fieldId == fieldId).toList();
+  }
+
+  @override
+  Future<CropEntity?> getCropById({required String farmId, required String cropId}) async {
+    await Future.delayed(const Duration(milliseconds: 100));
+    try {
+      return _sampleCrops.firstWhere((c) => c.id == cropId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ── Livestock (continued) ──
+
+  @override
+  Future<List<LivestockEntity>> getLivestockByField({required String farmId, required String fieldId}) async {
+    await Future.delayed(const Duration(milliseconds: 150));
+    return _sampleLivestock.where((l) => l.farmId == farmId).toList();
+  }
+
+  @override
+  Future<LivestockEntity?> getLivestockById({required String farmId, required String livestockId}) async {
+    await Future.delayed(const Duration(milliseconds: 100));
+    try {
+      return _sampleLivestock.firstWhere((l) => l.id == livestockId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ── Reports ──
+
+  @override
+    Future<Map<String, dynamic>> getActivityReport({required String farmId}) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    return {
+      'total_activities': _sampleActivities.length,
+      'by_type': {
+        'irrigation': 2,
+        'inspection': 1,
+        'harvesting': 1,
+        'fertilizing': 1,
+        'maintenance': 1,
+        'planting': 1,
+        'spraying': 1,
+      },
+    };
+  }
+
+  @override
+    Future<Map<String, dynamic>> getProductionReport({required String farmId}) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    return {
+      'total_production': 1250.0,
+      'by_category': {
+        'vegetables': 1010.0,
+        'poultry': 240.0,
+      },
+    };
+  }
 }
 
 /// Helper class to track farmId for production records
@@ -595,5 +730,7 @@ class _DemoProductionRecord {
     this.fieldId,
   });
 }
+
+
 
 
