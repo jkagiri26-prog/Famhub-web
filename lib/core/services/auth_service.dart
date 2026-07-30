@@ -7,8 +7,8 @@
 ///   This is the ONLY service that should handle auth operations.
 ///
 /// ✅ RESPONSIBILITIES:
-///   - Send OTP via SMS (phone only) via Supabase signInWithOtp()
-///   - Verify OTP via Supabase verifyOTP()
+///   - Send OTP via SMS (phone only) via Supabase Edge Function
+///   - Verify OTP via Supabase Edge Function
 ///   - Handle auth errors: invalid OTP, expired OTP, network failures
 ///   - Expose reactive auth state via stream
 ///   - Confirm OTP was sent successfully
@@ -21,6 +21,8 @@
 /// ============================================================
 library;
 
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:famhub_app/core/services/supabase_service.dart';
@@ -86,16 +88,21 @@ class AuthService {
         );
       }
 
-      // Send OTP via Supabase Auth (phone SMS only)
-      await _supabase.client.auth.signInWithOtp(phone: phone);
+                  debugPrint('OTP Request Started');
+
+      // Send OTP via Edge Function (bypasses Supabase Auth SDK directly)
+      await _supabase.client.functions.invoke(
+        'request-otp',
+        body: {'phone': phone},
+      );
+
+      debugPrint('OTP Request Success');
 
       // No exception means OTP was sent successfully
       return const OtpSendResult(
         success: true,
         confirmed: true,
       );
-    } on AuthException catch (e) {
-      return OtpSendResult(success: false, error: _mapAuthError(e));
     } catch (e) {
       return const OtpSendResult(
         success: false,
@@ -128,12 +135,31 @@ class AuthService {
         );
       }
 
-      // Verify OTP via Supabase (phone/SMS only)
-      await _supabase.client.auth.verifyOTP(
-        phone: phone,
-        token: token,
-        type: OtpType.sms,
+            debugPrint('OTP Verification Started');
+
+      // Verify OTP via Edge Function
+      final response = await _supabase.client.functions.invoke(
+        'verify-otp',
+        body: {'phone': phone, 'token': token},
       );
+
+      debugPrint('OTP Verification Success');
+
+      // Establish session from the Edge Function response
+      final sessionData = response.data;
+      if (sessionData == null || sessionData['session'] == null) {
+        return const OtpVerifyResult(
+          success: false,
+          error: 'Invalid verification code. Please try again.',
+        );
+      }
+
+            // Serialize the session to JSON and recover it into the SDK
+      final sessionJson = jsonEncode(sessionData['session']);
+      await _supabase.client.auth.recoverSession(sessionJson);
+
+      debugPrint('Session Established');
+      debugPrint('Authentication Complete');
 
       final user = _supabase.currentUser;
       return OtpVerifyResult(
