@@ -8,14 +8,14 @@
 /// ✅ Responsibilities:
 ///   - Phone-only OTP authentication for sign-in and sign-up
 ///   - No email, no WhatsApp — phone SMS OTP only
-///   - Four-digit OTP verification
+///   - Six-digit OTP verification
 ///   - Error display and loading state
 ///   - Confirms OTP was sent successfully
 ///
 /// ✅ FLOW:
 ///   1. User enters phone number
 ///   2. OTP is sent via SMS (confirmed)
-///   3. User enters 4-digit OTP
+///   3. User enters 6-digit OTP
 ///   4. onAuthComplete is called on success
 ///
 /// ❌ Does NOT:
@@ -87,8 +87,8 @@ class SignInScreenPage extends StatefulWidget {
 
 class _SignInScreenPageState extends State<SignInScreenPage> {
   final _phoneController = TextEditingController();
-  final _otpControllers = List.generate(4, (_) => TextEditingController());
-  final _otpFocusNodes = List.generate(4, (_) => FocusNode());
+  final _otpControllers = List.generate(6, (_) => TextEditingController());
+  final _otpFocusNodes = List.generate(6, (_) => FocusNode());
 
   bool _otpSent = false;
   bool _isLoading = false;
@@ -278,8 +278,8 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
   /// Verify the entered OTP
   Future<void> _verifyOtp() async {
     final otp = _otpControllers.map((c) => c.text).join();
-    if (otp.length != 4) {
-      setState(() => _error = 'Please enter the complete 4-digit code');
+    if (otp.length != 6) {
+      setState(() => _error = 'Please enter the complete 6-digit code');
       return;
     }
 
@@ -329,7 +329,7 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
 
   /// Handle digit input for OTP fields
   void _onOtpDigitChanged(int index, String value) {
-    if (value.length == 1 && index < 3) {
+    if (value.length == 1 && index < 5) {
       _otpFocusNodes[index + 1].requestFocus();
     }
   }
@@ -497,9 +497,9 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
                 ),
                 const SizedBox(height: 8),
                 Padding(
-                  padding: const EdgeInsets.only(left: 4),
+                  padding: const EdgeInsets.only(left: 6),
                   child: Text(
-                    'You will receive a 4-digit OTP via SMS',
+                    'You will receive a 6-digit OTP via SMS',
                     style: TextStyle(
                       fontSize: 12,
                       color: colorScheme.onSurfaceVariant,
@@ -592,7 +592,7 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
                   ),
                 const SizedBox(height: 32),
 
-                // ── OTP Input (4 digits) ──
+                // ── OTP Input (6 digits) ──
                 Center(
                   child: Text(
                     'Enter verification code',
@@ -605,7 +605,7 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
                 const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(4, (index) {
+                  children: List.generate(6, (index) {
                     return Container(
                       width: 64,
                       height: 72,
