@@ -67,10 +67,10 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
 
     // 🚫 BLOCK: Must have a crop/livestock selected to create an activity
     if (!hierarchy.hasCropOrLivestock) {
-      return ShellPageContent(
+      return const ShellPageContent(
         title: 'Record Activity',
         subtitle: 'Select a crop or livestock first',
-        child: const Center(
+        child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -87,7 +87,7 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
     return ShellPageContent(
       title: 'Record Activity',
       subtitle: hierarchy.hasCropOrLivestock
-          ? '${hierarchy.cropOrLivestockType == 'livestock' ? '🐄' : '🌱'} ${hierarchy.cropOrLivestockType == 'livestock' ? (hierarchy.cropOrLivestock as dynamic?)?.species ?? '' : (hierarchy.cropOrLivestock as dynamic?)?.cropName ?? ''}'
+          ? '${hierarchy.cropOrLivestockType == 'livestock' ? '🐄' : '🌱'} ${hierarchy.cropOrLivestockType == 'livestock' ? (hierarchy.cropOrLivestock as dynamic)?.species ?? '' : (hierarchy.cropOrLivestock as dynamic)?.cropName ?? ''}'
           : '',
       child: farmId == null
           ? const Center(child: Text('Select a farm first'))
@@ -121,8 +121,8 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
   Widget _buildHierarchyContextBanner(HierarchySelectionState hierarchy) {
     final fieldName = hierarchy.field?.fieldName ?? 'Field';
     final cropOrLivestockLabel = hierarchy.cropOrLivestockType == 'livestock'
-        ? (hierarchy.cropOrLivestock as dynamic?)?.species ?? 'Livestock'
-        : (hierarchy.cropOrLivestock as dynamic?)?.cropName ?? 'Crop';
+        ? (hierarchy.cropOrLivestock as dynamic)?.species ?? 'Livestock'
+        : (hierarchy.cropOrLivestock as dynamic)?.cropName ?? 'Crop';
 
     return Container(
       padding: const EdgeInsets.all(12),

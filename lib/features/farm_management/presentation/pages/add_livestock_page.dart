@@ -61,10 +61,10 @@ class _AddLivestockPageState extends ConsumerState<AddLivestockPage> {
 
     // 🚫 BLOCK: No field selected
     if (farmId == null || fieldId == null) {
-      return ShellPageContent(
+      return const ShellPageContent(
         title: 'Add Livestock',
         subtitle: 'Select a field first',
-        child: const Center(
+        child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [

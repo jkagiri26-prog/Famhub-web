@@ -189,8 +189,8 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
         return '${hierarchy.field?.fieldName ?? 'Field'} — Detailed analysis';
       case 'crop_livestock':
         final name = hierarchy.cropOrLivestockType == 'crop'
-            ? (hierarchy.cropOrLivestock as dynamic?)?.cropName ?? 'Crop'
-            : (hierarchy.cropOrLivestock as dynamic?)?.species ?? 'Livestock';
+            ? (hierarchy.cropOrLivestock as dynamic)?.cropName ?? 'Crop'
+            : (hierarchy.cropOrLivestock as dynamic)?.species ?? 'Livestock';
         return '$name — Production unit report';
       case 'activity':
         return 'Individual activity records and metrics';
@@ -296,7 +296,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
           ),
         ),
         const SizedBox(height: 8),
-        _DrillDownHint(
+        const _DrillDownHint(
           message: 'Select a field from the Fields/Blocks tab, '
               'then return to Reports for field-level drill-down.',
           icon: Icons.terrain,
@@ -312,7 +312,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
           ),
         ),
         const SizedBox(height: 8),
-        _DrillDownHint(
+        const _DrillDownHint(
           message: 'Navigate to a specific field and crop/livestock '
               'to see detailed activity reports.',
           icon: Icons.list_alt,
@@ -355,7 +355,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
           ),
         ),
         const SizedBox(height: 8),
-        _DrillDownHint(
+        const _DrillDownHint(
           message: 'Select a crop from the Crops tab, '
               'then return here for crop-level drill-down.',
           icon: Icons.eco,
@@ -380,27 +380,27 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
           icon: isLivestock ? Icons.pets : Icons.eco,
           title: isLivestock ? 'Livestock Report' : 'Crop Report',
           value: isLivestock
-              ? (hierarchy.cropOrLivestock as dynamic?)?.species ?? 'Livestock'
-              : (hierarchy.cropOrLivestock as dynamic?)?.cropName ?? 'Crop',
+              ? (hierarchy.cropOrLivestock as dynamic)?.species ?? 'Livestock'
+              : (hierarchy.cropOrLivestock as dynamic)?.cropName ?? 'Crop',
           subtitle: isLivestock
-              ? '${(hierarchy.cropOrLivestock as dynamic?)?.count ?? 0} head'
-              : '${(hierarchy.cropOrLivestock as dynamic?)?.statusLabel ?? 'N/A'}',
+              ? '${(hierarchy.cropOrLivestock as dynamic)?.count ?? 0} head'
+              : '${(hierarchy.cropOrLivestock as dynamic)?.statusLabel ?? 'N/A'}',
           color: isLivestock ? Colors.orange : Colors.green,
         ),
         const SizedBox(height: 16),
 
         if (isLivestock) ...[
-          _ReportDetailRow('Breed', (hierarchy.cropOrLivestock as dynamic?)?.breed ?? 'N/A'),
-          _ReportDetailRow('Count', '${(hierarchy.cropOrLivestock as dynamic?)?.count ?? 0}'),
-          _ReportDetailRow('Health', (hierarchy.cropOrLivestock as dynamic?)?.healthLabel ?? 'N/A'),
-          _ReportDetailRow('Purpose', (hierarchy.cropOrLivestock as dynamic?)?.purposeLabel ?? 'N/A'),
+          _ReportDetailRow('Breed', (hierarchy.cropOrLivestock as dynamic)?.breed ?? 'N/A'),
+          _ReportDetailRow('Count', '${(hierarchy.cropOrLivestock as dynamic)?.count ?? 0}'),
+          _ReportDetailRow('Health', (hierarchy.cropOrLivestock as dynamic)?.healthLabel ?? 'N/A'),
+          _ReportDetailRow('Purpose', (hierarchy.cropOrLivestock as dynamic)?.purposeLabel ?? 'N/A'),
         ] else ...[
-          _ReportDetailRow('Variety', (hierarchy.cropOrLivestock as dynamic?)?.variety ?? 'N/A'),
-          _ReportDetailRow('Status', (hierarchy.cropOrLivestock as dynamic?)?.statusLabel ?? 'N/A'),
+          _ReportDetailRow('Variety', (hierarchy.cropOrLivestock as dynamic)?.variety ?? 'N/A'),
+          _ReportDetailRow('Status', (hierarchy.cropOrLivestock as dynamic)?.statusLabel ?? 'N/A'),
           _ReportDetailRow('Area Planted',
-              '${(hierarchy.cropOrLivestock as dynamic?)?.areaPlanted?.toStringAsFixed(1) ?? 'N/A'} ha'),
+              '${(hierarchy.cropOrLivestock as dynamic)?.areaPlanted?.toStringAsFixed(1) ?? 'N/A'} ha'),
           _ReportDetailRow('Days Since Planting',
-              '${(hierarchy.cropOrLivestock as dynamic?)?.daysSincePlanting?.inDays ?? 0} days'),
+              '${(hierarchy.cropOrLivestock as dynamic)?.daysSincePlanting?.inDays ?? 0} days'),
         ],
 
         const SizedBox(height: 20),
@@ -433,7 +433,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _ReportSummaryCard(
+        const _ReportSummaryCard(
           icon: Icons.list_alt,
           title: 'Activity Report',
           value: 'Detailed Activity Records',
@@ -465,8 +465,8 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                     ? 'Livestock'
                     : 'Crop',
                 hierarchy.cropOrLivestockType == 'livestock'
-                    ? (hierarchy.cropOrLivestock as dynamic?)?.species ?? 'N/A'
-                    : (hierarchy.cropOrLivestock as dynamic?)?.cropName ?? 'N/A',
+                    ? (hierarchy.cropOrLivestock as dynamic)?.species ?? 'N/A'
+                    : (hierarchy.cropOrLivestock as dynamic)?.cropName ?? 'N/A',
               ),
             ],
           ),
@@ -488,7 +488,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
         const SizedBox(height: 20),
 
         // Navigation hint
-        _DrillDownHint(
+        const _DrillDownHint(
           message: 'View the full activity timeline in the Activities tab.',
           icon: Icons.open_in_new,
         ),

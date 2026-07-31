@@ -408,7 +408,7 @@ class FamhubHomePage extends ConsumerWidget {
 
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       color: colorScheme.surface,
       child: SizedBox(
         height: 52,
@@ -1069,7 +1069,7 @@ class FamhubHomePage extends ConsumerWidget {
     final size = MediaQuery.of(context).size;
     
     // Compact hero carousel height - fixed for better visual balance
-    final heroHeight = 200.0;
+    const heroHeight = 200.0;
 
     return SizedBox(
       width: double.infinity,

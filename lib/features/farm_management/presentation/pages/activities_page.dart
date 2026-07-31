@@ -154,7 +154,7 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
         return ShellPageContent(
       title: 'Activities',
       subtitle: hierarchy.hasCropOrLivestock
-          ? '${hierarchy.cropOrLivestockType == 'livestock' ? '🐄' : '🌱'} ${hierarchy.cropOrLivestockType == 'livestock' ? (hierarchy.cropOrLivestock as dynamic?)?.species ?? 'Livestock' : (hierarchy.cropOrLivestock as dynamic?)?.cropName ?? 'Crop'} — ${activities.length} activities'
+          ? '${hierarchy.cropOrLivestockType == 'livestock' ? '🐄' : '🌱'} ${hierarchy.cropOrLivestockType == 'livestock' ? (hierarchy.cropOrLivestock as dynamic)?.species ?? 'Livestock' : (hierarchy.cropOrLivestock as dynamic)?.cropName ?? 'Crop'} — ${activities.length} activities'
           : '${activities.length} activit${activities.length == 1 ? 'y' : 'ies'}',
       actions: [
         // ✅ CONTEXT: Record Activity ONLY when a Crop/Livestock is selected

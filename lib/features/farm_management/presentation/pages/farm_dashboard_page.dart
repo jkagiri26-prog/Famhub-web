@@ -14,5 +14,6 @@
 ///   import '...farm_dashboard_page.dart' as farm;
 ///   farm.FarmManagementPage()
 /// ============================================================
+library;
 
 export 'farm_management_page.dart';

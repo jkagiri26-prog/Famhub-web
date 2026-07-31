@@ -161,7 +161,7 @@ class FarmRecommendationEngine {
     }
 
     if (input.hasStockBelowThreshold) {
-      recommendations.add(FarmRecommendation(
+      recommendations.add(const FarmRecommendation(
         id: 'low_stock',
         title: 'Stock levels are low',
         description: 'Some inputs or supplies are running low. Consider restocking.',
@@ -193,7 +193,7 @@ class FarmRecommendationEngine {
     switch (input.stage) {
       case FarmLifecycleStage.created:
         return [
-          FarmRecommendation(
+          const FarmRecommendation(
             id: 'add_first_crop',
             title: 'Add your first crop',
             description: 'Begin managing your Main Field by planting a crop. '
@@ -204,7 +204,7 @@ class FarmRecommendationEngine {
             actionLabel: 'Add Crop',
           ),
           if (!input.hasLivestock)
-            FarmRecommendation(
+            const FarmRecommendation(
               id: 'add_first_livestock',
               title: 'Add livestock to your farm',
               description: 'If you manage animals, add them now to start tracking health and production.',
@@ -217,7 +217,7 @@ class FarmRecommendationEngine {
 
       case FarmLifecycleStage.readyForProduction:
         return [
-          FarmRecommendation(
+          const FarmRecommendation(
             id: 'record_first_activity',
             title: 'Record your first activity',
             description: 'Your crop or livestock is set up. Start tracking by recording your first farming activity.',
@@ -230,7 +230,7 @@ class FarmRecommendationEngine {
 
       case FarmLifecycleStage.productionStarted:
         return [
-          FarmRecommendation(
+          const FarmRecommendation(
             id: 'track_production',
             title: 'Start tracking production',
             description: 'You\'ve recorded activities. Now begin tracking harvest or production output.',
@@ -244,7 +244,7 @@ class FarmRecommendationEngine {
       case FarmLifecycleStage.activeManagement:
         return [
           if (input.hasPendingHarvest)
-            FarmRecommendation(
+            const FarmRecommendation(
               id: 'harvest_due',
               title: 'Harvest may be due',
               description: 'Your crops may be ready for harvest based on their growing period.',
@@ -253,7 +253,7 @@ class FarmRecommendationEngine {
               actionRoute: '/farm/harvest',
               actionLabel: 'Check Crops',
             ),
-          FarmRecommendation(
+          const FarmRecommendation(
             id: 'view_production',
             title: 'Review your production',
             description: 'Check your production dashboard for yield trends and insights.',
@@ -267,7 +267,7 @@ class FarmRecommendationEngine {
       case FarmLifecycleStage.harvestOrProductionComplete:
         return [
           if (input.hasReports)
-            FarmRecommendation(
+            const FarmRecommendation(
               id: 'view_reports',
               title: 'Your production report is ready',
               description: 'View your farm\'s performance summary including yield, expenses, and sales.',
@@ -277,7 +277,7 @@ class FarmRecommendationEngine {
               actionLabel: 'View Reports',
             )
           else
-            FarmRecommendation(
+            const FarmRecommendation(
               id: 'generate_report',
               title: 'Generate a production report',
               description: 'Summarize your production data to analyze farm performance.',
@@ -290,7 +290,7 @@ class FarmRecommendationEngine {
 
       case FarmLifecycleStage.reportingAndAnalysis:
         return [
-          FarmRecommendation(
+          const FarmRecommendation(
             id: 'start_new_season',
             title: 'Start a new season',
             description: 'The current season is complete. Archive data and begin a fresh production cycle.',
@@ -299,7 +299,7 @@ class FarmRecommendationEngine {
             actionRoute: '/farm/seasons/new',
             actionLabel: 'New Season',
           ),
-          FarmRecommendation(
+          const FarmRecommendation(
             id: 'compare_reports',
             title: 'Compare with previous seasons',
             description: 'View historical reports to identify trends and improve next season.',
@@ -312,7 +312,7 @@ class FarmRecommendationEngine {
 
       case FarmLifecycleStage.unknown:
         return [
-          FarmRecommendation(
+          const FarmRecommendation(
             id: 'complete_setup',
             title: 'Complete farm setup',
             description: 'Add fields and start managing your farm to unlock production tracking.',

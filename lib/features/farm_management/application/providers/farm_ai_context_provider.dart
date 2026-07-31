@@ -25,7 +25,7 @@ final farmAiContextProvider = Provider<FarmAiContext?>((ref) {
   final context = ref.watch(farmContextProvider);
   final hierarchy = ref.watch(hierarchyProvider);
 
-  final service = const FarmAiContextService();
+  const service = FarmAiContextService();
 
   // Build hierarchy path
   final segments = <String>[];

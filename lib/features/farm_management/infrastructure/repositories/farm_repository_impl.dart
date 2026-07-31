@@ -37,7 +37,7 @@ class FarmRepositoryImpl implements FarmRepository {
           .eq('id', farmId)
           .maybeSingle();
       if (response == null) return null;
-      return _mapFarmRow(response as Map<String, dynamic>);
+      return _mapFarmRow(response);
     } on PostgrestException catch (e) {
       throw Exception('Failed to load farm: ${e.message}');
     } catch (e) {
@@ -90,7 +90,7 @@ class FarmRepositoryImpl implements FarmRepository {
           })
           .select()
           .single();
-      return _mapFarmRow(response as Map<String, dynamic>);
+      return _mapFarmRow(response);
     } on PostgrestException catch (e) {
       throw Exception('Failed to create farm: ${e.message}');
     } catch (e) {
@@ -113,7 +113,7 @@ class FarmRepositoryImpl implements FarmRepository {
           .eq('id', farm.id)
           .select()
           .single();
-      return _mapFarmRow(response as Map<String, dynamic>);
+      return _mapFarmRow(response);
     } on PostgrestException catch (e) {
       throw Exception('Failed to update farm: ${e.message}');
     } catch (e) {
@@ -493,7 +493,7 @@ class FarmRepositoryImpl implements FarmRepository {
           .eq('farm_id', farmId)
           .maybeSingle();
       if (response == null) return null;
-      final row = response as Map<String, dynamic>;
+      final row = response;
       return LivestockEntity(
         id: row['id'] as String,
         farmId: row['farm_id'] as String,
@@ -775,7 +775,7 @@ class FarmRepositoryImpl implements FarmRepository {
           ''')
           .single();
 
-      final createdActivity = _mapActivityRowFull(inserted as Map<String, dynamic>);
+      final createdActivity = _mapActivityRowFull(inserted);
 
       // Persist attribute values if present
       if (activity.attributeValues.isNotEmpty) {
@@ -862,7 +862,7 @@ class FarmRepositoryImpl implements FarmRepository {
           .eq('farm_id', farmId)
           .maybeSingle();
       if (response == null) return null;
-      final row = response as Map<String, dynamic>;
+      final row = response;
       return CropEntity(
         id: row['id'] as String,
         farmId: row['farm_id'] as String,

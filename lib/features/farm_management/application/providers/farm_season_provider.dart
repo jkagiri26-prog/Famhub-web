@@ -81,7 +81,7 @@ class FarmSeasonNotifier extends Notifier<FarmSeasonState> {
     final seasonName = _generateSeasonName(now);
 
     final currentSeason = FarmSeason(
-      id: '${farmId}-${now.year}-${now.month}',
+      id: '$farmId-${now.year}-${now.month}',
       farmId: farmId,
       name: seasonName,
       startDate: now,

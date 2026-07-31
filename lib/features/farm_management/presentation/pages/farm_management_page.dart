@@ -338,35 +338,35 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage> {
           ),
         ),
         const SizedBox(height: 16),
-        _QuickStartStep(
+        const _QuickStartStep(
           icon: Icons.add_circle,
           title: 'Create a Farm',
           description: 'Add your farm with name, location, and size',
           color: Colors.green,
         ),
         const SizedBox(height: 12),
-        _QuickStartStep(
+        const _QuickStartStep(
           icon: Icons.terrain,
           title: 'Add Fields',
           description: 'Define your farm fields and growing areas',
           color: Colors.brown,
         ),
         const SizedBox(height: 12),
-        _QuickStartStep(
+        const _QuickStartStep(
           icon: Icons.eco,
           title: 'Plant Crops',
           description: 'Track what you plant and when',
           color: Colors.teal,
         ),
         const SizedBox(height: 12),
-        _QuickStartStep(
+        const _QuickStartStep(
           icon: Icons.pets,
           title: 'Add Livestock',
           description: 'Manage your animals and their health',
           color: Colors.orange,
         ),
         const SizedBox(height: 12),
-        _QuickStartStep(
+        const _QuickStartStep(
           icon: Icons.edit_note,
           title: 'Record Activities',
           description: 'Log daily farming operations',
@@ -518,13 +518,13 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage> {
     // Only show onboarding when a farm is selected
     if (!hierarchy.hasEntity) return const SizedBox.shrink();
 
-    return Column(
+    return const Column(
       children: [
         // ── Guided Setup Card (shown when farm has no crops/livestock) ──
-        const FarmSetupGuideWidget(),
+        FarmSetupGuideWidget(),
 
         // ── Onboarding Checklist ──
-        const FarmOnboardingChecklistWidget(),
+        FarmOnboardingChecklistWidget(),
       ],
     );
   }

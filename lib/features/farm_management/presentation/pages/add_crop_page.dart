@@ -63,10 +63,10 @@ class _AddCropPageState extends ConsumerState<AddCropPage> {
 
     // 🚫 BLOCK: No field selected — should not happen if button is hidden
     if (farmId == null || fieldId == null) {
-      return ShellPageContent(
+      return const ShellPageContent(
         title: 'Add Crop',
         subtitle: 'Select a field first',
-        child: const Center(
+        child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [

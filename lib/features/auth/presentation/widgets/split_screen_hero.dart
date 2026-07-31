@@ -225,7 +225,7 @@ class _SplitScreenHeroState extends State<SplitScreenHero> {
     return Container(
       width: double.infinity,
       height: height,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
@@ -235,7 +235,7 @@ class _SplitScreenHeroState extends State<SplitScreenHero> {
             _darkGreen,
             _deepGreen,
           ],
-          stops: const [0.0, 0.3, 0.7, 1.0],
+          stops: [0.0, 0.3, 0.7, 1.0],
         ),
       ),
       child: SafeArea(

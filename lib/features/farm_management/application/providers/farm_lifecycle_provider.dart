@@ -195,7 +195,7 @@ class FarmLifecycleNotifier extends Notifier<FarmLifecycleState> {
       const bool hasStockBelowThreshold = false;
 
       const int overdueTaskCount = 0;
-      final int? daysSinceLastFinancialRecord = null;
+      const int? daysSinceLastFinancialRecord = null;
 
       final recommendationInput = RecommendationInput(
         stage: stage,
