@@ -209,10 +209,26 @@ class AuthService {
             if (kDebugMode) debugPrint('OTP Verification Success');
 
             // Serialize the session to JSON and recover it into the SDK
-            final sessionJson = jsonEncode(session);
-            await _supabase.client.auth.recoverSession(sessionJson);
+                        final sessionJson = jsonEncode(session);
+                        await _supabase.client.auth.recoverSession(sessionJson);
 
-            // Verify that the session was actually established
+                        debugPrint('========== AFTER recoverSession ==========');
+debugPrint('CurrentSession: ${_supabase.client.auth.currentSession}');
+debugPrint('CurrentUser: ${_supabase.client.auth.currentUser}');
+debugPrint('CurrentUserId: ${_supabase.client.auth.currentUser?.id}');
+debugPrint('AccessToken exists: ${_supabase.client.auth.currentSession?.accessToken != null}');
+debugPrint('RefreshToken exists: ${_supabase.client.auth.currentSession?.refreshToken != null}');
+debugPrint('==========================================');
+
+                        // Listen for auth state change events after recoverSession
+                        _supabase.client.auth.onAuthStateChange.listen((event) {
+                          debugPrint(
+                            'AUTH EVENT -> ${event.event} '
+                            'user=${event.session?.user.id}',
+                          );
+                        });
+
+                        // Verify that the session was actually established
             if (_supabase.currentUser == null) {
               if (kDebugMode) debugPrint('[verifyOtp] Session Established - FAILED: currentUser is null');
               return const OtpVerifyResult(
