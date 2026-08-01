@@ -162,42 +162,75 @@ class AuthService {
         body: {'phone': phone, 'token': token},
       );
 
-      // Validate the response data
-      final sessionData = response.data;
-      if (sessionData == null || sessionData['session'] == null) {
-        // Check if the response data contains an error field
-        String errorMsg = 'Invalid verification code. Please try again.';
-        if (sessionData != null && sessionData is Map && sessionData['error'] != null) {
-          errorMsg = _mapEdgeFunctionError(sessionData['error'].toString());
-        }
-        return OtpVerifyResult(success: false, error: errorMsg);
-      }
+      // Validate the response envelope from the Edge Function
+            final responseData = response.data;
+            if (kDebugMode) {
+              debugPrint('[verifyOtp] Raw response: $responseData');
+            }
 
-      if (kDebugMode) debugPrint('OTP Verification Success');
+            if (responseData == null || responseData is! Map) {
+              return const OtpVerifyResult(
+                success: false,
+                error: 'Invalid verification response. Please try again.',
+              );
+            }
 
-      // Serialize the session to JSON and recover it into the SDK
-      final sessionJson = jsonEncode(sessionData['session']);
-      await _supabase.client.auth.recoverSession(sessionJson);
+            // Validate success flag
+            final successFlag = responseData['success'] == true;
+            if (kDebugMode) {
+              debugPrint('[verifyOtp] success flag: $successFlag');
+            }
 
-      // Verify that the session was actually established
-      if (_supabase.currentUser == null) {
-        if (kDebugMode) debugPrint('Session Established - FAILED: currentUser is null');
-        return const OtpVerifyResult(
-          success: false,
-          error: 'Session could not be established. Please try again.',
-        );
-      }
+            if (!successFlag) {
+              String errorMsg = 'Invalid verification code. Please try again.';
+              if (responseData['error'] != null) {
+                errorMsg = _mapEdgeFunctionError(responseData['error'].toString());
+              }
+              return OtpVerifyResult(success: false, error: errorMsg);
+            }
 
-      if (kDebugMode) {
-        debugPrint('Session Established');
-        debugPrint('Authentication Complete');
-      }
+            // Read nested data object
+            final data = responseData['data'];
+            final session = data is Map ? data['session'] : null;
+            final userData = data is Map ? data['user'] : null;
 
-      final user = _supabase.currentUser;
-      return OtpVerifyResult(
-        success: true,
-        userId: user?.id,
-      );
+            if (kDebugMode) {
+              debugPrint('[verifyOtp] data.session exists: ${session != null}');
+              debugPrint('[verifyOtp] data.user exists: ${userData != null}');
+            }
+
+            if (session == null) {
+              return const OtpVerifyResult(
+                success: false,
+                error: 'Invalid verification code. Please try again.',
+              );
+            }
+
+            if (kDebugMode) debugPrint('OTP Verification Success');
+
+            // Serialize the session to JSON and recover it into the SDK
+            final sessionJson = jsonEncode(session);
+            await _supabase.client.auth.recoverSession(sessionJson);
+
+            // Verify that the session was actually established
+            if (_supabase.currentUser == null) {
+              if (kDebugMode) debugPrint('[verifyOtp] Session Established - FAILED: currentUser is null');
+              return const OtpVerifyResult(
+                success: false,
+                error: 'Session could not be established. Please try again.',
+              );
+            }
+
+            if (kDebugMode) {
+              debugPrint('[verifyOtp] Session Established - currentUser exists: ${_supabase.currentUser != null}');
+              debugPrint('Authentication Complete');
+            }
+
+            final user = _supabase.currentUser;
+            return OtpVerifyResult(
+              success: true,
+              userId: user?.id,
+            );
     } on FunctionException catch (e) {
       if (kDebugMode) debugPrint('OTP Verification FunctionException: ${e.details}');
       return OtpVerifyResult(
