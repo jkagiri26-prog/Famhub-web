@@ -208,25 +208,55 @@ class AuthService {
 
             if (kDebugMode) debugPrint('OTP Verification Success');
 
-            // Serialize the session to JSON and recover it into the SDK
-                        final sessionJson = jsonEncode(session);
-                        await _supabase.client.auth.recoverSession(sessionJson);
+            // ======================================================
+                        // SESSION HYDRATION — FIX
+                        // ======================================================
+                        // The edge function returns session keys in snake_case.
+                        // `setSession` is preferred because it:
+                        //   1. Fetches the user via GET /user using the access token
+                        //   2. Persists the session locally
+                        //   3. Emits signedIn event
+                        // `recoverSession` is the fallback — it only parses JSON
+                        // and does NOT fetch the user from the server, so it can
+                        // fail silently if the session shape is incomplete.
+                        // ======================================================
+                        final sessionMap = session is Map
+                                                    ? Map<String, dynamic>.from(session)
+                                                    : null;
 
-                        debugPrint('========== AFTER recoverSession ==========');
-debugPrint('CurrentSession: ${_supabase.client.auth.currentSession}');
-debugPrint('CurrentUser: ${_supabase.client.auth.currentUser}');
-debugPrint('CurrentUserId: ${_supabase.client.auth.currentUser?.id}');
-debugPrint('AccessToken exists: ${_supabase.client.auth.currentSession?.accessToken != null}');
-debugPrint('RefreshToken exists: ${_supabase.client.auth.currentSession?.refreshToken != null}');
-debugPrint('==========================================');
+                        final accessToken = sessionMap?['access_token'] as String?;
+                        final refreshToken = sessionMap?['refresh_token'] as String?;
 
-                        // Listen for auth state change events after recoverSession
-                        _supabase.client.auth.onAuthStateChange.listen((event) {
-                          debugPrint(
-                            'AUTH EVENT -> ${event.event} '
-                            'user=${event.session?.user.id}',
-                          );
-                        });
+                        if (accessToken != null && refreshToken != null) {
+                          if (kDebugMode) {
+                            debugPrint('[verifyOtp] Calling setSession with tokens...');
+                          }
+                          // NOTE: In gotrue (supabase_flutter 2.x), setSession takes
+                                                    // ONE positional arg: refreshToken.
+                                                    await _supabase.client.auth.setSession(
+                                                      refreshToken,
+                                                    );
+                        } else {
+                          if (kDebugMode) {
+                            debugPrint('[verifyOtp] setSession tokens missing, trying recoverSession...');
+                          }
+                          final sessionJson = jsonEncode(session);
+                          await _supabase.client.auth.recoverSession(sessionJson);
+                        }
+
+                        // Allow auth state change events to settle before checking
+                        await Future.delayed(const Duration(milliseconds: 100));
+
+                        final recoveredSession = _supabase.client.auth.currentSession;
+                        final recoveredUser = _supabase.client.auth.currentUser;
+
+                        debugPrint('========== AFTER SESSION RESTORE ==========');
+                        debugPrint('CurrentSession exists: ${recoveredSession != null}');
+                        debugPrint('CurrentUser exists: ${recoveredUser != null}');
+                        debugPrint('User ID: ${recoveredUser?.id}');
+                        debugPrint('Access Token exists: ${recoveredSession?.accessToken != null}');
+                        debugPrint('Refresh Token exists: ${recoveredSession?.refreshToken != null}');
+                        debugPrint('=========================================');
 
                         // Verify that the session was actually established
             if (_supabase.currentUser == null) {
