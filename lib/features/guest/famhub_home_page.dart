@@ -160,7 +160,7 @@ const List<_ModuleCardData> _allModuleCards = [
   ),
   _ModuleCardData(
     id: 'knowledge',
-    title: 'Knowledge',
+    title: 'Knowledge Link',
     description: 'Access agricultural guides, best practices, market insights, and training materials for every role in the ecosystem.',
     icon: Icons.school_outlined,
     color: Color(0xFF7C3AED),
@@ -231,10 +231,10 @@ const List<_ImpactStat> _impactStats = [
     color: Color(0xFF0891B2),
   ),
   _ImpactStat(
-    value: '₦2.5B+',
+    value: '2.5B+',
     label: 'Transactions Processed',
     icon: Icons.account_balance_outlined,
-    color: Color(0xFF7C3AED),
+    color: Color.fromARGB(255, 145, 95, 231),
   ),
   _ImpactStat(
     value: '48+',
@@ -249,21 +249,21 @@ const List<_MarketplacePreviewItem> _marketplacePreviews = [
   _MarketplacePreviewItem(
     title: 'Fresh Maize',
     subtitle: 'Premium quality, harvested this season',
-    price: '₦32,500/ton',
+    price: 'Ksh.3,500/bag',
     icon: Icons.eco_outlined,
     color: Color(0xFF059669),
   ),
   _MarketplacePreviewItem(
     title: 'Organic Tomatoes',
     subtitle: 'Farm-fresh, pesticide-free produce',
-    price: '₦8,200/crate',
+    price: 'ksh.1,500/crate',
     icon: Icons.spa_outlined,
     color: Color(0xFFDC2626),
   ),
   _MarketplacePreviewItem(
     title: 'Watermelon',
     subtitle: 'Sweet & juicy, direct from farm',
-    price: '₦3,500/unit',
+    price: 'Ksh.100/unit',
     icon: Icons.water_drop_outlined,
     color: Color(0xFF0891B2),
   ),
@@ -273,23 +273,23 @@ const List<_MarketplacePreviewItem> _marketplacePreviews = [
 const List<_Testimonial> _testimonials = [
   _Testimonial(
     quote: 'FAMHUB transformed how I sell my produce. I now reach buyers across three states without leaving my farm.',
-    name: 'Chidi Okonkwo',
-    role: 'Cassava Farmer',
-    location: 'Benue State',
+    name: 'Henry Ochieng',
+    role: 'Tomatoes Farmer',
+    location: 'Kisumu county',
     avatarColor: Color(0xFF059669),
   ),
   _Testimonial(
     quote: 'The financing module helped me secure a loan to expand my poultry business. The process was seamless.',
     name: 'Amina Yusuf',
     role: 'Poultry Farmer',
-    location: 'Kaduna State',
+    location: 'Kwale County',
     avatarColor: Color(0xFF7C3AED),
   ),
   _Testimonial(
     quote: 'As a trader, the real-time market prices and logistics tracking have been game-changers for my business.',
-    name: 'Emeka Okafor',
+    name: 'Edith Kanini',
     role: 'Agricultural Trader',
-    location: 'Lagos State',
+    location: 'Machakos County',
     avatarColor: Color(0xFF0891B2),
   ),
   _Testimonial(
@@ -673,7 +673,7 @@ class FamhubHomePage extends ConsumerWidget {
       _WhyChooseItem(
         icon: Icons.language_outlined,
         title: 'Multi-Lingual',
-        description: 'Available in English, Hausa, Yoruba, Igbo, and more local languages.',
+        description: 'Available in English, French, Swahili, and more local languages.',
         color: Color(0xFF7C3AED),
       ),
       _WhyChooseItem(
