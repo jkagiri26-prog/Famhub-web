@@ -526,7 +526,7 @@ class FamhubHomePage extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Text(
-              'More Modules',
+              'More Services',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,

@@ -24,7 +24,10 @@
 /// ============================================================
 library;
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:famhub_app/core/services/auth_service.dart';
 import 'package:famhub_app/core/services/supabase_service.dart';
 
@@ -59,10 +62,8 @@ class _AuthServiceProvider {
 class SignInScreenPage extends StatefulWidget {
   /// OTP flow: Called after OTP verification succeeds.
   /// Should return true on success, false on failure.
-  final Future<bool> Function({
-    required String contact,
-    required String otp,
-  })? onAuthenticate;
+  final Future<bool> Function({required String contact, required String otp})?
+  onAuthenticate;
 
   /// Called when the user wants to go back.
   final VoidCallback onBack;
@@ -130,12 +131,14 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
           .order('name');
 
       final countries = (response as List)
-          .map((c) => _CountryCode(
-                id: c['id'] as String,
-                name: c['name'] as String,
-                dialingCode: c['dialing_code'] as String,
-                isoAlpha2: (c['iso_alpha2'] as String).trim(),
-              ))
+          .map(
+            (c) => _CountryCode(
+              id: c['id'] as String,
+              name: c['name'] as String,
+              dialingCode: c['dialing_code'] as String,
+              isoAlpha2: (c['iso_alpha2'] as String).trim(),
+            ),
+          )
           .toList();
 
       if (!mounted) return;
@@ -145,9 +148,9 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
         _countriesLoading = false;
         // Auto-select Kenya (+254) as default
         _selectedCountry = countries.cast<_CountryCode?>().firstWhere(
-              (c) => c!.isoAlpha2 == 'KE',
-              orElse: () => countries.isNotEmpty ? countries.first : null,
-            );
+          (c) => c!.isoAlpha2 == 'KE',
+          orElse: () => countries.isNotEmpty ? countries.first : null,
+        );
       });
     } catch (e) {
       if (!mounted) return;
@@ -327,11 +330,130 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
     await _sendOtp();
   }
 
-  /// Handle digit input for OTP fields
-  void _onOtpDigitChanged(int index, String value) {
-    if (value.length == 1 && index < 5) {
+  /// Handle digit input for OTP fields (supports paste and auto-advance)
+  void _handleOtpChanged(int index, String value) {
+    if (value.isEmpty) return;
+
+    // ── Paste support: distribute multiple digits across consecutive fields ──
+    if (value.length > 1) {
+      final digits = value.replaceAll(RegExp(r'[^0-9]'), '').split('');
+      final count = digits.length;
+
+      for (var i = 0; i < count && index + i < 6; i++) {
+        _otpControllers[index + i].text = digits[i];
+      }
+      // Ensure the active field shows only its single digit
+      _otpControllers[index].text = digits.isNotEmpty ? digits.first : '';
+
+      // Advance focus to the next unfilled field
+      final nextIndex = index + count;
+      if (nextIndex < 6) {
+        _otpFocusNodes[nextIndex].requestFocus();
+      } else {
+        _otpFocusNodes[5].unfocus();
+      }
+      return;
+    }
+
+    // ── Single digit typed: auto-advance to the next field ──
+    if (index < 5) {
       _otpFocusNodes[index + 1].requestFocus();
     }
+  }
+
+  /// Build a single responsive OTP digit field.
+  Widget _buildOtpField(
+    int index, {
+    required double width,
+    required double height,
+    required double marginLeft,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final controller = _otpControllers[index];
+    final focusNode = _otpFocusNodes[index];
+
+    return Container(
+      width: width,
+      height: height,
+      margin: EdgeInsets.only(left: marginLeft),
+      child: Focus(
+        onKeyEvent: (node, event) {
+          // Move to the previous field when backspace is pressed on an empty field
+          if (event is KeyDownEvent &&
+              event.logicalKey == LogicalKeyboardKey.backspace &&
+              controller.text.isEmpty &&
+              index > 0) {
+            _otpFocusNodes[index - 1].requestFocus();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: Semantics(
+          label: 'OTP digit ${index + 1} of 6',
+          textField: true,
+          child: TextField(
+            controller: controller,
+            focusNode: focusNode,
+            textAlign: TextAlign.center,
+            keyboardType: TextInputType.number,
+            // Allow multiple digits so pasting the full 6-digit OTP works;
+            // _handleOtpChanged immediately distributes them to separate fields.
+            maxLength: 6,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: colorScheme.onSurface,
+            ),
+            decoration: InputDecoration(
+              counterText: '',
+              filled: true,
+              fillColor: colorScheme.surfaceContainerHighest,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: colorScheme.primary, width: 2),
+              ),
+              contentPadding: EdgeInsets.zero,
+            ),
+            onChanged: (value) => _handleOtpChanged(index, value),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Responsive OTP row: always keeps all 6 boxes on a single line.
+  Widget _buildOtpRow() {
+    const double spacing = 6;
+    const double maxBoxWidth = 46;
+    const double boxHeight = 54;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth;
+        // Box width adapts to the available width while respecting the
+        // 40–46 px target range on normal devices. On ultra-narrow screens
+        // it shrinks slightly instead of overflowing or wrapping.
+        final computedWidth = (availableWidth - spacing * 5) / 6;
+        final boxWidth = math.min(computedWidth, maxBoxWidth);
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(6, (index) {
+            return _buildOtpField(
+              index,
+              width: boxWidth,
+              height: boxHeight,
+              marginLeft: index > 0 ? spacing : 0,
+            );
+          }),
+        );
+      },
+    );
   }
 
   @override
@@ -345,14 +467,21 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new_rounded,
-              color: colorScheme.onSurface),
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: colorScheme.onSurface,
+          ),
           onPressed: widget.onBack,
         ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.symmetric(
+            // Slightly tighter horizontal padding on narrow screens so the
+            // 6-digit OTP always fits on a single row.
+            horizontal: MediaQuery.sizeOf(context).width < 360 ? 20 : 24,
+            vertical: 24,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -429,7 +558,10 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
                               onChanged: null,
                               hint: const SizedBox(
                                 width: 80,
-                                child: Text('Loading...', overflow: TextOverflow.ellipsis),
+                                child: Text(
+                                  'Loading...',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             )
                           : DropdownButtonFormField<String>(
@@ -522,8 +654,11 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.check_circle_outline,
-                            color: colorScheme.primary, size: 20),
+                        Icon(
+                          Icons.check_circle_outline,
+                          color: colorScheme.primary,
+                          size: 20,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -540,56 +675,62 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
                   ),
                 const SizedBox(height: 24),
 
-                                // ── Phone Display ──
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.phone_android_outlined,
-                              size: 16, color: colorScheme.primary),
-                          const SizedBox(width: 8),
-                          Text(
-                            _fullPhoneNumber,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.onSurface,
-                            ),
+                // ── Phone Display ──
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.phone_android_outlined,
+                          size: 16,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _fullPhoneNumber,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: colorScheme.onSurface,
                           ),
-                          const SizedBox(width: 8),
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _otpSent = false;
-                                _error = null;
-                                _successMessage = null;
-                              });
-                            },
-                            child: Icon(Icons.edit_outlined,
-                                size: 16, color: colorScheme.primary),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _otpSent = false;
+                              _error = null;
+                              _successMessage = null;
+                            });
+                          },
+                          child: Icon(
+                            Icons.edit_outlined,
+                            size: 16,
+                            color: colorScheme.primary,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Center(
-                    child: Text(
-                      'via SMS',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
+                ),
+                const SizedBox(height: 8),
+                Center(
+                  child: Text(
+                    'via SMS',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
+                ),
                 const SizedBox(height: 32),
 
                 // ── OTP Input (6 digits) ──
@@ -603,48 +744,7 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(6, (index) {
-                    return Container(
-                      width: 64,
-                      height: 72,
-                      margin: EdgeInsets.only(
-                        left: index > 0 ? 12 : 0,
-                      ),
-                      child: TextField(
-                        controller: _otpControllers[index],
-                        focusNode: _otpFocusNodes[index],
-                        textAlign: TextAlign.center,
-                        keyboardType: TextInputType.number,
-                        maxLength: 1,
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: colorScheme.onSurface,
-                        ),
-                        decoration: InputDecoration(
-                          counterText: '',
-                          filled: true,
-                          fillColor: colorScheme.surfaceContainerHighest,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide: BorderSide.none,
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide: BorderSide(
-                              color: colorScheme.primary,
-                              width: 2,
-                            ),
-                          ),
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                        onChanged: (value) =>
-                            _onOtpDigitChanged(index, value),
-                      ),
-                    );
-                  }),
-                ),
+                _buildOtpRow(),
                 const SizedBox(height: 16),
 
                 // ── Resend OTP ──
@@ -682,8 +782,11 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.error_outline,
-                          color: colorScheme.error, size: 20),
+                      Icon(
+                        Icons.error_outline,
+                        color: colorScheme.error,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -707,7 +810,9 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
                 child: FilledButton(
                   onPressed: _isLoading
                       ? null
-                      : _otpSent ? _verifyOtp : _sendOtp,
+                      : _otpSent
+                      ? _verifyOtp
+                      : _sendOtp,
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
