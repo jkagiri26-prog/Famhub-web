@@ -6,15 +6,15 @@
 ///   features/profile/presentation/pages/ = profile pages
 ///
 /// ✅ Responsibilities:
-///   - Collect user's full name (required)
-///   - Fetch countries from core.countries (default Kenya)
-///   - Fetch counties from core.locations via geography_levels (required)
-///   - Save profile to Supabase users.profiles table with location UUIDs
+///   - Collect user's first name (required)
+///   - Display country read-only (from OTP session context)
+///   - Searchable dropdowns for County (required), Sub-County, Ward
+///   - Save profile to Supabase with location UUIDs
 ///   - Call onComplete when profile is saved
 ///
 /// ❌ Does NOT:
+///   - Allow free-text for location fields (backend contract)
 ///   - Handle navigation
-///   - Know about session state
 /// ============================================================
 library famhub_app.features.profile.presentation.pages.create_profile_page;
 
@@ -22,17 +22,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famhub_app/core/session/session_provider.dart';
 import 'package:famhub_app/core/services/supabase_service.dart';
-
-/// Provider that fetches active countries from core.countries.
-final _countriesProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
-  final supabase = SupabaseService.instance;
-  final response = await supabase
-      .from('countries')
-      .select('id, name, iso_alpha2')
-      .eq('is_active', true)
-      .order('name');
-  return List<Map<String, dynamic>>.from(response);
-});
+import 'package:famhub_app/features/auth/infrastructure/services/otp_session_storage.dart';
 
 /// Provider that fetches county-level locations for a given country.
 /// Uses geography_levels to find the correct level, then locations.
@@ -40,7 +30,6 @@ final _countiesProvider = FutureProvider.family<List<Map<String, dynamic>>, Stri
   if (countryId.isEmpty) return [];
   final supabase = SupabaseService.instance;
 
-  // Find the geography level ID for 'county'
   final levelResponse = await supabase
       .from('geography_levels')
       .select('id')
@@ -51,7 +40,6 @@ final _countiesProvider = FutureProvider.family<List<Map<String, dynamic>>, Stri
   if (levelResponse == null) return [];
   final levelId = levelResponse['id'] as String;
 
-  // Fetch all locations at the county level for this country
   final response = await supabase
       .from('locations')
       .select('id, name')
@@ -62,41 +50,18 @@ final _countiesProvider = FutureProvider.family<List<Map<String, dynamic>>, Stri
   return List<Map<String, dynamic>>.from(response);
 });
 
-class CreateProfilePage extends ConsumerStatefulWidget {
-  /// Called when the profile has been successfully created.
-  /// Passes the display name that was saved.
-  final void Function(String displayName) onComplete;
-
-  const CreateProfilePage({
-    super.key,
-    required this.onComplete,
-  });
-
-  @override
-  ConsumerState<CreateProfilePage> createState() => _CreateProfilePageState();
-}
-
 /// Provider that fetches sub-county locations for a given county (parent_id).
 final _subCountiesProvider = FutureProvider.family<List<Map<String, dynamic>>, String>((ref, countyId) async {
   if (countyId.isEmpty) return [];
   final supabase = SupabaseService.instance;
 
-  // Find the geography level ID for 'sub_county'
   final levelResponse = await supabase
       .from('geography_levels')
       .select('id')
       .eq('level_name', 'sub_county')
       .maybeSingle();
 
-  if (levelResponse == null) {
-    // Fallback: fetch all locations where parent_id = countyId
-    final response = await supabase
-        .from('locations')
-        .select('id, name')
-        .eq('parent_id', countyId)
-        .order('name');
-    return List<Map<String, dynamic>>.from(response);
-  }
+  if (levelResponse == null) return [];
   final levelId = levelResponse['id'] as String;
 
   final response = await supabase
@@ -114,22 +79,13 @@ final _wardsProvider = FutureProvider.family<List<Map<String, dynamic>>, String>
   if (subCountyId.isEmpty) return [];
   final supabase = SupabaseService.instance;
 
-  // Find the geography level ID for 'ward'
   final levelResponse = await supabase
       .from('geography_levels')
       .select('id')
       .eq('level_name', 'ward')
       .maybeSingle();
 
-  if (levelResponse == null) {
-    // Fallback: fetch all locations where parent_id = subCountyId
-    final response = await supabase
-        .from('locations')
-        .select('id, name')
-        .eq('parent_id', subCountyId)
-        .order('name');
-    return List<Map<String, dynamic>>.from(response);
-  }
+  if (levelResponse == null) return [];
   final levelId = levelResponse['id'] as String;
 
   final response = await supabase
@@ -142,13 +98,151 @@ final _wardsProvider = FutureProvider.family<List<Map<String, dynamic>>, String>
   return List<Map<String, dynamic>>.from(response);
 });
 
-class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
-  final _formKey = GlobalKey<FormState>();
-  final _fullNameController = TextEditingController();
+/// ── Reusable Searchable Location Field ──
+/// Uses Flutter's Autocomplete to let users search and pick a location.
+/// Stores the backend UUID (never just the display name) via onSelected.
+class _SearchableLocationField extends StatelessWidget {
+  final List<Map<String, dynamic>> items;
+  final String? selectedName;
+  final String hint;
+  final IconData prefixIcon;
+  final ValueChanged<Map<String, dynamic>?> onSelected;
 
-  // Country
-  String? _selectedCountryId;
-  String? _selectedCountryName;
+  const _SearchableLocationField({
+    required this.items,
+    required this.onSelected,
+    this.selectedName,
+    this.hint = 'Select',
+    this.prefixIcon = Icons.place_outlined,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Autocomplete<String>(
+      initialValue: TextEditingValue(text: selectedName ?? ''),
+      optionsBuilder: (TextEditingValue textEditingValue) {
+        if (textEditingValue.text.isEmpty) {
+          return items.map((i) => i['name'] as String);
+        }
+        final query = textEditingValue.text.toLowerCase();
+        return items
+            .where((i) => (i['name'] as String).toLowerCase().contains(query))
+            .map((i) => i['name'] as String);
+      },
+      displayStringForOption: (option) => option,
+      onSelected: (selection) {
+        Map<String, dynamic>? match;
+        for (final item in items) {
+          if (item['name'] == selection) {
+            match = item;
+            break;
+          }
+        }
+        onSelected(match);
+      },
+      fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+        // Sync controller when selectedName changes externally
+        if (controller.text != (selectedName ?? '')) {
+          controller.text = selectedName ?? '';
+        }
+        return TextField(
+          controller: controller,
+          focusNode: focusNode,
+          decoration: InputDecoration(
+            hintText: hint,
+            prefixIcon: Icon(prefixIcon),
+          ),
+        );
+      },
+      optionsViewBuilder: (context, onSelected, options) {
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(10),
+            color: colorScheme.surface,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 280),
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: options.length,
+                itemBuilder: (context, index) {
+                  final option = options.elementAt(index);
+                  return ListTile(
+                    dense: true,
+                    leading: Icon(prefixIcon, size: 18, color: colorScheme.onSurfaceVariant),
+                    title: Text(option, style: TextStyle(fontSize: 14, color: colorScheme.onSurface)),
+                    onTap: () => onSelected(option),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Reusable loading/error/empty state widget for location sections.
+class _LocationStatus extends StatelessWidget {
+  final String message;
+  final bool isError;
+
+  const _LocationStatus({required this.message, this.isError = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = isError ? colorScheme.error : colorScheme.onSurfaceVariant;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          if (isError)
+            Icon(Icons.error_outline, size: 18, color: color)
+          else
+            const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(message, style: TextStyle(fontSize: 14, color: color)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class CreateProfilePage extends ConsumerStatefulWidget {
+  /// Called when the profile has been successfully created.
+  final VoidCallback onComplete;
+
+  const CreateProfilePage({
+    super.key,
+    required this.onComplete,
+  });
+
+  @override
+  ConsumerState<CreateProfilePage> createState() => _CreateProfilePageState();
+}
+
+class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
+  final _firstNameController = TextEditingController();
+
+  // Country from OTP session (read-only display)
+  String? _countryId;
+  String? _countryName;
+  bool _countryLoaded = false;
+
   // County (required)
   String? _selectedCountyId;
   String? _selectedCountyName;
@@ -163,36 +257,67 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    _firstNameController.addListener(_onFormChanged);
+    _loadCountryFromSession();
+  }
+
+  void _onFormChanged() {
+    if (mounted) setState(() {}); // Rebuild for button enablement
+  }
+
+  @override
   void dispose() {
-    _fullNameController.dispose();
+    _firstNameController.dispose();
     super.dispose();
   }
 
-  Future<void> _createProfile() async {
-    if (!_formKey.currentState!.validate()) return;
+  /// Load country from the persisted OTP session.
+  Future<void> _loadCountryFromSession() async {
+    try {
+      final session = await OtpSessionStorage.loadSession();
+      if (!mounted) return;
+      setState(() {
+        _countryId = session?.countryId;
+        _countryName = session?.countryName ?? 'Kenya';
+        _countryLoaded = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _countryId = null;
+        _countryName = 'Kenya';
+        _countryLoaded = true;
+      });
+    }
+  }
 
+  /// Button enabled only when: first name valid AND county selected.
+  bool get _canSubmit {
+    return _firstNameController.text.trim().length >= 2 &&
+        _selectedCountyId != null &&
+        !_isLoading &&
+        _countryLoaded;
+  }
+
+  Future<void> _createProfile() async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
 
     final success = await ref.read(sessionProvider.notifier).createProfile(
-          displayName: _fullNameController.text.trim(),
-          preferredLanguage: 'en',
-          countryId: _selectedCountryId,
-          countryName: _selectedCountryName,
+          firstName: _firstNameController.text.trim(),
           countyId: _selectedCountyId,
-          countyName: _selectedCountyName,
           subCountyId: _selectedSubCountyId,
-          subCountyName: _selectedSubCountyName,
           wardId: _selectedWardId,
-          wardName: _selectedWardName,
         );
 
     if (!mounted) return;
 
     if (success) {
-      widget.onComplete(_fullNameController.text.trim());
+      widget.onComplete();
     } else {
       setState(() {
         _isLoading = false;
@@ -201,378 +326,219 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
     }
   }
 
-  /// ── Helpers: Auto-select Kenya as default country ──
-  void _autoSelectKenya(List<Map<String, dynamic>> countries) {
-    if (_selectedCountryId != null) return;
-    for (final c in countries) {
-      if (c['iso_alpha2'] == 'KE') {
-        _selectedCountryId = c['id'] as String;
-        _selectedCountryName = c['name'] as String;
-        return;
-      }
-    }
-    // Fallback to first country
-    if (countries.isNotEmpty) {
-      _selectedCountryId = countries.first['id'] as String;
-      _selectedCountryName = countries.first['name'] as String;
-    }
-  }
-
-  /// ── Country Dropdown Builder ──
-  Widget _buildCountryDropdown(ColorScheme colorScheme, ThemeData theme) {
-    final countriesAsync = ref.watch(_countriesProvider);
-
-    return countriesAsync.when(
-      data: (countries) {
-        _autoSelectKenya(countries);
-        return DropdownButtonFormField<String>(
-          value: _selectedCountryId,
-          decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.public_outlined),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+  /// ── Country Display (read-only from OTP session) ──
+  Widget _buildCountryDisplay(ColorScheme colorScheme, ThemeData theme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.public_outlined,
+            size: 20,
+            color: colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            _countryName ?? 'Kenya',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w500,
+              color: colorScheme.onSurface,
             ),
           ),
-          items: countries.map((c) {
-            return DropdownMenuItem(
-              value: c['id'] as String,
-              child: Text(c['name'] as String),
-            );
-          }).toList(),
-          onChanged: (value) {
-            if (value != null) {
-              final country = countries.firstWhere((c) => c['id'] == value);
-              setState(() {
-                _selectedCountryId = value;
-                _selectedCountryName = country['name'] as String;
-                // Reset lower levels when country changes
-                _selectedCountyId = null;
-                _selectedCountyName = null;
-                _selectedSubCountyId = null;
-                _selectedSubCountyName = null;
-                _selectedWardId = null;
-                _selectedWardName = null;
-              });
-            }
-          },
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Country is required';
-            }
-            return null;
-          },
-        );
-      },
-      loading: () => DropdownButtonFormField<String>(
-        decoration: const InputDecoration(
-          prefixIcon: Icon(Icons.public_outlined),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-          ),
-        ),
-        items: const [],
-        onChanged: null,
-        hint: const Text('Loading countries...'),
-      ),
-      error: (err, _) => TextFormField(
-        decoration: InputDecoration(
-          hintText: 'Kenya',
-          prefixIcon: const Icon(Icons.public_outlined),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        initialValue: 'Kenya',
-        enabled: false,
+        ],
       ),
     );
   }
 
-  /// ── County Dropdown Builder ──
-  Widget _buildCountyDropdown(ColorScheme colorScheme, ThemeData theme) {
-    if (_selectedCountryId == null) {
-      return DropdownButtonFormField<String>(
-        decoration: InputDecoration(
-          prefixIcon: const Icon(Icons.map_outlined),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+  /// ── County Section (required) ──
+  Widget _buildCountySection(ThemeData theme, ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'County *',
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: colorScheme.onSurface,
           ),
         ),
-        items: const [],
-        onChanged: null,
-        hint: const Text('Select a country first'),
-      );
-    }
-
-    final countiesAsync = ref.watch(_countiesProvider(_selectedCountryId!));
-
-    return countiesAsync.when(
-      data: (counties) {
-        if (counties.isEmpty) {
-          return TextFormField(
-            decoration: InputDecoration(
-              hintText: 'Enter your county name',
-              prefixIcon: const Icon(Icons.map_outlined),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'County is required';
+        const SizedBox(height: 8),
+        if (_countryId == null)
+          const _LocationStatus(message: 'Loading country...')
+        else
+          ref.watch(_countiesProvider(_countryId!)).when(
+            data: (counties) {
+              if (counties.isEmpty) {
+                return const _LocationStatus(
+                  message: 'No counties available. Please contact support.',
+                  isError: true,
+                );
               }
-              return null;
+              return _SearchableLocationField(
+                items: counties,
+                selectedName: _selectedCountyName,
+                hint: 'Search and select county',
+                prefixIcon: Icons.map_outlined,
+                onSelected: (match) {
+                  setState(() {
+                    _selectedCountyId = match?['id'] as String?;
+                    _selectedCountyName = match?['name'] as String?;
+                    // Reset lower levels when county changes
+                    _selectedSubCountyId = null;
+                    _selectedSubCountyName = null;
+                    _selectedWardId = null;
+                    _selectedWardName = null;
+                  });
+                },
+              );
             },
-            onChanged: (value) {
-              _selectedCountyName = value.trim();
-            },
-          );
-        }
-        return DropdownButtonFormField<String>(
-          value: _selectedCountyId,
-          hint: const Text('Select county'),
-          decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.map_outlined),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+            loading: () => const _LocationStatus(message: 'Loading counties...'),
+            error: (err, _) => const _LocationStatus(
+              message: 'Failed to load counties. Please try again later.',
+              isError: true,
             ),
           ),
-          items: counties.map((c) {
-            return DropdownMenuItem(
-              value: c['id'] as String,
-              child: Text(c['name'] as String),
-            );
-          }).toList(),
-          onChanged: (value) {
-            if (value != null) {
-              final county = counties.firstWhere((c) => c['id'] == value);
-              setState(() {
-                _selectedCountyId = value;
-                _selectedCountyName = county['name'] as String;
-                // Reset sub-county and ward when county changes
-                _selectedSubCountyId = null;
-                _selectedSubCountyName = null;
-                _selectedWardId = null;
-                _selectedWardName = null;
-              });
-            }
-          },
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Please select your county';
-            }
-            return null;
-          },
-        );
-      },
-      loading: () => DropdownButtonFormField<String>(
-        decoration: const InputDecoration(
-          prefixIcon: Icon(Icons.map_outlined),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-          ),
-        ),
-        items: const [],
-        onChanged: null,
-        hint: const Text('Loading counties...'),
-      ),
-      error: (err, _) => TextFormField(
-        decoration: InputDecoration(
-          hintText: 'Enter your county name',
-          prefixIcon: const Icon(Icons.map_outlined),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        validator: (value) {
-          if (value == null || value.trim().isEmpty) {
-            return 'County is required';
-          }
-          return null;
-        },
-        onChanged: (value) {
-          _selectedCountyName = value.trim();
-        },
-      ),
+      ],
     );
   }
 
-  /// ── Sub-County Dropdown Builder ──
-  Widget _buildSubCountyDropdown(ColorScheme colorScheme, ThemeData theme) {
-    if (_selectedCountyId == null) {
-      return DropdownButtonFormField<String>(
-        decoration: InputDecoration(
-          prefixIcon: const Icon(Icons.flag_outlined),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+  /// ── Sub-County Section (optional) ──
+  Widget _buildSubCountySection(ThemeData theme, ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Sub-County (Optional)',
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: colorScheme.onSurface,
           ),
         ),
-        items: const [],
-        onChanged: null,
-        hint: const Text('Select a county first'),
-      );
-    }
-
-    final subCountiesAsync = ref.watch(_subCountiesProvider(_selectedCountyId!));
-
-    return subCountiesAsync.when(
-      data: (subCounties) {
-        if (subCounties.isEmpty) {
-          return TextFormField(
-            decoration: InputDecoration(
-              hintText: 'Enter sub-county (optional)',
-              prefixIcon: const Icon(Icons.flag_outlined),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+        const SizedBox(height: 8),
+        if (_selectedCountyId == null)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(10),
             ),
-            onChanged: (value) {
-              _selectedSubCountyName = value.trim().isEmpty ? null : value.trim();
-            },
-          );
-        }
-        return DropdownButtonFormField<String>(
-          value: _selectedSubCountyId,
-          hint: const Text('Select sub-county (optional)'),
-          decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.flag_outlined),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+            child: Text(
+              'Select a county first',
+              style: TextStyle(fontSize: 14, color: colorScheme.onSurfaceVariant),
             ),
-          ),
-          items: [
-            const DropdownMenuItem(value: null, child: Text('None')),
-            ...subCounties.map((s) {
-              return DropdownMenuItem(
-                value: s['id'] as String,
-                child: Text(s['name'] as String),
+          )
+        else
+          ref.watch(_subCountiesProvider(_selectedCountyId!)).when(
+            data: (subCounties) {
+              if (subCounties.isEmpty) {
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    'No sub-counties available',
+                    style: TextStyle(fontSize: 14, color: colorScheme.onSurfaceVariant),
+                  ),
+                );
+              }
+              return _SearchableLocationField(
+                items: subCounties,
+                selectedName: _selectedSubCountyName,
+                hint: 'Search and select sub-county',
+                prefixIcon: Icons.flag_outlined,
+                onSelected: (match) {
+                  setState(() {
+                    _selectedSubCountyId = match?['id'] as String?;
+                    _selectedSubCountyName = match?['name'] as String?;
+                    // Reset ward when sub-county changes
+                    _selectedWardId = null;
+                    _selectedWardName = null;
+                  });
+                },
               );
-            }),
-          ],
-          onChanged: (value) {
-            setState(() {
-              _selectedSubCountyId = value;
-              _selectedSubCountyName = value != null
-                  ? subCounties.firstWhere((s) => s['id'] == value)['name'] as String
-                  : null;
-              // Reset ward when sub-county changes
-              _selectedWardId = null;
-              _selectedWardName = null;
-            });
-          },
-        );
-      },
-      loading: () => DropdownButtonFormField<String>(
-        decoration: InputDecoration(
-          prefixIcon: const Icon(Icons.flag_outlined),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            },
+            loading: () => const _LocationStatus(message: 'Loading sub-counties...'),
+            error: (err, _) => const _LocationStatus(
+              message: 'Failed to load sub-counties.',
+              isError: true,
+            ),
           ),
-        ),
-        items: const [],
-        onChanged: null,
-        hint: const Text('Loading sub-counties...'),
-      ),
-      error: (err, _) => TextFormField(
-        decoration: InputDecoration(
-          hintText: 'Enter sub-county (optional)',
-          prefixIcon: const Icon(Icons.flag_outlined),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        onChanged: (value) {
-          _selectedSubCountyName = value.trim().isEmpty ? null : value.trim();
-        },
-      ),
+      ],
     );
   }
 
-  /// ── Ward Dropdown Builder ──
-  Widget _buildWardDropdown(ColorScheme colorScheme, ThemeData theme) {
-    if (_selectedSubCountyId == null) {
-      return DropdownButtonFormField<String>(
-        decoration: InputDecoration(
-          prefixIcon: const Icon(Icons.place_outlined),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+  /// ── Ward Section (optional) ──
+  Widget _buildWardSection(ThemeData theme, ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Ward (Optional)',
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: colorScheme.onSurface,
           ),
         ),
-        items: const [],
-        onChanged: null,
-        hint: const Text('Select a sub-county first'),
-      );
-    }
-
-    final wardsAsync = ref.watch(_wardsProvider(_selectedSubCountyId!));
-
-    return wardsAsync.when(
-      data: (wards) {
-        if (wards.isEmpty) {
-          return TextFormField(
-            decoration: InputDecoration(
-              hintText: 'Enter ward (optional)',
-              prefixIcon: const Icon(Icons.place_outlined),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+        const SizedBox(height: 8),
+        if (_selectedSubCountyId == null)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(10),
             ),
-            onChanged: (value) {
-              _selectedWardName = value.trim().isEmpty ? null : value.trim();
-            },
-          );
-        }
-        return DropdownButtonFormField<String>(
-          value: _selectedWardId,
-          hint: const Text('Select ward (optional)'),
-          decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.place_outlined),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+            child: Text(
+              'Select a sub-county first',
+              style: TextStyle(fontSize: 14, color: colorScheme.onSurfaceVariant),
             ),
-          ),
-          items: [
-            const DropdownMenuItem(value: null, child: Text('None')),
-            ...wards.map((w) {
-              return DropdownMenuItem(
-                value: w['id'] as String,
-                child: Text(w['name'] as String),
+          )
+        else
+          ref.watch(_wardsProvider(_selectedSubCountyId!)).when(
+            data: (wards) {
+              if (wards.isEmpty) {
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    'No wards available',
+                    style: TextStyle(fontSize: 14, color: colorScheme.onSurfaceVariant),
+                  ),
+                );
+              }
+              return _SearchableLocationField(
+                items: wards,
+                selectedName: _selectedWardName,
+                hint: 'Search and select ward',
+                prefixIcon: Icons.place_outlined,
+                onSelected: (match) {
+                  setState(() {
+                    _selectedWardId = match?['id'] as String?;
+                    _selectedWardName = match?['name'] as String?;
+                  });
+                },
               );
-            }),
-          ],
-          onChanged: (value) {
-            setState(() {
-              _selectedWardId = value;
-              _selectedWardName = value != null
-                  ? wards.firstWhere((w) => w['id'] == value)['name'] as String
-                  : null;
-            });
-          },
-        );
-      },
-      loading: () => DropdownButtonFormField<String>(
-        decoration: InputDecoration(
-          prefixIcon: const Icon(Icons.place_outlined),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            },
+            loading: () => const _LocationStatus(message: 'Loading wards...'),
+            error: (err, _) => const _LocationStatus(
+              message: 'Failed to load wards.',
+              isError: true,
+            ),
           ),
-        ),
-        items: const [],
-        onChanged: null,
-        hint: const Text('Loading wards...'),
-      ),
-      error: (err, _) => TextFormField(
-        decoration: InputDecoration(
-          hintText: 'Enter ward (optional)',
-          prefixIcon: const Icon(Icons.place_outlined),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        onChanged: (value) {
-          _selectedWardName = value.trim().isEmpty ? null : value.trim();
-        },
-      ),
+      ],
     );
   }
 
@@ -585,193 +551,146 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
       backgroundColor: colorScheme.surface,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 48),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 24),
 
-                // ── Avatar ──
-                Center(
-                  child: Container(
-                    width: 88,
-                    height: 88,
-                    decoration: BoxDecoration(
-                      color: colorScheme.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: Icon(
-                      Icons.person_add_rounded,
-                      size: 40,
-                      color: colorScheme.primary,
-                    ),
+              // ── Icon ──
+              Center(
+                child: Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Icon(
+                    Icons.person_add_rounded,
+                    size: 32,
+                    color: colorScheme.primary,
                   ),
                 ),
-                const SizedBox(height: 32),
+              ),
+              const SizedBox(height: 24),
 
-                // ── Title ──
-                Text(
-                  'Create Your Profile',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.onSurface,
-                  ),
+              // ── Title ──
+              Text(
+                'Create Your Profile',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onSurface,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Tell us a bit about yourself to personalize your experience.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Tell us a bit about yourself to personalize your experience.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(height: 32),
+              ),
+              const SizedBox(height: 24),
 
-                // ── Full Name (required) ──
-                Text(
-                  'Full Name *',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurface,
-                  ),
+              // ── First Name (required) ──
+              Text(
+                'First Name *',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurface,
                 ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _fullNameController,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: InputDecoration(
-                    hintText: 'e.g., Samuel Karanja',
-                    prefixIcon: const Icon(Icons.person_outline),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Full name is required';
-                    }
-                    if (value.trim().length < 2) {
-                      return 'Name must be at least 2 characters';
-                    }
-                    return null;
-                  },
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _firstNameController,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  hintText: 'e.g., Samuel',
+                  prefixIcon: Icon(Icons.person_outline),
                 ),
-                const SizedBox(height: 20),
+              ),
+              const SizedBox(height: 20),
 
-                // ── Country (required, default Kenya) ──
-                Text(
-                  'Country *',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurface,
-                  ),
+              // ── Country (read-only from OTP session) ──
+              Text(
+                'Country',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colorScheme.onSurface,
                 ),
-                const SizedBox(height: 8),
-                _buildCountryDropdown(colorScheme, theme),
+              ),
+              const SizedBox(height: 8),
+              _buildCountryDisplay(colorScheme, theme),
+              const SizedBox(height: 20),
 
-                const SizedBox(height: 20),
+              // ── County (required) ──
+              _buildCountySection(theme, colorScheme),
 
-                // ── County (required) ──
-                Text(
-                  'County *',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _buildCountyDropdown(colorScheme, theme),
-                const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-                // ── Sub-County (optional) ──
-                Text(
-                  'Sub-County (Optional)',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _buildSubCountyDropdown(colorScheme, theme),
-                const SizedBox(height: 20),
+              // ── Sub-County (optional) ──
+              _buildSubCountySection(theme, colorScheme),
 
-                // ── Ward (optional) ──
-                Text(
-                  'Ward (Optional)',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _buildWardDropdown(colorScheme, theme),
+              const SizedBox(height: 20),
 
-                // ── Info Note ──
+              // ── Ward (optional) ──
+              _buildWardSection(theme, colorScheme),
+
+              // ── Error ──
+              if (_error != null) ...[
                 const SizedBox(height: 16),
-
-                // ── Error ──
-                if (_error != null) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: colorScheme.error.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.error_outline,
-                            color: colorScheme.error, size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _error!,
-                            style: TextStyle(
-                              color: colorScheme.error,
-                              fontSize: 14,
-                            ),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colorScheme.error.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.error_outline, color: colorScheme.error, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _error!,
+                          style: TextStyle(
+                            color: colorScheme.error,
+                            fontSize: 14,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ],
-
-                const SizedBox(height: 32),
-
-                // ── Create Button ──
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: FilledButton(
-                    onPressed: _isLoading ? null : _createProfile,
-                    style: FilledButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
                       ),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text(
-                            'Create Profile',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                    ],
                   ),
                 ),
               ],
-            ),
+
+              const SizedBox(height: 24),
+
+              // ── Create Button ──
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: FilledButton(
+                  onPressed: _canSubmit ? _createProfile : null,
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Create Profile',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

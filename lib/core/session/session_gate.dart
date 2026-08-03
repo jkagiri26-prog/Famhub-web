@@ -12,6 +12,7 @@
 ///   - Authenticated + no profile → Create Profile
 ///   - Authenticated + profile + no workspaces → Workspace Selection
 ///   - Authenticated + profile + workspaces → Dashboard
+///   - Active OTP session → OTP verification page (restored after restart)
 ///
 /// ❌ Does NOT:
 ///   - Contain business logic
@@ -29,6 +30,8 @@ import 'package:famhub_app/core/theme/shell_theme.dart';
 import 'package:famhub_app/features/auth/presentation/pages/splash_screen_page.dart';
 import 'package:famhub_app/features/auth/presentation/pages/welcome_screen_page.dart';
 import 'package:famhub_app/features/auth/presentation/pages/sign_in_screen_page.dart';
+import 'package:famhub_app/features/auth/domain/models/otp_session.dart';
+import 'package:famhub_app/features/auth/infrastructure/services/otp_session_storage.dart';
 import 'package:famhub_app/core/services/auth_service.dart';
 import 'package:famhub_app/core/theme/shell_theme_provider.dart';
 import 'package:famhub_app/features/auth/presentation/pages/workspace_selection_page.dart';
@@ -42,9 +45,10 @@ import 'package:famhub_app/features/guest/famhub_home_page.dart';
 ///   1. Initializing → SplashScreenPage
 ///   2. Unauthenticated → WelcomeScreenPage
 ///      (Sign In / Create Account / Continue Exploring)
-///   3. Authenticated (no profile) → Create Profile → Workspace Selection → Dashboard
-///   4. Authenticated (profile, no workspaces) → Workspace Selection → Dashboard
-///   5. Authenticated (profile, workspaces) → Dashboard
+///   3. Active OTP Session → SignInScreenPage (OTP verification restored)
+///   4. Authenticated (no profile) → Create Profile → Workspace Selection → Dashboard
+///   5. Authenticated (profile, no workspaces) → Workspace Selection → Dashboard
+///   6. Authenticated (profile, workspaces) → Dashboard
 ///
 /// There is no GuestSession. Guests are unauthenticated visitors.
 /// FAMHUB Home is the public ecosystem entry point.
@@ -65,6 +69,7 @@ class _SessionGateState extends ConsumerState<SessionGate> {
   bool _showCreateProfile = false;
   bool _showWorkspaceSelection = false;
   bool _continueExploring = false;
+  bool _restoredOtpSession = false;
   List<String> _pendingWorkspaces = [];
 
   @override
@@ -76,6 +81,24 @@ class _SessionGateState extends ConsumerState<SessionGate> {
   Future<void> _initialize() async {
     final controller = ref.read(sessionProvider.notifier);
     await controller.initialize();
+
+    // ── OTP SESSION RESTORATION ──
+    // Check for a persisted OTP session. If one exists and is valid,
+    // we should skip the welcome screen and show the OTP verification page.
+    // This handles: app restart, browser refresh, low-memory process kill.
+    final session = ref.read(sessionProvider);
+    if (session is UnauthenticatedSession) {
+      final stored = await OtpSessionStorage.loadSession();
+      if (stored != null) {
+        if (!stored.isExpired) {
+          _restoredOtpSession = true;
+        } else {
+          // Clean up expired session
+          await OtpSessionStorage.clearSession();
+        }
+      }
+    }
+
     if (mounted) {
       setState(() => _initialized = true);
     }
@@ -88,6 +111,13 @@ class _SessionGateState extends ConsumerState<SessionGate> {
     }
 
     final session = ref.watch(sessionProvider);
+
+    // ── OTP SESSION RESTORED ──
+    // If there's a valid persisted OTP session and we're unauthenticated,
+    // show the OTP verification page directly instead of the welcome screen.
+    if (_restoredOtpSession && session is UnauthenticatedSession) {
+      return _buildRestoredOtpFlow();
+    }
 
     // Show create profile if triggered after auth
     if (_showCreateProfile) {
@@ -133,6 +163,45 @@ class _SessionGateState extends ConsumerState<SessionGate> {
     return const SplashScreenPage();
   }
 
+  /// Build the restored OTP flow when a valid OTP session exists
+  /// from a previous run of the app (app restart, browser refresh, etc).
+  Widget _buildRestoredOtpFlow() {
+    final shellTheme = ref.watch(shellThemeProvider);
+    final themeMode = ref.watch(themeModeProvider);
+
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: shellTheme.toThemeData(ThemeMode.light),
+      darkTheme: shellTheme.toThemeData(ThemeMode.dark),
+      themeMode: themeMode,
+      home: SignInScreenPage(
+        onAuthenticate: ({
+          required String contact,
+          required String otp,
+        }) async {
+          final success = await _authenticateWithOtp(
+            contact: contact,
+            otp: otp,
+          );
+          if (success && mounted) {
+            setState(() {
+              _restoredOtpSession = false;
+            });
+          }
+          return success;
+        },
+        onBack: () {
+          // User pressed back — clear the restored session flag
+          setState(() {
+            _restoredOtpSession = false;
+          });
+          // Clear any persisted OTP session data
+          OtpSessionStorage.clearSession();
+        },
+      ),
+    );
+  }
+
   Widget _buildCreateProfile(AppSession session) {
     final shellTheme = ref.watch(shellThemeProvider);
     final themeMode = ref.watch(themeModeProvider);
@@ -143,7 +212,7 @@ class _SessionGateState extends ConsumerState<SessionGate> {
       darkTheme: shellTheme.toThemeData(ThemeMode.dark),
       themeMode: themeMode,
       home: CreateProfilePage(
-        onComplete: (displayName) async {
+        onComplete: () async {
           await ref.read(sessionProvider.notifier).refresh();
           if (mounted) {
             setState(() => _showCreateProfile = false);
@@ -351,4 +420,3 @@ class _FamhubHomeFlowState extends ConsumerState<_FamhubHomeFlow> {
     );
   }
 }
-

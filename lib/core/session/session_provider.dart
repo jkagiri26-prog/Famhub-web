@@ -144,43 +144,28 @@ class SessionController extends Notifier<AppSession> {
   /// Called after first-time authentication when no profile exists.
   /// Uses core.locations UUIDs for country_id, county_id, sub_county_id, ward_id.
   Future<bool> createProfile({
-    required String displayName,
-    String? preferredLanguage,
-    String? countryId,
-    String? countryName,
+    required String firstName,
     String? countyId,
-    String? countyName,
     String? subCountyId,
-    String? subCountyName,
     String? wardId,
-    String? wardName,
   }) async {
     final current = state;
     if (current is! AuthenticatedSession) return false;
 
     try {
-      final now = DateTime.now().toIso8601String();
+      // Backend contract: auth_user_id and id are derived server-side
+      // from the JWT/session. The client NEVER sends user identity fields.
       final data = <String, dynamic>{
-        'id': current.userId,
-        'display_name': displayName,
-        'first_name': displayName.split(' ').first,
-        'last_name': displayName.split(' ').length > 1
-            ? displayName.split(' ').sublist(1).join(' ')
-            : '',
-        'preferred_language': preferredLanguage ?? 'en',
-        'country_id': countryId,
+        'first_name': firstName.trim(),
         'county_id': countyId,
         'sub_county_id': subCountyId,
         'ward_id': wardId,
-        'created_at': now,
-        'updated_at': now,
-        'auth_user_id': current.userId,
       };
 
       await SupabaseService.instance.from('profiles').insert(data);
 
       state = current.copyWith(
-        displayName: displayName,
+        displayName: firstName.trim(),
         hasProfile: true,
       );
 

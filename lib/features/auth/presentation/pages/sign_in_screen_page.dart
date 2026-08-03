@@ -30,6 +30,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:famhub_app/core/services/auth_service.dart';
 import 'package:famhub_app/core/services/supabase_service.dart';
+import 'package:famhub_app/features/auth/domain/models/otp_session.dart';
+import 'package:famhub_app/features/auth/infrastructure/services/otp_session_storage.dart';
 
 /// Country code data model from core.countries table
 class _CountryCode {
@@ -253,6 +255,20 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
       if (!mounted) return;
 
       if (result.success && result.confirmed) {
+        // ── Persist OTP session with country context ──
+        // The profile creation screen reads this to display the
+        // user's country as read-only (backend contract).
+        final otpSession = OtpSession(
+          phoneNumber: phone,
+          verificationId: null,
+          countryId: _selectedCountry?.id,
+          countryName: _selectedCountry?.name,
+          countryIsoAlpha2: _selectedCountry?.isoAlpha2,
+        );
+        await OtpSessionStorage.saveSession(otpSession);
+
+        if (!mounted) return;
+
         setState(() {
           _otpSent = true;
           _isLoading = false;
