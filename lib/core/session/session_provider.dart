@@ -97,7 +97,7 @@ class SessionController extends Notifier<AppSession> {
   Future<bool> _checkProfileExists(String userId) async {
     try {
       final response = await SupabaseService.instance
-          .from('profiles')
+          .from('profiles', schema: 'users')
           .select('id')
           .eq('auth_user_id', userId)
           .maybeSingle();
@@ -112,7 +112,7 @@ class SessionController extends Notifier<AppSession> {
   Future<String?> _loadDisplayName(String userId) async {
     try {
       final response = await SupabaseService.instance
-          .from('profiles')
+          .from('profiles', schema: 'users')
           .select('display_name')
           .eq('auth_user_id', userId)
           .maybeSingle();
@@ -162,7 +162,7 @@ class SessionController extends Notifier<AppSession> {
         'ward_id': wardId,
       };
 
-      await SupabaseService.instance.from('profiles').insert(data);
+      await SupabaseService.instance.from('profiles', schema: 'users').insert(data);
 
       state = current.copyWith(
         displayName: firstName.trim(),

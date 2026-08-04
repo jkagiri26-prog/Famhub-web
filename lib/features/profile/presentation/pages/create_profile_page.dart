@@ -31,7 +31,7 @@ final _countiesProvider = FutureProvider.family<List<Map<String, dynamic>>, Stri
   final supabase = SupabaseService.instance;
 
   final levelResponse = await supabase
-      .from('geography_levels')
+      .from('geography_levels', schema: 'core')
       .select('id')
       .eq('level_name', 'county')
       .eq('country_id', countryId)
@@ -41,7 +41,7 @@ final _countiesProvider = FutureProvider.family<List<Map<String, dynamic>>, Stri
   final levelId = levelResponse['id'] as String;
 
   final response = await supabase
-      .from('locations')
+      .from('locations', schema: 'core')
       .select('id, name')
       .eq('level_id', levelId)
       .eq('country_id', countryId)
@@ -56,7 +56,7 @@ final _subCountiesProvider = FutureProvider.family<List<Map<String, dynamic>>, S
   final supabase = SupabaseService.instance;
 
   final levelResponse = await supabase
-      .from('geography_levels')
+      .from('geography_levels', schema: 'core')
       .select('id')
       .eq('level_name', 'sub_county')
       .maybeSingle();
@@ -65,7 +65,7 @@ final _subCountiesProvider = FutureProvider.family<List<Map<String, dynamic>>, S
   final levelId = levelResponse['id'] as String;
 
   final response = await supabase
-      .from('locations')
+      .from('locations', schema: 'core')
       .select('id, name')
       .eq('level_id', levelId)
       .eq('parent_id', countyId)
@@ -80,7 +80,7 @@ final _wardsProvider = FutureProvider.family<List<Map<String, dynamic>>, String>
   final supabase = SupabaseService.instance;
 
   final levelResponse = await supabase
-      .from('geography_levels')
+      .from('geography_levels', schema: 'core')
       .select('id')
       .eq('level_name', 'ward')
       .maybeSingle();
@@ -89,7 +89,7 @@ final _wardsProvider = FutureProvider.family<List<Map<String, dynamic>>, String>
   final levelId = levelResponse['id'] as String;
 
   final response = await supabase
-      .from('locations')
+      .from('locations', schema: 'core')
       .select('id, name')
       .eq('level_id', levelId)
       .eq('parent_id', subCountyId)

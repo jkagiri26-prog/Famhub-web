@@ -127,7 +127,7 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
     try {
       final supabase = SupabaseService.instance;
       final response = await supabase
-          .from('countries')
+          .from('countries', schema: 'core')
           .select('id, name, dialing_code, iso_alpha2')
           .eq('is_active', true)
           .order('name');

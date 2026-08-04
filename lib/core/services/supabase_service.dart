@@ -51,7 +51,10 @@ class SupabaseService {
   /// DATABASE
   /// =======================================================
 
-  SupabaseQueryBuilder from(String table) {
+    SupabaseQueryBuilder from(String table, {String? schema}) {
+    if (schema != null) {
+      return client.schema(schema).from(table);
+    }
     return client.from(table);
   }
 
