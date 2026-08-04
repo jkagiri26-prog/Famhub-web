@@ -45,7 +45,7 @@ class OtpSession {
   /// When resend becomes available (rate limiting).
   final DateTime resendAvailableAt;
 
-  const OtpSession({
+  OtpSession({
     required this.phoneNumber,
     this.verificationId,
     DateTime? sentAt,
