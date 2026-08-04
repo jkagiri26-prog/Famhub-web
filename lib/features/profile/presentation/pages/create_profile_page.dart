@@ -42,8 +42,6 @@ class CreateProfilePage extends ConsumerStatefulWidget {
 
 class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
   final _firstNameController = TextEditingController();
-  final _middleNameController = TextEditingController();
-  final _lastNameController = TextEditingController();
 
   bool _isSaving = false;
   String? _error;
@@ -52,8 +50,6 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
   void initState() {
     super.initState();
     _firstNameController.addListener(_onFormChanged);
-    _middleNameController.addListener(_onFormChanged);
-    _lastNameController.addListener(_onFormChanged);
   }
 
   void _onFormChanged() {
@@ -63,8 +59,6 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
   @override
   void dispose() {
     _firstNameController.dispose();
-    _middleNameController.dispose();
-    _lastNameController.dispose();
     super.dispose();
   }
 
@@ -104,12 +98,6 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
 
     final success = await ref.read(sessionProvider.notifier).createProfile(
           firstName: _firstNameController.text.trim(),
-          middleName: _middleNameController.text.trim().isEmpty
-              ? null
-              : _middleNameController.text.trim(),
-          lastName: _lastNameController.text.trim().isEmpty
-              ? null
-              : _lastNameController.text.trim(),
           countyId: countyId,
           subCountyId: subCountyId,
           wardId: wardId,
@@ -200,44 +188,6 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
                 textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(
                   hintText: 'e.g., Samuel',
-                  prefixIcon: Icon(Icons.person_outline),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // ── Middle Name ──
-              Text(
-                'Middle Name',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _middleNameController,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  hintText: 'Optional',
-                  prefixIcon: Icon(Icons.person_outline),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // ── Last Name ──
-              Text(
-                'Last Name',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _lastNameController,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  hintText: 'Optional',
                   prefixIcon: Icon(Icons.person_outline),
                 ),
               ),

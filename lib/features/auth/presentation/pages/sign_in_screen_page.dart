@@ -11,6 +11,7 @@
 ///   - Six-digit OTP verification
 ///   - Error display and loading state
 ///   - Confirms OTP was sent successfully
+///   - Loads country list from core.countries (never hardcoded fallbacks)
 ///
 /// ✅ FLOW:
 ///   1. User enters phone number
@@ -21,10 +22,12 @@
 /// ❌ Does NOT:
 ///   - Know about routing
 ///   - Contain business logic
+///   - Use hardcoded/fake country IDs (always from backend)
 /// ============================================================
 library;
 
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show debugPrint;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -96,6 +99,7 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
   bool _otpSent = false;
   bool _isLoading = false;
   bool _countriesLoading = true;
+  bool _countriesError = false;
   String? _error;
   String? _successMessage;
 
@@ -123,6 +127,8 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
 
   /// Load active countries from backend core.countries table.
   /// Auto-selects Kenya (KE) as default, falls back to first country.
+  /// If the backend call fails, shows an error with a retry option —
+  /// never uses hardcoded fallback IDs.
   Future<void> _loadCountries() async {
     try {
       final supabase = SupabaseService.instance;
@@ -148,6 +154,8 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
       setState(() {
         _countries = countries;
         _countriesLoading = false;
+        _countriesError = false;
+
         // Auto-select Kenya (+254) as default
         _selectedCountry = countries.cast<_CountryCode?>().firstWhere(
           (c) => c!.isoAlpha2 == 'KE',
@@ -155,71 +163,13 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
         );
       });
     } catch (e) {
+      debugPrint('Failed to load countries from core.countries: $e');
       if (!mounted) return;
       setState(() {
         _countriesLoading = false;
+        _countriesError = true;
       });
-      // Provide fallback countries if backend fetch fails
-      _setFallbackCountries();
     }
-  }
-
-  /// Fallback country list when backend is unreachable
-  void _setFallbackCountries() {
-    _countries = [
-      const _CountryCode(
-        id: 'ke-fallback',
-        name: 'Kenya',
-        dialingCode: '254',
-        isoAlpha2: 'KE',
-      ),
-      const _CountryCode(
-        id: 'ug-fallback',
-        name: 'Uganda',
-        dialingCode: '256',
-        isoAlpha2: 'UG',
-      ),
-      const _CountryCode(
-        id: 'tz-fallback',
-        name: 'Tanzania',
-        dialingCode: '255',
-        isoAlpha2: 'TZ',
-      ),
-      const _CountryCode(
-        id: 'rw-fallback',
-        name: 'Rwanda',
-        dialingCode: '250',
-        isoAlpha2: 'RW',
-      ),
-      const _CountryCode(
-        id: 'et-fallback',
-        name: 'Ethiopia',
-        dialingCode: '251',
-        isoAlpha2: 'ET',
-      ),
-      const _CountryCode(
-        id: 'ng-fallback',
-        name: 'Nigeria',
-        dialingCode: '234',
-        isoAlpha2: 'NG',
-      ),
-      const _CountryCode(
-        id: 'gh-fallback',
-        name: 'Ghana',
-        dialingCode: '233',
-        isoAlpha2: 'GH',
-      ),
-      const _CountryCode(
-        id: 'za-fallback',
-        name: 'South Africa',
-        dialingCode: '27',
-        isoAlpha2: 'ZA',
-      ),
-    ];
-    _selectedCountry = _countries.firstWhere(
-      (c) => c.isoAlpha2 == 'KE',
-      orElse: () => _countries.first,
-    );
   }
 
   /// Get full phone number with country code
@@ -472,6 +422,122 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
     );
   }
 
+  /// Build the country code dropdown section.
+  /// Shows loading spinner, error with retry, or the populated dropdown.
+  Widget _buildCountryDropdown(ColorScheme colorScheme) {
+    if (_countriesLoading) {
+      return SizedBox(
+        width: 130,
+        child: DropdownButtonFormField<String>(
+          decoration: InputDecoration(
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 14,
+            ),
+          ),
+          items: const [],
+          onChanged: null,
+          hint: const SizedBox(
+            width: 80,
+            child: Text(
+              'Loading...',
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_countriesError) {
+      return SizedBox(
+        width: 130,
+        child: GestureDetector(
+          onTap: () {
+            setState(() {
+              _countriesLoading = true;
+              _countriesError = false;
+            });
+            _loadCountries();
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            decoration: BoxDecoration(
+              border: Border.all(color: colorScheme.error),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.refresh, size: 16, color: colorScheme.error),
+                const SizedBox(width: 4),
+                Text(
+                  'Retry',
+                  style: TextStyle(
+                    color: colorScheme.error,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: 130,
+      child: DropdownButtonFormField<String>(
+        value: _selectedCountry?.id,
+        isExpanded: true,
+        decoration: InputDecoration(
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 14,
+          ),
+        ),
+        items: _countries.map((country) {
+          return DropdownMenuItem<String>(
+            value: country.id,
+            child: Text(
+              country.dialingCodeWithPlus,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          );
+        }).toList(),
+        onChanged: (value) {
+          if (value != null) {
+            setState(() {
+              _selectedCountry = _countries.firstWhere(
+                (c) => c.id == value,
+              );
+            });
+          }
+        },
+        selectedItemBuilder: (context) {
+          return _countries.map((country) {
+            return Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                country.dialingCode,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            );
+          }).toList();
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -479,381 +545,143 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: colorScheme.onSurface,
-          ),
-          onPressed: widget.onBack,
-        ),
-      ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(
-            // Slightly tighter horizontal padding on narrow screens so the
-            // 6-digit OTP always fits on a single row.
-            horizontal: MediaQuery.sizeOf(context).width < 360 ? 20 : 24,
-            vertical: 24,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 24),
-
-              // ── Title ──
-              Text(
-                widget.title,
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                widget.subtitle,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-
-              const SizedBox(height: 32),
-
-              if (!_otpSent) ...[
-                // ═══════════════════════════════════════════════
-                // STEP 1: Phone Number Input (No method selection)
-                // ═══════════════════════════════════════════════
-
-                // ── Phone Icon Header ──
-                Center(
-                  child: Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      color: colorScheme.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Icon(
-                      Icons.phone_android_outlined,
-                      size: 36,
-                      color: colorScheme.primary,
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  IconButton(
+                    onPressed: widget.onBack,
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    widget.title,
+                    style: theme.textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                ),
-                const SizedBox(height: 24),
-
-                // ── Country Code Dropdown + Phone Input ──
-                Text(
-                  'Phone Number',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ── Country Code Dropdown ──
-                    SizedBox(
-                      width: 130,
-                      child: _countriesLoading
-                          ? DropdownButtonFormField<String>(
-                              decoration: InputDecoration(
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 14,
-                                ),
-                              ),
-                              items: const [],
-                              onChanged: null,
-                              hint: const SizedBox(
-                                width: 80,
-                                child: Text(
-                                  'Loading...',
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            )
-                          : DropdownButtonFormField<String>(
-                              value: _selectedCountry?.id,
-                              isExpanded: true,
-                              decoration: InputDecoration(
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 14,
-                                ),
-                              ),
-                              items: _countries.map((country) {
-                                return DropdownMenuItem<String>(
-                                  value: country.id,
-                                  child: Text(
-                                    country.dialingCodeWithPlus,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                              onChanged: (value) {
-                                if (value != null) {
-                                  setState(() {
-                                    _selectedCountry = _countries.firstWhere(
-                                      (c) => c.id == value,
-                                    );
-                                  });
-                                }
-                              },
-                              selectedItemBuilder: (context) {
-                                return _countries.map((country) {
-                                  return Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: Text(
-                                      country.dialingCodeWithPlus,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  );
-                                }).toList();
-                              },
-                            ),
-                    ),
-                    const SizedBox(width: 12),
-                    // ── Phone Number Input ──
-                    Expanded(
-                      child: TextFormField(
-                        controller: _phoneController,
-                        keyboardType: TextInputType.phone,
-                        decoration: InputDecoration(
-                          hintText: '7XX XXX XXX',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.only(left: 6),
-                  child: Text(
-                    'You will receive a 6-digit OTP via SMS',
-                    style: TextStyle(
-                      fontSize: 12,
+                  const SizedBox(height: 8),
+                  Text(
+                    widget.subtitle,
+                    style: theme.textTheme.bodyLarge?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
                   ),
-                ),
-              ] else ...[
-                // ═══════════════════════════════════════════════
-                // STEP 2: OTP Verification
-                // ═══════════════════════════════════════════════
-
-                // ── Success Message ──
-                if (_successMessage != null)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: colorScheme.primary.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.check_circle_outline,
-                          color: colorScheme.primary,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _successMessage!,
-                            style: TextStyle(
-                              color: colorScheme.primary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: 24),
-
-                // ── Phone Display ──
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.phone_android_outlined,
-                          size: 16,
-                          color: colorScheme.primary,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _fullPhoneNumber,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _otpSent = false;
-                              _error = null;
-                              _successMessage = null;
-                            });
-                          },
-                          child: Icon(
-                            Icons.edit_outlined,
-                            size: 16,
-                            color: colorScheme.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Center(
-                  child: Text(
-                    'via SMS',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 32),
-
-                // ── OTP Input (6 digits) ──
-                Center(
-                  child: Text(
-                    'Enter verification code',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _buildOtpRow(),
-                const SizedBox(height: 16),
-
-                // ── Resend OTP ──
-                Center(
-                  child: TextButton(
-                    onPressed: _isLoading ? null : _resendOtp,
-                    child: Text.rich(
-                      TextSpan(
-                        text: "Didn't receive the code? ",
-                        style: TextStyle(color: colorScheme.onSurfaceVariant),
-                        children: [
-                          TextSpan(
-                            text: 'Resend',
-                            style: TextStyle(
-                              color: colorScheme.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+                  const SizedBox(height: 24),
+                  if (_error != null)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: colorScheme.errorContainer,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        _error!,
+                        style: TextStyle(color: colorScheme.onErrorContainer),
                       ),
                     ),
-                  ),
-                ),
-              ],
-
-              // ── Error ──
-              if (_error != null) ...[
-                const SizedBox(height: 16),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colorScheme.error.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
+                  if (_error != null) const SizedBox(height: 16),
+                  if (_successMessage != null)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        _successMessage!,
+                        style: TextStyle(color: colorScheme.onPrimaryContainer),
+                      ),
+                    ),
+                  if (_successMessage != null) const SizedBox(height: 16),
+                  Row(
                     children: [
-                      Icon(
-                        Icons.error_outline,
-                        color: colorScheme.error,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
+                      _buildCountryDropdown(colorScheme),
+                      const SizedBox(width: 12),
                       Expanded(
-                        child: Text(
-                          _error!,
-                          style: TextStyle(
-                            color: colorScheme.error,
-                            fontSize: 14,
+                        child: TextField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          decoration: InputDecoration(
+                            hintText: 'Phone number',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 16,
+                            ),
                           ),
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
-
-              const SizedBox(height: 24),
-
-              // ── Action Button ──
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _isLoading
-                      ? null
-                      : _otpSent
-                      ? _verifyOtp
-                      : _sendOtp,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _isLoading || _countriesLoading || _countriesError
+                          ? null
+                          : _otpSent
+                              ? _resendOtp
+                              : _sendOtp,
+                      icon: _isLoading
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(_otpSent ? Icons.refresh : Icons.send_rounded),
+                      label: Text(
+                        _otpSent ? 'Resend OTP' : 'Send OTP',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Text(
-                          _otpSent ? 'Verify & Continue' : 'Send OTP',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                ),
+                  if (_otpSent) ...[
+                    const SizedBox(height: 24),
+                    Text(
+                      'Enter the 6-digit code sent to your phone',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildOtpRow(),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: _isLoading ? null : _verifyOtp,
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('Verify OTP'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.center,
+                      child: TextButton(
+                        onPressed: _isLoading ? null : _resendOtp,
+                        child: const Text('Resend code'),
+                      ),
+                    ),
+                  ],
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
