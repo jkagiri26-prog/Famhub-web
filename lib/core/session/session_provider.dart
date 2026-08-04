@@ -113,11 +113,19 @@ class SessionController extends Notifier<AppSession> {
     try {
       final response = await SupabaseService.instance
           .from('profiles', schema: 'users')
-          .select('display_name')
+          .select('first_name, last_name, middle_name')
           .eq('auth_user_id', userId)
           .maybeSingle();
       if (response != null) {
-        return response['display_name'] as String?;
+        final first = response['first_name'] as String?;
+        final last = response['last_name'] as String?;
+        final middle = response['middle_name'] as String?;
+        // Build display name: first + middle + last
+        final parts = <String>[];
+        if (first != null && first.isNotEmpty) parts.add(first);
+        if (middle != null && middle.isNotEmpty) parts.add(middle);
+        if (last != null && last.isNotEmpty) parts.add(last);
+        if (parts.isNotEmpty) return parts.join(' ');
       }
       return null;
     } catch (_) {
@@ -142,9 +150,14 @@ class SessionController extends Notifier<AppSession> {
 
   /// Create a profile for the authenticated user.
   /// Called after first-time authentication when no profile exists.
-  /// Uses core.locations UUIDs for country_id, county_id, sub_county_id, ward_id.
+  /// Uses core.locations UUIDs for county_id, sub_county_id, ward_id.
+  ///
+  /// [lastName] defaults to [firstName] if empty, because the backend
+  /// profiles.last_name column is NOT NULL.
   Future<bool> createProfile({
     required String firstName,
+    String? middleName,
+    String? lastName,
     String? countyId,
     String? subCountyId,
     String? wardId,
@@ -157,15 +170,33 @@ class SessionController extends Notifier<AppSession> {
       // from the JWT/session. The client NEVER sends user identity fields.
       final data = <String, dynamic>{
         'first_name': firstName.trim(),
+        'middle_name': (middleName != null && middleName.trim().isNotEmpty)
+            ? middleName.trim()
+            : null,
+        'last_name': (lastName != null && lastName.trim().isNotEmpty)
+            ? lastName.trim()
+            : firstName.trim(), // fallback: use first name as last name
         'county_id': countyId,
         'sub_county_id': subCountyId,
         'ward_id': wardId,
       };
 
-      await SupabaseService.instance.from('profiles', schema: 'users').insert(data);
+      await SupabaseService.instance
+          .from('profiles', schema: 'users')
+          .insert(data);
+
+      // Build display name
+      final displayParts = <String>[firstName.trim()];
+      if (middleName != null && middleName.trim().isNotEmpty) {
+        displayParts.add(middleName.trim());
+      }
+      final last = (lastName != null && lastName.trim().isNotEmpty)
+          ? lastName.trim()
+          : firstName.trim();
+      displayParts.add(last);
 
       state = current.copyWith(
-        displayName: firstName.trim(),
+        displayName: displayParts.join(' '),
         hasProfile: true,
       );
 
@@ -241,4 +272,3 @@ final hasOnboardingCompletedProvider = Provider<bool>((ref) {
 final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService();
 });
-
