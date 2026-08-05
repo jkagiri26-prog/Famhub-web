@@ -103,7 +103,7 @@ class SessionCountryController extends Notifier<SessionCountryState> {
             id: c.countryId!,
             name: c.countryName ?? '',
             isoAlpha2: c.countryIsoAlpha2 ?? '',
-            dialingCode: '', // enrich below
+            dialingCode: c.dialingCode ?? '',
           ),
           isLoading: false,
         );

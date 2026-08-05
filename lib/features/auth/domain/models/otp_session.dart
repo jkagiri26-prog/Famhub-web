@@ -36,6 +36,9 @@ class OtpSession {
   /// Country ISO alpha-2 code (e.g., "KE") — used for lookup.
   final String? countryIsoAlpha2;
 
+  /// Country dialing code without + prefix (e.g., "254").
+  final String? dialingCode;
+
   /// When the OTP was sent.
   final DateTime sentAt;
 
@@ -54,6 +57,7 @@ class OtpSession {
     this.countryId,
     this.countryName,
     this.countryIsoAlpha2,
+    this.dialingCode,
   }) : sentAt = sentAt ?? DateTime.now(),
        expiresAt = expiresAt ?? DateTime.now().add(const Duration(minutes: 5)),
        resendAvailableAt = resendAvailableAt ?? DateTime.now().add(const Duration(minutes: 1));
@@ -83,6 +87,7 @@ class OtpSession {
     String? countryId,
     String? countryName,
     String? countryIsoAlpha2,
+    String? dialingCode,
     DateTime? sentAt,
     DateTime? expiresAt,
     DateTime? resendAvailableAt,
@@ -93,6 +98,7 @@ class OtpSession {
       countryId: countryId ?? this.countryId,
       countryName: countryName ?? this.countryName,
       countryIsoAlpha2: countryIsoAlpha2 ?? this.countryIsoAlpha2,
+      dialingCode: dialingCode ?? this.dialingCode,
       sentAt: sentAt ?? this.sentAt,
       expiresAt: expiresAt ?? this.expiresAt,
       resendAvailableAt: resendAvailableAt ?? this.resendAvailableAt,
@@ -107,6 +113,7 @@ class OtpSession {
       'countryId': countryId,
       'countryName': countryName,
       'countryIsoAlpha2': countryIsoAlpha2,
+      'dialingCode': dialingCode,
       'sentAt': sentAt.toIso8601String(),
       'expiresAt': expiresAt.toIso8601String(),
       'resendAvailableAt': resendAvailableAt.toIso8601String(),
@@ -121,6 +128,7 @@ class OtpSession {
       countryId: json['countryId'] as String?,
       countryName: json['countryName'] as String?,
       countryIsoAlpha2: json['countryIsoAlpha2'] as String?,
+      dialingCode: json['dialingCode'] as String?,
       sentAt: DateTime.parse(json['sentAt'] as String),
       expiresAt: DateTime.parse(json['expiresAt'] as String),
       resendAvailableAt: DateTime.parse(json['resendAvailableAt'] as String),

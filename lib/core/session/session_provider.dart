@@ -23,6 +23,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:famhub_app/core/services/supabase_service.dart';
 import 'package:famhub_app/core/services/auth_service.dart';
 import 'package:famhub_app/core/session/app_session.dart';
+import 'package:famhub_app/features/profile/application/providers/profile_location_provider.dart';
 
 /// ============================================================
 /// SESSION CONTROLLER
@@ -150,7 +151,9 @@ class SessionController extends Notifier<AppSession> {
 
   /// Create a profile for the authenticated user.
   /// Called after first-time authentication when no profile exists.
-  /// Uses core.locations UUIDs for county_id, sub_county_id, ward_id.
+  ///
+  /// Stores dynamic location UUIDs from core.locations into the
+  /// level_2_location_id .. level_7_location_id columns.
   ///
   /// [lastName] defaults to [firstName] if empty, because the backend
   /// profiles.last_name column is NOT NULL.
@@ -158,9 +161,9 @@ class SessionController extends Notifier<AppSession> {
     required String firstName,
     String? middleName,
     String? lastName,
-    String? countyId,
-    String? subCountyId,
-    String? wardId,
+    required String countryId,
+    required String phone,
+    required List<SelectedLocationEntry> locationLevels,
   }) async {
     final current = state;
     if (current is! AuthenticatedSession) return false;
@@ -176,10 +179,17 @@ class SessionController extends Notifier<AppSession> {
         'last_name': (lastName != null && lastName.trim().isNotEmpty)
             ? lastName.trim()
             : firstName.trim(), // fallback: use first name as last name
-        'county_id': countyId,
-        'sub_county_id': subCountyId,
-        'ward_id': wardId,
+        'country_id': countryId,
+        'phone': phone,
+        'is_phone_verified': true,
       };
+
+      // Map dynamic levels: entries[0] → level_2_location_id,
+      // entries[1] → level_3_location_id, ... up to level_7.
+      for (var i = 0; i < locationLevels.length && i < 6; i++) {
+        final levelNumber = i + 2;
+        data['level_${levelNumber}_location_id'] = locationLevels[i].locationId;
+      }
 
       await SupabaseService.instance
           .from('profiles', schema: 'users')

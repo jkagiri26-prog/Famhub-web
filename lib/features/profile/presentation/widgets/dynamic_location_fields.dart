@@ -30,9 +30,13 @@ class DynamicLocationFields extends ConsumerWidget {
   /// Called whenever selection changes, passing all selected entries.
   final OnLocationsSelected? onChanged;
 
+  /// Called when the user taps retry after a levels error.
+  final VoidCallback? onRetry;
+
   const DynamicLocationFields({
     super.key,
     this.onChanged,
+    this.onRetry,
   });
 
   @override
@@ -52,27 +56,42 @@ class DynamicLocationFields extends ConsumerWidget {
       );
     }
 
-    // Error loading levels
+    // Error loading levels — show retry
     if (state.levelsError != null) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: colorScheme.error.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.error_outline, color: colorScheme.error, size: 20),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                state.levelsError!,
-                style: TextStyle(color: colorScheme.error),
+      return Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colorScheme.error.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.error_outline, color: colorScheme.error, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    state.levelsError!,
+                    style: TextStyle(color: colorScheme.error),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (onRetry != null) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh, size: 18),
+                label: const Text('Retry'),
               ),
             ),
           ],
-        ),
+        ],
       );
     }
 

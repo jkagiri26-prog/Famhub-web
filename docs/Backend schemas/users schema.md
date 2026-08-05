@@ -10,10 +10,10 @@ CREATE TABLE users.profiles (
   profile_image text,
   is_active boolean DEFAULT true,
   created_at timestamp with time zone DEFAULT now(),
-  country_id uuid,
-  county_id uuid,
-  sub_county_id uuid,
-  ward_id uuid,
+  country_id uuid NOT NULL,
+  level_2_location_id uuid,
+  level_3_location_id uuid,
+  level_4_location_id uuid,
   middle_name text,
   user_type character varying NOT NULL CHECK (user_type::text = ANY (ARRAY['farmer'::character varying, 'trader'::character varying, 'stakeholder'::character varying]::text[])),
   verified boolean DEFAULT false,
@@ -34,11 +34,19 @@ CREATE TABLE users.profiles (
   kyc_status text DEFAULT 'pending'::text CHECK (kyc_status = ANY (ARRAY['pending'::text, 'submitted'::text, 'verified'::text, 'rejected'::text])),
   verification_level integer DEFAULT 0,
   account_status text DEFAULT 'active'::text CHECK (account_status = ANY (ARRAY['active'::text, 'suspended'::text, 'blocked'::text])),
+  level_5_location_id uuid,
+  level_6_location_id uuid,
+  level_7_location_id uuid,
+  location_path text CHECK (location_path IS NULL OR location_path ~ '^[0-9a-fA-F-]+(\\|[0-9a-fA-F-]+)*$'::text),
+  is_phone_verified boolean NOT NULL DEFAULT false,
+  is_email_verified boolean NOT NULL DEFAULT false,
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
-  CONSTRAINT profiles_ward_id_fkey FOREIGN KEY (ward_id) REFERENCES core.locations(id),
-  CONSTRAINT fk_profiles_created_by FOREIGN KEY (created_by) REFERENCES users.profiles(id),
-  CONSTRAINT profiles_country_id_fkey FOREIGN KEY (country_id) REFERENCES core.countries(id)
+  CONSTRAINT profiles_level_4_location_id_fkey FOREIGN KEY (level_4_location_id) REFERENCES core.locations(id),
+  CONSTRAINT profiles_country_id_fkey FOREIGN KEY (country_id) REFERENCES core.countries(id),
+  CONSTRAINT fk_profiles_created_by FOREIGN KEY (created_by) REFERENCES users.profiles(id)
 );
+
+
 CREATE TABLE users.alerts (
   id uuid NOT NULL DEFAULT uuid_generate_v7(),
   profile_id uuid,
@@ -49,6 +57,9 @@ CREATE TABLE users.alerts (
   CONSTRAINT alerts_pkey PRIMARY KEY (id),
   CONSTRAINT alerts_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES users.profiles(id)
 );
+
+
+
 CREATE TABLE users.otp (
   id uuid NOT NULL DEFAULT uuid_generate_v7(),
   phone text NOT NULL,

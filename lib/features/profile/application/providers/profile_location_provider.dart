@@ -244,9 +244,10 @@ class ProfileLocationController extends Notifier<ProfileLocationState> {
     try {
       final supabase = SupabaseService.instance;
 
-      // Build the query: ALL filters BEFORE .order()
-      // NOTE: .is_('column', null) is valid on PostgrestFilterBuilder.
-      // We use .eq() for non-null parentId, .is_() for null parentId.
+      // Build the query. Use .filter() for IS NULL check on root-level
+      // locations; .eq() for child lookups.  .filter returns a
+      // PostgrestFilterBuilder which also supports .eq, so the order
+      // is safe.
       final baseQuery = supabase
           .from('locations', schema: 'core')
           .select('id, name, level_id, parent_id')
@@ -289,6 +290,12 @@ class ProfileLocationController extends Notifier<ProfileLocationState> {
         locationErrors: newErrors,
       );
     }
+  }
+
+  /// ── Refresh levels for the given country (call on retry) ──
+  Future<void> refresh(String countryId) async {
+    state = ProfileLocationState();
+    await initialize(countryId);
   }
 
   /// ── Select a location for a given level ──
