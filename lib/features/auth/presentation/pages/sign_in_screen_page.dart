@@ -50,7 +50,7 @@ class _CountryCode {
     required this.isoAlpha2,
   });
 
-  String get dialingCodeWithPlus => '+$dialingCode';
+  String get dialingCodeWithPlus => '+${dialingCode.replaceFirst(RegExp(r'^\+'), '')}';
 }
 
 /// Simple provider accessor for AuthService.
@@ -149,9 +149,9 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
     }
   }
 
-  String get _fullPhoneNumber {
+    String get _fullPhoneNumber {
     if (_selectedCountry == null) return _phoneController.text.trim();
-    final code = _selectedCountry!.dialingCode;
+    final code = _selectedCountry!.dialingCode.replaceFirst(RegExp(r'^\+'), '');
     final number = _phoneController.text.trim().replaceAll(' ', '');
     final cleaned = number.startsWith('0') ? number.substring(1) : number;
     return '+$code$cleaned';

@@ -64,7 +64,7 @@ class AuthService {
   /// Stream of auth state changes
   Stream<AuthState> get authStateChanges => _supabase.authStateChanges;
 
-    /// ============================================================
+  /// ============================================================
   /// SEND OTP (Phone only)
   /// ============================================================
   ///
@@ -88,12 +88,13 @@ class AuthService {
         );
       }
 
-                              if (kDebugMode) debugPrint('OTP Request Started');
+      final normalizedPhone = _normalizePhone(phone);
+      if (kDebugMode) debugPrint('OTP Request Started (normalized: $normalizedPhone)');
 
       // Send OTP via Edge Function
       final response = await _supabase.client.functions.invoke(
         'request-otp',
-        body: {'phone': phone},
+        body: {'phone': normalizedPhone},
       );
 
       // Check the response payload for application-level errors
@@ -130,7 +131,7 @@ class AuthService {
     }
   }
 
-    /// ============================================================
+  /// ============================================================
   /// VERIFY OTP (Phone only)
   /// ============================================================
   ///
@@ -154,129 +155,130 @@ class AuthService {
         );
       }
 
-                        if (kDebugMode) debugPrint('OTP Verification Started');
+      final normalizedPhone = _normalizePhone(phone);
+      if (kDebugMode) debugPrint('OTP Verification Started (normalized: $normalizedPhone)');
 
       // Verify OTP via Edge Function
       final response = await _supabase.client.functions.invoke(
         'verify-otp',
-        body: {'phone': phone, 'token': token},
+        body: {'phone': normalizedPhone, 'token': token},
       );
 
       // Validate the response envelope from the Edge Function
-            final responseData = response.data;
-            if (kDebugMode) {
-              debugPrint('[verifyOtp] Raw response: $responseData');
-            }
+      final responseData = response.data;
+      if (kDebugMode) {
+        debugPrint('[verifyOtp] Raw response: $responseData');
+      }
 
-            if (responseData == null || responseData is! Map) {
-              return const OtpVerifyResult(
-                success: false,
-                error: 'Invalid verification response. Please try again.',
-              );
-            }
+      if (responseData == null || responseData is! Map) {
+        return const OtpVerifyResult(
+          success: false,
+          error: 'Invalid verification response. Please try again.',
+        );
+      }
 
-            // Validate success flag
-            final successFlag = responseData['success'] == true;
-            if (kDebugMode) {
-              debugPrint('[verifyOtp] success flag: $successFlag');
-            }
+      // Validate success flag
+      final successFlag = responseData['success'] == true;
+      if (kDebugMode) {
+        debugPrint('[verifyOtp] success flag: $successFlag');
+      }
 
-            if (!successFlag) {
-              String errorMsg = 'Invalid verification code. Please try again.';
-              if (responseData['error'] != null) {
-                errorMsg = _mapEdgeFunctionError(responseData['error'].toString());
-              }
-              return OtpVerifyResult(success: false, error: errorMsg);
-            }
+      if (!successFlag) {
+        String errorMsg = 'Invalid verification code. Please try again.';
+        if (responseData['error'] != null) {
+          errorMsg = _mapEdgeFunctionError(responseData['error'].toString());
+        }
+        return OtpVerifyResult(success: false, error: errorMsg);
+      }
 
-            // Read nested data object
-            final data = responseData['data'];
-            final session = data is Map ? data['session'] : null;
-            final userData = data is Map ? data['user'] : null;
+      // Read nested data object
+      final data = responseData['data'];
+      final session = data is Map ? data['session'] : null;
+      final userData = data is Map ? data['user'] : null;
 
-            if (kDebugMode) {
-              debugPrint('[verifyOtp] data.session exists: ${session != null}');
-              debugPrint('[verifyOtp] data.user exists: ${userData != null}');
-            }
+      if (kDebugMode) {
+        debugPrint('[verifyOtp] data.session exists: ${session != null}');
+        debugPrint('[verifyOtp] data.user exists: ${userData != null}');
+      }
 
-            if (session == null) {
-              return const OtpVerifyResult(
-                success: false,
-                error: 'Invalid verification code. Please try again.',
-              );
-            }
+      if (session == null) {
+        return const OtpVerifyResult(
+          success: false,
+          error: 'Invalid verification code. Please try again.',
+        );
+      }
 
-            if (kDebugMode) debugPrint('OTP Verification Success');
+      if (kDebugMode) debugPrint('OTP Verification Success');
 
-            // ======================================================
-                        // SESSION HYDRATION — FIX
-                        // ======================================================
-                        // The edge function returns session keys in snake_case.
-                        // `setSession` is preferred because it:
-                        //   1. Fetches the user via GET /user using the access token
-                        //   2. Persists the session locally
-                        //   3. Emits signedIn event
-                        // `recoverSession` is the fallback — it only parses JSON
-                        // and does NOT fetch the user from the server, so it can
-                        // fail silently if the session shape is incomplete.
-                        // ======================================================
-                        final sessionMap = session is Map
-                                                    ? Map<String, dynamic>.from(session)
-                                                    : null;
+      // ======================================================
+      // SESSION HYDRATION — FIX
+      // ======================================================
+      // The edge function returns session keys in snake_case.
+      // `setSession` is preferred because it:
+      //   1. Fetches the user via GET /user using the access token
+      //   2. Persists the session locally
+      //   3. Emits signedIn event
+      // `recoverSession` is the fallback — it only parses JSON
+      // and does NOT fetch the user from the server, so it can
+      // fail silently if the session shape is incomplete.
+      // ======================================================
+      final sessionMap = session is Map
+          ? Map<String, dynamic>.from(session)
+          : null;
 
-                        final accessToken = sessionMap?['access_token'] as String?;
-                        final refreshToken = sessionMap?['refresh_token'] as String?;
+      final accessToken = sessionMap?['access_token'] as String?;
+      final refreshToken = sessionMap?['refresh_token'] as String?;
 
-                        if (accessToken != null && refreshToken != null) {
-                          if (kDebugMode) {
-                            debugPrint('[verifyOtp] Calling setSession with tokens...');
-                          }
-                          // NOTE: In gotrue (supabase_flutter 2.x), setSession takes
-                                                    // ONE positional arg: refreshToken.
-                                                    await _supabase.client.auth.setSession(
-                                                      refreshToken,
-                                                    );
-                        } else {
-                          if (kDebugMode) {
-                            debugPrint('[verifyOtp] setSession tokens missing, trying recoverSession...');
-                          }
-                          final sessionJson = jsonEncode(session);
-                          await _supabase.client.auth.recoverSession(sessionJson);
-                        }
+      if (accessToken != null && refreshToken != null) {
+        if (kDebugMode) {
+          debugPrint('[verifyOtp] Calling setSession with tokens...');
+        }
+        // NOTE: In gotrue (supabase_flutter 2.x), setSession takes
+        // ONE positional arg: refreshToken.
+        await _supabase.client.auth.setSession(
+          refreshToken,
+        );
+      } else {
+        if (kDebugMode) {
+          debugPrint('[verifyOtp] setSession tokens missing, trying recoverSession...');
+        }
+        final sessionJson = jsonEncode(session);
+        await _supabase.client.auth.recoverSession(sessionJson);
+      }
 
-                        // Allow auth state change events to settle before checking
-                        await Future.delayed(const Duration(milliseconds: 100));
+      // Allow auth state change events to settle before checking
+      await Future.delayed(const Duration(milliseconds: 100));
 
-                        final recoveredSession = _supabase.client.auth.currentSession;
-                        final recoveredUser = _supabase.client.auth.currentUser;
+      final recoveredSession = _supabase.client.auth.currentSession;
+      final recoveredUser = _supabase.client.auth.currentUser;
 
-                        debugPrint('========== AFTER SESSION RESTORE ==========');
-                        debugPrint('CurrentSession exists: ${recoveredSession != null}');
-                        debugPrint('CurrentUser exists: ${recoveredUser != null}');
-                        debugPrint('User ID: ${recoveredUser?.id}');
-                        debugPrint('Access Token exists: ${recoveredSession?.accessToken != null}');
-                        debugPrint('Refresh Token exists: ${recoveredSession?.refreshToken != null}');
-                        debugPrint('=========================================');
+      debugPrint('========== AFTER SESSION RESTORE ==========');
+      debugPrint('CurrentSession exists: ${recoveredSession != null}');
+      debugPrint('CurrentUser exists: ${recoveredUser != null}');
+      debugPrint('User ID: ${recoveredUser?.id}');
+      debugPrint('Access Token exists: ${recoveredSession?.accessToken != null}');
+      debugPrint('Refresh Token exists: ${recoveredSession?.refreshToken != null}');
+      debugPrint('=========================================');
 
-                        // Verify that the session was actually established
-            if (_supabase.currentUser == null) {
-              if (kDebugMode) debugPrint('[verifyOtp] Session Established - FAILED: currentUser is null');
-              return const OtpVerifyResult(
-                success: false,
-                error: 'Session could not be established. Please try again.',
-              );
-            }
+      // Verify that the session was actually established
+      if (_supabase.currentUser == null) {
+        if (kDebugMode) debugPrint('[verifyOtp] Session Established - FAILED: currentUser is null');
+        return const OtpVerifyResult(
+          success: false,
+          error: 'Session could not be established. Please try again.',
+        );
+      }
 
-            if (kDebugMode) {
-              debugPrint('[verifyOtp] Session Established - currentUser exists: ${_supabase.currentUser != null}');
-              debugPrint('Authentication Complete');
-            }
+      if (kDebugMode) {
+        debugPrint('[verifyOtp] Session Established - currentUser exists: ${_supabase.currentUser != null}');
+        debugPrint('Authentication Complete');
+      }
 
-            final user = _supabase.currentUser;
-            return OtpVerifyResult(
-              success: true,
-              userId: user?.id,
-            );
+      final user = _supabase.currentUser;
+      return OtpVerifyResult(
+        success: true,
+        userId: user?.id,
+      );
     } on FunctionException catch (e) {
       if (kDebugMode) debugPrint('OTP Verification FunctionException: ${e.details}');
       return OtpVerifyResult(
@@ -300,6 +302,19 @@ class AuthService {
   /// ============================================================
   Future<void> signOut() async {
     await _supabase.signOut();
+  }
+
+  /// ============================================================
+  /// PHONE NORMALIZATION
+  /// ============================================================
+  /// Guarantees a single leading '+' followed by digits only,
+  /// suitable for E.164 validation.
+  static String _normalizePhone(String phone) {
+    final digitsOnly = phone
+        .trim()
+        .replaceFirst(RegExp(r'^\++'), '')
+        .replaceAll(RegExp(r'[^\d]'), '');
+    return '+$digitsOnly';
   }
 
   /// ============================================================
@@ -342,7 +357,7 @@ class AuthService {
     if (message.contains('network') || message.contains('timeout')) {
       return 'Network error. Please check your connection.';
     }
-        if (message.contains('not found')) {
+    if (message.contains('not found')) {
       return 'Account not found. Please check your phone number.';
     }
     if (message.contains('phone') && message.contains('invalid')) {
