@@ -21,6 +21,7 @@ library famhub_app.features.profile.presentation.pages.create_profile_page;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:famhub_app/core/session/session_provider.dart';
 import 'package:famhub_app/core/session/providers/session_country_provider.dart';
 import 'package:famhub_app/features/profile/application/providers/profile_location_provider.dart';
@@ -134,137 +135,232 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
     }
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: Card(
-                elevation: 4,
-                shadowColor: colorScheme.shadow.withValues(alpha: 0.3),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                color: colorScheme.surface,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 32, vertical: 40),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // ── Header Icon ──
-                        Center(
-                          child: Container(
-                            width: 64,
-                            height: 64,
-                            decoration: BoxDecoration(
-                              color: colorScheme.primary
-                                  .withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            child: Icon(Icons.person_add_rounded,
-                                size: 30, color: colorScheme.primary),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-
-                        // ── Title ──
-                        Center(
-                          child: Text(
-                            'Create Your Profile',
-                            style: theme.textTheme.headlineSmall
-                                ?.copyWith(fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Center(
-                          child: Text(
-                            'Tell us a bit about yourself.',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-
-                        // ── First Name * ──
-                        _sectionLabel(theme, 'First Name *'),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _firstNameController,
-                          textCapitalization: TextCapitalization.words,
-                          textInputAction: TextInputAction.next,
-                          decoration: InputDecoration(
-                            hintText: 'e.g. Samuel',
-                            prefixIcon: const Icon(Icons.person_outline),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          validator: (v) {
-                            if (v == null || v.trim().length < 2) {
-                              return 'Enter at least 2 characters';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 20),
-
-                        // ── Country (read-only) ──
-                        _sectionLabel(theme, 'Country'),
-                        const SizedBox(height: 8),
-                        _buildCountryReadOnly(colorScheme, countryState),
-                        const SizedBox(height: 20),
-
-                        // ── Location Levels ──
-                        _sectionLabel(theme, 'Location'),
-                        const SizedBox(height: 8),
-                        if (_countryId != null)
-                          DynamicLocationFields(onRetry: _retryLevels)
-                        else
-                          const _InlineLoader(
-                              label: 'Loading location levels…'),
-                        const SizedBox(height: 8),
-
-                        // ── Error banner ──
-                        if (_error != null) ...[
-                          const SizedBox(height: 12),
-                          _errorBanner(colorScheme),
-                        ],
-
-                        const SizedBox(height: 28),
-
-                        // ── Submit button ──
-                        SizedBox(
-                          width: double.infinity,
-                          height: 52,
-                          child: FilledButton(
-                            onPressed: _canSubmit ? _createProfile : null,
-                            child: _isSaving
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Text(
-                                    'Create Profile',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              colorScheme.primary.withValues(alpha: 0.06),
+              colorScheme.primary.withValues(alpha: 0.02),
+              colorScheme.surface,
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Card(
+                  elevation: 8,
+                  shadowColor:
+                      colorScheme.primary.withValues(alpha: 0.15),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  color: colorScheme.surface,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 32, vertical: 40),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // ── Header Icon ──
+                          Center(
+                            child: Container(
+                              width: 68,
+                              height: 68,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    colorScheme.primary,
+                                    colorScheme.primary
+                                        .withValues(alpha: 0.7),
+                                  ],
+                                ),
+                                borderRadius:
+                                    BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: colorScheme.primary
+                                        .withValues(alpha: 0.3),
+                                    blurRadius: 16,
+                                    offset: const Offset(0, 6),
                                   ),
+                                ],
+                              ),
+                              child: const Icon(
+                                  Icons.person_add_rounded,
+                                  size: 30,
+                                  color: Colors.white),
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 24),
+
+                          // ── Title ──
+                          Center(
+                            child: Text(
+                              'Create Your Profile',
+                              style: GoogleFonts.inter(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
+                                color: colorScheme.onSurface,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Center(
+                            child: Text(
+                              'Tell us a bit about yourself.',
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                color: colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w400,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+
+                          // ── First Name * ──
+                          _sectionLabel(theme, 'First Name'),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _firstNameController,
+                            textCapitalization:
+                                TextCapitalization.words,
+                            textInputAction: TextInputAction.next,
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: colorScheme.onSurface,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'e.g. Samuel',
+                              hintStyle: GoogleFonts.inter(
+                                fontSize: 14,
+                                color:
+                                    colorScheme.onSurfaceVariant,
+                              ),
+                              prefixIcon: Icon(
+                                  Icons.person_outline,
+                                  color: colorScheme.primary,
+                                  size: 20),
+                              filled: true,
+                              fillColor: colorScheme
+                                  .surfaceContainerLow,
+                              border: OutlineInputBorder(
+                                borderRadius:
+                                    BorderRadius.circular(14),
+                                borderSide: BorderSide(
+                                    color: colorScheme
+                                        .outlineVariant
+                                        .withValues(alpha: 0.5)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius:
+                                    BorderRadius.circular(14),
+                                borderSide: BorderSide(
+                                    color: colorScheme
+                                        .outlineVariant
+                                        .withValues(alpha: 0.5)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius:
+                                    BorderRadius.circular(14),
+                                borderSide: BorderSide(
+                                    color: colorScheme.primary,
+                                    width: 1.5),
+                              ),
+                              contentPadding:
+                                  const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 14),
+                            ),
+                            validator: (v) {
+                              if (v == null ||
+                                  v.trim().length < 2) {
+                                return 'Enter at least 2 characters';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 24),
+
+                          // ── LOCATION HEADING (umbrella for both country + levels) ──
+                          _sectionLabel(theme, 'Location'),
+                          const SizedBox(height: 10),
+
+                          // ── Country (read-only, from session) ──
+                          _buildCountryReadOnly(
+                              colorScheme, countryState),
+                          const SizedBox(height: 20),
+
+                          // ── Dynamic Location Levels (country skipped) ──
+                          if (_countryId != null)
+                            DynamicLocationFields(
+                              onRetry: _retryLevels,
+                              skipCountryLevel: true,
+                            )
+                          else
+                            const _InlineLoader(
+                                label:
+                                    'Loading location levels…'),
+                          const SizedBox(height: 4),
+
+                          // ── Error banner ──
+                          if (_error != null) ...[
+                            const SizedBox(height: 12),
+                            _errorBanner(colorScheme),
+                          ],
+
+                          const SizedBox(height: 28),
+
+                          // ── Submit button ──
+                          SizedBox(
+                            width: double.infinity,
+                            height: 52,
+                            child: FilledButton(
+                              onPressed:
+                                  _canSubmit ? _createProfile : null,
+                              style: FilledButton.styleFrom(
+                                backgroundColor:
+                                    colorScheme.primary,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(14),
+                                ),
+                                elevation: 2,
+                              ),
+                              child: _isSaving
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child:
+                                          CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Text(
+                                      'Create Profile',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 15,
+                                        fontWeight:
+                                            FontWeight.w600,
+                                        letterSpacing: 0.2,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -281,8 +377,12 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
   Widget _sectionLabel(ThemeData theme, String text) {
     return Text(
       text,
-      style: theme.textTheme.titleSmall
-          ?.copyWith(fontWeight: FontWeight.w600),
+      style: GoogleFonts.inter(
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+        color: theme.colorScheme.primary,
+        letterSpacing: 0.5,
+      ),
     );
   }
 
@@ -300,27 +400,55 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
+        color: colorScheme.primary.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+          color: colorScheme.primary.withValues(alpha: 0.15),
         ),
       ),
       child: Row(
         children: [
-          Icon(Icons.public_outlined,
-              size: 20, color: colorScheme.onSurfaceVariant),
-          const SizedBox(width: 12),
-          Text(
-            flag.isNotEmpty ? '$flag  $name' : name,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              color: colorScheme.onSurface,
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.public_outlined,
+                size: 19, color: colorScheme.primary),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Country (from your phone number)',
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.onSurfaceVariant,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  flag.isNotEmpty ? '$flag  $name' : name,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ],
             ),
           ),
+          Icon(Icons.check_circle,
+              size: 18, color: colorScheme.primary),
         ],
       ),
     );
@@ -331,17 +459,23 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: colorScheme.error.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(10),
+        color: colorScheme.error.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+            color: colorScheme.error.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
-          Icon(Icons.error_outline, color: colorScheme.error, size: 20),
+          Icon(Icons.error_outline,
+              color: colorScheme.error, size: 20),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               _error!,
-              style: TextStyle(color: colorScheme.error, fontSize: 14),
+              style: GoogleFonts.inter(
+                  color: colorScheme.error,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500),
             ),
           ),
         ],
@@ -360,10 +494,11 @@ class _InlineLoader extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
+        color: cs.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
@@ -378,7 +513,8 @@ class _InlineLoader extends StatelessWidget {
           const SizedBox(width: 12),
           Text(
             label,
-            style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant),
+            style: GoogleFonts.inter(
+                fontSize: 13, color: cs.onSurfaceVariant),
           ),
         ],
       ),

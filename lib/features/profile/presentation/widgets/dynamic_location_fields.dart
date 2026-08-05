@@ -27,16 +27,15 @@ import 'package:famhub_app/shared/widgets/inputs/dynamic_location_dropdown.dart'
 typedef OnLocationsSelected = void Function(List<SelectedLocationEntry> entries);
 
 class DynamicLocationFields extends ConsumerWidget {
-  /// Called whenever selection changes, passing all selected entries.
   final OnLocationsSelected? onChanged;
-
-  /// Called when the user taps retry after a levels error.
   final VoidCallback? onRetry;
+  final bool skipCountryLevel;
 
   const DynamicLocationFields({
     super.key,
     this.onChanged,
     this.onRetry,
+    this.skipCountryLevel = false,
   });
 
   @override
@@ -103,23 +102,36 @@ class DynamicLocationFields extends ConsumerWidget {
     // ── Build dropdowns dynamically ──
     final levels = state.levels;
     final dropdowns = <Widget>[];
+    final int renderStartIndex = skipCountryLevel && levels.isNotEmpty ? 1 : 0;
 
-    for (var i = 0; i < levels.length; i++) {
+    // If skipping country level, ensure the first visible level loads its root locations
+    if (skipCountryLevel && levels.length > 1) {
+      final firstVisibleLevel = levels[1];
+      final cacheKey = ProfileLocationState.rootCacheKey(firstVisibleLevel.id);
+      if (!state.locationCache.containsKey(cacheKey) &&
+          !state.loadingLocationKeys.contains(cacheKey)) {
+        // Schedule loading in next frame to avoid build-side-effects
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          notifier.loadLocations(levelIndex: 1, parentId: null);
+        });
+      }
+    }
+
+    for (var i = renderStartIndex; i < levels.length; i++) {
       final level = levels[i];
-      final isFirst = i == 0;
       final selected = state.selectedLocations[i];
+      var levelIndex = i;
 
       // Determine the parent location for this level
       String? parentId;
       String cacheKey;
-      if (isFirst) {
+      if (i == renderStartIndex) {
         parentId = null;
         cacheKey = ProfileLocationState.rootCacheKey(level.id);
       } else {
         final parentSelected = state.selectedLocations[i - 1];
         parentId = parentSelected?.id;
         if (parentId == null) {
-          // No parent selected yet — show disabled hint
           dropdowns.add(_buildDisabledHint(
             colorScheme,
             theme,
@@ -134,7 +146,6 @@ class DynamicLocationFields extends ConsumerWidget {
       final isLoading = state.loadingLocationKeys.contains(cacheKey);
       final error = state.locationErrors[cacheKey];
 
-      // Convert GeoLocation to DropdownLocation
       final dropdownItems = locations
           .map((l) => DropdownLocation(id: l.id, name: l.name))
           .toList();
@@ -148,21 +159,23 @@ class DynamicLocationFields extends ConsumerWidget {
           padding: const EdgeInsets.only(bottom: 20),
           child: DynamicLocationDropdown(
             levelName: level.levelName,
-            isRequired: isFirst,
+            isRequired: true,
             items: dropdownItems,
             selected: selectedDropdown,
             isLoading: isLoading,
             error: error,
             hint: 'Search and select ${level.levelName.toLowerCase()}',
-            prefixIcon: i == 0 ? Icons.map_outlined : Icons.flag_outlined,
+            prefixIcon: levelIndex == renderStartIndex
+                ? Icons.map_outlined
+                : Icons.flag_outlined,
             onChanged: (picked) {
               if (picked == null) {
-                notifier.selectLocation(i, null);
+                notifier.selectLocation(levelIndex, null);
               } else {
                 final geoLoc = locations.firstWhere(
                   (l) => l.id == picked.id,
                 );
-                notifier.selectLocation(i, geoLoc);
+                notifier.selectLocation(levelIndex, geoLoc);
               }
               onChanged?.call(notifier.selectedEntries);
             },
@@ -187,7 +200,7 @@ class DynamicLocationFields extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '$levelName (Optional)',
+          '$levelName *',
           style: theme.textTheme.titleSmall?.copyWith(
             fontWeight: FontWeight.w600,
             color: colorScheme.onSurface,
@@ -204,7 +217,7 @@ class DynamicLocationFields extends ConsumerWidget {
           child: Text(
             'Select parent ${levelName.toLowerCase()} first',
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               color: colorScheme.onSurfaceVariant,
             ),
           ),
