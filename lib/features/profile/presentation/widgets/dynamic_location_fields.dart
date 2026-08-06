@@ -30,12 +30,14 @@ class DynamicLocationFields extends ConsumerWidget {
   final OnLocationsSelected? onChanged;
   final VoidCallback? onRetry;
   final bool skipCountryLevel;
+  final String? countryId;
 
   const DynamicLocationFields({
     super.key,
     this.onChanged,
     this.onRetry,
     this.skipCountryLevel = false,
+    this.countryId,
   });
 
   @override
@@ -104,15 +106,26 @@ class DynamicLocationFields extends ConsumerWidget {
     final dropdowns = <Widget>[];
     final int renderStartIndex = skipCountryLevel && levels.isNotEmpty ? 1 : 0;
 
-    // If skipping country level, ensure the first visible level loads its root locations
+    // If skipping country level, use the countryId as parent for the first
+    // visible level so locations are filtered by country automatically.
+    // Cache key uses countryId as parent for child-lookup behaviour.
+    final String? rootParentId = (skipCountryLevel &&
+            levels.length > 1 &&
+            countryId != null &&
+            countryId!.isNotEmpty)
+        ? countryId
+        : null;
+
     if (skipCountryLevel && levels.length > 1) {
       final firstVisibleLevel = levels[1];
-      final cacheKey = ProfileLocationState.rootCacheKey(firstVisibleLevel.id);
+      final cacheKey = rootParentId != null
+          ? ProfileLocationState.childCacheKey(firstVisibleLevel.id, rootParentId)
+          : ProfileLocationState.rootCacheKey(firstVisibleLevel.id);
+
       if (!state.locationCache.containsKey(cacheKey) &&
           !state.loadingLocationKeys.contains(cacheKey)) {
-        // Schedule loading in next frame to avoid build-side-effects
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          notifier.loadLocations(levelIndex: 1, parentId: null);
+          notifier.loadLocations(levelIndex: 1, parentId: rootParentId);
         });
       }
     }
@@ -126,16 +139,21 @@ class DynamicLocationFields extends ConsumerWidget {
       String? parentId;
       String cacheKey;
       if (i == renderStartIndex) {
-        parentId = null;
-        cacheKey = ProfileLocationState.rootCacheKey(level.id);
+        parentId = rootParentId;
+        cacheKey = parentId != null
+            ? ProfileLocationState.childCacheKey(level.id, parentId)
+            : ProfileLocationState.rootCacheKey(level.id);
       } else {
         final parentSelected = state.selectedLocations[i - 1];
         parentId = parentSelected?.id;
         if (parentId == null) {
+          // Build dynamic placeholder using the previous level's name
+          final parentLevelName = levels[i - 1].levelName;
           dropdowns.add(_buildDisabledHint(
             colorScheme,
             theme,
             level.levelName,
+            parentLevelName,
           ));
           continue;
         }
@@ -195,6 +213,7 @@ class DynamicLocationFields extends ConsumerWidget {
     ColorScheme colorScheme,
     ThemeData theme,
     String levelName,
+    String parentLevelName,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -215,7 +234,7 @@ class DynamicLocationFields extends ConsumerWidget {
             borderRadius: BorderRadius.circular(10),
           ),
           child: Text(
-            'Select parent ${levelName.toLowerCase()} first',
+            'Select ${parentLevelName.toLowerCase()} first',
             style: TextStyle(
               fontSize: 13,
               color: colorScheme.onSurfaceVariant,

@@ -306,6 +306,7 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
                             DynamicLocationFields(
                               onRetry: _retryLevels,
                               skipCountryLevel: true,
+                              countryId: _countryId,
                             )
                           else
                             const _InlineLoader(
