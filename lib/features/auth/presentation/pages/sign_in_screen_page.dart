@@ -107,8 +107,12 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
   @override
   void dispose() {
     _phoneController.dispose();
-    for (final c in _otpControllers) c.dispose();
-    for (final f in _otpFocusNodes) f.dispose();
+    for (final c in _otpControllers) {
+      c.dispose();
+    }
+    for (final f in _otpFocusNodes) {
+      f.dispose();
+    }
     super.dispose();
   }
 
@@ -255,7 +259,9 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
       _error = null;
       _success = null;
     });
-    for (final c in _otpControllers) c.clear();
+    for (final c in _otpControllers) {
+      c.clear();
+    }
     await _sendOtp();
   }
 

@@ -294,7 +294,7 @@ class ProfileLocationController extends Notifier<ProfileLocationState> {
 
   /// ── Refresh levels for the given country (call on retry) ──
   Future<void> refresh(String countryId) async {
-    state = ProfileLocationState();
+    state = const ProfileLocationState();
     await initialize(countryId);
   }
 
