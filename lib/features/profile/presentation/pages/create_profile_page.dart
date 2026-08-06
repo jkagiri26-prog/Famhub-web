@@ -6,7 +6,7 @@
 ///   features/profile/presentation/pages/ = profile pages
 ///
 /// ✅ Responsibilities:
-///   - Display ONLY: First Name, Location Levels (country read‑only)
+///   - Display: First Name, Dynamic Location Levels (country read‑only)
 ///   - Hidden fields (phone, countryId) forwarded silently from OTP session
 ///   - Centered elevated card, responsive on desktop & mobile
 ///   - Retry / refresh when geography levels fail to load
@@ -64,6 +64,8 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
     if (mounted) setState(() {});
   }
 
+  /// Load phone and countryId from persisted OTP session.
+  /// These are silently forwarded to the backend; never shown in the UI.
   Future<void> _loadHiddenPayload() async {
     final session = await OtpSessionStorage.loadSession();
     if (!mounted) return;
@@ -88,14 +90,30 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
       _error = null;
     });
 
-    final entries =
-        ref.read(profileLocationProvider.notifier).selectedEntries;
+    // ── Gather location entries, EXCLUDING level 0 (country) ──
+    // The country dropdown is read‑only and its ID is NOT a location‑level
+    // reference; it is purely visual. The actual country_id is sent separately.
+    final providerState = ref.read(profileLocationProvider);
+    final controller = ref.read(profileLocationProvider.notifier);
+    final levels = providerState.levels;
+
+    final filteredEntries = <SelectedLocationEntry>[];
+    for (var i = 1; i < levels.length; i++) {
+      final loc = providerState.selectedLocations[i];
+      if (loc != null) {
+        filteredEntries.add(SelectedLocationEntry(
+          levelName: levels[i].levelName,
+          locationId: loc.id,
+          locationName: loc.name,
+        ));
+      }
+    }
 
     final success = await ref.read(sessionProvider.notifier).createProfile(
           firstName: _firstNameController.text.trim(),
           countryId: _countryId!,
           phone: _phone!,
-          locationLevels: entries,
+          locationLevels: filteredEntries,
         );
 
     if (!mounted) return;
@@ -109,6 +127,7 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
     }
   }
 
+  /// Retry loading geography levels (bound to the retry button).
   void _retryLevels() {
     if (_countryId == null) return;
     ref.read(profileLocationProvider.notifier).refresh(_countryId!);
@@ -290,7 +309,7 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
                           _sectionLabel(theme, 'Location'),
                           const SizedBox(height: 10),
 
-                          // ── Dynamic Location Levels (country now shown read‑only) ──
+                          // ── Dynamic Location Levels (country shown read‑only) ──
                           if (_countryId != null)
                             DynamicLocationFields(
                               onRetry: _retryLevels,

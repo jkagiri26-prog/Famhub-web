@@ -150,17 +150,13 @@ class SessionController extends Notifier<AppSession> {
   /// ============================================================
 
   /// Create a profile for the authenticated user.
-  /// Called after first-time authentication when no profile exists.
+  /// Called after first‑time authentication when no profile exists.
   ///
-  /// Stores dynamic location UUIDs from core.locations into the
-  /// level_2_location_id .. level_7_location_id columns.
-  ///
-  /// [lastName] defaults to [firstName] if empty, because the backend
-  /// profiles.last_name column is NOT NULL.
+  /// Only sends the currently collected fields. The remaining optional
+  /// fields (email, middle_name, last_name, user_type, etc.) are left
+  /// NULL — they will be filled later via the Edit Profile page.
   Future<bool> createProfile({
     required String firstName,
-    String? middleName,
-    String? lastName,
     required String countryId,
     required String phone,
     required List<SelectedLocationEntry> locationLevels,
@@ -169,23 +165,14 @@ class SessionController extends Notifier<AppSession> {
     if (current is! AuthenticatedSession) return false;
 
     try {
-      // Backend contract: auth_user_id and id are derived server-side
-      // from the JWT/session. The client NEVER sends user identity fields.
       final data = <String, dynamic>{
         'first_name': firstName.trim(),
-        'middle_name': (middleName != null && middleName.trim().isNotEmpty)
-            ? middleName.trim()
-            : null,
-        'last_name': (lastName != null && lastName.trim().isNotEmpty)
-            ? lastName.trim()
-            : firstName.trim(), // fallback: use first name as last name
         'country_id': countryId,
         'phone': phone,
         'is_phone_verified': true,
       };
 
-      // Map dynamic levels: entries[0] → level_2_location_id,
-      // entries[1] → level_3_location_id, ... up to level_7.
+      // Dynamic location levels → level_2_location_id … level_7_location_id
       for (var i = 0; i < locationLevels.length && i < 6; i++) {
         final levelNumber = i + 2;
         data['level_${levelNumber}_location_id'] = locationLevels[i].locationId;
@@ -195,18 +182,9 @@ class SessionController extends Notifier<AppSession> {
           .from('profiles', schema: 'users')
           .insert(data);
 
-      // Build display name
-      final displayParts = <String>[firstName.trim()];
-      if (middleName != null && middleName.trim().isNotEmpty) {
-        displayParts.add(middleName.trim());
-      }
-      final last = (lastName != null && lastName.trim().isNotEmpty)
-          ? lastName.trim()
-          : firstName.trim();
-      displayParts.add(last);
-
+      // Build simple display name
       state = current.copyWith(
-        displayName: displayParts.join(' '),
+        displayName: firstName.trim(),
         hasProfile: true,
       );
 
