@@ -106,26 +106,27 @@ class DynamicLocationFields extends ConsumerWidget {
     final dropdowns = <Widget>[];
     final int renderStartIndex = skipCountryLevel && levels.isNotEmpty ? 1 : 0;
 
-    // If skipping the country level, auto-select the hidden country as if the
-    // user had already picked it.  This lets the normal cascade in
-    // selectLocation() trigger child loads for the next level (County, etc.).
-    // We only do this once, when the country dropdown has not been set yet.
-    String? rootParentId; // kept for cache-key construction below
-    if (skipCountryLevel &&
-        levels.isNotEmpty &&
-        countryId != null &&
-        countryId!.isNotEmpty) {
-      rootParentId = countryId;
+    // If skipping country level, use the countryId as parent for the first
+    // visible level so locations are filtered by country automatically.
+    // Cache key uses countryId as parent for child-lookup behaviour.
+    final String? rootParentId = (skipCountryLevel &&
+            levels.length > 1 &&
+            countryId != null &&
+            countryId!.isNotEmpty)
+        ? countryId
+        : null;
 
-      if (!state.selectedLocations.containsKey(0)) {
-        // Country hasn't been auto-selected yet — fire and forget.
-        // We don't have a display name, so we just need the ID so that
-        // the cascade knows country is "selected".
-        final countryLoc = GeoLocation(
-          id: countryId!,
-          name: '', // name not shown because level 0 is hidden
-        );
-        notifier.selectLocation(0, countryLoc);
+    if (skipCountryLevel && levels.length > 1) {
+      final firstVisibleLevel = levels[1];
+      final cacheKey = rootParentId != null
+          ? ProfileLocationState.childCacheKey(firstVisibleLevel.id, rootParentId)
+          : ProfileLocationState.rootCacheKey(firstVisibleLevel.id);
+
+      if (!state.locationCache.containsKey(cacheKey) &&
+          !state.loadingLocationKeys.contains(cacheKey)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          notifier.loadLocations(levelIndex: 1, parentId: rootParentId);
+        });
       }
     }
 
