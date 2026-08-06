@@ -8,12 +8,13 @@
 /// ✅ Responsibilities:
 ///   - Watch ProfileLocationProvider
 ///   - Render a dynamic list of dropdowns based on geography levels
+///   - Level 0 (country) is ALWAYS shown read-only, pre‑filled from session
 ///   - Wire parent-child cascading (selecting a parent loads children)
 ///   - Expose selected location IDs for saving
 ///
 /// ❌ Does NOT:
 ///   - Call backends directly
-///   - Determine the country
+///   - Determine the country (reads from SessionCountryProvider)
 ///   - Hardcode any geography level names (County, Ward, etc.)
 /// ============================================================
 library;
@@ -22,6 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famhub_app/features/profile/application/providers/profile_location_provider.dart';
 import 'package:famhub_app/shared/widgets/inputs/dynamic_location_dropdown.dart';
+import 'package:famhub_app/core/session/providers/session_country_provider.dart';
 
 /// Callback with the selected location entries ready to save.
 typedef OnLocationsSelected = void Function(List<SelectedLocationEntry> entries);
@@ -29,15 +31,11 @@ typedef OnLocationsSelected = void Function(List<SelectedLocationEntry> entries)
 class DynamicLocationFields extends ConsumerWidget {
   final OnLocationsSelected? onChanged;
   final VoidCallback? onRetry;
-  final bool skipCountryLevel;
-  final String? countryId;
 
   const DynamicLocationFields({
     super.key,
     this.onChanged,
     this.onRetry,
-    this.skipCountryLevel = false,
-    this.countryId,
   });
 
   @override
@@ -46,6 +44,10 @@ class DynamicLocationFields extends ConsumerWidget {
     final notifier = ref.read(profileLocationProvider.notifier);
     final colorScheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
+
+    // ── Read the session country for auto‑selection ──
+    final sessionCountry = ref.watch(sessionCountryIdProvider);
+    final sessionCountryState = ref.watch(sessionCountryProvider);
 
     // Still loading the geography levels themselves
     if (state.isLoadingLevels) {
@@ -104,50 +106,25 @@ class DynamicLocationFields extends ConsumerWidget {
     // ── Build dropdowns dynamically ──
     final levels = state.levels;
     final dropdowns = <Widget>[];
-    final int renderStartIndex = skipCountryLevel && levels.isNotEmpty ? 1 : 0;
 
-    // If skipping country level, use the countryId as parent for the first
-    // visible level so locations are filtered by country automatically.
-    // Cache key uses countryId as parent for child-lookup behaviour.
-    final String? rootParentId = (skipCountryLevel &&
-            levels.length > 1 &&
-            countryId != null &&
-            countryId!.isNotEmpty)
-        ? countryId
-        : null;
-
-    if (skipCountryLevel && levels.length > 1) {
-      final firstVisibleLevel = levels[1];
-      final cacheKey = rootParentId != null
-          ? ProfileLocationState.childCacheKey(firstVisibleLevel.id, rootParentId)
-          : ProfileLocationState.rootCacheKey(firstVisibleLevel.id);
-
-      if (!state.locationCache.containsKey(cacheKey) &&
-          !state.loadingLocationKeys.contains(cacheKey)) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          notifier.loadLocations(levelIndex: 1, parentId: rootParentId);
-        });
-      }
-    }
-
-    for (var i = renderStartIndex; i < levels.length; i++) {
+    // We always start at level 0 (country) now.
+    for (var i = 0; i < levels.length; i++) {
       final level = levels[i];
       final selected = state.selectedLocations[i];
-      var levelIndex = i;
+      final levelIndex = i;
 
       // Determine the parent location for this level
       String? parentId;
       String cacheKey;
-      if (i == renderStartIndex) {
-        parentId = rootParentId;
-        cacheKey = parentId != null
-            ? ProfileLocationState.childCacheKey(level.id, parentId)
-            : ProfileLocationState.rootCacheKey(level.id);
+      if (i == 0) {
+        // Level 0 = root level (country)
+        parentId = null;
+        cacheKey = ProfileLocationState.rootCacheKey(level.id);
       } else {
         final parentSelected = state.selectedLocations[i - 1];
         parentId = parentSelected?.id;
         if (parentId == null) {
-          // Build dynamic placeholder using the previous level's name
+          // Child must wait for parent selection
           final parentLevelName = levels[i - 1].levelName;
           dropdowns.add(_buildDisabledHint(
             colorScheme,
@@ -172,20 +149,52 @@ class DynamicLocationFields extends ConsumerWidget {
           ? DropdownLocation(id: selected.id, name: selected.name)
           : null;
 
+      // For level 0 (country), force read‑only + auto‑select when loaded
+      final bool isCountryLevel = i == 0;
+
+      // ── Auto‑select the session country as soon as it's available ──
+      if (isCountryLevel &&
+          sessionCountry != null &&
+          sessionCountry.isNotEmpty &&
+          locations.isNotEmpty &&
+          selected == null &&
+          !isLoading) {
+        // Attempt to find the location matching the session country ID.
+        // The country location's ID or name must match; we try ID first, then name.
+        GeoLocation? countryLoc;
+        for (final loc in locations) {
+          if (loc.id == sessionCountry ||
+              loc.name.toLowerCase() ==
+                  (sessionCountryState.country?.name ?? '').toLowerCase()) {
+            countryLoc = loc;
+            break;
+          }
+        }
+        if (countryLoc != null) {
+          // Use a post‑frame callback to avoid modifying state during build.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            notifier.selectLocation(0, countryLoc);
+          });
+        }
+      }
+
       dropdowns.add(
         Padding(
           padding: const EdgeInsets.only(bottom: 20),
           child: DynamicLocationDropdown(
             levelName: level.levelName,
-            isRequired: true,
+            isRequired: !isCountryLevel, // country is already pre‑filled
             items: dropdownItems,
             selected: selectedDropdown,
             isLoading: isLoading,
             error: error,
-            hint: 'Search and select ${level.levelName.toLowerCase()}',
-            prefixIcon: levelIndex == renderStartIndex
-                ? Icons.map_outlined
-                : Icons.flag_outlined,
+            hint: isCountryLevel
+                ? 'Country from session'
+                : 'Search and select ${level.levelName.toLowerCase()}',
+            prefixIcon: isCountryLevel
+                ? Icons.public_outlined
+                : (levelIndex == 1 ? Icons.map_outlined : Icons.flag_outlined),
+            enabled: !isCountryLevel, // ← read‑only for country
             onChanged: (picked) {
               if (picked == null) {
                 notifier.selectLocation(levelIndex, null);

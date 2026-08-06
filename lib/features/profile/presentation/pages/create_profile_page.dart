@@ -6,7 +6,7 @@
 ///   features/profile/presentation/pages/ = profile pages
 ///
 /// ✅ Responsibilities:
-///   - Display ONLY: First Name, Country (read-only), Location Levels
+///   - Display ONLY: First Name, Location Levels (country read‑only)
 ///   - Hidden fields (phone, countryId) forwarded silently from OTP session
 ///   - Centered elevated card, responsive on desktop & mobile
 ///   - Retry / refresh when geography levels fail to load
@@ -64,8 +64,6 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
     if (mounted) setState(() {});
   }
 
-  /// Load phone and countryId from persisted OTP session.
-  /// These are silently forwarded to the backend; never shown in the UI.
   Future<void> _loadHiddenPayload() async {
     final session = await OtpSessionStorage.loadSession();
     if (!mounted) return;
@@ -111,7 +109,6 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
     }
   }
 
-  /// Retry loading geography levels (bound to the retry button).
   void _retryLevels() {
     if (_countryId == null) return;
     ref.read(profileLocationProvider.notifier).refresh(_countryId!);
@@ -125,9 +122,6 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-
-    // Watch country for display name only
-    final countryState = ref.watch(sessionCountryProvider);
 
     // Init location hierarchy once we know the country ID
     if (_countryId != null) {
@@ -292,21 +286,14 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
                           ),
                           const SizedBox(height: 24),
 
-                          // ── LOCATION HEADING (umbrella for both country + levels) ──
+                          // ── LOCATION HEADING ──
                           _sectionLabel(theme, 'Location'),
                           const SizedBox(height: 10),
 
-                          // ── Country (read-only, from session) ──
-                          _buildCountryReadOnly(
-                              colorScheme, countryState),
-                          const SizedBox(height: 20),
-
-                          // ── Dynamic Location Levels (country skipped) ──
+                          // ── Dynamic Location Levels (country now shown read‑only) ──
                           if (_countryId != null)
                             DynamicLocationFields(
                               onRetry: _retryLevels,
-                              skipCountryLevel: true,
-                              countryId: _countryId,
                             )
                           else
                             const _InlineLoader(
@@ -383,74 +370,6 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
         fontWeight: FontWeight.w700,
         color: theme.colorScheme.primary,
         letterSpacing: 0.5,
-      ),
-    );
-  }
-
-  Widget _buildCountryReadOnly(
-    ColorScheme colorScheme,
-    SessionCountryState countryState,
-  ) {
-    if (countryState.isLoading) {
-      return const _InlineLoader(label: 'Loading country…');
-    }
-
-    final country = countryState.country;
-    final name = country?.name ?? 'Resolving from session…';
-    final flag = country?.isoAlpha2 ?? '';
-
-    return Container(
-      width: double.infinity,
-      padding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-      decoration: BoxDecoration(
-        color: colorScheme.primary.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: colorScheme.primary.withValues(alpha: 0.15),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: colorScheme.primary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(Icons.public_outlined,
-                size: 19, color: colorScheme.primary),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Country (from your phone number)',
-                  style: GoogleFonts.inter(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                    color: colorScheme.onSurfaceVariant,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  flag.isNotEmpty ? '$flag  $name' : name,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Icon(Icons.check_circle,
-              size: 18, color: colorScheme.primary),
-        ],
       ),
     );
   }
