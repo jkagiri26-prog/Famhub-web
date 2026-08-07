@@ -113,8 +113,6 @@ class _SessionGateState extends ConsumerState<SessionGate> {
     final session = ref.watch(sessionProvider);
 
     // ── OTP SESSION RESTORED ──
-    // If there's a valid persisted OTP session and we're unauthenticated,
-    // show the OTP verification page directly instead of the welcome screen.
     if (_restoredOtpSession && session is UnauthenticatedSession) {
       return _buildRestoredOtpFlow();
     }
@@ -213,9 +211,15 @@ class _SessionGateState extends ConsumerState<SessionGate> {
       themeMode: themeMode,
       home: CreateProfilePage(
         onComplete: () async {
+          // Refresh session to pick up the newly created profile
           await ref.read(sessionProvider.notifier).refresh();
           if (mounted) {
-            setState(() => _showCreateProfile = false);
+            setState(() {
+              _showCreateProfile = false;
+              // Immediately show workspace selection — no need to re-evaluate
+              // the full conditional chain.
+              _showWorkspaceSelection = true;
+            });
           }
         },
       ),

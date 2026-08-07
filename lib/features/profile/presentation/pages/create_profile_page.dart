@@ -10,11 +10,13 @@
 ///   - Hidden fields (phone, countryId) forwarded silently from OTP session
 ///   - Centered elevated card, responsive on desktop & mobile
 ///   - Retry / refresh when geography levels fail to load
-///   - Save profile via sessionProvider.createProfile
+///   - Save profile via sessionProvider.createProfile (Edge Function)
+///   - Navigate to workspace selection on success
 ///
 /// ❌ Does NOT:
 ///   - Display phone, country code, or other hidden payload fields
 ///   - Fetch backend data directly
+///   - Write directly to the database
 ///   - Hardcode location level names
 /// ============================================================
 library famhub_app.features.profile.presentation.pages.create_profile_page;
@@ -91,10 +93,7 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
     });
 
     // ── Gather location entries, EXCLUDING level 0 (country) ──
-    // The country dropdown is read‑only and its ID is NOT a location‑level
-    // reference; it is purely visual. The actual country_id is sent separately.
     final providerState = ref.read(profileLocationProvider);
-    final controller = ref.read(profileLocationProvider.notifier);
     final levels = providerState.levels;
 
     final filteredEntries = <SelectedLocationEntry>[];
@@ -117,7 +116,20 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
         );
 
     if (!mounted) return;
+
     if (success) {
+      // Show success snackbar before navigating away
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profile created successfully'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+
+      // Give the snackbar a moment to render, then navigate
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      if (!mounted) return;
       widget.onComplete();
     } else {
       setState(() {

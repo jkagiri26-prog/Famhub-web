@@ -15,6 +15,7 @@
 /// ❌ Does NOT:
 ///   - Contain widget logic
 ///   - Know about routing or navigation
+///   - Write directly to the database (uses AuthService)
 /// ============================================================
 library;
 
@@ -150,11 +151,15 @@ class SessionController extends Notifier<AppSession> {
   /// ============================================================
 
   /// Create a profile for the authenticated user.
-  /// Called after first‑time authentication when no profile exists.
+  /// Invokes the `create-profile` Edge Function — no direct database write.
   ///
-  /// Only sends the currently collected fields. The remaining optional
-  /// fields (email, middle_name, last_name, user_type, etc.) are left
-  /// NULL — they will be filled later via the Edit Profile page.
+  /// [firstName] — required first name
+  /// [countryId] — country ID from OTP session
+  /// [phone] — verified phone number
+  /// [locationLevels] — selected geography locations
+  ///
+  /// Returns `true` on success, updates session state with the returned
+  /// profile data.
   Future<bool> createProfile({
     required String firstName,
     required String countryId,
@@ -165,26 +170,55 @@ class SessionController extends Notifier<AppSession> {
     if (current is! AuthenticatedSession) return false;
 
     try {
-      final data = <String, dynamic>{
-        'first_name': firstName.trim(),
-        'country_id': countryId,
-        'phone': phone,
-        'is_phone_verified': true,
-      };
-
-      // Dynamic location levels → level_2_location_id … level_7_location_id
+      // Map location levels to level_2…level_7 parameters
+      String? level2, level3, level4, level5, level6, level7;
       for (var i = 0; i < locationLevels.length && i < 6; i++) {
-        final levelNumber = i + 2;
-        data['level_${levelNumber}_location_id'] = locationLevels[i].locationId;
+        final locId = locationLevels[i].locationId;
+        switch (i) {
+          case 0: level2 = locId;
+          case 1: level3 = locId;
+          case 2: level4 = locId;
+          case 3: level5 = locId;
+          case 4: level6 = locId;
+          case 5: level7 = locId;
+        }
       }
 
-      await SupabaseService.instance
-          .from('profiles', schema: 'users')
-          .insert(data);
+      // Invoke the Edge Function via AuthService
+      final result = await _authService.createProfile(
+        firstName: firstName.trim(),
+        lastName: '', // last name is optional at profile creation
+        countryId: countryId,
+        phone: phone,
+        level2LocationId: level2,
+        level3LocationId: level3,
+        level4LocationId: level4,
+        level5LocationId: level5,
+        level6LocationId: level6,
+        level7LocationId: level7,
+      );
 
-      // Build simple display name
+      if (!result.success) {
+        return false;
+      }
+
+      // Update session state with the created profile
+      // Attempt to extract display name from the returned profile
+      final profile = result.profile;
+      String displayName = firstName.trim();
+      if (profile != null) {
+        final first = profile['first_name'] as String? ?? firstName.trim();
+        final middle = profile['middle_name'] as String? ?? '';
+        final last = profile['last_name'] as String? ?? '';
+        final parts = <String>[];
+        if (first.isNotEmpty) parts.add(first);
+        if (middle.isNotEmpty) parts.add(middle);
+        if (last.isNotEmpty) parts.add(last);
+        if (parts.isNotEmpty) displayName = parts.join(' ');
+      }
+
       state = current.copyWith(
-        displayName: firstName.trim(),
+        displayName: displayName,
         hasProfile: true,
       );
 

@@ -9,6 +9,7 @@
 /// ✅ RESPONSIBILITIES:
 ///   - Send OTP via SMS (phone only) via Supabase Edge Function
 ///   - Verify OTP via Supabase Edge Function
+///   - Create profile via Supabase Edge Function
 ///   - Handle auth errors: invalid OTP, expired OTP, network failures
 ///   - Expose reactive auth state via stream
 ///   - Confirm OTP was sent successfully
@@ -18,6 +19,7 @@
 ///   - Decide what happens after auth
 ///   - Manage onboarding state
 ///   - Route navigation
+///   - Write directly to the database
 /// ============================================================
 library;
 
@@ -44,6 +46,14 @@ class OtpVerifyResult {
   const OtpVerifyResult({required this.success, this.error, this.userId});
 }
 
+/// Result of a profile creation operation via Edge Function
+class ProfileResult {
+  final bool success;
+  final String? error;
+  final Map<String, dynamic>? profile;
+  const ProfileResult({required this.success, this.error, this.profile});
+}
+
 /// Unified auth service for FAMHUB.
 /// All auth operations go through this service.
 class AuthService {
@@ -63,6 +73,112 @@ class AuthService {
 
   /// Stream of auth state changes
   Stream<AuthState> get authStateChanges => _supabase.authStateChanges;
+
+  /// ============================================================
+  /// CREATE PROFILE (Edge Function)
+  /// ============================================================
+  ///
+  /// Invokes the `create-profile` Edge Function to create a user
+  /// profile. The backend derives auth_user_id, id, created_at,
+  /// updated_at, and created_by automatically.
+  ///
+  /// Returns a [ProfileResult] with the created profile on success.
+  /// ============================================================
+  Future<ProfileResult> createProfile({
+    required String firstName,
+    String? middleName,
+    required String lastName,
+    required String countryId,
+    required String phone,
+    String? level2LocationId,
+    String? level3LocationId,
+    String? level4LocationId,
+    String? level5LocationId,
+    String? level6LocationId,
+    String? level7LocationId,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'first_name': firstName,
+        'last_name': lastName,
+        'country_id': countryId,
+        'phone': phone,
+        'is_phone_verified': true,
+      };
+
+      if (middleName != null && middleName.isNotEmpty) {
+        body['middle_name'] = middleName;
+      }
+      if (level2LocationId != null) body['level_2_location_id'] = level2LocationId;
+      if (level3LocationId != null) body['level_3_location_id'] = level3LocationId;
+      if (level4LocationId != null) body['level_4_location_id'] = level4LocationId;
+      if (level5LocationId != null) body['level_5_location_id'] = level5LocationId;
+      if (level6LocationId != null) body['level_6_location_id'] = level6LocationId;
+      if (level7LocationId != null) body['level_7_location_id'] = level7LocationId;
+
+      if (kDebugMode) {
+        debugPrint('[createProfile] Invoking Edge Function with body: $body');
+      }
+
+      final response = await _supabase.client.functions.invoke(
+        'create-profile',
+        body: body,
+      );
+
+      if (kDebugMode) {
+        debugPrint('[createProfile] Raw response: ${response.data}');
+      }
+
+      // Validate the response envelope (same pattern as verify-otp)
+      if (response.data == null || response.data is! Map) {
+        return const ProfileResult(
+          success: false,
+          error: 'Invalid response from server. Please try again.',
+        );
+      }
+
+      final responseData = response.data as Map<String, dynamic>;
+
+      if (responseData['success'] != true) {
+        final errorMsg = responseData['error']?.toString() ??
+            'Failed to create profile. Please try again.';
+        return ProfileResult(success: false, error: errorMsg);
+      }
+
+      final profile = responseData['data'];
+      if (profile == null || profile is! Map) {
+        return const ProfileResult(
+          success: false,
+          error: 'Profile created but no data returned. Please try again.',
+        );
+      }
+
+      if (kDebugMode) {
+        debugPrint('[createProfile] Success — profile created');
+      }
+
+      return ProfileResult(
+        success: true,
+        profile: Map<String, dynamic>.from(profile),
+      );
+    } on FunctionException catch (e) {
+      if (kDebugMode) {
+        debugPrint('[createProfile] FunctionException: ${e.details}');
+      }
+      return ProfileResult(
+        success: false,
+        error: e.details?.toString() ?? e.reasonPhrase ?? 'Unknown error',
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[createProfile] Exception: $e');
+      }
+      return const ProfileResult(
+        success: false,
+        error: 'Network error. Please check your connection and try again.',
+      );
+    }
+  }
 
   /// ============================================================
   /// SEND OTP (Phone only)
