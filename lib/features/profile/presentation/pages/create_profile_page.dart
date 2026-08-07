@@ -10,20 +10,20 @@
 ///   - Hidden fields (phone, countryId) forwarded silently from OTP session
 ///   - Centered elevated card, responsive on desktop & mobile
 ///   - Retry / refresh when geography levels fail to load
-///   - Save profile via sessionProvider.createProfile (Edge Function)
-///   - Navigate to workspace selection on success
+///   - Save profile via AuthService.createProfile (Edge Function)
 ///
 /// ❌ Does NOT:
 ///   - Display phone, country code, or other hidden payload fields
 ///   - Fetch backend data directly
-///   - Write directly to the database
 ///   - Hardcode location level names
+///   - Write directly to the database
 /// ============================================================
 library famhub_app.features.profile.presentation.pages.create_profile_page;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:famhub_app/core/services/auth_service.dart';
 import 'package:famhub_app/core/session/session_provider.dart';
 import 'package:famhub_app/core/session/providers/session_country_provider.dart';
 import 'package:famhub_app/features/profile/application/providers/profile_location_provider.dart';
@@ -93,6 +93,8 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
     });
 
     // ── Gather location entries, EXCLUDING level 0 (country) ──
+    // The country dropdown is read‑only and its ID is NOT a location‑level
+    // reference; it is purely visual. The actual country_id is sent separately.
     final providerState = ref.read(profileLocationProvider);
     final levels = providerState.levels;
 
@@ -108,7 +110,7 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
       }
     }
 
-    final success = await ref.read(sessionProvider.notifier).createProfile(
+    final result = await ref.read(sessionProvider.notifier).createProfile(
           firstName: _firstNameController.text.trim(),
           countryId: _countryId!,
           phone: _phone!,
@@ -117,26 +119,23 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
 
     if (!mounted) return;
 
-    if (success) {
-      // Show success snackbar before navigating away
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profile created successfully'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+    setState(() => _isSaving = false);
 
-      // Give the snackbar a moment to render, then navigate
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      if (!mounted) return;
-      widget.onComplete();
-    } else {
+    if (!result.success) {
       setState(() {
-        _isSaving = false;
-        _error = 'Failed to create profile. Please try again.';
+        _error = result.error ?? 'Failed to create profile. Please try again.';
       });
+      return;
     }
+
+    // ── Success ──
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Profile created successfully'),
+      ),
+    );
+
+    widget.onComplete();
   }
 
   /// Retry loading geography levels (bound to the retry button).
@@ -340,7 +339,7 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
 
                           const SizedBox(height: 28),
 
-                          // ── Submit button ──
+                          // ── Submit button (disabled while saving) ──
                           SizedBox(
                             width: double.infinity,
                             height: 52,

@@ -15,7 +15,6 @@
 /// ❌ Does NOT:
 ///   - Contain widget logic
 ///   - Know about routing or navigation
-///   - Write directly to the database (uses AuthService)
 /// ============================================================
 library;
 
@@ -151,81 +150,65 @@ class SessionController extends Notifier<AppSession> {
   /// ============================================================
 
   /// Create a profile for the authenticated user.
-  /// Invokes the `create-profile` Edge Function — no direct database write.
+  /// Calls the `create-profile` Edge Function — NO direct DB writes.
   ///
-  /// [firstName] — required first name
-  /// [countryId] — country ID from OTP session
-  /// [phone] — verified phone number
-  /// [locationLevels] — selected geography locations
-  ///
-  /// Returns `true` on success, updates session state with the returned
-  /// profile data.
-  Future<bool> createProfile({
+  /// Returns a [ProfileResult] so callers can handle success/error
+  /// and display the server's error message if needed.
+  Future<ProfileResult> createProfile({
     required String firstName,
     required String countryId,
     required String phone,
     required List<SelectedLocationEntry> locationLevels,
   }) async {
     final current = state;
-    if (current is! AuthenticatedSession) return false;
-
-    try {
-      // Map location levels to level_2…level_7 parameters
-      String? level2, level3, level4, level5, level6, level7;
-      for (var i = 0; i < locationLevels.length && i < 6; i++) {
-        final locId = locationLevels[i].locationId;
-        switch (i) {
-          case 0: level2 = locId;
-          case 1: level3 = locId;
-          case 2: level4 = locId;
-          case 3: level5 = locId;
-          case 4: level6 = locId;
-          case 5: level7 = locId;
-        }
-      }
-
-      // Invoke the Edge Function via AuthService
-      final result = await _authService.createProfile(
-        firstName: firstName.trim(),
-        lastName: '', // last name is optional at profile creation
-        countryId: countryId,
-        phone: phone,
-        level2LocationId: level2,
-        level3LocationId: level3,
-        level4LocationId: level4,
-        level5LocationId: level5,
-        level6LocationId: level6,
-        level7LocationId: level7,
+    if (current is! AuthenticatedSession) {
+      return const ProfileResult(
+        success: false,
+        error: 'You must be signed in to create a profile.',
       );
+    }
 
-      if (!result.success) {
-        return false;
+    // Build location IDs per level
+    String? level2, level3, level4, level5, level6, level7;
+    for (var i = 0; i < locationLevels.length && i < 6; i++) {
+      final num = i + 2;
+      switch (num) {
+        case 2: level2 = locationLevels[i].locationId; break;
+        case 3: level3 = locationLevels[i].locationId; break;
+        case 4: level4 = locationLevels[i].locationId; break;
+        case 5: level5 = locationLevels[i].locationId; break;
+        case 6: level6 = locationLevels[i].locationId; break;
+        case 7: level7 = locationLevels[i].locationId; break;
       }
+    }
 
-      // Update session state with the created profile
-      // Attempt to extract display name from the returned profile
-      final profile = result.profile;
-      String displayName = firstName.trim();
-      if (profile != null) {
-        final first = profile['first_name'] as String? ?? firstName.trim();
-        final middle = profile['middle_name'] as String? ?? '';
-        final last = profile['last_name'] as String? ?? '';
-        final parts = <String>[];
-        if (first.isNotEmpty) parts.add(first);
-        if (middle.isNotEmpty) parts.add(middle);
-        if (last.isNotEmpty) parts.add(last);
-        if (parts.isNotEmpty) displayName = parts.join(' ');
-      }
+    final result = await _authService.createProfile(
+      firstName: firstName,
+      // last_name is required by the Edge Function but not yet collected
+      // from the user.  Passing an empty string is safe; the backend
+      // treats missing/empty strings gracefully.
+      lastName: '',
+      countryId: countryId,
+      phone: phone,
+      level2LocationId: level2,
+      level3LocationId: level3,
+      level4LocationId: level4,
+      level5LocationId: level5,
+      level6LocationId: level6,
+      level7LocationId: level7,
+    );
 
+    if (result.success && result.profile != null) {
+      // Build simple display name from the created profile
+      final firstNameFromProfile =
+          result.profile!['first_name'] as String? ?? firstName.trim();
       state = current.copyWith(
-        displayName: displayName,
+        displayName: firstNameFromProfile,
         hasProfile: true,
       );
-
-      return true;
-    } catch (e) {
-      return false;
     }
+
+    return result;
   }
 
   /// ============================================================

@@ -116,21 +116,28 @@ class AuthService {
       if (level6LocationId != null) body['level_6_location_id'] = level6LocationId;
       if (level7LocationId != null) body['level_7_location_id'] = level7LocationId;
 
-      if (kDebugMode) {
-        debugPrint('[createProfile] Invoking Edge Function with body: $body');
-      }
+      debugPrint('========================================');
+      debugPrint('[createProfile] DIAGNOSTIC START');
+      debugPrint('Project URL: ${_supabase.client.supabaseUrl}');
+      debugPrint('Function: create-profile');
+      debugPrint('Payload: $body');
+      debugPrint('User: ${_supabase.client.auth.currentUser?.id}');
+      debugPrint('Session: ${_supabase.client.auth.currentSession != null}');
+      debugPrint('========================================');
 
       final response = await _supabase.client.functions.invoke(
         'create-profile',
         body: body,
       );
 
-      if (kDebugMode) {
-        debugPrint('[createProfile] Raw response: ${response.data}');
-      }
+      debugPrint('[createProfile] FUNCTION INVOKE COMPLETE');
+      debugPrint('[createProfile] STATUS: ${response.status}');
+      debugPrint('[createProfile] DATA: ${response.data}');
+      debugPrint('[createProfile] ERROR: ${response.error}');
 
       // Validate the response envelope (same pattern as verify-otp)
       if (response.data == null || response.data is! Map) {
+        debugPrint('[createProfile] FAILED: response.data is null or not a Map');
         return const ProfileResult(
           success: false,
           error: 'Invalid response from server. Please try again.',
@@ -142,37 +149,37 @@ class AuthService {
       if (responseData['success'] != true) {
         final errorMsg = responseData['error']?.toString() ??
             'Failed to create profile. Please try again.';
+        debugPrint('[createProfile] FAILED: success != true, error: $errorMsg');
         return ProfileResult(success: false, error: errorMsg);
       }
 
       final profile = responseData['data'];
       if (profile == null || profile is! Map) {
+        debugPrint('[createProfile] FAILED: data field is null or not a Map');
         return const ProfileResult(
           success: false,
           error: 'Profile created but no data returned. Please try again.',
         );
       }
 
-      if (kDebugMode) {
-        debugPrint('[createProfile] Success — profile created');
-      }
+      debugPrint('[createProfile] SUCCESS — profile created');
+      debugPrint('[createProfile] Profile data: $profile');
 
       return ProfileResult(
         success: true,
         profile: Map<String, dynamic>.from(profile),
       );
     } on FunctionException catch (e) {
-      if (kDebugMode) {
-        debugPrint('[createProfile] FunctionException: ${e.details}');
-      }
+      debugPrint('[createProfile] FunctionException: ${e.details}');
+      debugPrint('[createProfile] FunctionException statusCode: ${e.statusCode}');
       return ProfileResult(
         success: false,
         error: e.details?.toString() ?? e.reasonPhrase ?? 'Unknown error',
       );
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('[createProfile] Exception: $e');
-      }
+    } catch (e, st) {
+      debugPrint('[createProfile] FUNCTION INVOKE EXCEPTION');
+      debugPrint('[createProfile] Exception: $e');
+      debugPrint('[createProfile] StackTrace: $st');
       return const ProfileResult(
         success: false,
         error: 'Network error. Please check your connection and try again.',
@@ -349,8 +356,6 @@ class AuthService {
         if (kDebugMode) {
           debugPrint('[verifyOtp] Calling setSession with tokens...');
         }
-        // NOTE: In gotrue (supabase_flutter 2.x), setSession takes
-        // ONE positional arg: refreshToken.
         await _supabase.client.auth.setSession(
           refreshToken,
         );

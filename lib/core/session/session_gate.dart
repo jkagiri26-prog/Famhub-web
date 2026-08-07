@@ -113,6 +113,8 @@ class _SessionGateState extends ConsumerState<SessionGate> {
     final session = ref.watch(sessionProvider);
 
     // ── OTP SESSION RESTORED ──
+    // If there's a valid persisted OTP session and we're unauthenticated,
+    // show the OTP verification page directly instead of the welcome screen.
     if (_restoredOtpSession && session is UnauthenticatedSession) {
       return _buildRestoredOtpFlow();
     }
@@ -145,11 +147,13 @@ class _SessionGateState extends ConsumerState<SessionGate> {
     if (session is AuthenticatedSession) {
       // No profile yet → create profile
       if (!session.hasProfile) {
+        _showCreateProfile = true;
         return _buildCreateProfile(session);
       }
 
       // Profile exists but no workspaces selected → workspace selection
       if (!session.hasCompletedOnboarding) {
+        _showWorkspaceSelection = true;
         return _buildWorkspaceSelection(session);
       }
 
@@ -210,14 +214,13 @@ class _SessionGateState extends ConsumerState<SessionGate> {
       darkTheme: shellTheme.toThemeData(ThemeMode.dark),
       themeMode: themeMode,
       home: CreateProfilePage(
-        onComplete: () async {
-          // Refresh session to pick up the newly created profile
-          await ref.read(sessionProvider.notifier).refresh();
+        onComplete: () {
+          // Profile created successfully — the CreateProfilePage already
+          // showed a SnackBar and updated the session (hasProfile = true).
+          // Now transition to Workspace Selection.
           if (mounted) {
             setState(() {
               _showCreateProfile = false;
-              // Immediately show workspace selection — no need to re-evaluate
-              // the full conditional chain.
               _showWorkspaceSelection = true;
             });
           }
