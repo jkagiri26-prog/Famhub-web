@@ -28,6 +28,10 @@ enum SessionStatus {
 
   /// Ready — authenticated (dashboard should show)
   authenticated,
+
+  /// Restoration failed — show a retry/error state.
+  /// Never conflated with "no profile" or "no session".
+  error,
 }
 
 /// Abstract session interface representing the current user's session state.
@@ -57,10 +61,19 @@ abstract class AppSession {
 
   /// Whether the user has a profile in the profiles table
   bool get hasProfile;
+
+  /// The persisted profile row (from users.profiles) — database source of truth.
+  Map<String, dynamic>? get profile;
+
+  /// Persisted workspace selections (system.workspaces.id values).
+  /// Restored from users.user_workspaces on every startup.
+  List<String> get workspaceIds;
+
+  /// The default/current workspace (users.profiles.current_workspace_id).
+  String? get defaultWorkspaceId;
 }
 
 /// Session state for unauthenticated users.
-/// This is the default state before session initialization completes.
 /// Unauthenticated users can still browse the FAMHUB Home ecosystem.
 class UnauthenticatedSession implements AppSession {
   const UnauthenticatedSession();
@@ -79,6 +92,69 @@ class UnauthenticatedSession implements AppSession {
   bool get hasCompletedOnboarding => false;
   @override
   bool get hasProfile => false;
+  @override
+  Map<String, dynamic>? get profile => null;
+  @override
+  List<String> get workspaceIds => const [];
+  @override
+  String? get defaultWorkspaceId => null;
+}
+
+/// Initializing state — while Supabase session → profile → workspaces
+/// are being restored on startup. The SessionGate renders the splash
+/// screen while this state is active and must NOT route anywhere.
+class InitializingSession implements AppSession {
+  const InitializingSession();
+
+  @override
+  SessionStatus get status => SessionStatus.initializing;
+  @override
+  bool get isAuthenticated => false;
+  @override
+  String get displayName => '';
+  @override
+  String? get userId => null;
+  @override
+  List<String> get selectedRoles => const [];
+  @override
+  bool get hasCompletedOnboarding => false;
+  @override
+  bool get hasProfile => false;
+  @override
+  Map<String, dynamic>? get profile => null;
+  @override
+  List<String> get workspaceIds => const [];
+  @override
+  String? get defaultWorkspaceId => null;
+}
+
+/// Restoration failed (network / database error). This is NOT the same as
+/// "no profile" or "no session". The UI must show a retry/error state
+/// instead of silently treating the user as brand-new.
+class SessionFailure implements AppSession {
+  final String message;
+  const SessionFailure({required this.message});
+
+  @override
+  SessionStatus get status => SessionStatus.error;
+  @override
+  bool get isAuthenticated => false;
+  @override
+  String get displayName => '';
+  @override
+  String? get userId => null;
+  @override
+  List<String> get selectedRoles => const [];
+  @override
+  bool get hasCompletedOnboarding => false;
+  @override
+  bool get hasProfile => false;
+  @override
+  Map<String, dynamic>? get profile => null;
+  @override
+  List<String> get workspaceIds => const [];
+  @override
+  String? get defaultWorkspaceId => null;
 }
 
 /// Session for authenticated users with real Supabase identity.
@@ -94,12 +170,27 @@ class AuthenticatedSession implements AppSession {
   @override
   final bool hasProfile;
 
+  /// The persisted profile row (users.profiles) — database source of truth.
+  @override
+  final Map<String, dynamic>? profile;
+
+  /// Persisted workspace selections (system.workspaces.id values).
+  @override
+  final List<String> workspaceIds;
+
+  /// The default/current workspace (users.profiles.current_workspace_id).
+  @override
+  final String? defaultWorkspaceId;
+
   const AuthenticatedSession({
     this.userId,
     required this.displayName,
     this.selectedRoles = const [],
     this.hasCompletedOnboarding = false,
     this.hasProfile = false,
+    this.profile,
+    this.workspaceIds = const [],
+    this.defaultWorkspaceId,
   });
 
   @override
@@ -114,6 +205,11 @@ class AuthenticatedSession implements AppSession {
     List<String>? selectedRoles,
     bool? hasCompletedOnboarding,
     bool? hasProfile,
+    Map<String, dynamic>? profile,
+    bool clearProfile = false,
+    List<String>? workspaceIds,
+    String? defaultWorkspaceId,
+    bool clearDefaultWorkspaceId = false,
   }) {
     return AuthenticatedSession(
       userId: userId ?? this.userId,
@@ -122,6 +218,11 @@ class AuthenticatedSession implements AppSession {
       hasCompletedOnboarding:
           hasCompletedOnboarding ?? this.hasCompletedOnboarding,
       hasProfile: hasProfile ?? this.hasProfile,
+      profile: clearProfile ? null : profile ?? this.profile,
+      workspaceIds: workspaceIds ?? this.workspaceIds,
+      defaultWorkspaceId: clearDefaultWorkspaceId
+          ? null
+          : defaultWorkspaceId ?? this.defaultWorkspaceId,
     );
   }
 }

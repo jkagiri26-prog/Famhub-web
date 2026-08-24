@@ -54,6 +54,29 @@ class ProfileResult {
   const ProfileResult({required this.success, this.error, this.profile});
 }
 
+/// Result of a workspace selection operation via Edge Function
+class WorkspaceSelectionResult {
+  final bool success;
+  final String? error;
+
+  /// The persisted workspace IDs (system.workspaces.id values).
+  final List<String> workspaceIds;
+
+  /// The default workspace ID chosen by the backend.
+  final String? defaultWorkspaceId;
+
+  /// Raw workspace records returned by the backend (selected workspaces).
+  final List<Map<String, dynamic>> workspaces;
+
+  const WorkspaceSelectionResult({
+    required this.success,
+    this.error,
+    this.workspaceIds = const [],
+    this.defaultWorkspaceId,
+    this.workspaces = const [],
+  });
+}
+
 /// Unified auth service for FAMHUB.
 /// All auth operations go through this service.
 class AuthService {
@@ -181,6 +204,160 @@ class AuthService {
       debugPrint('[createProfile] Exception: $e');
       debugPrint('[createProfile] StackTrace: $st');
       return const ProfileResult(
+        success: false,
+        error: 'Network error. Please check your connection and try again.',
+      );
+    }
+  }
+
+  /// ============================================================
+  /// SELECT WORKSPACES (Edge Function)
+  /// ============================================================
+  ///
+  /// Invokes the `select-workspaces` Edge Function with the selected
+  /// system.workspaces.id values. The backend:
+  ///   - authenticates the user from the Bearer token
+  ///   - verifies the workspace IDs
+  ///   - saves selections into users.user_workspaces
+  ///   - marks the first selected workspace as default
+  ///   - updates users.profiles.is_complete
+  ///   - updates users.profiles.current_workspace_id
+  ///   - returns the selected workspace data + the default workspace
+  ///
+  /// Returns a [WorkspaceSelectionResult] on success.
+  /// ============================================================
+  Future<WorkspaceSelectionResult> selectWorkspaces({
+    required List<String> workspaceIds,
+  }) async {
+    if (workspaceIds.isEmpty) {
+      return const WorkspaceSelectionResult(
+        success: false,
+        error: 'Select at least one workspace.',
+      );
+    }
+
+    try {
+      debugPrint('========================================');
+      debugPrint('[selectWorkspaces] DIAGNOSTIC START');
+      debugPrint('Project URL: ${_supabase.client.supabaseUrl}');
+      debugPrint('Function: select-workspaces');
+      debugPrint('Payload: $workspaceIds');
+      debugPrint('Session: ${_supabase.client.auth.currentSession != null}');
+      debugPrint('========================================');
+
+      final response = await _supabase.client.functions.invoke(
+        'select-workspaces',
+        body: {'workspace_ids': workspaceIds},
+      );
+
+      debugPrint('[selectWorkspaces] FUNCTION INVOKE COMPLETE');
+      debugPrint('[selectWorkspaces] STATUS: ${response.status}');
+      debugPrint('[selectWorkspaces] DATA: ${response.data}');
+      debugPrint('[selectWorkspaces] ERROR: ${response.error}');
+
+      // Validate the response envelope (same pattern as create-profile).
+      if (response.data == null || response.data is! Map) {
+        return const WorkspaceSelectionResult(
+          success: false,
+          error: 'Invalid response from server. Please try again.',
+        );
+      }
+
+      final responseData = response.data as Map<String, dynamic>;
+
+      if (responseData['success'] != true) {
+        final errorMsg = responseData['error']?.toString() ??
+            'Failed to save workspaces. Please try again.';
+        return WorkspaceSelectionResult(success: false, error: errorMsg);
+      }
+
+      // ── Parse the payload defensively ──
+      // The backend returns the selected workspace data and the default
+      // workspace. We tolerate several envelope shapes so the frontend
+      // never breaks when the backend adds fields.
+      final data = responseData['data'];
+      if (data == null) {
+        // Success without a data body: echo back what we sent.
+        return WorkspaceSelectionResult(
+          success: true,
+          workspaceIds: workspaceIds,
+        );
+      }
+
+      List<Map<String, dynamic>> workspaces = [];
+      String? defaultWorkspaceId;
+
+      if (data is Map) {
+        final dataMap = Map<String, dynamic>.from(data);
+
+        // Collect workspace records from `workspaces` / `selected_workspaces`.
+        final rawWorkspaces = dataMap['workspaces'] ??
+            dataMap['selected_workspaces'] ??
+            dataMap['data'];
+        if (rawWorkspaces is List) {
+          workspaces = rawWorkspaces
+              .whereType<Map>()
+              .map((w) => Map<String, dynamic>.from(w))
+              .toList();
+        }
+
+        // Default workspace: explicit id, nested object, or is_default flag.
+        final explicitDefault =
+            dataMap['default_workspace_id']?.toString() ??
+                dataMap['current_workspace_id']?.toString();
+        if (explicitDefault != null && explicitDefault.isNotEmpty) {
+          defaultWorkspaceId = explicitDefault;
+        } else {
+          final defaultWs = dataMap['default_workspace'];
+          if (defaultWs is Map) {
+            defaultWorkspaceId = defaultWs['id']?.toString();
+          }
+        }
+      } else if (data is List) {
+        // A flat list of workspace records.
+        workspaces = data
+            .whereType<Map>()
+            .map((w) => Map<String, dynamic>.from(w))
+            .toList();
+      }
+
+      // Fall back to the `is_default` flag when no explicit default exists.
+      if (defaultWorkspaceId == null) {
+        for (final ws in workspaces) {
+          if (ws['is_default'] == true) {
+            defaultWorkspaceId = ws['id']?.toString();
+            break;
+          }
+        }
+      }
+
+      final persistedIds = workspaces
+          .map((w) => w['id']?.toString())
+          .whereType<String>()
+          .where((id) => id.isNotEmpty)
+          .toList();
+
+      debugPrint('[selectWorkspaces] SUCCESS');
+      debugPrint('[selectWorkspaces] Workspaces: $persistedIds');
+      debugPrint('[selectWorkspaces] Default: $defaultWorkspaceId');
+
+      return WorkspaceSelectionResult(
+        success: true,
+        workspaceIds: persistedIds.isNotEmpty ? persistedIds : workspaceIds,
+        defaultWorkspaceId: defaultWorkspaceId,
+        workspaces: workspaces,
+      );
+    } on FunctionException catch (e) {
+      debugPrint('[selectWorkspaces] FunctionException: ${e.details}');
+      return WorkspaceSelectionResult(
+        success: false,
+        error: e.details?.toString() ?? e.reasonPhrase ?? 'Unknown error',
+      );
+    } catch (e, st) {
+      debugPrint('[selectWorkspaces] FUNCTION INVOKE EXCEPTION');
+      debugPrint('[selectWorkspaces] Exception: $e');
+      debugPrint('[selectWorkspaces] StackTrace: $st');
+      return const WorkspaceSelectionResult(
         success: false,
         error: 'Network error. Please check your connection and try again.',
       );

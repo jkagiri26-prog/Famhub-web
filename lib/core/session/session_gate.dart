@@ -8,11 +8,12 @@
 /// ✅ Responsibilities:
 ///   - Determine which screen to show based on session state
 ///   - Orchestrate splash → welcome → auth → profile → workspace → dashboard
-///   - Unauthenticated → FAMHUB Home (ecosystem showcase)
+///   - Unauthenticated → FAMHUB Home (ecosystem showcase) / Welcome
 ///   - Authenticated + no profile → Create Profile
 ///   - Authenticated + profile + no workspaces → Workspace Selection
 ///   - Authenticated + profile + workspaces → Dashboard
 ///   - Active OTP session → OTP verification page (restored after restart)
+///   - Restoration failure → retry/error state (never "brand-new user")
 ///
 /// ❌ Does NOT:
 ///   - Contain business logic
@@ -23,14 +24,15 @@ library famhub_app.core.session.session_gate;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'package:famhub_app/core/session/app_session.dart';
+import 'package:famhub_app/core/session/session_destination.dart';
 import 'package:famhub_app/core/session/session_provider.dart';
 import 'package:famhub_app/core/theme/shell_theme.dart';
 import 'package:famhub_app/features/auth/presentation/pages/splash_screen_page.dart';
 import 'package:famhub_app/features/auth/presentation/pages/welcome_screen_page.dart';
 import 'package:famhub_app/features/auth/presentation/pages/sign_in_screen_page.dart';
-import 'package:famhub_app/features/auth/domain/models/otp_session.dart';
 import 'package:famhub_app/features/auth/infrastructure/services/otp_session_storage.dart';
 import 'package:famhub_app/core/services/auth_service.dart';
 import 'package:famhub_app/core/theme/shell_theme_provider.dart';
@@ -42,16 +44,17 @@ import 'package:famhub_app/features/guest/famhub_home_page.dart';
 /// Shows the appropriate screen based on session state.
 ///
 /// Startup Flow:
-///   1. Initializing → SplashScreenPage
+///   1. Initializing → SplashScreenPage (while restoring session → profile → workspaces)
 ///   2. Unauthenticated → WelcomeScreenPage
 ///      (Sign In / Create Account / Continue Exploring)
 ///   3. Active OTP Session → SignInScreenPage (OTP verification restored)
-///   4. Authenticated (no profile) → Create Profile → Workspace Selection → Dashboard
-///   5. Authenticated (profile, no workspaces) → Workspace Selection → Dashboard
+///   4. Authenticated (no profile) → Create Profile
+///   5. Authenticated (profile, no workspaces) → Workspace Selection
 ///   6. Authenticated (profile, workspaces) → Dashboard
+///   7. Restoration failure → retry/error state
 ///
-/// There is no GuestSession. Guests are unauthenticated visitors.
-/// FAMHUB Home is the public ecosystem entry point.
+/// Routing is driven entirely by the persisted session state published by
+/// the SessionController — never by local booleans or cached navigation.
 class SessionGate extends ConsumerStatefulWidget {
   final Widget Function() authenticatedBuilder;
 
@@ -66,11 +69,8 @@ class SessionGate extends ConsumerStatefulWidget {
 
 class _SessionGateState extends ConsumerState<SessionGate> {
   bool _initialized = false;
-  bool _showCreateProfile = false;
-  bool _showWorkspaceSelection = false;
-  bool _continueExploring = false;
   bool _restoredOtpSession = false;
-  List<String> _pendingWorkspaces = [];
+  bool _continueExploring = false;
 
   @override
   void initState() {
@@ -111,58 +111,164 @@ class _SessionGateState extends ConsumerState<SessionGate> {
     }
 
     final session = ref.watch(sessionProvider);
+    final destination = resolveSessionDestination(session);
 
-    // ── OTP SESSION RESTORED ──
-    // If there's a valid persisted OTP session and we're unauthenticated,
-    // show the OTP verification page directly instead of the welcome screen.
-    if (_restoredOtpSession && session is UnauthenticatedSession) {
-      return _buildRestoredOtpFlow();
-    }
+    switch (destination) {
+      // ── Still restoring startup state (session → profile → workspaces) ──
+      // Never route while restoration is in progress — avoids the race where
+      // the provider briefly looks like "no profile" and the gate opens
+      // Create Profile before the backend query finishes.
+      case SessionDestination.splash:
+        return const SplashScreenPage();
 
-    // Show create profile if triggered after auth
-    if (_showCreateProfile) {
-      return _buildCreateProfile(session);
-    }
+      // ── Restoration failed (network / database error) ──
+      // NOT the same as "no profile" or "no session". Show a retry state.
+      case SessionDestination.error:
+        if (session is SessionFailure) {
+          return _buildErrorState(session.message);
+        }
+        return const SplashScreenPage();
 
-    // Show workspace selection if triggered after auth
-    if (_showWorkspaceSelection) {
-      return _buildWorkspaceSelection(session);
-    }
+      // ── OTP SESSION RESTORED ──
+      // If there's a valid persisted OTP session and we're unauthenticated,
+      // show the OTP verification page directly instead of the welcome screen.
+      case SessionDestination.welcome:
+        if (_restoredOtpSession && session is UnauthenticatedSession) {
+          return _buildRestoredOtpFlow();
+        }
+        if (_continueExploring) {
+          return _FamhubHomeFlow();
+        }
+        return _AuthFlow(
+          onSignIn: () => _showSignIn(),
+          onCreateAccount: () => _showSignUp(),
+          onContinueExploring: () {
+            setState(() => _continueExploring = true);
+          },
+        );
 
-    // Unauthenticated → Welcome Screen
-    if (session is UnauthenticatedSession) {
-      if (_continueExploring) {
-        return _FamhubHomeFlow();
-      }
-      return _AuthFlow(
-        onSignIn: () => _showSignIn(),
-        onCreateAccount: () => _showSignUp(),
-        onContinueExploring: () {
-          setState(() => _continueExploring = true);
-        },
-      );
-    }
-
-    // Authenticated
-    if (session is AuthenticatedSession) {
-      // No profile yet → create profile
-      if (!session.hasProfile) {
-        _showCreateProfile = true;
+      // Authenticated, no profile → Create Profile.
+      case SessionDestination.createProfile:
         return _buildCreateProfile(session);
-      }
 
-      // Profile exists but no workspaces selected → workspace selection
-      if (!session.hasCompletedOnboarding) {
-        _showWorkspaceSelection = true;
+      // Authenticated, profile, no workspaces → Workspace Selection.
+      case SessionDestination.workspaceSelection:
         return _buildWorkspaceSelection(session);
-      }
 
-      // Full onboarded user → dashboard
-      return widget.authenticatedBuilder();
+      // Authenticated, profile, workspaces → Dashboard.
+      case SessionDestination.dashboard:
+        return widget.authenticatedBuilder();
     }
+  }
 
-    // Fallback
-    return const SplashScreenPage();
+  /// Premium retry/error state — used when startup restoration fails.
+  /// This is deliberately NOT a "brand-new user" experience.
+  Widget _buildErrorState(String message) {
+    final shellTheme = ref.watch(shellThemeProvider);
+    final themeMode = ref.watch(themeModeProvider);
+    final cs = Theme.of(context).colorScheme;
+
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: shellTheme.toThemeData(ThemeMode.light),
+      darkTheme: shellTheme.toThemeData(ThemeMode.dark),
+      themeMode: themeMode,
+      home: Scaffold(
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                cs.primary.withValues(alpha: 0.06),
+                cs.primary.withValues(alpha: 0.02),
+                cs.surface,
+              ],
+            ),
+          ),
+          child: SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 440),
+                  child: Card(
+                    elevation: 8,
+                    shadowColor: cs.primary.withValues(alpha: 0.15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                    color: cs.surface,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 32, vertical: 40),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 68,
+                            height: 68,
+                            decoration: BoxDecoration(
+                              color: cs.error.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Icon(
+                              Icons.cloud_off_outlined,
+                              size: 30,
+                              color: cs.error,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Text(
+                            'Something went wrong',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.inter(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              color: cs.onSurface,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            message,
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              height: 1.5,
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 28),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 52,
+                            child: FilledButton.icon(
+                              onPressed: () async {
+                                setState(() => _initialized = false);
+                                await _initialize();
+                              },
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Retry'),
+                              style: FilledButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   /// Build the restored OTP flow when a valid OTP session exists
@@ -215,14 +321,11 @@ class _SessionGateState extends ConsumerState<SessionGate> {
       themeMode: themeMode,
       home: CreateProfilePage(
         onComplete: () {
-          // Profile created successfully — the CreateProfilePage already
-          // showed a SnackBar and updated the session (hasProfile = true).
-          // Now transition to Workspace Selection.
+          // The CreateProfilePage already updated the session provider
+          // (hasProfile = true). The gate rebuilds from persisted state
+          // and routes to Workspace Selection because no workspaces exist.
           if (mounted) {
-            setState(() {
-              _showCreateProfile = false;
-              _showWorkspaceSelection = true;
-            });
+            setState(() {});
           }
         },
       ),
@@ -239,18 +342,13 @@ class _SessionGateState extends ConsumerState<SessionGate> {
       darkTheme: shellTheme.toThemeData(ThemeMode.dark),
       themeMode: themeMode,
       home: WorkspaceSelectionPage(
-        onWorkspacesChanged: (workspaces) {
-          _pendingWorkspaces = workspaces;
-        },
-        onContinue: () async {
-          if (_pendingWorkspaces.isNotEmpty) {
-            await ref
-                .read(sessionProvider.notifier)
-                .saveWorkspaces(_pendingWorkspaces);
-          }
-          if (mounted) {
-            setState(() => _showWorkspaceSelection = false);
-          }
+        onContinue: (workspaces) async {
+          // Persist via the select-workspaces Edge Function. On success
+          // the session provider publishes the backend response and the
+          // gate routes to the dashboard.
+          return ref
+              .read(sessionProvider.notifier)
+              .selectWorkspaces(workspaces);
         },
       ),
     );
@@ -271,20 +369,11 @@ class _SessionGateState extends ConsumerState<SessionGate> {
         return false;
       }
 
-      // Refresh session after successful OTP verification
+      // Refresh session after successful OTP verification.
+      // The refreshed session carries profile + workspace state, so the
+      // gate routes to Create Profile / Workspace Selection / Dashboard
+      // based on persisted state — no manual flag juggling.
       await ref.read(sessionProvider.notifier).refresh();
-
-      if (!mounted) return true;
-
-      // Check session state to decide next step
-      final session = ref.read(sessionProvider);
-      if (session is AuthenticatedSession) {
-        if (!session.hasProfile) {
-          setState(() => _showCreateProfile = true);
-        } else if (!session.hasCompletedOnboarding) {
-          setState(() => _showWorkspaceSelection = true);
-        }
-      }
 
       return true;
     } catch (_) {
@@ -390,7 +479,7 @@ class _FamhubHomeFlowState extends ConsumerState<_FamhubHomeFlow> {
 
               if (!result.success) return false;
 
-              // Refresh session after successful OTP verification
+              // Refresh session after successful OTP verification.
               await ref.read(sessionProvider.notifier).refresh();
               if (!mounted) return true;
 

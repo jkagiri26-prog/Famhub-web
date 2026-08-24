@@ -43,6 +43,8 @@ import 'package:famhub_app/core/workspace/domain/workspace_layout.dart';
 import 'package:famhub_app/core/workspace/domain/workspace_snapshot.dart';
 import 'package:famhub_app/core/workspace/application/workspace_engine.dart';
 import 'package:famhub_app/core/workspace/application/workspace_provider.dart';
+import 'package:famhub_app/core/session/app_session.dart';
+import 'package:famhub_app/core/session/session_provider.dart';
 
 /// ============================================================
 /// ACTIVE WORKSPACE NOTIFIER
@@ -54,11 +56,26 @@ import 'package:famhub_app/core/workspace/application/workspace_provider.dart';
 class ActiveWorkspaceNotifier extends Notifier<Workspace> {
   @override
   Workspace build() {
-    // Start with a default empty workspace
-    return const Workspace(
-      workspaceId: 'workspace-default-001',
-      displayName: 'Default Workspace',
+    // Start with the persisted default workspace (users.profiles
+    // .current_workspace_id) when available, falling back to the first
+    // restored workspace selection. This keeps the active workspace
+    // consistent with the backend on every startup / refresh.
+    final session = ref.watch(sessionProvider);
+    final workspaceId = _defaultWorkspaceId(session);
+    return Workspace(
+      workspaceId: workspaceId,
+      displayName: 'Workspace',
     );
+  }
+
+  /// Resolve the default workspace ID from the restored session.
+  String _defaultWorkspaceId(AppSession session) {
+    if (session is AuthenticatedSession) {
+      final id = session.defaultWorkspaceId;
+      if (id != null && id.isNotEmpty) return id;
+      if (session.workspaceIds.isNotEmpty) return session.workspaceIds.first;
+    }
+    return 'workspace-default-001';
   }
 
   /// ============================================================
