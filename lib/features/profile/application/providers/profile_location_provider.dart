@@ -64,12 +64,14 @@ class GeoLocation {
   final String name;
   final String? levelId;
   final String? parentId;
+  final String? countryId;
 
   const GeoLocation({
     required this.id,
     required this.name,
     this.levelId,
     this.parentId,
+    this.countryId,
   });
 
   factory GeoLocation.fromRow(Map<String, dynamic> row) {
@@ -78,6 +80,7 @@ class GeoLocation {
       name: row['name'] as String,
       levelId: row['level_id'] as String?,
       parentId: row['parent_id'] as String?,
+      countryId: row['country_id'] as String?,
     );
   }
 }
@@ -250,7 +253,7 @@ class ProfileLocationController extends Notifier<ProfileLocationState> {
       // is safe.
       final baseQuery = supabase
           .from('locations', schema: 'core')
-          .select('id, name, level_id, parent_id')
+          .select('id, name, level_id, parent_id, country_id')
           .eq('level_id', level.id);
 
       final filteredQuery = (parentId == null || parentId.trim().isEmpty)

@@ -93,8 +93,9 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
     });
 
     // ── Gather location entries, EXCLUDING level 0 (country) ──
-    // The country dropdown is read‑only and its ID is NOT a location‑level
-    // reference; it is purely visual. The actual country_id is sent separately.
+    // The country dropdown defaults to the session country and is selectable,
+    // but its ID is NOT a location‑level reference; it is purely visual.
+    // The actual country_id is sent separately.
     final providerState = ref.read(profileLocationProvider);
     final levels = providerState.levels;
 
@@ -142,6 +143,30 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
   void _retryLevels() {
     if (_countryId == null) return;
     ref.read(profileLocationProvider.notifier).refresh(_countryId!);
+  }
+
+  /// When the user changes the country (level 0), update the country id and
+  /// reload the geography hierarchy for the newly selected country. The
+  /// session country remains the default until changed.
+  Future<void> _handleLocationsChanged() async {
+    final notifier = ref.read(profileLocationProvider.notifier);
+    final state = ref.read(profileLocationProvider);
+    final selectedCountry = state.selectedLocations[0];
+    if (selectedCountry == null) return;
+
+    final newCountryId = selectedCountry.countryId;
+    if (newCountryId == null || newCountryId.isEmpty ||
+        newCountryId == _countryId) {
+      return;
+    }
+
+    await notifier.refresh(newCountryId);
+    if (!mounted) return;
+
+    setState(() => _countryId = newCountryId);
+
+    // Re-select the chosen country after refresh clears the hierarchy state.
+    notifier.selectLocation(0, selectedCountry);
   }
 
   // ──────────────────────────────────────────────────────────
@@ -320,10 +345,11 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
                           _sectionLabel(theme, 'Location'),
                           const SizedBox(height: 10),
 
-                          // ── Dynamic Location Levels (country shown read‑only) ──
+                          // ── Dynamic Location Levels (country defaults to session) ──
                           if (_countryId != null)
                             DynamicLocationFields(
                               onRetry: _retryLevels,
+                              onChanged: _handleLocationsChanged,
                             )
                           else
                             const _InlineLoader(

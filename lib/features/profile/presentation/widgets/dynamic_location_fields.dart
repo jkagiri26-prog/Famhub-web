@@ -8,7 +8,7 @@
 /// ✅ Responsibilities:
 ///   - Watch ProfileLocationProvider
 ///   - Render a dynamic list of dropdowns based on geography levels
-///   - Level 0 (country) is ALWAYS shown read-only, pre‑filled from session
+///   - Level 0 (country) is selectable, pre‑selected with the session country
 ///   - Wire parent-child cascading (selecting a parent loads children)
 ///   - Expose selected location IDs for saving
 ///
@@ -149,7 +149,7 @@ class DynamicLocationFields extends ConsumerWidget {
           ? DropdownLocation(id: selected.id, name: selected.name)
           : null;
 
-      // For level 0 (country), force read‑only + auto‑select when loaded
+      // Level 0 = country; selectable, with the session country auto‑selected as default.
       final bool isCountryLevel = i == 0;
 
       // ── Auto‑select the session country as soon as it's available ──
@@ -183,18 +183,18 @@ class DynamicLocationFields extends ConsumerWidget {
           padding: const EdgeInsets.only(bottom: 20),
           child: DynamicLocationDropdown(
             levelName: level.levelName,
-            isRequired: !isCountryLevel, // country is already pre‑filled
+            isRequired: !isCountryLevel, // country defaults to the session country
             items: dropdownItems,
             selected: selectedDropdown,
             isLoading: isLoading,
             error: error,
             hint: isCountryLevel
-                ? 'Country from session'
+                ? 'Select country'
                 : 'Search and select ${level.levelName.toLowerCase()}',
             prefixIcon: isCountryLevel
                 ? Icons.public_outlined
                 : (levelIndex == 1 ? Icons.map_outlined : Icons.flag_outlined),
-            enabled: !isCountryLevel, // ← read‑only for country
+            enabled: true, // country is selectable; session country is the default
             onChanged: (picked) {
               if (picked == null) {
                 notifier.selectLocation(levelIndex, null);
