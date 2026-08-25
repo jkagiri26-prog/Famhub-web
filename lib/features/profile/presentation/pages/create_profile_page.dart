@@ -148,7 +148,9 @@ class _CreateProfilePageState extends ConsumerState<CreateProfilePage> {
   /// When the user changes the country (level 0), update the country id and
   /// reload the geography hierarchy for the newly selected country. The
   /// session country remains the default until changed.
-  Future<void> _handleLocationsChanged() async {
+  Future<void> _handleLocationsChanged(
+    List<SelectedLocationEntry> entries,
+  ) async {
     final notifier = ref.read(profileLocationProvider.notifier);
     final state = ref.read(profileLocationProvider);
     final selectedCountry = state.selectedLocations[0];

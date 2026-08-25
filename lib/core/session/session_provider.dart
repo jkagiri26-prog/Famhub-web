@@ -249,7 +249,7 @@ class SessionController extends Notifier<AppSession> {
           'AuthenticatedSession. Actual state: ${current.runtimeType} '
           '(status: ${current.status}). Workspaces were NOT persisted and the '
           'selection is preserved in the UI.');
-      return WorkspaceSelectionResult(
+      return const WorkspaceSelectionResult(
         success: false,
         error: 'Your session is not active. Please refresh the app and try again.',
       );

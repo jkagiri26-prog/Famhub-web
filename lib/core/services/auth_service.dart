@@ -146,7 +146,6 @@ class AuthService {
 
       debugPrint('========================================');
       debugPrint('[createProfile] DIAGNOSTIC START');
-      debugPrint('Project URL: ${_supabase.client.supabaseUrl}');
       debugPrint('Function: create-profile');
       debugPrint('Payload: $body');
       debugPrint('User: ${_supabase.client.auth.currentUser?.id}');
@@ -161,7 +160,6 @@ class AuthService {
       debugPrint('[createProfile] FUNCTION INVOKE COMPLETE');
       debugPrint('[createProfile] STATUS: ${response.status}');
       debugPrint('[createProfile] DATA: ${response.data}');
-      debugPrint('[createProfile] ERROR: ${response.error}');
 
       // Validate the response envelope (same pattern as verify-otp)
       if (response.data == null || response.data is! Map) {
@@ -199,7 +197,7 @@ class AuthService {
       );
     } on FunctionException catch (e) {
       debugPrint('[createProfile] FunctionException: ${e.details}');
-      debugPrint('[createProfile] FunctionException statusCode: ${e.statusCode}');
+      debugPrint('[createProfile] FunctionException status: ${e.status}');
       return ProfileResult(
         success: false,
         error: e.details?.toString() ?? e.reasonPhrase ?? 'Unknown error',
@@ -244,7 +242,6 @@ class AuthService {
     try {
       debugPrint('========================================');
       debugPrint('[selectWorkspaces] DIAGNOSTIC START');
-      debugPrint('Project URL: ${_supabase.client.supabaseUrl}');
       debugPrint('Function: select-workspaces');
       debugPrint('Payload: $workspaceIds');
       debugPrint('Session: ${_supabase.client.auth.currentSession != null}');
@@ -258,7 +255,6 @@ class AuthService {
       debugPrint('[selectWorkspaces] FUNCTION INVOKE COMPLETE');
       debugPrint('[selectWorkspaces] STATUS: ${response.status}');
       debugPrint('[selectWorkspaces] DATA: ${response.data}');
-      debugPrint('[selectWorkspaces] ERROR: ${response.error}');
 
       // Validate the response envelope (same pattern as create-profile).
       if (response.data == null || response.data is! Map) {
