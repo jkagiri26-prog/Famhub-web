@@ -68,12 +68,17 @@ class WorkspaceSelectionResult {
   /// Raw workspace records returned by the backend (selected workspaces).
   final List<Map<String, dynamic>> workspaces;
 
+  /// The authoritative profile row returned by the backend (may be null if the
+  /// function does not echo it; the caller can re-fetch from users.profiles).
+  final Map<String, dynamic>? profile;
+
   const WorkspaceSelectionResult({
     required this.success,
     this.error,
     this.workspaceIds = const [],
     this.defaultWorkspaceId,
     this.workspaces = const [],
+    this.profile,
   });
 }
 
@@ -276,49 +281,57 @@ class AuthService {
       // workspace. We tolerate several envelope shapes so the frontend
       // never breaks when the backend adds fields.
       final data = responseData['data'];
-      if (data == null) {
-        // Success without a data body: echo back what we sent.
-        return WorkspaceSelectionResult(
-          success: true,
-          workspaceIds: workspaceIds,
+      if (data is! Map) {
+        return const WorkspaceSelectionResult(
+          success: false,
+          error: 'Invalid response from server. Please try again.',
+        );
+      }
+
+      final dataMap = Map<String, dynamic>.from(data);
+
+      // The Edge Function must explicitly confirm that onboarding can
+      // proceed to the dashboard. HTTP 200 alone is not enough.
+      if (dataMap['next_step']?.toString() != 'dashboard') {
+        debugPrint('[selectWorkspaces] Unexpected next_step: '
+            '${dataMap['next_step']}');
+        return const WorkspaceSelectionResult(
+          success: false,
+          error: 'Unexpected response from server. Please try again.',
         );
       }
 
       List<Map<String, dynamic>> workspaces = [];
       String? defaultWorkspaceId;
+      Map<String, dynamic>? profile;
 
-      if (data is Map) {
-        final dataMap = Map<String, dynamic>.from(data);
-
-        // Collect workspace records from `workspaces` / `selected_workspaces`.
-        final rawWorkspaces = dataMap['workspaces'] ??
-            dataMap['selected_workspaces'] ??
-            dataMap['data'];
-        if (rawWorkspaces is List) {
-          workspaces = rawWorkspaces
-              .whereType<Map>()
-              .map((w) => Map<String, dynamic>.from(w))
-              .toList();
-        }
-
-        // Default workspace: explicit id, nested object, or is_default flag.
-        final explicitDefault =
-            dataMap['default_workspace_id']?.toString() ??
-                dataMap['current_workspace_id']?.toString();
-        if (explicitDefault != null && explicitDefault.isNotEmpty) {
-          defaultWorkspaceId = explicitDefault;
-        } else {
-          final defaultWs = dataMap['default_workspace'];
-          if (defaultWs is Map) {
-            defaultWorkspaceId = defaultWs['id']?.toString();
-          }
-        }
-      } else if (data is List) {
-        // A flat list of workspace records.
-        workspaces = data
+      // Collect workspace records from `workspaces` / `selected_workspaces`.
+      final rawWorkspaces = dataMap['workspaces'] ??
+          dataMap['selected_workspaces'] ??
+          dataMap['data'];
+      if (rawWorkspaces is List) {
+        workspaces = rawWorkspaces
             .whereType<Map>()
             .map((w) => Map<String, dynamic>.from(w))
             .toList();
+      }
+
+      // Authoritative profile row echoed by the backend, if any.
+      final rawProfile = dataMap['profile'];
+      if (rawProfile is Map) {
+        profile = Map<String, dynamic>.from(rawProfile);
+      }
+
+      // Default workspace: explicit id, nested object, or is_default flag.
+      final explicitDefault = dataMap['default_workspace_id']?.toString() ??
+          dataMap['current_workspace_id']?.toString();
+      if (explicitDefault != null && explicitDefault.isNotEmpty) {
+        defaultWorkspaceId = explicitDefault;
+      } else {
+        final defaultWs = dataMap['default_workspace'];
+        if (defaultWs is Map) {
+          defaultWorkspaceId = defaultWs['id']?.toString();
+        }
       }
 
       // Fall back to the `is_default` flag when no explicit default exists.
@@ -346,6 +359,7 @@ class AuthService {
         workspaceIds: persistedIds.isNotEmpty ? persistedIds : workspaceIds,
         defaultWorkspaceId: defaultWorkspaceId,
         workspaces: workspaces,
+        profile: profile,
       );
     } on FunctionException catch (e) {
       debugPrint('[selectWorkspaces] FunctionException: ${e.details}');

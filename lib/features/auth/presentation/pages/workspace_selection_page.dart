@@ -11,8 +11,8 @@
 ///   - Multiple selection allowed
 ///   - Premium, responsive layout consistent with the FAMHUB login experience
 ///   - Loading / error / empty states
-///   - Call onContinue(selectedIds) → Future<bool> so the caller can persist
-///     via the select-workspaces Edge Function and surface failures here
+///   - Call onContinue(selectedIds) so the caller can persist via the
+///     select-workspaces Edge Function and surface the backend result here
 ///
 /// ❌ Does NOT:
 ///   - Handle navigation
@@ -25,6 +25,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:famhub_app/core/services/auth_service.dart';
 import 'package:famhub_app/core/workspace/application/workspace_catalog_provider.dart';
 import 'package:famhub_app/core/workspace/domain/workspace_catalog_item.dart';
 import 'package:famhub_app/shared/utils/icon_resolver.dart';
@@ -34,8 +35,10 @@ class WorkspaceSelectionPage extends ConsumerStatefulWidget {
   final void Function(List<String> workspaces)? onWorkspacesChanged;
 
   /// Called with the selected system.workspaces.id values.
-  /// Must persist selections and return true on success, false on failure.
-  final Future<bool> Function(List<String> workspaceIds)? onContinue;
+  /// Must persist selections and return the backend result so failures can be
+  /// surfaced here.
+  final Future<WorkspaceSelectionResult> Function(List<String> workspaceIds)?
+      onContinue;
 
   const WorkspaceSelectionPage({
     super.key,
@@ -73,11 +76,11 @@ class _WorkspaceSelectionPageState
       _saveError = null;
     });
 
-    final ok = await widget.onContinue?.call(_selectedIds.toList()) ?? false;
+    final result = await widget.onContinue?.call(_selectedIds.toList());
 
     if (!mounted) return;
 
-    if (ok) {
+    if (result?.success == true) {
       // The SessionGate swaps this subtree for the dashboard; nothing
       // else to do here.
       return;
@@ -85,7 +88,7 @@ class _WorkspaceSelectionPageState
 
     setState(() {
       _saving = false;
-      _saveError =
+      _saveError = result?.error ??
           'We could not save your workspaces. Please check your connection and try again.';
     });
   }

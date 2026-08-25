@@ -236,26 +236,74 @@ class SessionController extends Notifier<AppSession> {
   /// Persist the selected workspaces via the `select-workspaces` Edge
   /// Function and update the session with the backend's response
   /// (workspace IDs + default workspace).
-  Future<bool> selectWorkspaces(List<String> workspaces) async {
+  ///
+  /// The session state MUST be an [AuthenticatedSession] before saving.
+  /// If it is not, we never silently drop the user's selection: we log the
+  /// actual state and surface the failure to the UI.
+  Future<WorkspaceSelectionResult> selectWorkspaces(
+    List<String> workspaces,
+  ) async {
     final current = state;
-    if (current is! AuthenticatedSession) return false;
+    if (current is! AuthenticatedSession) {
+      debugPrint('[SessionController.selectWorkspaces] ABORT: state is not an '
+          'AuthenticatedSession. Actual state: ${current.runtimeType} '
+          '(status: ${current.status}). Workspaces were NOT persisted and the '
+          'selection is preserved in the UI.');
+      return WorkspaceSelectionResult(
+        success: false,
+        error: 'Your session is not active. Please refresh the app and try again.',
+      );
+    }
 
     final result = await _authService.selectWorkspaces(
       workspaceIds: workspaces,
     );
-    if (!result.success) return false;
+    if (!result.success) {
+      debugPrint('[SessionController.selectWorkspaces] Edge Function failed: '
+          '${result.error}');
+      return result;
+    }
 
     final persistedIds =
         result.workspaceIds.isNotEmpty ? result.workspaceIds : workspaces;
+    final defaultWorkspaceId = result.defaultWorkspaceId ??
+        (persistedIds.isNotEmpty ? persistedIds.first : null);
+
+    // The Edge Function persisted the selections. Re-fetch the authoritative
+    // profile row (is_complete / current_workspace_id were updated server-side)
+    // and publish it alongside the workspace state so the database remains the
+    // source of truth. Fall back to the profile echoed by the response.
+    Map<String, dynamic>? profile = result.profile ?? current.profile;
+    try {
+      final userId = current.userId;
+      if (userId != null) {
+        final fresh = await _loadProfile(userId);
+        if (fresh != null) profile = fresh;
+      }
+    } on Exception catch (e, st) {
+      debugPrint('[SessionController.selectWorkspaces] profile refresh failed: $e');
+      debugPrintStack(
+        stackTrace: st,
+        label: '[SessionController.selectWorkspaces]',
+        maxFrames: 4,
+      );
+    }
 
     state = current.copyWith(
       selectedRoles: persistedIds,
+      profile: profile,
       workspaceIds: persistedIds,
-      defaultWorkspaceId: result.defaultWorkspaceId ??
-          (persistedIds.isNotEmpty ? persistedIds.first : null),
+      defaultWorkspaceId: defaultWorkspaceId,
       hasCompletedOnboarding: persistedIds.isNotEmpty,
     );
-    return true;
+
+    return WorkspaceSelectionResult(
+      success: true,
+      workspaceIds: persistedIds,
+      defaultWorkspaceId: defaultWorkspaceId,
+      workspaces: result.workspaces,
+      profile: profile,
+    );
   }
 
   /// ============================================================
