@@ -63,6 +63,10 @@ class SessionController extends Notifier<AppSession> {
     final session = supabase.currentSession;
     final user = supabase.currentUser;
 
+    debugPrint('[SESSION-DIAG] initialize() ENTER — '
+        'session=${session != null} user=${user?.id} '
+        'currentState=${state.runtimeType} hasProfile=${state.hasProfile}');
+
     if (session == null || user == null) {
       state = const UnauthenticatedSession();
       return SessionStatus.unauthenticated;
@@ -70,10 +74,76 @@ class SessionController extends Notifier<AppSession> {
 
     try {
       // ── Profile restore (database is the source of truth) ──
-      final profile = await _loadProfile(user.id);
+      // A throw (RLS / network) is treated like an unreadable profile — the
+      // workspace fallback below decides whether the user actually completed
+      // onboarding. Never surface a hard error for an onboarded user whose
+      // profile row is simply not readable yet.
+      Map<String, dynamic>? profile;
+      var profileReadFailed = false;
+      try {
+        profile = await _loadProfile(user.id);
+      } on Exception catch (e, st) {
+        profileReadFailed = true;
+        debugPrint('[SESSION-DIAG] initialize() _loadProfile THREW: $e');
+        debugPrintStack(
+          stackTrace: st,
+          label: '[SESSION-DIAG] initialize/_loadProfile',
+          maxFrames: 6,
+        );
+        profile = null;
+      }
+      debugPrint('[SESSION-DIAG] initialize() _loadProfile -> '
+          '${profile == null ? 'NULL' : 'VALID(id=${profile['id']}, auth_user_id=${profile['auth_user_id']}, current_workspace_id=${profile['current_workspace_id']})'}');
 
       if (profile == null) {
+        // ── RLS safeguard ──
+        // The profile row may exist but be unreadable by the authenticated
+        // client (users.profiles RLS). Workspace selections are persisted in
+        // users.user_workspaces only AFTER the profile exists, so a non-empty
+        // selection set proves onboarding completed → route to Dashboard, not
+        // Create Profile. (Fix the RLS policies on users.profiles to make the
+        // profile row readable; this prevents the re-entry bounce meanwhile.)
+        List<String> savedWorkspaceIds;
+        try {
+          savedWorkspaceIds = await _loadWorkspaceIds(user.id);
+        } on Exception catch (e) {
+          debugPrint(
+              '[SessionController.initialize] workspace restore failed: $e');
+          savedWorkspaceIds = const [];
+        }
+
+        if (savedWorkspaceIds.isNotEmpty) {
+          debugPrint('[SESSION-DIAG] initialize() profile==null but '
+              'workspaces=$savedWorkspaceIds → RLS-hidden profile; '
+              'publishing hasProfile: TRUE (dashboard)');
+          state = AuthenticatedSession(
+            userId: user.id,
+            displayName: user.email ?? 'User',
+            profile: const {},
+            hasProfile: true,
+            workspaceIds: savedWorkspaceIds,
+            defaultWorkspaceId: savedWorkspaceIds.first,
+            hasCompletedOnboarding: true,
+          );
+          return SessionStatus.authenticated;
+        }
+
+        // If the profile read failed (not merely absent) and no workspaces
+        // were found, we cannot conclude "brand-new user" — surface the
+        // restore error so the user can retry.
+        if (profileReadFailed) {
+          debugPrint('[SESSION-DIAG] initialize() profile read FAILED and no '
+              'workspaces → SessionFailure');
+          state = SessionFailure(
+            message: 'We could not restore your session. '
+                'Please check your connection and try again.',
+          );
+          return SessionStatus.error;
+        }
+
         // Authenticated but no profile row yet → Create Profile.
+        debugPrint('[SESSION-DIAG] initialize() profile==null, no workspaces → '
+            'publishing AuthenticatedSession(hasProfile: FALSE)');
         state = AuthenticatedSession(
           userId: user.id,
           displayName: user.email ?? 'User',
@@ -87,6 +157,8 @@ class SessionController extends Notifier<AppSession> {
       final defaultWorkspaceId =
           profile['current_workspace_id'] as String?;
 
+      debugPrint('[SESSION-DIAG] initialize() profile OK → '
+          'publishing AuthenticatedSession(hasProfile: TRUE, workspaceIds=$workspaceIds, default=$defaultWorkspaceId)');
       state = AuthenticatedSession(
         userId: user.id,
         displayName: _buildDisplayName(profile) ??
@@ -101,6 +173,7 @@ class SessionController extends Notifier<AppSession> {
       );
       return SessionStatus.authenticated;
     } on Exception catch (e, st) {
+      debugPrint('[SESSION-DIAG] initialize() EXCEPTION: $e');
       // Network / database error — do NOT treat as a brand-new user.
       // The UI exposes a retry/error state via SessionFailure.
       debugPrint('[SessionController.initialize] error: $e');
@@ -119,7 +192,12 @@ class SessionController extends Notifier<AppSession> {
 
   /// Refresh session state (called after auth operations complete).
   Future<SessionStatus> refresh() async {
-    return initialize();
+    debugPrint('[SESSION-DIAG] refresh() CALLED');
+    final status = await initialize();
+    debugPrint('[SESSION-DIAG] refresh() -> status=$status '
+        'state=${state.runtimeType} hasProfile=${state.hasProfile} '
+        'workspaceIds=${state.workspaceIds}');
+    return status;
   }
 
   /// Sign out
@@ -198,12 +276,16 @@ class SessionController extends Notifier<AppSession> {
     final userId = current.userId;
     try {
       final profile = userId != null ? await _loadProfile(userId) : null;
+      debugPrint('[SESSION-DIAG] createProfile _loadProfile -> '
+          '${profile == null ? 'NULL' : 'VALID'}');
       final firstNameFromProfile =
           result.profile?['first_name'] as String? ?? firstName.trim();
 
       // A fresh profile has no workspace selections yet.
       final workspaceIds = await _loadWorkspaceIds(userId ?? '');
 
+      debugPrint('[SESSION-DIAG] createProfile publishing AuthenticatedSession('
+          'hasProfile: true, workspaceIds=$workspaceIds)');
       state = current.copyWith(
         displayName: firstNameFromProfile,
         hasProfile: true,
@@ -214,6 +296,8 @@ class SessionController extends Notifier<AppSession> {
       );
     } on Exception catch (e) {
       debugPrint('[createProfile] state refresh failed: $e');
+      debugPrint('[SESSION-DIAG] createProfile CATCH — _loadProfile/_loadWorkspaceIds '
+          'threw: $e; publishing hasProfile: true from echoed profile');
       // The profile was created on the backend; still mark the session
       // as having a profile so the user can continue onboarding.
       state = current.copyWith(
@@ -244,6 +328,9 @@ class SessionController extends Notifier<AppSession> {
     List<String> workspaces,
   ) async {
     final current = state;
+    debugPrint('[SESSION-DIAG] selectWorkspaces ENTER — '
+        'state=${current.runtimeType} hasProfile=${current.hasProfile} '
+        'workspaceIds=${current.workspaceIds} selected=$workspaces');
     if (current is! AuthenticatedSession) {
       debugPrint('[SessionController.selectWorkspaces] ABORT: state is not an '
           'AuthenticatedSession. Actual state: ${current.runtimeType} '
@@ -289,6 +376,11 @@ class SessionController extends Notifier<AppSession> {
       );
     }
 
+    debugPrint('[SESSION-DIAG] selectWorkspaces publishing state — '
+        'hasProfile=${current.hasProfile} (unchanged), '
+        'workspaceIds=$persistedIds, default=$defaultWorkspaceId, '
+        'hasCompletedOnboarding=${persistedIds.isNotEmpty}, '
+        'profile=${profile == null ? 'NULL' : 'VALID'}');
     state = current.copyWith(
       selectedRoles: persistedIds,
       profile: profile,
@@ -312,13 +404,29 @@ class SessionController extends Notifier<AppSession> {
 
   /// Query the authoritative profile row for the user.
   Future<Map<String, dynamic>?> _loadProfile(String userId) async {
-    final response = await SupabaseService.instance
-        .from('profiles', schema: 'users')
-        .select()
-        .eq('auth_user_id', userId)
-        .maybeSingle();
-    if (response == null) return null;
-    return Map<String, dynamic>.from(response);
+    debugPrint('[SESSION-DIAG] _loadProfile(userId=$userId) querying users.profiles '
+        'via AUTHENTICATED client...');
+    try {
+      final response = await SupabaseService.instance
+          .from('profiles', schema: 'users')
+          .select()
+          .eq('auth_user_id', userId)
+          .maybeSingle();
+      if (response == null) {
+        debugPrint('[SESSION-DIAG] _loadProfile -> NULL (0 rows returned)');
+        return null;
+      }
+      debugPrint('[SESSION-DIAG] _loadProfile -> VALID row: ${Map<String, dynamic>.from(response).toString()}');
+      return Map<String, dynamic>.from(response);
+    } catch (e, st) {
+      debugPrint('[SESSION-DIAG] _loadProfile -> EXCEPTION: $e');
+      debugPrintStack(
+        stackTrace: st,
+        label: '[SESSION-DIAG] _loadProfile',
+        maxFrames: 8,
+      );
+      rethrow;
+    }
   }
 
   /// Query the persisted workspace selections for the user.

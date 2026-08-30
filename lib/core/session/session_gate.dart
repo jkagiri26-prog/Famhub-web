@@ -80,7 +80,11 @@ class _SessionGateState extends ConsumerState<SessionGate> {
 
   Future<void> _initialize() async {
     final controller = ref.read(sessionProvider.notifier);
-    await controller.initialize();
+    final status = await controller.initialize();
+    debugPrint('[SESSION-DIAG] SessionGate._initialize -> status=$status '
+        'state=${ref.read(sessionProvider).runtimeType} '
+        'hasProfile=${ref.read(sessionProvider).hasProfile} '
+        'workspaceIds=${ref.read(sessionProvider).workspaceIds}');
 
     // ── OTP SESSION RESTORATION ──
     // Check for a persisted OTP session. If one exists and is valid,
@@ -112,6 +116,10 @@ class _SessionGateState extends ConsumerState<SessionGate> {
 
     final session = ref.watch(sessionProvider);
     final destination = resolveSessionDestination(session);
+    debugPrint('[SESSION-DIAG] SessionGate.build -> destination=$destination '
+        'session=${session.runtimeType} '
+        'hasProfile=${session.hasProfile} '
+        'workspaceIds=${session.workspaceIds}');
 
     switch (destination) {
       // ── Still restoring startup state (session → profile → workspaces) ──

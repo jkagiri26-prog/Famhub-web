@@ -35,9 +35,9 @@ class ShellBottomNav extends ConsumerWidget {
     final palette = Theme.of(context).extension<ShellThemeColors>()?.palette ??
         ShellTheme.defaultLight;
     final location = GoRouterState.of(context).uri.toString();
-    final navItems = ref.watch(bottomNavItemsProvider);
+    final navItems = ref.watch(dashboardNavItemsProvider);
 
-    // Always include Dashboard as first item
+    // Always include Dashboard as first item, then modules, then Profile
     final allItems = [
       const NavItem(
         moduleKey: 'dashboard',
@@ -48,6 +48,15 @@ class ShellBottomNav extends ConsumerWidget {
         bottomNavVisible: true,
       ),
       ...navItems,
+      if (!navItems.any((i) => i.moduleKey == 'profile'))
+        const NavItem(
+          moduleKey: 'profile',
+          displayName: 'Profile',
+          route: '/profile',
+          icon: Icons.person_outline,
+          displayOrder: 999,
+          bottomNavVisible: true,
+        ),
     ];
 
     final selectedIndex = _resolveIndex(location, allItems);

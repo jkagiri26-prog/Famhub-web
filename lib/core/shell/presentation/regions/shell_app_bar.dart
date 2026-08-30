@@ -21,6 +21,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../theme/shell_theme.dart';
+import '../../../navigation/responsive_breakpoints.dart';
 import '../../config/shell_config.dart';
 import '../../../providers/module_provider.dart';
 import '../../../providers/user_provider.dart';
@@ -58,10 +59,12 @@ class ShellAppBar extends ConsumerWidget {
           bottom: BorderSide(color: palette.border),
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: [
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isNarrow =
+              constraints.maxWidth < ResponsiveBreakpoints.mobile;
+
+          final leftChildren = <Widget>[
             // ── Left: Context Selector ──
             if (config.showContextSelector)
               _ContextSelector(palette: palette),
@@ -75,9 +78,9 @@ class ShellAppBar extends ConsumerWidget {
                 hasMaintenance: hasMaintenance,
                 palette: palette,
               ),
+          ];
 
-            const Spacer(),
-
+          final rightChildren = <Widget>[
             // ── Right: Actions ──
 
             // Custom actions
@@ -146,8 +149,31 @@ class ShellAppBar extends ConsumerWidget {
             // ── Profile ──
             if (config.showProfile)
               _ProfileWidget(user: user, palette: palette),
-          ],
-        ),
+          ];
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: isNarrow
+                ? SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ...leftChildren,
+                        if (leftChildren.isNotEmpty) const SizedBox(width: 12),
+                        ...rightChildren,
+                      ],
+                    ),
+                  )
+                : Row(
+                    children: [
+                      ...leftChildren,
+                      const Spacer(),
+                      ...rightChildren,
+                    ],
+                  ),
+          );
+        },
       ),
     );
   }

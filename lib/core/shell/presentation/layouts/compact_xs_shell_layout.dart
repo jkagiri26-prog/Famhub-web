@@ -69,8 +69,8 @@ class CompactXsShellLayout extends StatelessWidget {
 /// ============================================================
 ///
 /// Ultra-compact bottom navigation with no labels, only icons.
-/// Items are supplied by bottomNavItemsProvider — the same runtime
-/// provider used by MobileShellLayout via ShellBottomNav.
+/// Items are supplied by dashboardNavItemsProvider — the same runtime
+/// source used by MobileShellLayout via ShellBottomNav.
 /// ============================================================
 class _CompactBottomNav extends ConsumerWidget {
   const _CompactBottomNav();
@@ -80,9 +80,10 @@ class _CompactBottomNav extends ConsumerWidget {
     final palette = Theme.of(context).extension<ShellThemeColors>()?.palette ??
         ShellTheme.defaultLight;
     final location = GoRouterState.of(context).uri.toString();
-    final navItems = ref.watch(bottomNavItemsProvider);
+    final navItems = ref.watch(dashboardNavItemsProvider);
 
-    // Always include Dashboard as first item (same pattern as ShellBottomNav)
+    // Always include Dashboard as first item (same pattern as ShellBottomNav),
+    // then modules, then an explicit Profile destination.
     final allItems = [
       const NavItem(
         moduleKey: 'dashboard',
@@ -93,6 +94,15 @@ class _CompactBottomNav extends ConsumerWidget {
         bottomNavVisible: true,
       ),
       ...navItems,
+      if (!navItems.any((i) => i.moduleKey == 'profile'))
+        const NavItem(
+          moduleKey: 'profile',
+          displayName: 'Profile',
+          route: '/profile',
+          icon: Icons.person_outline,
+          displayOrder: 999,
+          bottomNavVisible: true,
+        ),
     ];
 
     final selectedIndex = _resolveIndex(location, allItems);
@@ -105,39 +115,42 @@ class _CompactBottomNav extends ConsumerWidget {
           top: BorderSide(color: palette.border.withValues(alpha: 0.5)),
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: List.generate(
-          allItems.length,
-          (index) {
-            final item = allItems[index];
-            final isSelected = index == selectedIndex;
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: List.generate(
+            allItems.length,
+            (index) {
+              final item = allItems[index];
+              final isSelected = index == selectedIndex;
 
-            return IconButton(
-              onPressed: () => _onNavigate(context, item),
-              icon: item.hasBadge
-                  ? Badge(
-                      label: Text(
-                        item.badgeText ?? '${item.unreadCount}',
-                        style: const TextStyle(fontSize: 9, color: Colors.white),
-                      ),
-                      child: Icon(
+              return IconButton(
+                onPressed: () => _onNavigate(context, item),
+                icon: item.hasBadge
+                    ? Badge(
+                        label: Text(
+                          item.badgeText ?? '${item.unreadCount}',
+                          style: const TextStyle(fontSize: 9, color: Colors.white),
+                        ),
+                        child: Icon(
+                          item.icon,
+                          size: 20,
+                          color: isSelected ? palette.primary : palette.secondaryText,
+                        ),
+                      )
+                    : Icon(
                         item.icon,
                         size: 20,
                         color: isSelected ? palette.primary : palette.secondaryText,
                       ),
-                    )
-                  : Icon(
-                      item.icon,
-                      size: 20,
-                      color: isSelected ? palette.primary : palette.secondaryText,
-                    ),
-              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-              padding: EdgeInsets.zero,
-              splashRadius: 18,
-              tooltip: item.displayName,
-            );
-          },
+                constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                padding: EdgeInsets.zero,
+                splashRadius: 18,
+                tooltip: item.displayName,
+              );
+            },
+          ),
         ),
       ),
     );
