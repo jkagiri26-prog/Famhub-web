@@ -306,7 +306,15 @@ class FamhubHomePage extends ConsumerWidget {
   /// When set, the banner's button uses this instead of the default session gate flow.
   final VoidCallback? onExploreSignIn;
 
-  const FamhubHomePage({super.key, this.onExploreSignIn});
+  /// True when rendered inside UnifiedAppShellV2 (e.g. the /home route).
+  /// The shell owns the Scaffold/chrome — the page renders body content only.
+  final bool inShell;
+
+  const FamhubHomePage({
+    super.key,
+    this.onExploreSignIn,
+    this.inShell = false,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -317,82 +325,91 @@ class FamhubHomePage extends ConsumerWidget {
     final isMobile = size.width < 600;
     final isTablet = size.width >= 600 && size.width < 900;
 
+    final body = Column(
+      children: [
+        // ── Exploration Banner (only for unauthenticated) ──
+        if (!isAuthenticated)
+          _ExplorationBanner(
+            onSignIn: onExploreSignIn ?? () {
+              // Default: handled by session gate
+            },
+          ),
+
+        // ── Scrollable Content ──
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                // ════════════════════════════════════════════
+                // SECTION 1: SPLIT-SCREEN HERO CAROUSEL
+                // (guest-only — Get Started / Explore as Guest CTAs)
+                // ════════════════════════════════════════════
+                if (!isAuthenticated)
+                  _buildHeroSection(context, theme, colorScheme, isMobile),
+
+                // ════════════════════════════════════════════
+                // SECTION 2: IMPACT NUMBERS (Count-up style)
+                // ════════════════════════════════════════════
+                _buildImpactSection(theme, colorScheme, isMobile, isTablet, size),
+
+                // ════════════════════════════════════════════
+                // SECTION 3: FAMHUB MODULES (2 vertical + scrollable)
+                // ════════════════════════════════════════════
+                _buildFamhubModulesSection(
+                  context, theme, colorScheme, isMobile, isTablet, size,
+                ),
+
+                // ════════════════════════════════════════════
+                // SECTION 4: MARKETPLACE LISTINGS PREVIEW
+                // ════════════════════════════════════════════
+                _buildMarketplacePreview(
+                  context, theme, colorScheme, isMobile,
+                ),
+
+                // ════════════════════════════════════════════
+                // SECTION 5: WHY CHOOSE FAMHUB
+                // ════════════════════════════════════════════
+                _buildWhyChooseSection(
+                  theme, colorScheme, isMobile, isTablet, size,
+                ),
+
+                // ════════════════════════════════════════════
+                // SECTION 6: SUCCESS STORIES / TESTIMONIALS
+                // ════════════════════════════════════════════
+                _buildTestimonialSection(
+                  context, theme, colorScheme, isMobile,
+                ),
+
+                // ════════════════════════════════════════════
+                // SECTION 7: FINAL CTA
+                // (guest-only — Create Your Free Account)
+                // ════════════════════════════════════════════
+                if (!isAuthenticated)
+                  _buildFinalCtaSection(
+                    theme, colorScheme, isMobile,
+                  ),
+
+                // ════════════════════════════════════════════
+                // SECTION 8: FOOTER
+                // ════════════════════════════════════════════
+                _buildFooterSection(
+                  theme, colorScheme, isMobile, isTablet, size,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+
+    if (inShell) {
+      // Rendered inside UnifiedAppShellV2 — the shell owns the Scaffold
+      // and SafeArea; no nested top-level chrome.
+      return body;
+    }
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── Exploration Banner (only for unauthenticated) ──
-            if (!isAuthenticated)
-              _ExplorationBanner(
-                onSignIn: onExploreSignIn ?? () {
-                  // Default: handled by session gate
-                },
-              ),
-
-            // ── Scrollable Content ──
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    // ════════════════════════════════════════════
-                    // SECTION 1: SPLIT-SCREEN HERO CAROUSEL
-                    // ════════════════════════════════════════════
-                    _buildHeroSection(context, theme, colorScheme, isMobile),
-
-                    // ════════════════════════════════════════════
-                    // SECTION 2: IMPACT NUMBERS (Count-up style)
-                    // ════════════════════════════════════════════
-                    _buildImpactSection(theme, colorScheme, isMobile, isTablet, size),
-
-                    // ════════════════════════════════════════════
-                    // SECTION 3: FAMHUB MODULES (2 vertical + scrollable)
-                    // ════════════════════════════════════════════
-                    _buildFamhubModulesSection(
-                      context, theme, colorScheme, isMobile, isTablet, size,
-                    ),
-
-                    // ════════════════════════════════════════════
-                    // SECTION 4: MARKETPLACE LISTINGS PREVIEW
-                    // ════════════════════════════════════════════
-                    _buildMarketplacePreview(
-                      context, theme, colorScheme, isMobile,
-                    ),
-
-                    // ════════════════════════════════════════════
-                    // SECTION 5: WHY CHOOSE FAMHUB
-                    // ════════════════════════════════════════════
-                    _buildWhyChooseSection(
-                      theme, colorScheme, isMobile, isTablet, size,
-                    ),
-
-                    // ════════════════════════════════════════════
-                    // SECTION 6: SUCCESS STORIES / TESTIMONIALS
-                    // ════════════════════════════════════════════
-                    _buildTestimonialSection(
-                      context, theme, colorScheme, isMobile,
-                    ),
-
-                    // ════════════════════════════════════════════
-                    // SECTION 7: FINAL CTA
-                    // ════════════════════════════════════════════
-                    _buildFinalCtaSection(
-                      theme, colorScheme, isMobile,
-                    ),
-
-                    // ════════════════════════════════════════════
-                    // SECTION 8: FOOTER
-                    // ════════════════════════════════════════════
-                    _buildFooterSection(
-                      theme, colorScheme, isMobile, isTablet, size,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+      body: SafeArea(child: body),
     );
   }
 

@@ -40,7 +40,6 @@ import 'package:famhub_app/features/admin_console/presentation/pages/admin_dashb
 import 'package:famhub_app/features/guest/famhub_home_page.dart';
 
 // ── Enterprise Phase: System Pages ──
-import 'package:famhub_app/features/home/presentation/pages/home_page.dart';
 import 'package:famhub_app/features/search/presentation/pages/global_search_page.dart';
 import 'package:famhub_app/features/notifications/presentation/pages/notification_center_page.dart';
 import 'package:famhub_app/features/settings/presentation/pages/runtime_settings_page.dart';
@@ -127,7 +126,7 @@ class DynamicRouteRegistrar {
               path: AppRoutes.home,
               name: AppRoutes.homeName,
               builder: (context, state) =>
-                  const HomePage(),
+                  const FamhubHomePage(inShell: true),
             ),
             GoRoute(
               path: AppRoutes.search,
@@ -236,7 +235,7 @@ void bootstrapModulePageBuilders() {
 
   // ── Enterprise System Pages ──
   ModulePageRegistry.register(
-      'home', (_) => const HomePage());
+      'home', (_) => const FamhubHomePage(inShell: true));
   ModulePageRegistry.register(
       'search', (_) => const GlobalSearchPage());
   ModulePageRegistry.register(

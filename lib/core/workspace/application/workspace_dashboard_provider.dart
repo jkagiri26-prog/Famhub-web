@@ -109,6 +109,13 @@ class WorkspaceDashboardCatalog {
     return modulePromotions[workspaceType] ?? const [];
   }
 
+  /// The primary (first) module key promoted for a workspace type.
+  /// Null when the workspace type is unmapped.
+  static String? primaryModuleKeyFor(String? workspaceType) {
+    final keys = moduleKeysFor(workspaceType);
+    return keys.isEmpty ? null : keys.first;
+  }
+
   /// Normalize a raw workspace type/category label into a stable key.
   /// Handles common backend label variations (snake_case, aliases).
   static String? normalizeType(String? raw) {
