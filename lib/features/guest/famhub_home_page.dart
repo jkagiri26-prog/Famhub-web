@@ -342,10 +342,11 @@ class FamhubHomePage extends ConsumerWidget {
               children: [
                 // ════════════════════════════════════════════
                 // SECTION 1: SPLIT-SCREEN HERO CAROUSEL
-                // (guest-only — Get Started / Explore as Guest CTAs)
+                // Auth CTAs (Get Started / Explore as Guest) hidden for
+                // authenticated users; the carousel always displays.
                 // ════════════════════════════════════════════
-                if (!isAuthenticated)
-                  _buildHeroSection(context, theme, colorScheme, isMobile),
+                _buildHeroSection(
+                    context, theme, colorScheme, isMobile, isAuthenticated),
 
                 // ════════════════════════════════════════════
                 // SECTION 2: IMPACT NUMBERS (Count-up style)
@@ -1082,6 +1083,7 @@ class FamhubHomePage extends ConsumerWidget {
     ThemeData theme,
     ColorScheme colorScheme,
     bool isMobile,
+    bool isAuthenticated,
   ) {
     final size = MediaQuery.of(context).size;
     
@@ -1096,13 +1098,19 @@ class FamhubHomePage extends ConsumerWidget {
             ? const BorderRadius.vertical(bottom: Radius.circular(24))
             : BorderRadius.zero,
         child: SplitScreenHero(
-          onGetStarted: () {
-            // "Get Started" triggers sign in via the exploration banner's callback
-            onExploreSignIn?.call();
-          },
-          onExploreAsGuest: () {
-            // Already exploring — no action needed
-          },
+          // Auth CTAs are hidden for authenticated users; the hero
+          // carousel itself still displays for everyone.
+          onGetStarted: isAuthenticated
+              ? null
+              : () {
+                  // "Get Started" triggers sign in via the exploration banner's callback
+                  onExploreSignIn?.call();
+                },
+          onExploreAsGuest: isAuthenticated
+              ? null
+              : () {
+                  // Already exploring — no action needed
+                },
         ),
       ),
     );

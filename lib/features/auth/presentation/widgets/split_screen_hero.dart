@@ -83,13 +83,17 @@ const List<_CarouselSlide> _slides = [
 /// ─────────────────────────────────────────────────────────────
 
 class SplitScreenHero extends StatefulWidget {
-  final VoidCallback onGetStarted;
-  final VoidCallback onExploreAsGuest;
+  /// Invoked on the "Get Started" CTA. When null the CTA is hidden
+  /// (e.g. for authenticated users — the hero/carousel still displays).
+  final VoidCallback? onGetStarted;
+
+  /// Invoked on the "Explore as Guest" link. When null the link is hidden.
+  final VoidCallback? onExploreAsGuest;
 
   const SplitScreenHero({
     super.key,
-    required this.onGetStarted,
-    required this.onExploreAsGuest,
+    this.onGetStarted,
+    this.onExploreAsGuest,
   });
 
   @override
@@ -280,50 +284,54 @@ class _SplitScreenHeroState extends State<SplitScreenHero> {
 
               SizedBox(height: gapSubtextButton),
 
-              // ── CTA Button ──
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: widget.onGetStarted,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: _brandGreen,
-                    padding: EdgeInsets.symmetric(vertical: buttonPadding),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+              // ── CTA Button (hidden when onGetStarted is null) ──
+              if (widget.onGetStarted != null)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: widget.onGetStarted,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: _brandGreen,
+                      padding: EdgeInsets.symmetric(vertical: buttonPadding),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
+                      shadowColor: Colors.transparent,
                     ),
-                    elevation: 0,
-                    shadowColor: Colors.transparent,
-                  ),
-                  child: Text(
-                    'Get Started',
-                    style: TextStyle(
-                      fontSize: buttonFontSize,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                ),
-              ),
-
-              SizedBox(height: gapButtonGuest),
-
-              // ── Secondary Link ──
-              Center(
-                child: GestureDetector(
-                  onTap: widget.onExploreAsGuest,
-                  child: Text(
-                    'Explore as Guest',
-                    style: TextStyle(
-                      fontSize: guestFontSize,
-                      color: Colors.white.withValues(alpha: 0.75),
-                      fontWeight: FontWeight.w500,
-                      decoration: TextDecoration.underline,
-                      decorationColor: Colors.white.withValues(alpha: 0.4),
+                    child: Text(
+                      'Get Started',
+                      style: TextStyle(
+                        fontSize: buttonFontSize,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.3,
+                      ),
                     ),
                   ),
                 ),
-              ),
+
+              // ── Secondary Link (hidden when onExploreAsGuest is null) ──
+              if (widget.onExploreAsGuest != null) ...[
+                SizedBox(height: gapButtonGuest),
+
+                // ── Secondary Link ──
+                Center(
+                  child: GestureDetector(
+                    onTap: widget.onExploreAsGuest,
+                    child: Text(
+                      'Explore as Guest',
+                      style: TextStyle(
+                        fontSize: guestFontSize,
+                        color: Colors.white.withValues(alpha: 0.75),
+                        fontWeight: FontWeight.w500,
+                        decoration: TextDecoration.underline,
+                        decorationColor: Colors.white.withValues(alpha: 0.4),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
 
               const Spacer(flex: 3),
 
