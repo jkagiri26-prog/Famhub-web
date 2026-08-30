@@ -63,7 +63,7 @@ class ShellDashboardError extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text(
-              'Unable to Load Modules',
+              'Unable to Load Services',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: Colors.black87,

@@ -254,13 +254,13 @@ class SectionRegistry {
     ),
     SectionDefinition(
       sectionKey: 'general',
-      displayName: 'All Modules',
+      displayName: 'All Services',
       icon: Icons.dashboard_outlined,
       displayOrder: 999,
     ),
     SectionDefinition(
       sectionKey: 'default',
-      displayName: 'All Modules',
+      displayName: 'All Services',
       icon: Icons.dashboard_outlined,
       displayOrder: 999,
     ),
@@ -281,7 +281,7 @@ class SectionRegistry {
   /// ── FALLBACK — used when section key is unknown ──
   static const SectionDefinition _fallback = SectionDefinition(
     sectionKey: 'unknown',
-    displayName: 'Modules',
+    displayName: 'Services',
     icon: Icons.widgets_outlined,
     displayOrder: 50,
   );

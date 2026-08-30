@@ -34,7 +34,7 @@ class _InitStep {
 /// All initialization steps shown on the splash screen
 const List<_InitStep> _initSteps = [
   _InitStep(label: 'Supabase', icon: Icons.cloud_outlined),
-  _InitStep(label: 'Module Registry', icon: Icons.grid_view_outlined),
+  _InitStep(label: 'Service Registry', icon: Icons.grid_view_outlined),
   _InitStep(label: 'Local Cache', icon: Icons.storage_outlined),
   _InitStep(label: 'Session', icon: Icons.vpn_key_outlined),
   _InitStep(label: 'Theme', icon: Icons.palette_outlined),

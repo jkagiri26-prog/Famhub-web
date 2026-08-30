@@ -55,7 +55,7 @@ class ShellDashboardEmpty extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text(
-              'No Modules Available',
+              'No Services Available',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: Colors.black87,
@@ -64,7 +64,7 @@ class ShellDashboardEmpty extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Your dashboard is ready but no modules are currently '
+              'Your dashboard is ready but no services are currently '
               'available. Please check back later or contact support.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: Colors.grey.shade600,

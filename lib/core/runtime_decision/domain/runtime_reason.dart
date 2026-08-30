@@ -66,9 +66,9 @@ class RuntimeReasons {
   static const String featureDisabled =
       'Feature is disabled in current runtime context';
   static const String moduleInMaintenance =
-      'Module is in maintenance mode';
+      'Service is in maintenance mode';
   static const String moduleDisabled =
-      'Module is disabled for this context';
+      'Service is disabled for this context';
   static const String guestNotAllowed =
       'Guest users are not allowed to perform this action';
   static const String entityRequired =

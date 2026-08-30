@@ -86,7 +86,7 @@ class _GlobalSearchPageState extends ConsumerState<GlobalSearchPage> {
               controller: _searchController,
               autofocus: true,
               decoration: InputDecoration(
-                hintText: 'Search across all modules...',
+                hintText: 'Search across all services...',
                 hintStyle: TextStyle(color: Colors.grey.shade400),
                 border: InputBorder.none,
                 prefixIcon: Icon(Icons.search, color: Colors.grey.shade500),

@@ -143,7 +143,7 @@ class AIAssistantPage extends ConsumerWidget {
               style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
             const SizedBox(height: 16),
             Text(
-              'AI features will appear here when enabled by modules.',
+              'AI features will appear here when enabled by services.',
               style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
               textAlign: TextAlign.center,
             ),

@@ -269,7 +269,7 @@ class RegistryDashboardRenderer extends ConsumerWidget {
             ),
             const SizedBox(height: 20),
             Text(
-              'No Modules Available',
+              'No Services Available',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: Colors.black87,

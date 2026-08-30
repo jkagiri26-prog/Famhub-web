@@ -147,7 +147,7 @@ class _HomeContent extends StatelessWidget {
             if (result.hasPinnedModules)
               _buildSection(
                 context,
-                title: 'Pinned Modules',
+                title: 'Pinned Services',
                 icon: Icons.push_pin_outlined,
                 color: theme.colorScheme.primary,
                 children: result.pinnedModules.map((p) =>
@@ -641,7 +641,7 @@ class _HomeEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Your personalized home will appear here once modules are configured.',
+              'Your personalized home will appear here once services are configured.',
               style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
               textAlign: TextAlign.center,
             ),

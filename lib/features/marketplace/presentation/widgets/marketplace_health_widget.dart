@@ -50,7 +50,7 @@ class MarketplaceHealthWidget extends ConsumerWidget {
                 Text(
                   isHealthy
                       ? 'System Degraded'
-                      : marketplaceEntry?.reason ?? 'Module Issue Detected',
+                      : marketplaceEntry?.reason ?? 'Service Issue Detected',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,

@@ -198,7 +198,7 @@ class ShellBottomNav extends ConsumerWidget {
                       Padding(
                         padding: const EdgeInsets.only(top: 2),
                         child: Text(
-                          '$moduleCount modules',
+                          '$moduleCount services',
                           style: TextStyle(
                             fontSize: 12,
                             color: palette.secondaryText,

@@ -253,7 +253,7 @@ class _CommandPaletteOverlayState extends ConsumerState<CommandPaletteOverlay> {
           Text('No commands available',
             style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey.shade600)),
           const SizedBox(height: 4),
-          Text('Enable modules to see their commands',
+          Text('Enable services to see their commands',
             style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
         ],
       ),

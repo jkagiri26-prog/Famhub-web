@@ -37,7 +37,7 @@ class MaintenanceBanner extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Some modules are under maintenance and may be temporarily unavailable.',
+              'Some services are under maintenance and may be temporarily unavailable.',
               style: TextStyle(
                 fontSize: 12,
                 color: palette.warning,

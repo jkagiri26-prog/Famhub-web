@@ -106,7 +106,7 @@ class ResponsiveDashboardRenderer extends ConsumerWidget {
                       child: Padding(
                         padding: const EdgeInsets.all(24),
                         child: Text(
-                          'More modules for this workspace are available '
+                          'More services for this workspace are available '
                           'from the More menu.',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: Colors.grey.shade600,

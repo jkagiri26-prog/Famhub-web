@@ -432,7 +432,7 @@ class _ModuleStatusIndicator extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            '$moduleCount modules',
+            '$moduleCount services',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w500,

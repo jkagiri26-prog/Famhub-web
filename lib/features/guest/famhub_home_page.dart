@@ -279,7 +279,7 @@ const List<_Testimonial> _testimonials = [
     avatarColor: Color(0xFF059669),
   ),
   _Testimonial(
-    quote: 'The financing module helped me secure a loan to expand my poultry business. The process was seamless.',
+    quote: 'The financing services helped me secure a loan to expand my poultry business. The process was seamless.',
     name: 'Amina Yusuf',
     role: 'Poultry Farmer',
     location: 'Kwale County',
@@ -422,39 +422,61 @@ class FamhubHomePage extends ConsumerWidget {
     bool isTablet,
     Size size,
   ) {
-    final minCardWidth = isMobile ? 130.0 : 160.0;
+    final minCardWidth = isMobile ? 140.0 : 170.0;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 12),
       color: colorScheme.surface,
       child: SizedBox(
-        height: 52,
+        height: 64,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
           padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24),
           itemCount: _impactStats.length,
           separatorBuilder: (_, __) => Container(
             width: 1,
-            height: 28,
+            height: 36,
             color: colorScheme.outlineVariant.withValues(alpha: 0.3),
           ),
           itemBuilder: (context, index) {
             final stat = _impactStats[index];
             return SizedBox(
               width: minCardWidth,
-              child: Row(
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(stat.icon, size: 18, color: stat.color),
-                  const SizedBox(width: 8),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(stat.icon, size: 16, color: stat.color),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          stat.value,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: stat.color,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
                   Text(
-                    stat.value,
+                    stat.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: stat.color,
-                      letterSpacing: -0.5,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -1261,7 +1283,7 @@ class FamhubHomePage extends ConsumerWidget {
       default:
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${card.title} — Explore other modules while we prepare more.'),
+            content: Text('${card.title} — Explore other services while we prepare more.'),
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 2),
           ),
