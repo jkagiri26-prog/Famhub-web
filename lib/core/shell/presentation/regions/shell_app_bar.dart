@@ -72,7 +72,9 @@ class ShellAppBar extends ConsumerWidget {
             if (config.showContextSelector) const SizedBox(width: 16),
 
             // ── Module Status Indicator ──
-            if (config.showModuleStatus)
+            // Hidden on narrow (mobile) screens to free horizontal space for
+            // primary actions; module count data/provider is unchanged.
+            if (config.showModuleStatus && !isNarrow)
               _ModuleStatusIndicator(
                 moduleCount: moduleCount,
                 hasMaintenance: hasMaintenance,

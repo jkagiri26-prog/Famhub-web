@@ -18,9 +18,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../providers/module_provider.dart';
 import '../theme/shell_theme.dart';
 import 'nav_item.dart';
 import 'nav_config.dart';
+
+/// Mobile bottom-nav label overrides.
+/// Only affects the compact mobile navigation label — the underlying
+/// module name in system.modules is left unchanged.
+const Map<String, String> _bottomNavLabelOverrides = <String, String>{
+  'farm_management': 'Farm',
+};
+
+String _bottomNavLabel(NavItem item) =>
+    _bottomNavLabelOverrides[item.moduleKey] ?? item.displayName;
 
 /// ============================================================
 /// SHELL BOTTOM NAV — Replaces BottomNav
@@ -36,6 +47,10 @@ class ShellBottomNav extends ConsumerWidget {
         ShellTheme.defaultLight;
     final location = GoRouterState.of(context).uri.toString();
     final navItems = ref.watch(dashboardNavItemsProvider);
+    final moduleCount = ref
+            .watch(moduleProvider)
+            .whenOrNull(data: (m) => m.length) ??
+        0;
 
     // Always include Dashboard as first item, then modules, then Profile
     final allItems = [
@@ -62,7 +77,8 @@ class ShellBottomNav extends ConsumerWidget {
     final selectedIndex = _resolveIndex(location, allItems);
 
     if (allItems.length <= maxItems) {
-      return _buildNavBar(context, palette, allItems, selectedIndex);
+      return _buildNavBar(context, palette, allItems, selectedIndex,
+          moduleCount: moduleCount);
     }
 
     // Overflow: show first (maxItems-1) + "More" button
@@ -71,6 +87,7 @@ class ShellBottomNav extends ConsumerWidget {
       context, palette, visibleItems, selectedIndex,
       showMoreButton: true,
       extraItems: allItems.skip(maxItems - 1).toList(),
+      moduleCount: moduleCount,
     );
   }
 
@@ -81,6 +98,7 @@ class ShellBottomNav extends ConsumerWidget {
     int selectedIndex, {
     bool showMoreButton = false,
     List<NavItem> extraItems = const [],
+    int moduleCount = 0,
   }) {
     final destinations = items.map((item) {
       return NavigationDestination(
@@ -103,8 +121,8 @@ class ShellBottomNav extends ConsumerWidget {
               )
             : Icon(item.icon, color: palette.navigationSelectedText),
         label: item.maintenanceMode
-            ? '${item.displayName}*'
-            : item.displayName,
+            ? '${_bottomNavLabel(item)}*'
+            : _bottomNavLabel(item),
       );
     }).toList();
 
@@ -125,7 +143,8 @@ class ShellBottomNav extends ConsumerWidget {
           : selectedIndex,
       onDestinationSelected: (index) {
         if (showMoreButton && index >= items.length) {
-          _showMoreSheet(context, extraItems, palette);
+          _showMoreSheet(context, extraItems, palette,
+              moduleCount: moduleCount);
         } else {
           _onNavigate(context, items[index]);
         }
@@ -139,7 +158,8 @@ class ShellBottomNav extends ConsumerWidget {
   }
 
   void _showMoreSheet(
-      BuildContext context, List<NavItem> extraItems, ShellColorPalette palette) {
+      BuildContext context, List<NavItem> extraItems, ShellColorPalette palette,
+      {int moduleCount = 0}) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -161,56 +181,73 @@ class ShellBottomNav extends ConsumerWidget {
               ),
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  'More Modules',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: palette.primaryText,
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'More',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: palette.primaryText,
+                      ),
+                    ),
+                    if (moduleCount > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          '$moduleCount modules',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: palette.secondaryText,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: extraItems.length,
-                itemBuilder: (context, index) {
-                  final item = extraItems[index];
-                  return ListTile(
-                    leading: item.hasBadge
-                        ? Badge(
-                            label: Text(
-                              item.badgeText ?? '${item.unreadCount}',
-                              style: const TextStyle(
-                                  fontSize: 9, color: Colors.white),
-                            ),
-                            child: Icon(item.icon, color: palette.secondaryText),
-                          )
-                        : Icon(item.icon, color: palette.secondaryText),
-                    title: Text(
-                      item.displayName,
-                      style: TextStyle(color: palette.primaryText),
-                    ),
-                    subtitle: item.maintenanceMode
-                        ? Text(
-                            'Under maintenance',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: palette.warning,
-                            ),
-                          )
-                        : null,
-                    trailing: Icon(Icons.chevron_right,
-                        size: 18, color: palette.secondaryText),
-                    enabled: !item.maintenanceMode,
-                    onTap: item.maintenanceMode
-                        ? null
-                        : () {
-                            Navigator.pop(context);
-                            _onNavigate(context, item);
-                          },
-                  );
-                },
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: extraItems.length,
+                  itemBuilder: (context, index) {
+                    final item = extraItems[index];
+                    return ListTile(
+                      leading: item.hasBadge
+                          ? Badge(
+                              label: Text(
+                                item.badgeText ?? '${item.unreadCount}',
+                                style: const TextStyle(
+                                    fontSize: 9, color: Colors.white),
+                              ),
+                              child: Icon(item.icon, color: palette.secondaryText),
+                            )
+                          : Icon(item.icon, color: palette.secondaryText),
+                      title: Text(
+                        _bottomNavLabel(item),
+                        style: TextStyle(color: palette.primaryText),
+                      ),
+                      subtitle: item.maintenanceMode
+                          ? Text(
+                              'Under maintenance',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: palette.warning,
+                              ),
+                            )
+                          : null,
+                      trailing: Icon(Icons.chevron_right,
+                          size: 18, color: palette.secondaryText),
+                      enabled: !item.maintenanceMode,
+                      onTap: item.maintenanceMode
+                          ? null
+                          : () {
+                              Navigator.pop(context);
+                              _onNavigate(context, item);
+                            },
+                    );
+                  },
+                ),
               ),
               const SizedBox(height: 16),
             ],

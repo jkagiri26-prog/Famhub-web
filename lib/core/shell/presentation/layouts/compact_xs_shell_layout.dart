@@ -23,6 +23,17 @@ import '../../../navigation/nav_config.dart';
 import '../../../navigation/nav_item.dart';
 import '../widgets/shell_region.dart';
 import 'common/maintenance_banner.dart';
+
+/// Mobile bottom-nav label overrides.
+/// Only affects the compact mobile navigation label — the underlying
+/// module name in system.modules is left unchanged.
+const Map<String, String> _bottomNavLabelOverrides = <String, String>{
+  'farm_management': 'Farm',
+};
+
+String _bottomNavLabel(NavItem item) =>
+    _bottomNavLabelOverrides[item.moduleKey] ?? item.displayName;
+
 /// ============================================================
 /// COMPACT XS SHELL LAYOUT
 /// ============================================================
@@ -147,7 +158,7 @@ class _CompactBottomNav extends ConsumerWidget {
                 constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                 padding: EdgeInsets.zero,
                 splashRadius: 18,
-                tooltip: item.displayName,
+                tooltip: _bottomNavLabel(item),
               );
             },
           ),
