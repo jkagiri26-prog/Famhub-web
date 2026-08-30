@@ -180,7 +180,7 @@ class TopBarConfig {
     this.showSearch = true,
     this.showNotifications = true,
     this.showAiAssistant = true,
-    this.showSettings = true,
+    this.showSettings = false,
     this.showProfile = true,
     this.customActions = const [],
   });
