@@ -14,7 +14,8 @@
 ///   - NO LayoutBuilder — uses breakpoint provider
 ///
 /// ✅ ARCHITECTURE COMPLIANCE:
-///   - Consumes dashboardNavItemsProvider for pre-filtered items
+///   - Consumes workspaceDashboardNavItemsProvider for pre-filtered,
+///     workspace-aware items
 ///   - Uses WidgetRegistry for widget resolution
 ///   - Pure presentation component - no business decisions
 ///
@@ -31,12 +32,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:famhub_app/core/navigation/nav_config.dart';
 import 'package:famhub_app/core/navigation/nav_item.dart';
 import 'package:famhub_app/core/navigation/responsive_breakpoints.dart';
 import 'package:famhub_app/core/navigation/resize_optimizer.dart';
 import 'package:famhub_app/core/dashboard_engine/domain/models/dashboard_section.dart';
 import 'package:famhub_app/core/dashboard_engine/presentation/builders/widget_registry.dart';
+import 'package:famhub_app/core/workspace/application/workspace_catalog_provider.dart';
+import 'package:famhub_app/core/workspace/application/workspace_dashboard_provider.dart';
 import 'package:famhub_app/shared/widgets/module_error_boundary.dart';
 
 /// ============================================================
@@ -52,15 +54,30 @@ class ResponsiveDashboardRenderer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final dashboardItems = ref.watch(dashboardNavItemsProvider);
+    final dashboardItems = ref.watch(workspaceDashboardNavItemsProvider);
+    final workspaceName = ref.watch(activeWorkspaceNameProvider);
+    final catalogAsync = ref.watch(workspaceCatalogProvider);
     final breakpoint = ref.watch(breakpointProvider);
     final theme = Theme.of(context);
 
-    if (dashboardItems.isEmpty) {
-      return _buildEmptyState(theme);
+    // Wait for the workspace catalog so we never flash the empty state
+    // before the active workspace type is known.
+    if (catalogAsync.isLoading) {
+      return SafeArea(
+        child: Center(
+          child: CircularProgressIndicator(color: theme.colorScheme.primary),
+        ),
+      );
     }
 
-    final sections = _buildSections(dashboardItems);
+    if (dashboardItems.isEmpty) {
+      return _buildEmptyState(theme, workspaceName);
+    }
+
+    // The first promoted module is the primary workspace experience.
+    final featured = dashboardItems.first;
+    final rest = dashboardItems.skip(1).toList();
+    final sections = _buildSections(rest);
 
     return SafeArea(
       child: Center(
@@ -74,24 +91,45 @@ class ResponsiveDashboardRenderer extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Dashboard header ──
-                _buildHeader(sections.length, theme),
+                // ── Workspace-aware dashboard header ──
+                _buildHeader(workspaceName, theme),
                 const SizedBox(height: 16),
 
-                // ── Dynamic sections ──
-                Expanded(
-                  child: ListView.builder(
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: sections.length,
-                    itemBuilder: (context, index) {
-                      final section = sections[index];
-                      return _ResponsiveSectionView(
-                        section: section,
-                        breakpoint: breakpoint,
-                      );
-                    },
+                // ── Primary workspace experience ──
+                _buildFeaturedModule(context, featured, theme),
+                const SizedBox(height: 16),
+
+                // ── Remaining promoted modules ──
+                if (rest.isEmpty)
+                  Expanded(
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          'More modules for this workspace are available '
+                          'from the More menu.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: Colors.grey.shade600,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  Expanded(
+                    child: ListView.builder(
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: sections.length,
+                      itemBuilder: (context, index) {
+                        final section = sections[index];
+                        return _ResponsiveSectionView(
+                          section: section,
+                          breakpoint: breakpoint,
+                        );
+                      },
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -135,12 +173,12 @@ class ResponsiveDashboardRenderer extends ConsumerWidget {
     return sortedSections;
   }
 
-  Widget _buildHeader(int sectionCount, ThemeData theme) {
+  Widget _buildHeader(String? workspaceName, ThemeData theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Dashboard',
+          '${workspaceName ?? 'Workspace'} Dashboard',
           style: theme.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.w700,
             color: Colors.black87,
@@ -148,7 +186,7 @@ class ResponsiveDashboardRenderer extends ConsumerWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          '$sectionCount section${sectionCount == 1 ? '' : 's'}',
+          'Your workspace home',
           style: theme.textTheme.bodySmall?.copyWith(
             color: Colors.grey.shade600,
           ),
@@ -157,7 +195,75 @@ class ResponsiveDashboardRenderer extends ConsumerWidget {
     );
   }
 
-  Widget _buildEmptyState(ThemeData theme) {
+  /// Prominent card for the primary workspace experience.
+  /// Farmer → Farm Management (/farm), surfaced as the workspace entry.
+  Widget _buildFeaturedModule(
+      BuildContext context, NavItem item, ThemeData theme) {
+    return Material(
+      color: theme.colorScheme.primary,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: (item.isEnabled && !item.maintenanceMode)
+            ? () => context.go(item.route)
+            : null,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: theme.colorScheme.primary.withValues(alpha: 0.2),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(item.icon, size: 24, color: Colors.white),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.maintenanceMode
+                          ? '${item.displayName}*'
+                          : item.displayName,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      item.maintenanceMode
+                          ? 'Under maintenance'
+                          : 'Primary workspace experience',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.arrow_forward_rounded,
+                color: Colors.white,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(ThemeData theme, String? workspaceName) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
@@ -173,14 +279,14 @@ class ResponsiveDashboardRenderer extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Icon(
-                Icons.dashboard_customize_outlined,
+                Icons.workspaces_outline,
                 size: 40,
                 color: theme.colorScheme.primary,
               ),
             ),
             const SizedBox(height: 20),
             Text(
-              'No Modules Available',
+              '${workspaceName ?? 'Your'} workspace dashboard',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: Colors.black87,
@@ -188,8 +294,8 @@ class ResponsiveDashboardRenderer extends ConsumerWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Your dashboard is ready but no modules are currently '
-              'available. Please check back later or contact support.',
+              'We\'re setting up this workspace. Explore the full module '
+              'directory from the More menu.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: Colors.grey.shade600,
                 height: 1.4,

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:famhub_app/core/navigation/nav_config.dart';
 import 'package:famhub_app/core/providers/module_provider.dart';
 import 'package:famhub_app/core/dashboard_engine/presentation/renderer/responsive_dashboard_renderer.dart';
 import 'package:famhub_app/core/shell/presentation/layouts/common/common.dart';
@@ -15,12 +14,15 @@ import 'package:famhub_app/core/shell/presentation/layouts/common/common.dart';
 ///
 /// ✅ CORRECT FLOW:
 ///   system.modules (backend) → ModuleService → moduleProvider
-///   → navItem providers → RegistryDashboardRenderer → Dashboard UI
+///   → navItem providers + active workspace → workspaceDashboardNavItemsProvider
+///   → ResponsiveDashboardRenderer → Dashboard UI
 ///
 /// ✅ Responsibilities:
 ///   - Responsive shell layout
-///   - Render dashboard regions via RegistryDashboardRenderer
+///   - Render dashboard regions via ResponsiveDashboardRenderer
 ///   - Delegate loading/error/empty states to shared shell widgets
+///   - Dashboard composition is workspace-aware (selected workspace
+///     determines which modules are promoted on its Dashboard)
 ///
 /// ✅ ARCHITECTURE COMPLIANCE:
 ///   - FULLY metadata-driven (backend registry is source of truth)
@@ -47,11 +49,8 @@ class UnifiedDashboardHost extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch dashboard items from the backend-driven provider
-    // which already applies Context Engine filtering
-    final dashboardItems = ref.watch(dashboardNavItemsProvider);
-
-    // Show loading state if provider hasn't resolved yet
+    // Loading/error gated on the backend module fetch. The renderer
+    // handles the workspace-aware composition + empty state itself.
     final moduleAsync = ref.watch(moduleProvider);
 
     return moduleAsync.when(
@@ -60,12 +59,7 @@ class UnifiedDashboardHost extends ConsumerWidget {
         message: error.toString(),
         onRetry: () => ref.invalidate(moduleProvider),
       ),
-      data: (_) {
-        if (dashboardItems.isEmpty) {
-          return const ShellDashboardEmpty();
-        }
-        return const ResponsiveDashboardRenderer();
-      },
+      data: (_) => const ResponsiveDashboardRenderer(),
     );
   }
 }

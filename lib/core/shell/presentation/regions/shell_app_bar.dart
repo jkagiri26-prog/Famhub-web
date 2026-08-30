@@ -26,7 +26,11 @@ import '../../config/shell_config.dart';
 import '../../../providers/module_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../providers/notification_count_provider.dart';
-import '../../../context_engine/providers/context_provider.dart';
+import '../../../workspace/application/active_workspace_provider.dart';
+import '../../../workspace/application/workspace_catalog_provider.dart';
+import '../../../workspace/application/workspace_dashboard_provider.dart';
+import '../../../workspace/domain/workspace_catalog_item.dart';
+import '../../../../core/session/app_session.dart';
 import '../../../../core/session/session_provider.dart';
 
 /// ============================================================
@@ -207,7 +211,7 @@ class ShellAppBar extends ConsumerWidget {
 }
 
 /// ============================================================
-/// CONTEXT SELECTOR
+/// CONTEXT SELECTOR — Active workspace switcher
 /// ============================================================
 class _ContextSelector extends ConsumerWidget {
   final ShellColorPalette palette;
@@ -216,14 +220,15 @@ class _ContextSelector extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final context_ = ref.watch(contextProvider);
-    final entityName = context_.entityId ?? 'No Entity';
-    final role = context_.role ?? 'user';
+    final workspaceName =
+        ref.watch(activeWorkspaceNameProvider) ?? 'Workspace';
+    final session = ref.watch(sessionProvider);
+    final workspaceIds = session is AuthenticatedSession
+        ? session.workspaceIds
+        : const <String>[];
 
     return InkWell(
-      onTap: () {
-        // Future: context switcher dialog
-      },
+      onTap: () => _openWorkspaceSwitcher(context, ref),
       borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -238,7 +243,7 @@ class _ContextSelector extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Icon(
-                Icons.business_outlined,
+                Icons.workspaces_outline,
                 size: 16,
                 color: palette.primary,
               ),
@@ -249,7 +254,7 @@ class _ContextSelector extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  entityName,
+                  workspaceName,
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -257,7 +262,9 @@ class _ContextSelector extends ConsumerWidget {
                   ),
                 ),
                 Text(
-                  role,
+                  workspaceIds.length > 1
+                      ? 'Switch workspace'
+                      : 'Workspace',
                   style: TextStyle(
                     fontSize: 10,
                     color: palette.secondaryText,
@@ -275,6 +282,114 @@ class _ContextSelector extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  /// Opens a switcher listing the authenticated user's already-selected
+  /// workspaces. Switching updates the active workspace (in-memory +
+  /// local snapshot); the Dashboard recomposes from the new workspace.
+  Future<void> _openWorkspaceSwitcher(
+      BuildContext context, WidgetRef ref) async {
+    final session = ref.read(sessionProvider);
+    if (session is! AuthenticatedSession ||
+        session.workspaceIds.isEmpty) {
+      return;
+    }
+
+    final catalog = ref.read(workspaceCatalogProvider).asData?.value ??
+        const <WorkspaceCatalogItem>[];
+    final items = <WorkspaceCatalogItem>[
+      for (final id in session.workspaceIds)
+        for (final w in catalog)
+          if (w.id == id) w,
+    ];
+    if (items.isEmpty) return;
+
+    final active = ref.read(activeWorkspaceProvider);
+
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              alignment: Alignment.center,
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: palette.divider,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 16, bottom: 8),
+              child: Text(
+                'Switch workspace',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: palette.primaryText,
+                ),
+              ),
+            ),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: items.length,
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  final isActive = item.id == active.workspaceId;
+                  return ListTile(
+                    leading: Icon(Icons.workspaces_outline,
+                        color: isActive
+                            ? palette.primary
+                            : palette.secondaryText),
+                    title: Text(
+                      item.name,
+                      style: TextStyle(color: palette.primaryText),
+                    ),
+                    subtitle: item.category != null
+                        ? Text(
+                            item.category!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: palette.secondaryText,
+                            ),
+                          )
+                        : null,
+                    trailing: isActive
+                        ? Icon(Icons.check, color: palette.primary)
+                        : null,
+                    selected: isActive,
+                    onTap: () => Navigator.pop(sheetContext, item.id),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+
+    if (selected != null && selected != active.workspaceId) {
+      await ref
+          .read(activeWorkspaceProvider.notifier)
+          .switchWorkspace(selected);
+      // Surface the newly-selected workspace Dashboard.
+      if (context.mounted) {
+        context.go('/');
+      }
+    }
   }
 }
 

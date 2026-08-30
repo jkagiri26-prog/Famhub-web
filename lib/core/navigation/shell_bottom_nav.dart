@@ -52,12 +52,14 @@ class ShellBottomNav extends ConsumerWidget {
             .whenOrNull(data: (m) => m.length) ??
         0;
 
-    // Always include Dashboard as first item, then modules, then Profile
+    // Always include FAMHUB Home as first item, then modules, then Profile.
+    // Home = general platform homepage (/home); the workspace Dashboard
+    // lives at '/' and is entered post-workspace-selection.
     final allItems = [
       const NavItem(
         moduleKey: 'dashboard',
         displayName: 'Home',
-        route: '/',
+        route: '/home',
         icon: Icons.home_rounded,
         displayOrder: 0,
         bottomNavVisible: true,
