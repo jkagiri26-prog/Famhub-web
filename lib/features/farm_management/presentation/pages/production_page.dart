@@ -28,8 +28,7 @@ import 'package:famhub_app/features/farm_management/application/providers/farm_r
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/production_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/fields_provider.dart';
-import 'package:famhub_app/features/farm_management/application/providers/farm_dashboard_provider.dart';
-import 'package:famhub_app/features/farm_management/application/providers/farm_lifecycle_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/hierarchy_cascade_coordinator.dart';
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
 import 'package:famhub_app/features/guest/auth_guard.dart';
 
@@ -373,8 +372,7 @@ class _ProductionRecordingPageState extends ConsumerState<ProductionRecordingPag
 
       // Step 4: Invalidate providers to refresh
       ref.invalidate(productionProvider);
-            ref.invalidate(farmDashboardProvider);
-            ref.invalidate(farmLifecycleProvider);
+      ref.read(hierarchyCascadeCoordinatorProvider).refreshAfterMutation();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

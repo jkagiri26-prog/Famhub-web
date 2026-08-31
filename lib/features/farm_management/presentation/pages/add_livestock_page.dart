@@ -16,8 +16,7 @@ import 'package:famhub_app/shared/layouts/shell_page_content.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/livestock_provider.dart';
-import 'package:famhub_app/features/farm_management/application/providers/farm_lifecycle_provider.dart';
-import 'package:famhub_app/features/farm_management/application/providers/farm_dashboard_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/hierarchy_cascade_coordinator.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
 import 'package:famhub_app/features/guest/auth_guard.dart';
@@ -238,8 +237,7 @@ class _AddLivestockPageState extends ConsumerState<AddLivestockPage> {
 
       await repository.createLivestock(farmId: farmId, livestock: livestock);
       ref.invalidate(livestockProvider);
-      ref.invalidate(farmLifecycleProvider);
-      ref.invalidate(farmDashboardProvider);
+      ref.read(hierarchyCascadeCoordinatorProvider).refreshAfterMutation();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

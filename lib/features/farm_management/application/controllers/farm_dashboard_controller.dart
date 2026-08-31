@@ -22,6 +22,7 @@ import 'package:famhub_app/features/farm_management/domain/entities/production_e
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/hierarchy_cascade_coordinator.dart';
 import 'package:famhub_app/features/farm_management/application/state/farm_dashboard_state.dart';
 
 /// Dashboard controller:
@@ -88,7 +89,8 @@ class FarmDashboardController extends AsyncNotifier<FarmDashboardState> {
       // Non-critical
     }
 
-    ref.invalidateSelf();
+    // Centralized mutation refresh (dashboard + lifecycle + AI context)
+    ref.read(hierarchyCascadeCoordinatorProvider).refreshAfterMutation();
   }
 
   Future<void> createActivity(
@@ -102,7 +104,8 @@ class FarmDashboardController extends AsyncNotifier<FarmDashboardState> {
           activity: activity,
         );
 
-    ref.invalidateSelf();
+    // Centralized mutation refresh (dashboard + lifecycle + AI context)
+    ref.read(hierarchyCascadeCoordinatorProvider).refreshAfterMutation();
   }
 
   Future<void> syncMarketplaceListing() async {

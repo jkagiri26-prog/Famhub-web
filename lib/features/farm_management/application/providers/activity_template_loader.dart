@@ -30,7 +30,7 @@ class ActivityTemplateLoader {
   Future<List<Map<String, dynamic>>> loadActivityTypes() async {
     try {
       final response = await _client
-          .from('activity_types')
+          .schema('farm_management').from('activity_types')
           .select('id, name, category, description')
           .eq('is_active', true)
           .order('name');
@@ -53,7 +53,7 @@ class ActivityTemplateLoader {
   }) async {
     try {
       final response = await _client
-          .from('activity_attribute_rules')
+          .schema('farm_management').from('activity_attribute_rules')
           .select('''
             id,
             attribute_id,
@@ -85,7 +85,7 @@ class ActivityTemplateLoader {
   }) async {
     try {
       final response = await _client
-          .from('activity_workflow')
+          .schema('farm_management').from('activity_workflow')
           .select('id, stage_order, is_required')
           .eq('activity_type_id', activityTypeId)
           .order('stage_order');

@@ -16,8 +16,7 @@ import 'package:famhub_app/shared/layouts/shell_page_content.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/fields_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
-import 'package:famhub_app/features/farm_management/application/providers/farm_lifecycle_provider.dart';
-import 'package:famhub_app/features/farm_management/application/providers/farm_dashboard_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/hierarchy_cascade_coordinator.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/field_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
 import 'package:famhub_app/features/guest/auth_guard.dart';
@@ -38,24 +37,15 @@ class _AddFieldPageState extends ConsumerState<AddFieldPage> {
   final _fieldNameController = TextEditingController();
   final _acreageController = TextEditingController();
   final _soilTypeController = TextEditingController();
-  final _currentCropController = TextEditingController();
   final _notesController = TextEditingController();
-  String _status = 'active';
+  bool _isActive = true;
   bool _isSubmitting = false;
-
-  static const _statusOptions = [
-    ('active', 'Active'),
-    ('fallow', 'Fallow'),
-    ('resting', 'Resting'),
-    ('leased', 'Leased'),
-  ];
 
   @override
   void dispose() {
     _fieldNameController.dispose();
     _acreageController.dispose();
     _soilTypeController.dispose();
-    _currentCropController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -130,39 +120,22 @@ class _AddFieldPageState extends ConsumerState<AddFieldPage> {
                     ),
                     const SizedBox(height: 20),
 
-                    // ── Status ──
+                    // ── Active Status (backend `is_active` — no status column) ──
                     Text('Status',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      value: _status,
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      ),
-                      items: _statusOptions.map((s) => DropdownMenuItem(
-                        value: s.$1,
-                        child: Text(s.$2),
-                      )).toList(),
-                      onChanged: (v) => setState(() => _status = v!),
+                    SwitchListTile(
+                      value: _isActive,
+                      onChanged: (v) => setState(() => _isActive = v),
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Active field'),
+                      subtitle: Text(_isActive
+                          ? 'This field is in use'
+                          : 'This field is inactive'),
                     ),
                     const SizedBox(height: 20),
 
-                    // ── Current Crop ──
-                    Text('Current Crop (Optional)',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _currentCropController,
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        hintText: 'e.g. Maize, Wheat',
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // ── Notes ──
+                    // ── Notes (backend `description`) ──
                     Text('Notes (Optional)',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
@@ -248,16 +221,14 @@ class _AddFieldPageState extends ConsumerState<AddFieldPage> {
         fieldName: _fieldNameController.text.trim(),
         acreage: double.tryParse(_acreageController.text.trim()),
         soilType: _soilTypeController.text.trim().isEmpty ? null : _soilTypeController.text.trim(),
-        status: _status,
-        currentCrop: _currentCropController.text.trim().isEmpty ? null : _currentCropController.text.trim(),
+        isActive: _isActive,
         notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
         createdAt: DateTime.now(),
       );
 
       await repository.createField(farmId: farmId, field: field);
       ref.invalidate(fieldsProvider);
-      ref.invalidate(farmLifecycleProvider);
-      ref.invalidate(farmDashboardProvider);
+      ref.read(hierarchyCascadeCoordinatorProvider).refreshAfterMutation();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

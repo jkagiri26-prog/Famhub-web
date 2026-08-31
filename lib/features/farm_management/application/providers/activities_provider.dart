@@ -96,10 +96,25 @@ class ActivitiesNotifier extends Notifier<ActivityListState> {
     try {
       final activities = await _repository.getActivities(farmId: farmId);
 
-      // Client-side filtering by UI hierarchy context
+      // Client-side filtering by UI hierarchy context.
+      //
+      // ⚠️ DOCUMENTED LIMITATION: the activities table has no
+      // field_id / crop_or_livestock_id columns, and the frontend's
+      // `assets` table is machinery/equipment (no field_id/variant_id),
+      // so field/crop hierarchy CANNOT be reconstructed after a reload
+      // or app restart. After reload `a.fieldId`/`a.cropOrLivestockId`
+      // are null. The filter therefore treats null context as "unknown —
+      // include" (safe: it never hides an activity). Field/crop-level
+      // narrowing only applies to activities created within the current
+      // session. Full hierarchy filtering after reload requires a
+      // backend linkage contract (see report: backend dependencies).
       final filtered = activities.where((a) {
-        final matchesField = hierarchy.fieldId == null || a.fieldId == null || a.fieldId == hierarchy.fieldId;
-        final matchesCrop = hierarchy.cropOrLivestockId == null || a.cropOrLivestockId == null || a.cropOrLivestockId == hierarchy.cropOrLivestockId;
+        final matchesField = hierarchy.fieldId == null ||
+            a.fieldId == null ||
+            a.fieldId == hierarchy.fieldId;
+        final matchesCrop = hierarchy.cropOrLivestockId == null ||
+            a.cropOrLivestockId == null ||
+            a.cropOrLivestockId == hierarchy.cropOrLivestockId;
         return matchesField && matchesCrop;
       }).toList();
 

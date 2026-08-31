@@ -3,6 +3,7 @@
 *.log
 *.pyc
 *.swp
+/core
 .DS_Store
 .atom/
 .build/
@@ -35,6 +36,7 @@ migrate_working_dir/
 *.log
 *.pyc
 *.swp
+/core
 .DS_Store
 .atom/
 .build/

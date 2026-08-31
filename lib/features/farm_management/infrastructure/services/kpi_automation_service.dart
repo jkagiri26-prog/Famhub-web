@@ -73,7 +73,7 @@ class KpiAutomationService {
           await _computeTotalYield(farmId);
 
       // Upsert into farm_kpis
-      await _client.from('farm_kpis').upsert({
+      await _client.schema('farm_management').from('farm_kpis').upsert({
         'farm_id': farmId,
         'total_production': totalProduction.toDouble(),
         'total_yield': totalYield.toDouble(),
@@ -119,7 +119,7 @@ class KpiAutomationService {
       final profit = totalIncome.toDouble() - totalExpense.toDouble();
 
       // Upsert into farm_kpis
-      await _client.from('farm_kpis').upsert({
+      await _client.schema('farm_management').from('farm_kpis').upsert({
         'farm_id': farmId,
         'total_income': totalIncome.toDouble(),
         'total_expense': totalExpense.toDouble(),
@@ -128,7 +128,7 @@ class KpiAutomationService {
       }, onConflict: 'farm_id');
 
       // Also update farm_aggregates
-      await _client.from('farm_aggregates').upsert({
+      await _client.schema('farm_management').from('farm_aggregates').upsert({
         'farm_id': farmId,
         'total_income': totalIncome.toDouble(),
         'total_expense': totalExpense.toDouble(),
@@ -159,7 +159,7 @@ class KpiAutomationService {
     try {
       // Compute total stock value from assets
       final assets = await _client
-          .from('assets')
+          .schema('farm_management').from('assets')
           .select('quantity')
           .eq('farm_id', farmId);
 
@@ -169,7 +169,7 @@ class KpiAutomationService {
         stockValue += qty; // Simplified - in real scenario multiply by unit price
       }
 
-      await _client.from('farm_kpis').upsert({
+      await _client.schema('farm_management').from('farm_kpis').upsert({
         'farm_id': farmId,
         'stock_value': stockValue,
         'last_updated': DateTime.now().toIso8601String(),
@@ -196,7 +196,7 @@ class KpiAutomationService {
     try {
       final totalSales = await _computeTotalSales(farmId);
 
-      await _client.from('farm_kpis').upsert({
+      await _client.schema('farm_management').from('farm_kpis').upsert({
         'farm_id': farmId,
         'total_sales': totalSales.toDouble(),
         'last_updated': DateTime.now().toIso8601String(),
@@ -215,7 +215,7 @@ class KpiAutomationService {
   Future<double> _computeTotalProduction(String farmId) async {
     try {
       final result = await _client
-          .from('production_records')
+          .schema('farm_management').from('production_records')
           .select('quantity')
           .eq('farm_id', farmId)
           .gt('quantity', 0);
@@ -239,7 +239,7 @@ class KpiAutomationService {
   Future<double> _computeTotalIncome(String farmId) async {
     try {
       final result = await _client
-          .from('financial_records')
+          .schema('farm_management').from('financial_records')
           .select('amount')
           .eq('farm_id', farmId)
           .eq('record_type', 'income');
@@ -257,7 +257,7 @@ class KpiAutomationService {
   Future<double> _computeTotalExpense(String farmId) async {
     try {
       final result = await _client
-          .from('financial_records')
+          .schema('farm_management').from('financial_records')
           .select('amount')
           .eq('farm_id', farmId)
           .eq('record_type', 'expense');
@@ -275,7 +275,7 @@ class KpiAutomationService {
   Future<double> _computeTotalSales(String farmId) async {
     try {
       final result = await _client
-          .from('financial_records')
+          .schema('farm_management').from('financial_records')
           .select('amount')
           .eq('farm_id', farmId)
           .eq('record_type', 'sale');

@@ -11,8 +11,7 @@ import 'package:famhub_app/features/farm_management/application/providers/farm_c
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/assets_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/activities_provider.dart';
-import 'package:famhub_app/features/farm_management/application/providers/farm_lifecycle_provider.dart';
-import 'package:famhub_app/features/farm_management/application/providers/farm_dashboard_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/hierarchy_cascade_coordinator.dart';
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
 
 import 'package:famhub_app/features/farm_management/presentation/pages/activity_template_selection_page.dart';
@@ -369,6 +368,26 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
       final repository = ref.read(farmRepositoryProvider);
       final hierarchy = ref.read(hierarchyProvider);
 
+      // ── EXPLICIT WORKFLOW ──
+      // Activities require the full Farm → Field → Crop/Livestock path.
+      // Without a selected crop/livestock the activity would have no
+      // documented hierarchy context (the activities table has no
+      // farm/field/crop columns), so submission is blocked here rather
+      // than silently recording an unlinked activity.
+      if (!hierarchy.hasFullSelection) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Please select a Field and Crop/Livestock before recording an activity.',
+            ),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 4),
+          ),
+        );
+        return;
+      }
+
       // Build activity model with UI context fields (NOT persisted to backend)
       final activity = ActivityModel(
         id: '', // Backend will generate
@@ -389,10 +408,10 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
       // Use the backend-generated ID for subsequent operations
       print('Activity created with backend ID: ${createdActivity.id}');
 
-      // Invalidate lifecycle, dashboard, and activities providers
+      // Invalidate activities + central mutation refresh (dashboard,
+      // lifecycle, AI context)
       ref.invalidate(activitiesProvider);
-      ref.invalidate(farmLifecycleProvider);
-      ref.invalidate(farmDashboardProvider);
+      ref.read(hierarchyCascadeCoordinatorProvider).refreshAfterMutation();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

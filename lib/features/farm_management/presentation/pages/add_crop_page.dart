@@ -13,8 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/shared/layouts/shell_page_content.dart';
-import 'package:famhub_app/features/farm_management/application/providers/farm_lifecycle_provider.dart';
-import 'package:famhub_app/features/farm_management/application/providers/farm_dashboard_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/hierarchy_cascade_coordinator.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/crops_provider.dart';
@@ -260,8 +259,7 @@ class _AddCropPageState extends ConsumerState<AddCropPage> {
 
       await repository.createCrop(farmId: farmId, crop: crop);
       ref.invalidate(cropsProvider);
-      ref.invalidate(farmLifecycleProvider);
-      ref.invalidate(farmDashboardProvider);
+      ref.read(hierarchyCascadeCoordinatorProvider).refreshAfterMutation();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

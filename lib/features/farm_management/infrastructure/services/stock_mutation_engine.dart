@@ -77,7 +77,7 @@ class StockMutationEngine {
     try {
       // Step 1: Check current stock
       final currentAsset = await _client
-          .from('assets')
+          .schema('farm_management').from('assets')
           .select('id, quantity, asset_name')
           .eq('id', assetId)
           .eq('farm_id', farmId)
@@ -105,13 +105,13 @@ class StockMutationEngine {
       // Step 3: Update asset quantity
       final newBalance = currentQty - quantity;
       await _client
-          .from('assets')
+          .schema('farm_management').from('assets')
           .update({'quantity': newBalance, 'updated_at': DateTime.now().toIso8601String()})
           .eq('id', assetId);
 
       // Step 4: Record consumption as production record (negative quantity = outflow)
       if (activityId != null) {
-        await _client.from('production_records').insert({
+        await _client.schema('farm_management').from('production_records').insert({
           'farm_id': farmId,
           'asset_id': assetId,
           'activity_id': activityId,
@@ -177,7 +177,7 @@ class StockMutationEngine {
     try {
       // Step 1: Get current stock
       final currentAsset = await _client
-          .from('assets')
+          .schema('farm_management').from('assets')
           .select('id, quantity, asset_name')
           .eq('id', assetId)
           .eq('farm_id', farmId)
@@ -188,13 +188,13 @@ class StockMutationEngine {
       // Step 2: Update asset quantity
       final newBalance = currentQty + quantity;
       await _client
-          .from('assets')
+          .schema('farm_management').from('assets')
           .update({'quantity': newBalance, 'updated_at': DateTime.now().toIso8601String()})
           .eq('id', assetId);
 
       // Step 3: Record production inflow
       if (activityId != null) {
-        await _client.from('production_records').insert({
+        await _client.schema('farm_management').from('production_records').insert({
           'farm_id': farmId,
           'asset_id': assetId,
           'activity_id': activityId,
@@ -251,7 +251,7 @@ class StockMutationEngine {
   }) async {
     try {
       final rules = await _client
-          .from('activity_stock_rules')
+          .schema('farm_management').from('activity_stock_rules')
           .select()
           .eq('activity_type_id', activityTypeId);
 
@@ -271,7 +271,7 @@ class StockMutationEngine {
     try {
       // Get all assets with quantity > 0
       final assets = await _client
-          .from('assets')
+          .schema('farm_management').from('assets')
           .select('id, asset_name, quantity')
           .eq('farm_id', farmId)
           .gt('quantity', 0);
@@ -303,7 +303,7 @@ class StockMutationEngine {
   }) async {
     try {
       await _client
-          .from('assets')
+          .schema('farm_management').from('assets')
           .update({'quantity': newQuantity, 'updated_at': DateTime.now().toIso8601String()})
           .eq('id', assetId);
 

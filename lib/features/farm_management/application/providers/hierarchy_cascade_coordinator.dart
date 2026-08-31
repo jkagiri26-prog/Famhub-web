@@ -88,6 +88,19 @@ class HierarchyCascadeCoordinator {
     });
   }
 
+  /// Centralized mutation-success refresh.
+  ///
+  /// Call this after ANY successful repository/workflow mutation
+  /// (create farm/field/crop/livestock, activity, production) so the
+  /// dashboard, lifecycle stage/health/recommendations, and AI context
+  /// always reflect fresh data — regardless of which page initiated the
+  /// mutation. Individual pages must NOT duplicate these invalidations.
+  void refreshAfterMutation() {
+    ref.invalidate(farmDashboardProvider);
+    ref.invalidate(farmLifecycleProvider);
+    ref.invalidate(farmAiContextProvider);
+  }
+
   /// Internal provider that just emits the hierarchy version number.
   /// This is safe because it only watches hierarchy, which doesn't
   /// import any of the invalidation target providers.

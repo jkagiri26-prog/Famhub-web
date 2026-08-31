@@ -132,7 +132,7 @@ class FinancialRecordingService {
         if (category != null) 'category': category,
       };
 
-      await _client.from('financial_records').insert(record);
+      await _client.schema('farm_management').from('financial_records').insert(record);
 
       _eventBus.emit(WorkflowEvent.completed(
         workflowName: 'financial_recording',

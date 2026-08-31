@@ -4,13 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famhub_app/shared/layouts/shell_page_content.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
-import 'package:famhub_app/features/farm_management/application/providers/farm_lifecycle_provider.dart';
-import 'package:famhub_app/features/farm_management/application/providers/farm_dashboard_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/fields_provider.dart';
+import 'package:famhub_app/features/guest/auth_guard.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_onboarding_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/farm_entity.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/farm_management_page.dart';
 import 'package:famhub_app/features/farm_management/presentation/widgets/farm_created_success_dialog.dart';
+import 'package:famhub_app/core/session/providers/session_country_provider.dart';
+import 'package:famhub_app/features/profile/application/providers/profile_location_provider.dart';
+import 'package:famhub_app/features/profile/presentation/widgets/dynamic_location_fields.dart';
 
 /// Add Farm form with automatic default field creation.
 ///
@@ -44,6 +46,14 @@ class _AddFarmPageState extends ConsumerState<AddFarmPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    // Farm location is selected from core.locations (independent of the
+    // profile's location). Initialize the geography hierarchy for the
+    // session country so the County / Sub-County / Ward pickers render.
+    final countryId = ref.watch(sessionCountryIdProvider);
+    if (countryId != null) {
+      ref.watch(profileLocationInitProvider(countryId));
+    }
 
     return ShellPageContent(
       title: 'Add New Farm',
@@ -178,6 +188,32 @@ class _AddFarmPageState extends ConsumerState<AddFarmPage> {
                   return null;
                 },
               ),
+              const SizedBox(height: 20),
+
+              // ── Farm Location (County / Sub-County / Ward) ──
+              Text(
+                'Farm Location *',
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Select the County, Sub-County and Ward where this farm is located.',
+                style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 12),
+              if (countryId != null)
+                DynamicLocationFields(
+                  hideCountry: true, // country auto-resolved from the session profile
+                  onRetry: _retryLevels,
+                  onChanged: _handleLocationsChanged,
+                )
+              else
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
               const SizedBox(height: 32),
 
               // ── Submit Button ──
@@ -274,8 +310,31 @@ class _AddFarmPageState extends ConsumerState<AddFarmPage> {
     );
   }
 
+  /// Rebuild after a location selection so the submit flow reads the
+  /// latest values from the geography provider. Level 0 is the country
+  /// (auto-resolved from the session profile); the farm's location levels
+  /// are index 1 = County, 2 = Sub-County, 3 = Ward.
+  void _handleLocationsChanged(List<SelectedLocationEntry> entries) {
+    setState(() {});
+  }
+
+  /// Retry loading geography levels for the session country.
+  void _retryLevels() {
+    final countryId = ref.read(sessionCountryIdProvider);
+    if (countryId == null) return;
+    ref.read(profileLocationProvider.notifier).refresh(countryId);
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // ── GUEST GUARD: block unauthenticated submission before any mutation ──
+    final shouldProceed = await showProtectedActionPrompt(
+      context,
+      ref,
+      action: 'create a farm',
+    );
+    if (!shouldProceed) return;
 
     setState(() => _isSubmitting = true);
 
@@ -284,6 +343,29 @@ class _AddFarmPageState extends ConsumerState<AddFarmPage> {
 
       final size = double.tryParse(_sizeController.text.trim());
 
+      // ── Farm location selected in THIS form (core.locations) ──
+      // The farm's County / Sub-County / Ward are picked by the user and
+      // are independent of the profile's location. The authoritative values
+      // come from the geography provider's selectedLocations map. Real IDs
+      // only — never fabricated. FarmRepositoryImpl.createFarm() rejects
+      // the insert if any are missing (the columns are NOT NULL).
+      final selected = ref.read(profileLocationProvider).selectedLocations;
+      final countyId = selected[1]?.id;
+      final subCountyId = selected[2]?.id;
+      final wardId = selected[3]?.id;
+      if (countyId == null || subCountyId == null || wardId == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Please select the farm\'s County, Sub-County and Ward location.',
+            ),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
       final farmEntity = FarmEntity(
         id: '', // Will be assigned by backend
         farmName: _farmNameController.text.trim(),
@@ -291,6 +373,9 @@ class _AddFarmPageState extends ConsumerState<AddFarmPage> {
             ? null
             : _descriptionController.text.trim(),
         size: size,
+        countyId: countyId,
+        subCountyId: subCountyId,
+        wardId: wardId,
         isActive: true,
         isVerified: false,
       );

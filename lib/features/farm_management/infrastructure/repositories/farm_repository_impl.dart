@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:famhub_app/features/farm_management/domain/models/activity_model.dart';
+import 'package:famhub_app/features/farm_management/domain/mappers/activity_persistence_mapper.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/asset_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/field_entity.dart';
@@ -32,7 +33,7 @@ class FarmRepositoryImpl implements FarmRepository {
   Future<FarmEntity?> getFarm({required String farmId}) async {
     try {
       final response = await _client
-          .from('farms')
+          .schema('farm_management').from('farms')
           .select()
           .eq('id', farmId)
           .maybeSingle();
@@ -65,7 +66,6 @@ class FarmRepositoryImpl implements FarmRepository {
       acreage: farmSize,
       soilType: null,
       currentCrop: null,
-      status: 'active',
       notes: 'Auto-created default field',
       createdAt: DateTime.now(),
     );
@@ -79,12 +79,30 @@ class FarmRepositoryImpl implements FarmRepository {
   @override
   Future<FarmEntity> createFarm({required FarmEntity farm}) async {
     try {
+      // farm_management.farms declares county_id / sub_county_id / ward_id
+      // as NOT NULL (FK → core.locations). We must provide REAL location
+      // IDs — never fabricate them. If the user's profile has no location
+      // levels selected, fail honestly instead of triggering a NOT NULL
+      // violation or writing garbage.
+      final countyId = farm.countyId;
+      final subCountyId = farm.subCountyId;
+      final wardId = farm.wardId;
+      if (countyId == null || subCountyId == null || wardId == null) {
+        throw Exception(
+          'Farm location is incomplete. Complete your profile location '
+          '(County, Sub-County, Ward) before creating a farm.',
+        );
+      }
+
       final response = await _client
-          .from('farms')
+          .schema('farm_management').from('farms')
           .insert({
             'farm_name': farm.farmName,
             'description': farm.description,
             'size': farm.size,
+            'county_id': countyId,
+            'sub_county_id': subCountyId,
+            'ward_id': wardId,
             'is_active': farm.isActive,
             'is_verified': farm.isVerified,
           })
@@ -102,7 +120,7 @@ class FarmRepositoryImpl implements FarmRepository {
   Future<FarmEntity> updateFarm({required FarmEntity farm}) async {
     try {
       final response = await _client
-          .from('farms')
+          .schema('farm_management').from('farms')
           .update({
             'farm_name': farm.farmName,
             'description': farm.description,
@@ -124,7 +142,7 @@ class FarmRepositoryImpl implements FarmRepository {
   @override
   Future<void> deleteFarm({required String farmId}) async {
     try {
-      await _client.from('farms').update({'is_active': false}).eq('id', farmId);
+      await _client.schema('farm_management').from('farms').update({'is_active': false}).eq('id', farmId);
     } on PostgrestException catch (e) {
       throw Exception('Failed to delete farm: ${e.message}');
     } catch (e) {
@@ -135,7 +153,7 @@ class FarmRepositoryImpl implements FarmRepository {
   @override
   Future<void> refreshDashboard({required String farmId}) async {
     try {
-      await _client.from('farm_kpis').select('id').eq('farm_id', farmId).maybeSingle();
+      await _client.schema('farm_management').from('farm_kpis').select('id').eq('farm_id', farmId).maybeSingle();
     } catch (_) {
       // Non-critical
     }
@@ -144,7 +162,7 @@ class FarmRepositoryImpl implements FarmRepository {
   @override
   Future<void> refreshFarm({required String farmId}) async {
     try {
-      await _client.from('farms').select('id').eq('id', farmId).maybeSingle();
+      await _client.schema('farm_management').from('farms').select('id').eq('id', farmId).maybeSingle();
     } catch (_) {
       // Non-critical
     }
@@ -166,7 +184,7 @@ class FarmRepositoryImpl implements FarmRepository {
   Future<FarmDashboardSummary> getDashboardSummary({required String farmId}) async {
     try {
       final response = await _client
-          .from('farm_kpis')
+          .schema('farm_management').from('farm_kpis')
           .select()
           .eq('farm_id', farmId)
           .single();
@@ -190,24 +208,13 @@ class FarmRepositoryImpl implements FarmRepository {
     try {
       final today = DateTime.now();
       final startOfDay = DateTime(today.year, today.month, today.day);
-      final response = await _client
-          .from('activities')
-          .select('''
-            id, activity_type_id, performed_at, notes, asset_id, plan_id,
-            asset:asset_id(farm_id), plan:plan_id(farm_id)
-          ''')
-          .gte('performed_at', startOfDay.toIso8601String())
-          .order('performed_at', ascending: false)
-          .limit(50);
-      final List<ActivityModel> activities = [];
-      for (final row in (response as List).cast<Map<String, dynamic>>()) {
-        final assetFarmId = (row['asset'] as Map<String, dynamic>?)?['farm_id'] as String?;
-        final planFarmId = (row['plan'] as Map<String, dynamic>?)?['farm_id'] as String?;
-        if (assetFarmId == farmId || planFarmId == farmId) {
-          activities.add(_mapActivityRow(row));
-        }
-      }
-      return activities;
+      final response = await _queryFarmActivities(
+        farmId: farmId,
+        extraFilter: (query) => query.gte(
+            'performed_at', startOfDay.toIso8601String()),
+        limit: 50,
+      );
+      return response;
     } on PostgrestException catch (e) {
       throw Exception('Failed to load today activities: ${e.message}');
     } catch (e) {
@@ -219,7 +226,7 @@ class FarmRepositoryImpl implements FarmRepository {
   Future<List<FarmEntity>> getUserFarms() async {
     try {
       final response = await _client
-          .from('farms')
+          .schema('farm_management').from('farms')
           .select()
           .eq('is_active', true)
           .order('farm_name', ascending: true);
@@ -240,24 +247,13 @@ class FarmRepositoryImpl implements FarmRepository {
   Future<List<FieldEntity>> getFields({required String farmId}) async {
     try {
       final response = await _client
-          .from('fields')
+          .schema('farm_management').from('fields')
           .select()
           .eq('farm_id', farmId)
-          .order('field_name', ascending: true);
+          .order('name', ascending: true);
       return (response as List)
           .cast<Map<String, dynamic>>()
-          .map((row) => FieldEntity(
-                id: row['id'] as String,
-                farmId: row['farm_id'] as String,
-                fieldName: row['name'] as String? ?? row['field_name'] as String,
-                acreage: (row['acreage'] as num?)?.toDouble(),
-                soilType: row['soil_type'] as String?,
-                currentCrop: row['current_crop'] as String?,
-                status: row['status'] as String? ?? 'active',
-                type: row['type'] as String?,
-                notes: row['notes'] as String?,
-                createdAt: DateTime.parse(row['created_at'] as String),
-              ))
+          .map(_mapFieldRow)
           .toList();
     } on PostgrestException catch (e) {
       throw Exception('Failed to load fields: ${e.message}');
@@ -270,31 +266,20 @@ class FarmRepositoryImpl implements FarmRepository {
   Future<FieldEntity> createField({required String farmId, required FieldEntity field}) async {
     try {
       final response = await _client
-          .from('fields')
+          .schema('farm_management').from('fields')
           .insert({
             'farm_id': farmId,
             'name': field.fieldName,
-            'field_name': field.fieldName,
-            'acreage': field.acreage,
+            'description': field.notes,
+            'size': field.acreage,
+            'field_type': field.type,
             'soil_type': field.soilType,
-            'current_crop': field.currentCrop,
-            'status': field.status,
-            'notes': field.notes,
+            'is_active': field.isActive,
+            'unit_id': field.unitId,
           })
           .select()
           .single();
-      return FieldEntity(
-        id: response['id'] as String,
-        farmId: response['farm_id'] as String,
-        fieldName: response['name'] as String? ?? response['field_name'] as String,
-        acreage: (response['acreage'] as num?)?.toDouble(),
-        soilType: response['soil_type'] as String?,
-        currentCrop: response['current_crop'] as String?,
-        status: response['status'] as String? ?? 'active',
-        type: response['type'] as String?,
-        notes: response['notes'] as String?,
-        createdAt: DateTime.parse(response['created_at'] as String),
-      );
+      return _mapFieldRow(response);
     } on PostgrestException catch (e) {
       throw Exception('Failed to create field: ${e.message}');
     } catch (e) {
@@ -310,7 +295,7 @@ class FarmRepositoryImpl implements FarmRepository {
     String? fieldId,
   }) async {
     try {
-      var query = _client.from('crops').select().eq('farm_id', farmId);
+      var query = _client.schema('farm_management').from('crops').select().eq('farm_id', farmId);
       if (fieldId != null) {
         query = query.eq('field_id', fieldId);
       }
@@ -354,7 +339,7 @@ class FarmRepositoryImpl implements FarmRepository {
   Future<CropEntity> createCrop({required String farmId, required CropEntity crop}) async {
     try {
       final response = await _client
-          .from('crops')
+          .schema('farm_management').from('crops')
           .insert({
             'farm_id': farmId,
             'field_id': crop.fieldId,
@@ -415,7 +400,7 @@ class FarmRepositoryImpl implements FarmRepository {
     String? fieldId,
   }) async {
     try {
-      var query = _client.from('livestock').select().eq('farm_id', farmId);
+      var query = _client.schema('farm_management').from('livestock').select().eq('farm_id', farmId);
       if (fieldId != null) {
         query = query.eq('field_id', fieldId);
       }
@@ -451,7 +436,7 @@ class FarmRepositoryImpl implements FarmRepository {
   }) async {
     try {
       final response = await _client
-          .from('livestock')
+          .schema('farm_management').from('livestock')
           .select()
           .eq('farm_id', farmId)
           .eq('field_id', fieldId)
@@ -487,7 +472,7 @@ class FarmRepositoryImpl implements FarmRepository {
   }) async {
     try {
       final response = await _client
-          .from('livestock')
+          .schema('farm_management').from('livestock')
           .select()
           .eq('id', livestockId)
           .eq('farm_id', farmId)
@@ -522,7 +507,7 @@ class FarmRepositoryImpl implements FarmRepository {
   }) async {
     try {
       final response = await _client
-          .from('livestock')
+          .schema('farm_management').from('livestock')
           .insert({
             'farm_id': farmId,
             'species': livestock.species,
@@ -562,7 +547,7 @@ class FarmRepositoryImpl implements FarmRepository {
   Future<List<AssetEntity>> getAssets({required String farmId}) async {
     try {
       final response = await _client
-          .from('assets')
+          .schema('farm_management').from('assets')
           .select()
           .eq('farm_id', farmId)
           .order('created_at', ascending: false);
@@ -599,7 +584,7 @@ class FarmRepositoryImpl implements FarmRepository {
   }) async {
     try {
       final response = await _client
-          .from('assets')
+          .schema('farm_management').from('assets')
           .insert({
             'farm_id': farmId,
             'asset_name': asset.assetName,
@@ -643,7 +628,7 @@ class FarmRepositoryImpl implements FarmRepository {
   Future<List<ProductionEntity>> getProductionRecords({required String farmId}) async {
     try {
       final response = await _client
-          .from('production_records')
+          .schema('farm_management').from('production_records')
           .select()
           .eq('farm_id', farmId)
           .order('created_at', ascending: false)
@@ -675,7 +660,7 @@ class FarmRepositoryImpl implements FarmRepository {
   }) async {
     try {
       final response = await _client
-          .from('production_records')
+          .schema('farm_management').from('production_records')
           .insert({
             'farm_id': farmId,
             'variant_id': production.variantId,
@@ -714,27 +699,68 @@ class FarmRepositoryImpl implements FarmRepository {
 
   // ── Activities ──
 
+  /// Query activities for a farm.
+  ///
+  /// Farm filtering is performed SERVER-SIDE by resolving the farm's
+  /// asset/plan IDs first, then filtering activities on `asset_id` /
+  /// `plan_id` via PostgREST `.in()`. The whole activities table is
+  /// never fetched. Deleted activities are excluded
+  /// (`.eq('is_deleted', false)`).
+  ///
+  /// ⚠️ LIMITATION (documented contract): the activities table has no
+  /// farm_id / field_id / crop_or_livestock_id columns, so activities
+  /// linked to NEITHER an asset nor a plan cannot be farm-associated
+  /// server-side and are not returned. This matches the documented
+  /// contract that activities belong to a farm through an asset/plan.
+  Future<List<ActivityModel>> _queryFarmActivities({
+    required String farmId,
+    void Function(dynamic query)? extraFilter,
+    int limit = 100,
+  }) async {
+    // Resolve the farm's asset IDs and plan IDs.
+    final assetRows = await _client
+        .schema('farm_management').from('assets')
+        .select('id')
+        .eq('farm_id', farmId);
+    final planRows = await _client
+        .schema('farm_management').from('plans')
+        .select('id')
+        .eq('farm_id', farmId);
+    final assetIds = (assetRows as List)
+        .cast<Map<String, dynamic>>()
+        .map((r) => r['id'] as String)
+        .toList();
+    final planIds = (planRows as List)
+        .cast<Map<String, dynamic>>()
+        .map((r) => r['id'] as String)
+        .toList();
+
+    // Farm has no assets/plans → no activities can be associated.
+    if (assetIds.isEmpty && planIds.isEmpty) return const [];
+
+    final orConditions = <String>[
+      if (assetIds.isNotEmpty) 'asset_id.in.(${assetIds.join(',')})',
+      if (planIds.isNotEmpty) 'plan_id.in.(${planIds.join(',')})',
+    ];
+
+    var query = _client
+        .schema('farm_management').from('activities')
+        .select('id, activity_type_id, performed_at, notes, asset_id, plan_id')
+        .eq('is_deleted', false)
+        .or(orConditions.join(','));
+    extraFilter?.call(query);
+    final response = await query.order('performed_at', ascending: false).limit(limit);
+
+    return (response as List)
+        .cast<Map<String, dynamic>>()
+        .map((row) => activityFromRow(row, farmId: farmId))
+        .toList();
+  }
+
   @override
   Future<List<ActivityModel>> getActivities({required String farmId}) async {
     try {
-      final response = await _client
-          .from('activities')
-          .select('''
-            id, activity_type_id, performed_at, notes, asset_id, plan_id,
-            asset:asset_id(farm_id), plan:plan_id(farm_id)
-          ''')
-          .order('performed_at', ascending: false)
-          .limit(100);
-      final List<ActivityModel> activities = [];
-      for (final row in (response as List).cast<Map<String, dynamic>>()) {
-        // Filter by farm_id through the asset/plan relationship
-        final assetFarmId = (row['asset'] as Map<String, dynamic>?)?['farm_id'] as String?;
-        final planFarmId = (row['plan'] as Map<String, dynamic>?)?['farm_id'] as String?;
-        if (assetFarmId == farmId || planFarmId == farmId) {
-          activities.add(_mapActivityRow(row));
-        }
-      }
-      return activities;
+      return await _queryFarmActivities(farmId: farmId, limit: 100);
     } on PostgrestException catch (e) {
       throw Exception('Failed to load activities: ${e.message}');
     } catch (e) {
@@ -747,7 +773,7 @@ class FarmRepositoryImpl implements FarmRepository {
     try {
       if (activity.assetId != null) {
         final assetCheck = await _client
-            .from('assets')
+            .schema('farm_management').from('assets')
             .select('id')
             .eq('id', activity.assetId!)
             .maybeSingle();
@@ -755,27 +781,22 @@ class FarmRepositoryImpl implements FarmRepository {
       }
       if (activity.planId != null) {
         final planCheck = await _client
-            .from('plans')
+            .schema('farm_management').from('plans')
             .select('id')
             .eq('id', activity.planId!)
             .maybeSingle();
         if (planCheck == null) throw Exception('Plan not found');
       }
       final inserted = await _client
-          .from('activities')
-          .insert({
-            'activity_type_id': activity.activityTypeId,
-            'performed_at': activity.performedAt.toIso8601String(),
-            'notes': activity.notes,
-            'asset_id': activity.assetId,
-            'plan_id': activity.planId,
-          })
+          .schema('farm_management').from('activities')
+          .insert(buildActivityInsertPayload(activity))
           .select('''
             id, activity_type_id, performed_at, notes, asset_id, plan_id
           ''')
           .single();
 
-      final createdActivity = _mapActivityRowFull(inserted);
+      // Backend-generated ID is mapped here (activityFromRow reads `id`).
+      final createdActivity = activityFromRow(inserted);
 
       // Persist attribute values if present
       if (activity.attributeValues.isNotEmpty) {
@@ -798,7 +819,7 @@ class FarmRepositoryImpl implements FarmRepository {
           } else {
             row['value_text'] = value.toString();
           }
-          await _client.from('activity_values').insert(row);
+          await _client.schema('farm_management').from('activity_values').insert(row);
         }
       }
       return createdActivity;
@@ -838,7 +859,7 @@ class FarmRepositoryImpl implements FarmRepository {
         } else {
           row['value_text'] = value.toString();
         }
-        await _client.from('activity_values').insert(row);
+        await _client.schema('farm_management').from('activity_values').insert(row);
       }
     } on PostgrestException catch (e) {
       throw Exception('Failed to persist activity values: ${e.message}');
@@ -856,7 +877,7 @@ class FarmRepositoryImpl implements FarmRepository {
   }) async {
     try {
       final response = await _client
-          .from('crops')
+          .schema('farm_management').from('crops')
           .select()
           .eq('id', cropId)
           .eq('farm_id', farmId)
@@ -894,9 +915,9 @@ class FarmRepositoryImpl implements FarmRepository {
     try {
       // Activities don't have a farm_id column; fetch all and filter via asset/plan
       final response = await _client
-          .from('activities')
+          .schema('farm_management').from('activities')
           .select('''
-            id,before activity_type_id, performed_at, notes, asset_id, plan_id,
+            id, activity_type_id, performed_at, notes, asset_id, plan_id,
             asset:asset_id(farm_id), plan:plan_id(farm_id)
           ''')
           .order('performed_at', ascending: false);
@@ -921,7 +942,7 @@ class FarmRepositoryImpl implements FarmRepository {
   Future<Map<String, dynamic>> getProductionReport({required String farmId}) async {
     try {
       final response = await _client
-          .from('production_records')
+          .schema('farm_management').from('production_records')
           .select()
           .eq('farm_id', farmId)
           .order('created_at', ascending: false);
@@ -955,7 +976,7 @@ class FarmRepositoryImpl implements FarmRepository {
   }) async {
     try {
       final currentAsset = await _client
-          .from('assets')
+          .schema('farm_management').from('assets')
           .select('id, quantity')
           .eq('id', assetId)
           .eq('farm_id', farmId)
@@ -970,14 +991,14 @@ class FarmRepositoryImpl implements FarmRepository {
       }
       final newBalance = currentQty - quantity;
       await _client
-          .from('assets')
+          .schema('farm_management').from('assets')
           .update({
             'quantity': newBalance,
             'updated_at': DateTime.now().toIso8601String(),
           })
           .eq('id', assetId);
       if (activityId != null) {
-        await _client.from('production_records').insert({
+        await _client.schema('farm_management').from('production_records').insert({
           'farm_id': farmId,
           'asset_id': assetId,
           'activity_id': activityId,
@@ -1003,7 +1024,7 @@ class FarmRepositoryImpl implements FarmRepository {
   }) async {
     try {
       final currentAsset = await _client
-          .from('assets')
+          .schema('farm_management').from('assets')
           .select('id, quantity')
           .eq('id', assetId)
           .eq('farm_id', farmId)
@@ -1011,7 +1032,7 @@ class FarmRepositoryImpl implements FarmRepository {
       final currentQty = (currentAsset['quantity'] as num?)?.toDouble() ?? 0;
       final newBalance = currentQty + quantity;
       await _client
-          .from('assets')
+          .schema('farm_management').from('assets')
           .update({
             'quantity': newBalance,
             'updated_at': DateTime.now().toIso8601String(),
@@ -1027,7 +1048,7 @@ class FarmRepositoryImpl implements FarmRepository {
   Future<Map<String, double>> getAvailableStock({required String farmId}) async {
     try {
       final result = await _client
-          .from('assets')
+          .schema('farm_management').from('assets')
           .select('id, quantity')
           .eq('farm_id', farmId)
           .gt('quantity', 0);
@@ -1052,7 +1073,7 @@ class FarmRepositoryImpl implements FarmRepository {
     String? activityId,
   }) async {
     try {
-      await _client.from('financial_records').insert({
+      await _client.schema('farm_management').from('financial_records').insert({
         'farm_id': farmId,
         'activity_id': activityId,
         'record_type': recordType,
@@ -1106,7 +1127,7 @@ class FarmRepositoryImpl implements FarmRepository {
   @override
   Future<void> syncMarketplaceListing({required String farmId}) async {
     try {
-      await _client.from('farm_reports').insert({
+      await _client.schema('farm_management').from('farm_reports').insert({
         'farm_id': farmId,
         'report_type': 'marketplace_sync',
         'report_date': DateTime.now().toIso8601String(),
@@ -1129,30 +1150,34 @@ class FarmRepositoryImpl implements FarmRepository {
       farmName: row['farm_name'] as String,
       description: row['description'] as String?,
       size: (row['size'] as num?)?.toDouble(),
+      countyId: row['county_id'] as String?,
+      subCountyId: row['sub_county_id'] as String?,
+      wardId: row['ward_id'] as String?,
       isActive: row['is_active'] as bool? ?? true,
       isVerified: row['is_verified'] as bool? ?? false,
     );
   }
 
-  ActivityModel _mapActivityRow(Map<String, dynamic> row) {
-    return ActivityModel(
+  /// Maps a farm_management.fields row to [FieldEntity] against the
+  /// authoritative backend contract:
+  ///   name ↔ fieldName, size ↔ acreage, field_type ↔ type,
+  ///   description ↔ notes, soil_type ↔ soilType, is_active ↔ isActive,
+  ///   unit_id ↔ unitId.
+  /// `current_crop` and `status` are NOT backend columns → currentCrop is
+  /// left null and status is derived from is_active.
+  FieldEntity _mapFieldRow(Map<String, dynamic> row) {
+    return FieldEntity(
       id: row['id'] as String,
-      activityTypeId: row['activity_type_id'] as String,
-      performedAt: DateTime.parse(row['performed_at'] as String),
-      notes: row['notes'] as String?,
-      assetId: row['asset_id'] as String?,
-      planId: row['plan_id'] as String?,
-    );
-  }
-
-  ActivityModel _mapActivityRowFull(Map<String, dynamic> row) {
-    return ActivityModel(
-      id: row['id'] as String,
-      activityTypeId: row['activity_type_id'] as String,
-      performedAt: DateTime.parse(row['performed_at'] as String),
-      notes: row['notes'] as String?,
-      assetId: row['asset_id'] as String?,
-      planId: row['plan_id'] as String?,
+      farmId: row['farm_id'] as String,
+      fieldName: row['name'] as String,
+      acreage: (row['size'] as num?)?.toDouble(),
+      soilType: row['soil_type'] as String?,
+      currentCrop: null,
+      type: row['field_type'] as String?,
+      notes: row['description'] as String?,
+      isActive: row['is_active'] as bool? ?? true,
+      unitId: row['unit_id'] as String?,
+      createdAt: DateTime.parse(row['created_at'] as String),
     );
   }
 }

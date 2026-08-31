@@ -106,6 +106,13 @@ class RecommendationInput {
   final bool hasStockBelowThreshold;
   final int? daysSinceLastFinancialRecord;
 
+  /// Whether a valid backend data source exists for each optional
+  /// recommendation category. When false, the engine NEVER generates
+  /// that recommendation — no hardcoded/fabricated data is shown.
+  final bool overdueTaskDataAvailable;
+  final bool stockDataAvailable;
+  final bool financialRecencyDataAvailable;
+
   const RecommendationInput({
     required this.stage,
     required this.hasCrop,
@@ -119,6 +126,9 @@ class RecommendationInput {
     required this.overdueTaskCount,
     required this.hasStockBelowThreshold,
     this.daysSinceLastFinancialRecord,
+    this.overdueTaskDataAvailable = false,
+    this.stockDataAvailable = false,
+    this.financialRecencyDataAvailable = false,
   });
 }
 
@@ -148,7 +158,7 @@ class FarmRecommendationEngine {
       ));
     }
 
-    if (input.overdueTaskCount > 0) {
+    if (input.overdueTaskDataAvailable && input.overdueTaskCount > 0) {
       recommendations.add(FarmRecommendation(
         id: 'overdue_tasks',
         title: '${input.overdueTaskCount} task${input.overdueTaskCount > 1 ? 's' : ''} overdue',
@@ -160,7 +170,7 @@ class FarmRecommendationEngine {
       ));
     }
 
-    if (input.hasStockBelowThreshold) {
+    if (input.stockDataAvailable && input.hasStockBelowThreshold) {
       recommendations.add(const FarmRecommendation(
         id: 'low_stock',
         title: 'Stock levels are low',
@@ -172,7 +182,8 @@ class FarmRecommendationEngine {
       ));
     }
 
-    if (input.daysSinceLastFinancialRecord != null &&
+    if (input.financialRecencyDataAvailable &&
+        input.daysSinceLastFinancialRecord != null &&
         input.daysSinceLastFinancialRecord! > 30) {
       recommendations.add(FarmRecommendation(
         id: 'financial_overdue',

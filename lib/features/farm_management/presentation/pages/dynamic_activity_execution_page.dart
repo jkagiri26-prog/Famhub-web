@@ -37,9 +37,9 @@ import 'package:famhub_app/features/farm_management/config/workflow_templates.da
 import 'package:famhub_app/features/farm_management/domain/models/activity_template.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/activities_provider.dart';
-import 'package:famhub_app/features/farm_management/application/providers/farm_dashboard_provider.dart';
-import 'package:famhub_app/features/farm_management/application/providers/farm_lifecycle_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/hierarchy_cascade_coordinator.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
+import 'package:famhub_app/features/guest/auth_guard.dart';
 import 'package:famhub_app/features/farm_management/presentation/widgets/dynamic_activity_form_renderer.dart';
 
 class DynamicActivityExecutionPage extends ConsumerStatefulWidget {
@@ -350,6 +350,14 @@ class _DynamicActivityExecutionPageState
       return;
     }
 
+    // ── GUEST GUARD: block unauthenticated submission before any mutation ──
+    final shouldProceed = await showProtectedActionPrompt(
+      context,
+      ref,
+      action: 'record this activity',
+    );
+    if (!shouldProceed) return;
+
     setState(() => _isSubmitting = true);
     try {
       // Advance to complete the workflow
@@ -377,8 +385,7 @@ class _DynamicActivityExecutionPageState
 
       // ── PROVIDER INVALIDATION ──
       ref.invalidate(activitiesProvider);
-      ref.invalidate(farmDashboardProvider);
-      ref.invalidate(farmLifecycleProvider);
+      ref.read(hierarchyCascadeCoordinatorProvider).refreshAfterMutation();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

@@ -13,6 +13,12 @@
 ///
 /// The current season is auto-created when the farm is created.
 /// A new season can be started when the current one is complete.
+///
+/// ⚠️ LIMITATION (backend dependency): Season UI and local season state
+/// are available, but lifecycle calculations are NOT yet database-isolated
+/// by season. The backend tables (activities, production_records,
+/// financial_records) have no `season_id` column, so historical
+/// non-season records are not filtered by the current season.
 /// ============================================================
 library;
 

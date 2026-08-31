@@ -18,14 +18,16 @@
 ///   Production Started:
 ///     Activities exist + No production records
 ///
-///   Active Management:
-///     Multiple activities (>= 3) + Growing production records
-///
 ///   Harvest / Production Complete:
-///     Harvest or production records exist
+///     A crop has reached the `harvested` status (distinct completion
+///     signal). Production records alone do NOT imply completion — an
+///     active farm with production records stays in Active Management.
 ///
 ///   Reporting & Analysis:
-///     Production completed + Reports / aggregated data available
+///     Production records + Reports / aggregated data available
+///
+///   Active Management:
+///     Multiple activities (>= 3) + Growing production records
 ///
 /// ============================================================
 library;
@@ -43,6 +45,11 @@ class LifecycleDetectionInput {
 
   /// Whether the farm has at least one livestock record
   final bool hasLivestock;
+
+  /// Whether any crop has reached the `harvested` status.
+  /// This is the distinct completion signal for Harvest Complete — a
+  /// production record alone does NOT mean the farm is complete.
+  final bool hasHarvestedCrop;
 
   /// Number of activities recorded
   final int activityCount;
@@ -63,6 +70,7 @@ class LifecycleDetectionInput {
     required this.activityCount,
     required this.productionRecordCount,
     required this.hasReports,
+    this.hasHarvestedCrop = false,
     this.uniqueActivityTypes = 0,
   });
 
@@ -94,19 +102,23 @@ class FarmLifecycleDetector {
       return FarmLifecycleStage.productionStarted;
     }
 
-    // ── Rule 4: Active Management (multiple activities + production growing) ──
-    if (input.hasField && input.activityCount >= 3 && input.productionRecordCount > 0) {
-      return FarmLifecycleStage.activeManagement;
-    }
-
-    // ── Rule 5: Harvest / Production Complete (production recorded) ──
-    if (input.hasField && input.productionRecordCount > 0 && input.activityCount > 0) {
+    // ── Rule 4: Harvest / Production Complete ──
+    // Requires a DISTINCT completion signal: a crop marked `harvested`.
+    // Production records alone do NOT imply completion.
+    if (input.hasField && input.hasHarvestedCrop) {
       return FarmLifecycleStage.harvestOrProductionComplete;
     }
 
-    // ── Rule 6: Reporting & Analysis (production + reports) ──
+    // ── Rule 5: Reporting & Analysis (production + reports) ──
     if (input.hasField && input.productionRecordCount > 0 && input.hasReports) {
       return FarmLifecycleStage.reportingAndAnalysis;
+    }
+
+    // ── Rule 6: Active Management (multiple activities + production growing) ──
+    // Ordinary active farms with production records but no harvested
+    // signal stay in Active Management — never Harvest Complete.
+    if (input.hasField && input.activityCount >= 3 && input.productionRecordCount > 0) {
+      return FarmLifecycleStage.activeManagement;
     }
 
     // ── Fallback ──

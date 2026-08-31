@@ -9,6 +9,8 @@
 ///   - Watch ProfileLocationProvider
 ///   - Render a dynamic list of dropdowns based on geography levels
 ///   - Level 0 (country) is selectable, pre‑selected with the session country
+///   - [hideCountry] hides the country dropdown while still auto-selecting
+///     it from the session/profile so the lower levels cascade correctly
 ///   - Wire parent-child cascading (selecting a parent loads children)
 ///   - Expose selected location IDs for saving
 ///
@@ -32,10 +34,16 @@ class DynamicLocationFields extends ConsumerWidget {
   final OnLocationsSelected? onChanged;
   final VoidCallback? onRetry;
 
+  /// When true, the country (level 0) dropdown is hidden. The country is
+  /// still auto-resolved from the session/profile and used to drive the
+  /// parent-child cascade for the levels below it.
+  final bool hideCountry;
+
   const DynamicLocationFields({
     super.key,
     this.onChanged,
     this.onRetry,
+    this.hideCountry = false,
   });
 
   @override
@@ -176,6 +184,13 @@ class DynamicLocationFields extends ConsumerWidget {
             notifier.selectLocation(0, countryLoc);
           });
         }
+      }
+
+      // ── Hide the country dropdown when requested ──
+      // The country is still auto-selected above, so the cascade continues
+      // to the first non-country level (County, etc.).
+      if (isCountryLevel && hideCountry) {
+        continue;
       }
 
       dropdowns.add(

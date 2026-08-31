@@ -22,6 +22,7 @@ import 'package:famhub_app/features/farm_management/domain/services/farm_health_
 import 'package:famhub_app/features/farm_management/domain/services/farm_recommendation_engine.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/field_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/enums/crop_status.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/models/activity_model.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/production_entity.dart';
@@ -154,6 +155,8 @@ class FarmLifecycleNotifier extends Notifier<FarmLifecycleState> {
         hasField: fields.isNotEmpty,
         hasCrop: crops.isNotEmpty,
         hasLivestock: livestock.isNotEmpty,
+        hasHarvestedCrop:
+            crops.any((c) => c.status == CropStatus.harvested),
         activityCount: activities.length,
         productionRecordCount: productionRecords.length,
         hasReports: hasReports,
@@ -197,6 +200,16 @@ class FarmLifecycleNotifier extends Notifier<FarmLifecycleState> {
       const int overdueTaskCount = 0;
       const int? daysSinceLastFinancialRecord = null;
 
+      // ── RECOMMENDATION DATA-SOURCE AVAILABILITY ──
+      // These recommendation categories are DISABLED until a valid
+      // backend data source exists. No fabricated values are passed as
+      // real data. When a data source is added, flip the corresponding
+      // flag here (and populate the value field) — the engine gates each
+      // recommendation on its availability flag.
+      const bool overdueTaskDataAvailable = false;
+      const bool stockDataAvailable = false;
+      const bool financialRecencyDataAvailable = false;
+
       final recommendationInput = RecommendationInput(
         stage: stage,
         hasCrop: crops.isNotEmpty,
@@ -215,6 +228,9 @@ class FarmLifecycleNotifier extends Notifier<FarmLifecycleState> {
         overdueTaskCount: overdueTaskCount,
         hasStockBelowThreshold: hasStockBelowThreshold,
         daysSinceLastFinancialRecord: daysSinceLastFinancialRecord,
+        overdueTaskDataAvailable: overdueTaskDataAvailable,
+        stockDataAvailable: stockDataAvailable,
+        financialRecencyDataAvailable: financialRecencyDataAvailable,
       );
       final recommendations =
           _recommendationEngine.generate(recommendationInput);
