@@ -44,7 +44,7 @@ import 'package:famhub_app/core/workspace/domain/workspace_catalog_item.dart';
 /// - Keys MUST be actual `system.modules.module_key` values. Verified
 ///   against lib/system/registry/module_registry.dart:
 ///     farm_management, marketplace, analytics, finance, logistics,
-///     traceability, carbon_credit, knowledge_link, agribusiness,
+///     traceability, carbon_credit, knowledge, agribusiness,
 ///     opportunities, extension_services, agri_connect, agri_tech_lab,
 ///     referral_hub, profile, admin_console.
 /// - Extend freely: add a workspace type + ordered keys.
@@ -64,7 +64,7 @@ class WorkspaceDashboardCatalog {
       'logistics',
       'traceability',
       'extension_services',
-      'knowledge_link',
+      'knowledge',
       'agri_connect',
       'agri_tech_lab',
       'opportunities',
@@ -96,7 +96,7 @@ class WorkspaceDashboardCatalog {
       'agri_tech_lab',
     ],
     'knowledge_partner': [
-      'knowledge_link',
+      'knowledge',
       'agri_tech_lab',
       'analytics',
       'agri_connect',

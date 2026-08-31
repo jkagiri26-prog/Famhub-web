@@ -139,7 +139,7 @@ class AccessRegistry {
 
     // ── Knowledge Link ──────────────────────────
     AccessRule(
-      resourceKey: 'knowledge_link',
+      resourceKey: 'knowledge',
       allowedRoles: ['farmer', 'admin', 'extension_officer', 'agronomist'],
       requiredTier: 'free',
       permissionMappings: {

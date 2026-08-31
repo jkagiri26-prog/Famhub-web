@@ -186,14 +186,14 @@ class FeatureRegistry {
     // ── Knowledge Link Features ─────────────────
     FeatureDefinition(
       featureKey: 'knowledge_browse',
-      moduleId: 'knowledge_link',
+      moduleId: 'knowledge',
       defaultEnabled: true,
       requiredTier: 'free',
       description: 'Browse knowledge articles and guides',
     ),
     FeatureDefinition(
       featureKey: 'knowledge_create',
-      moduleId: 'knowledge_link',
+      moduleId: 'knowledge',
       defaultEnabled: true,
       requiredTier: 'basic',
       description: 'Create and publish knowledge content',

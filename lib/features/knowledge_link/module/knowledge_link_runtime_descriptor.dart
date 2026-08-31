@@ -23,7 +23,7 @@ import 'package:famhub_app/core/composition/domain/models/module_descriptor.dart
 /// ============================================================
 ModuleRuntimeDescriptor createKnowledgeLinkDescriptor() {
   return const ModuleRuntimeDescriptor(
-    moduleKey: 'knowledge_link',
+    moduleKey: 'knowledge',
     displayName: 'Knowledge Link',
     description: 'Agricultural knowledge base and learning resources',
     iconKey: 'library',
@@ -33,7 +33,7 @@ ModuleRuntimeDescriptor createKnowledgeLinkDescriptor() {
     // ── Dashboard Widget Contributions ──
     dashboardWidgets: [
       DashboardWidgetDescriptor(
-        moduleKey: 'knowledge_link',
+        moduleKey: 'knowledge',
         widgetKey: 'knowledge_recommended',
         displayName: 'Recommended Content',
         sectionKey: 'knowledge',
@@ -43,7 +43,7 @@ ModuleRuntimeDescriptor createKnowledgeLinkDescriptor() {
         iconKey: 'recommend',
       ),
       DashboardWidgetDescriptor(
-        moduleKey: 'knowledge_link',
+        moduleKey: 'knowledge',
         widgetKey: 'knowledge_recent_articles',
         displayName: 'Recent Articles',
         sectionKey: 'knowledge',
@@ -53,7 +53,7 @@ ModuleRuntimeDescriptor createKnowledgeLinkDescriptor() {
         iconKey: 'article',
       ),
       DashboardWidgetDescriptor(
-        moduleKey: 'knowledge_link',
+        moduleKey: 'knowledge',
         widgetKey: 'knowledge_learning_progress',
         displayName: 'Learning Progress',
         sectionKey: 'knowledge',
@@ -63,7 +63,7 @@ ModuleRuntimeDescriptor createKnowledgeLinkDescriptor() {
         iconKey: 'school',
       ),
       DashboardWidgetDescriptor(
-        moduleKey: 'knowledge_link',
+        moduleKey: 'knowledge',
         widgetKey: 'knowledge_tips',
         displayName: 'Daily Tips',
         sectionKey: 'knowledge',

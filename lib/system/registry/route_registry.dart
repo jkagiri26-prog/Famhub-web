@@ -79,7 +79,7 @@ class RouteRegistry {
       routeName: 'carbonCredit',
     ),
     RouteMapping(
-      moduleId: 'knowledge_link',
+      moduleId: 'knowledge',
       route: '/knowledge',
       routeName: 'knowledge',
     ),

@@ -157,7 +157,7 @@ class ModuleRegistry {
     // Knowledge Link Module
     // ─────────────────────────────────────────────
     ModuleDefinition(
-      moduleId: 'knowledge_link',
+      moduleId: 'knowledge',
       name: 'Knowledge Link',
       description: 'Agricultural knowledge base and learning resources',
       version: '1.0.0',

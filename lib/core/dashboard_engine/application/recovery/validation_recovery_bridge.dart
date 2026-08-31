@@ -107,7 +107,7 @@ class ValidationRecoveryBridge {
       _ModuleIdRef('logistics'),
       _ModuleIdRef('traceability'),
       _ModuleIdRef('carbon_credit'),
-      _ModuleIdRef('knowledge_link'),
+      _ModuleIdRef('knowledge'),
       _ModuleIdRef('agribusiness'),
       _ModuleIdRef('opportunities'),
       _ModuleIdRef('extension_services'),

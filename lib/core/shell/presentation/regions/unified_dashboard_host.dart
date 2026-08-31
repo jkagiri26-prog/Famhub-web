@@ -17,7 +17,7 @@ import 'package:famhub_app/core/dashboard_engine/presentation/renderer/responsiv
 ///   trader / supplier → MarketplacePage         (marketplace)
 ///   institution       → FinancingPage           (finance)
 ///   service_provider  → ExtensionServicesPage   (extension_services)
-///   knowledge_partner → KnowledgeLinkPage       (knowledge_link)
+///   knowledge_partner → KnowledgeLinkPage       (knowledge)
 ///
 /// There is NO intermediate dashboard card the user must click to enter
 /// the workspace, and NO redirect — the landing page renders in place.

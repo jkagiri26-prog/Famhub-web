@@ -213,7 +213,7 @@ void bootstrapModulePageBuilders() {
   ModulePageRegistry.register(
       'carbon_credit', (_) => const CarbonCreditPage());
   ModulePageRegistry.register(
-      'knowledge_link', (_) => const KnowledgeLinkPage());
+      'knowledge', (_) => const KnowledgeLinkPage());
   ModulePageRegistry.register(
       'agribusiness', (_) => const AgribusinessPage());
   ModulePageRegistry.register(
