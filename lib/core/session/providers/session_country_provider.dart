@@ -159,24 +159,49 @@ class SessionCountryController extends Notifier<SessionCountryState> {
 
       final profile = await supabase
           .from('profiles', schema: 'users')
-          .select('country_id, countries!inner(id, name, iso_alpha2, dialing_code)')
+          .select('country_id')
           .eq('auth_user_id', userId)
           .maybeSingle();
 
-      if (profile != null && profile['country_id'] != null) {
-        final c = profile['countries'] as Map<String, dynamic>?;
-        state = SessionCountryState(
-          country: SessionCountry(
-            id: profile['country_id'] as String,
-            name: c?['name'] as String? ?? '',
-            isoAlpha2: c?['iso_alpha2'] as String? ?? '',
-            dialingCode: c?['dialing_code'] as String? ?? '',
-          ),
-          isLoading: false,
-        );
-      } else {
+      final countryId = profile?['country_id'] as String?;
+      if (countryId == null) {
         state = const SessionCountryState(isLoading: false);
+        return;
       }
+
+      // Resolve full country metadata from core.countries. If the lookup
+      // fails (join/RLS/transient), fall back to an ID-only country so the
+      // country is never silently left null (which would spin farm/profile
+      // location pickers forever).
+      SessionCountry? resolved;
+      try {
+        final row = await supabase
+            .from('countries', schema: 'core')
+            .select('id, name, iso_alpha2, dialing_code')
+            .eq('id', countryId)
+            .maybeSingle();
+        if (row != null) {
+          resolved = SessionCountry(
+            id: row['id'] as String,
+            name: row['name'] as String,
+            isoAlpha2: row['iso_alpha2'] as String,
+            dialingCode: row['dialing_code'] as String,
+          );
+        }
+      } catch (_) {
+        // Keep the ID-only fallback below.
+      }
+
+      state = SessionCountryState(
+        country: resolved ??
+            SessionCountry(
+              id: countryId,
+              name: '',
+              isoAlpha2: '',
+              dialingCode: '',
+            ),
+        isLoading: false,
+      );
     } catch (_) {
       state = const SessionCountryState(isLoading: false);
     }

@@ -50,7 +50,8 @@ class _AddFarmPageState extends ConsumerState<AddFarmPage> {
     // Farm location is selected from core.locations (independent of the
     // profile's location). Initialize the geography hierarchy for the
     // session country so the County / Sub-County / Ward pickers render.
-    final countryId = ref.watch(sessionCountryIdProvider);
+    final countryState = ref.watch(sessionCountryProvider);
+    final countryId = countryState.countryId;
     if (countryId != null) {
       ref.watch(profileLocationInitProvider(countryId));
     }
@@ -207,12 +208,18 @@ class _AddFarmPageState extends ConsumerState<AddFarmPage> {
                   onRetry: _retryLevels,
                   onChanged: _handleLocationsChanged,
                 )
-              else
+              else if (countryState.isLoading)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 24),
                   child: Center(
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
+                )
+              else
+                _buildCountryUnavailable(
+                  theme: theme,
+                  colorScheme: theme.colorScheme,
+                  error: countryState.error,
                 ),
               const SizedBox(height: 32),
 
@@ -323,6 +330,67 @@ class _AddFarmPageState extends ConsumerState<AddFarmPage> {
     final countryId = ref.read(sessionCountryIdProvider);
     if (countryId == null) return;
     ref.read(profileLocationProvider.notifier).refresh(countryId);
+  }
+
+  /// Retry resolving the session country (used when the country could not
+  /// be determined, so the page never spins without a way to recover).
+  void _retryCountry() {
+    ref.read(sessionCountryProvider.notifier).refresh();
+  }
+
+  /// Shown when the session country could not be resolved — replaces the
+  /// previous endless spinner so the user always has an actionable state.
+  Widget _buildCountryUnavailable({
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+    String? error,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.error.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.public_off_outlined,
+                  size: 20, color: colorScheme.error),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Could not load location levels.',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: colorScheme.error,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            error ??
+                'Your account country is not set. Retry, or update your '
+                    'profile country first.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colorScheme.error,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _retryCountry,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Retry'),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _submit() async {
