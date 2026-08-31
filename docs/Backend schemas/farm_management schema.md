@@ -154,6 +154,7 @@ CREATE TABLE farm_management.production_records (
   source_type USER-DEFINED,
   record_id uuid,
   activity_ref uuid,
+  output_commodity_id uuid,
   CONSTRAINT production_records_pkey PRIMARY KEY (id),
   CONSTRAINT production_records_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES core.entities(id),
   CONSTRAINT production_farm_fkey FOREIGN KEY (farm_id) REFERENCES farm_management.farms(id),
@@ -162,6 +163,7 @@ CREATE TABLE farm_management.production_records (
   CONSTRAINT production_unit_fkey FOREIGN KEY (unit_id) REFERENCES core.units(id),
   CONSTRAINT production_records_category_id_fkey FOREIGN KEY (category_id) REFERENCES core.categories(id),
   CONSTRAINT production_record_fk FOREIGN KEY (record_id) REFERENCES core.records(id),
+  CONSTRAINT production_output_commodity_fkey FOREIGN KEY (output_commodity_id) REFERENCES core.commodities(id),
   CONSTRAINT production_records_asset_id_fkey FOREIGN KEY (asset_id) REFERENCES farm_management.assets(id),
   CONSTRAINT production_records_field_id_fkey FOREIGN KEY (field_id) REFERENCES farm_management.fields(id)
 );
