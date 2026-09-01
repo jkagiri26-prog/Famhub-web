@@ -13,14 +13,26 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// Remote data source for marketplace listings.
 ///
 /// Handles all Supabase queries for `marketplace.listings`.
-/// `unit_id` is a scalar FK column (→ core.units.id via fk_listing_unit).
-/// Unit names are NOT embedded through PostgREST: cross-schema embeds depend
-/// on the FK being present in the PostgREST schema cache (a stale cache makes
-/// `unit:unit_id(name)` fail with a relationship error). The name is resolved
-/// with a separate batched `core.units` lookup (see [fetchUnitsByIds]).
 ///
-/// location_id → core.locations(name)
-/// stock_id    → commerce.stock_registry(quantity, reserved_quantity)
+/// RELATIONSHIP POLICY (audit — Dec 2026):
+///   The authoritative FK contract is:
+///     unit_id     → core.units.id            (fk_listing_unit)
+///     location_id → core.locations.id        (fk_listing_location)
+///     variant_id  → core.item_variants.id    (listings_variant_id_fkey)
+///     entity_id   → core.entities.id         (listings_entity_id_fkey)
+///     stock_id    → commerce.stock_registry.id (listings_stock_id_fkey)
+///
+///   PostgREST embeds (`unit:unit_id(name)`, `location:location_id(name)`,
+///   `stock:stock_id(...)`) resolve relationships from the PostgREST schema
+///   cache. After the recent schema changes that cache is stale for these
+///   cross-schema FKs, so the whole query fails with a
+///   "Could not find a relationship ... in the schema cache" error.
+///
+///   Therefore the listings query selects SCALAR FK columns only and the
+///   referenced display data is resolved with separate batched lookups:
+///     unit_name     ← core.units             (fetchUnitsByIds)
+///     location_name ← core.locations         (fetchLocationsByIds)
+///     quantities    ← commerce.stock_registry (fetchStockByIds)
 ///
 /// sellerName/sellerRating resolved via separate 2-hop query:
 ///   entity_id → core.entities → commerce.business_profiles
@@ -31,13 +43,13 @@ class MarketplaceRemoteDataSource {
   MarketplaceRemoteDataSource({SupabaseClient? client})
       : _client = client ?? Supabase.instance.client;
 
-  /// PostgREST select fragment with FK joins.
+  /// PostgREST select fragment — scalar columns only, no FK embeds.
+  /// (Cross-schema embeds depend on the PostgREST schema cache, which is
+  /// stale for these relationships; see the class docs above.)
   static const String _listingSelectQuery = '''
     id, title, description, price_per_unit, currency, status, images,
     contact_visibility, is_promoted, promoted_until, created_at, updated_at,
-    entity_id, variant_id, stock_id, unit_id, location_id,
-    location:location_id(name),
-    stock:stock_id(quantity, reserved_quantity)
+    entity_id, variant_id, stock_id, unit_id, location_id
   ''';
 
   /// Resolve unit names for the given unit IDs (id → name).
@@ -63,6 +75,63 @@ class MarketplaceRemoteDataSource {
       throw Exception('Failed to fetch units: ${e.message}');
     } catch (e) {
       throw Exception('Failed to fetch units: $e');
+    }
+  }
+
+  /// Resolve location names for the given location IDs (id → name).
+  ///
+  /// Direct `core.locations` query — never depends on the schema cache.
+  Future<Map<String, String>> fetchLocationsByIds(
+      Set<String> locationIds) async {
+    final ids = locationIds.where((id) => id.isNotEmpty).toList();
+    if (ids.isEmpty) return const {};
+    try {
+      final response = await _client
+          .schema('core')
+          .from('locations')
+          .select('id, name')
+          .inFilter('id', ids);
+      final rows = (response as List).cast<Map<String, dynamic>>();
+      return {
+        for (final row in rows)
+          if (row['id'] != null)
+            row['id'].toString(): row['name']?.toString() ?? '',
+      };
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to fetch locations: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to fetch locations: $e');
+    }
+  }
+
+  /// Resolve stock quantities for the given stock IDs
+  /// (id → (quantity, reserved_quantity)).
+  ///
+  /// Direct `commerce.stock_registry` query — never depends on the schema cache.
+  Future<Map<String, ({double quantity, double reservedQuantity})>>
+      fetchStockByIds(Set<String> stockIds) async {
+    final ids = stockIds.where((id) => id.isNotEmpty).toList();
+    if (ids.isEmpty) return const {};
+    try {
+      final response = await _client
+          .schema('commerce')
+          .from('stock_registry')
+          .select('id, quantity, reserved_quantity')
+          .inFilter('id', ids);
+      final rows = (response as List).cast<Map<String, dynamic>>();
+      return {
+        for (final row in rows)
+          if (row['id'] != null)
+            row['id'].toString(): (
+              quantity: (row['quantity'] as num?)?.toDouble() ?? 0,
+              reservedQuantity:
+                  (row['reserved_quantity'] as num?)?.toDouble() ?? 0,
+            ),
+      };
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to fetch stock: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to fetch stock: $e');
     }
   }
 

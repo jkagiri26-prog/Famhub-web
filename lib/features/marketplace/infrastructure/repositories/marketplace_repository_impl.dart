@@ -69,7 +69,7 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
   /// which PostgREST cannot express natively.
   Future<List<Listing>> _enrichWithSellerProfiles(
       List<Map<String, dynamic>> rawListings) async {
-    await _enrichWithUnitNames(rawListings);
+    await _enrichReferencedData(rawListings);
     final enriched = <Listing>[];
     for (final raw in rawListings) {
       final entityId = raw['entity_id']?.toString();
@@ -94,7 +94,7 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
   /// Enrich a single listing with seller profile data.
   Future<Listing> _enrichSingleSellerProfile(
       Map<String, dynamic> raw) async {
-    await _enrichWithUnitNames([raw]);
+    await _enrichReferencedData([raw]);
     final entityId = raw['entity_id']?.toString();
     if (entityId != null && entityId.isNotEmpty) {
       try {
@@ -110,30 +110,61 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
     return ListingMapper.fromJson(raw);
   }
 
-  /// Resolve unit names (unit_id → core.units.name) in a single batched
-  /// lookup and stamp them as `unit_name` for [ListingMapper].
+  /// Resolve all cross-schema referenced data (unit name, location name,
+  /// stock quantities) in batched lookups and stamp the fields that
+  /// [ListingMapper] reads (`unit_name`, `location_name`,
+  /// `available_quantity`, `reserved_quantity`).
   ///
-  /// This replaces the PostgREST embed (`unit:unit_id(name)`) which fails
-  /// when the cross-schema FK is not yet in the PostgREST schema cache.
-  Future<void> _enrichWithUnitNames(
+  /// This replaces every PostgREST FK embed on the listings query, which
+  /// fails with "Could not find a relationship ... in the schema cache"
+  /// when the PostgREST schema cache is stale for the cross-schema FKs.
+  Future<void> _enrichReferencedData(
       List<Map<String, dynamic>> rawListings) async {
-    final unitIds = rawListings
-        .map((r) => r['unit_id']?.toString())
-        .whereType<String>()
-        .where((id) => id.isNotEmpty)
-        .toSet();
-    if (unitIds.isEmpty) return;
-    try {
-      final units = await dataSource.fetchUnitsByIds(unitIds);
-      if (units.isEmpty) return;
-      for (final raw in rawListings) {
-        final unitId = raw['unit_id']?.toString();
-        if (unitId != null && units.containsKey(unitId)) {
-          raw['unit_name'] = units[unitId];
-        }
+    final unitIds = <String>{};
+    final locationIds = <String>{};
+    final stockIds = <String>{};
+
+    for (final raw in rawListings) {
+      final unitId = raw['unit_id']?.toString();
+      final locationId = raw['location_id']?.toString();
+      final stockId = raw['stock_id']?.toString();
+      if (unitId != null && unitId.isNotEmpty) unitIds.add(unitId);
+      if (locationId != null && locationId.isNotEmpty) {
+        locationIds.add(locationId);
       }
-    } catch (_) {
-      // Silently continue without unit names
+      if (stockId != null && stockId.isNotEmpty) stockIds.add(stockId);
+    }
+
+    if (unitIds.isEmpty && locationIds.isEmpty && stockIds.isEmpty) return;
+
+    // Independent best-effort lookups — never fail the whole listing load.
+    Map<String, String> units = const {};
+    Map<String, String> locations = const {};
+    Map<String, ({double quantity, double reservedQuantity})> stock = const {};
+    try {
+      units = await dataSource.fetchUnitsByIds(unitIds);
+    } catch (_) {}
+    try {
+      locations = await dataSource.fetchLocationsByIds(locationIds);
+    } catch (_) {}
+    try {
+      stock = await dataSource.fetchStockByIds(stockIds);
+    } catch (_) {}
+
+    for (final raw in rawListings) {
+      final unitId = raw['unit_id']?.toString();
+      if (unitId != null && units.containsKey(unitId)) {
+        raw['unit_name'] = units[unitId];
+      }
+      final locationId = raw['location_id']?.toString();
+      if (locationId != null && locations.containsKey(locationId)) {
+        raw['location_name'] = locations[locationId];
+      }
+      final stockId = raw['stock_id']?.toString();
+      if (stockId != null && stock.containsKey(stockId)) {
+        raw['available_quantity'] = stock[stockId]!.quantity;
+        raw['reserved_quantity'] = stock[stockId]!.reservedQuantity;
+      }
     }
   }
   @override
