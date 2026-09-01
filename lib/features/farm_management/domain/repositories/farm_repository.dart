@@ -94,10 +94,25 @@ abstract class FarmRepository {
   Future<List<ProductionEntity>> getProductionRecords({required String farmId});
 
   /// Record production. Returns the production record with backend-generated ID.
+  ///
+  /// The backend `trg_sync_production_to_stock` trigger requires
+  /// `output_commodity_id` (→ core.commodities.id) and a positive
+  /// `quantity`; `entity_id` is derived server-side via
+  /// `core.auth_user_id()`. `unit_id` / `field_id` / `asset_id` /
+  /// `activity_id` are optional context.
   Future<ProductionEntity> recordProduction({
     required String farmId,
     required ProductionEntity production,
   });
+
+  // ── Reference Data (Taxonomy) ──────────────────────────────
+  /// Active commodities from `core.commodities`.
+  /// Returns id, name and category for each commodity.
+  Future<List<({String id, String name, String category})>> getCommodities();
+
+  /// Units from `core.units`.
+  /// Returns id and name for each unit.
+  Future<List<({String id, String name})>> getUnits();
 
   // ── Activities ─────────────────────────────────────────────
   /// Get activities for a farm. UI filtering by hierarchy is client-side.

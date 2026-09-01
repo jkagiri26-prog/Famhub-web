@@ -22,6 +22,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_selector_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/farm_entity.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/farm_detail_page.dart';
 
 /// Farm Selector dashboard widget.
 ///
@@ -67,51 +68,60 @@ class FarmSelectorWidget extends ConsumerWidget {
             Column(
               children: [
                 // Current farm display
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.green.shade200),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.agriculture,
-                        size: 18,
-                        color: Colors.green.shade700,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _selectedFarmName(selectorState, ref),
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.green.shade800,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (selectorState.farms.length > 1)
+                InkWell(
+                  onTap: () => _openFarm(context, ref, _selectedFarm(selectorState, ref)),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.green.shade200),
+                    ),
+                    child: Row(
+                      children: [
                         Icon(
-                          Icons.arrow_drop_down,
-                          size: 20,
+                          Icons.agriculture,
+                          size: 18,
+                          color: Colors.green.shade700,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _selectedFarmName(selectorState, ref),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green.shade800,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Icon(
+                          Icons.open_in_new,
+                          size: 16,
                           color: Colors.green.shade600,
                         ),
-                    ],
+                        if (selectorState.farms.length > 1)
+                          Icon(
+                            Icons.arrow_drop_down,
+                            size: 20,
+                            color: Colors.green.shade600,
+                          ),
+                      ],
+                    ),
                   ),
                 ),
                 // Farm list (if more than one farm)
                 if (selectorState.farms.length > 1) ...[
                   const SizedBox(height: 8),
                   ...selectorState.farms
-                      .map((farm) => _farmOption(farm, ref)),
+                      .map((farm) => _farmOption(context, farm, ref)),
                 ],
               ],
             ),
@@ -129,12 +139,41 @@ class FarmSelectorWidget extends ConsumerWidget {
     return farm?.farmName ?? 'Unknown Farm';
   }
 
-  Widget _farmOption(FarmEntity farm, WidgetRef ref) {
+  FarmEntity? _selectedFarm(FarmSelectorState state, WidgetRef ref) {
+    final hierarchy = ref.read(hierarchyProvider);
+    if (hierarchy.entityId == null) return null;
+    return state.farms.cast<FarmEntity?>().firstWhere(
+      (f) => f?.id == hierarchy.entityId,
+      orElse: () => null,
+    );
+  }
+
+  void _openFarm(
+    BuildContext context,
+    WidgetRef ref,
+    FarmEntity? farm,
+  ) {
+    if (farm == null) return;
+    ref.read(hierarchyProvider.notifier).selectEntity(farm);
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => FarmDetailPage(farmId: farm.id, farmName: farm.farmName),
+      ),
+    );
+  }
+
+  Widget _farmOption(BuildContext context, FarmEntity farm, WidgetRef ref) {
     return Padding(
       padding: const EdgeInsets.only(top: 4),
       child: InkWell(
         onTap: () {
           ref.read(hierarchyProvider.notifier).selectEntity(farm);
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) =>
+                  FarmDetailPage(farmId: farm.id, farmName: farm.farmName),
+            ),
+          );
         },
         borderRadius: BorderRadius.circular(6),
         child: Padding(
@@ -150,12 +189,21 @@ class FarmSelectorWidget extends ConsumerWidget {
                 color: Colors.grey.shade600,
               ),
               const SizedBox(width: 6),
-              Text(
-                farm.farmName,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade700,
+              Expanded(
+                child: Text(
+                  farm.farmName,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade700,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
+              ),
+              Icon(
+                Icons.open_in_new,
+                size: 14,
+                color: Colors.grey.shade400,
               ),
             ],
           ),

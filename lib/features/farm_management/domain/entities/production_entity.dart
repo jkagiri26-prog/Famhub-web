@@ -6,12 +6,14 @@
 ///     - farm_id (uuid)
 ///     - activity_id (uuid, nullable)
 ///     - variant_id (uuid, nullable)
+///     - output_commodity_id (uuid, nullable → core.commodities.id)
 ///     - quantity (numeric, nullable; constrained >= 0)
 ///     - unit_id (uuid, nullable)
 class ProductionEntity {
   final String id;
   final String? activityId;
   final String? variantId;
+  final String? outputCommodityId;
   final double? quantity;
   final String? unitId;
   final String? categoryId;
@@ -22,6 +24,7 @@ class ProductionEntity {
     required this.id,
     this.activityId,
     this.variantId,
+    this.outputCommodityId,
     this.quantity,
     this.unitId,
     this.categoryId,

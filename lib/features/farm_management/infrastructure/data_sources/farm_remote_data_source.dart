@@ -132,6 +132,27 @@ class FarmRemoteDataSource {
     await _client.schema('farm_management').from('production_records').insert(data);
   }
 
+  // ── Reference Data (Taxonomy) ──
+
+  /// Active commodities from `core.commodities` (id, name, category).
+  Future<List<Map<String, dynamic>>> fetchCommodities() async {
+    return (await _client
+        .schema('core')
+        .from('commodities')
+        .select('id, name, category')
+        .eq('is_active', true)
+        .order('name', ascending: true)).cast<Map<String, dynamic>>();
+  }
+
+  /// Units from `core.units` (id, name).
+  Future<List<Map<String, dynamic>>> fetchUnits() async {
+    return (await _client
+        .schema('core')
+        .from('units')
+        .select('id, name')
+        .order('name', ascending: true)).cast<Map<String, dynamic>>();
+  }
+
   // ── Activities ──
 
   Future<Map<String, dynamic>> insertActivity(Map<String, dynamic> data) async {

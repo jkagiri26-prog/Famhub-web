@@ -13,6 +13,7 @@ import 'package:famhub_app/features/farm_management/application/providers/farm_c
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/add_livestock_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/activity_template_selection_page.dart';
 import 'package:famhub_app/features/marketplace/presentation/pages/stock_selection_page.dart';
 
 class LivestockPage extends ConsumerStatefulWidget {
@@ -171,7 +172,11 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 final animal = livestock[index];
-                return _LivestockCard(animal: animal);
+                return _LivestockCard(
+                  animal: animal,
+                  onSell: () => _sellLivestock(context, animal),
+                  onRecordActivity: () => _recordActivity(context, animal),
+                );
               },
             ),
                     ),
@@ -191,12 +196,39 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
       MaterialPageRoute(builder: (_) => const StockSelectionPage()),
     );
   }
+
+  void _sellLivestock(BuildContext context, LivestockEntity animal) {
+    // Opens the eligible-stock picker pre-filtered to this animal's species.
+    // After production, the matching commerce.stock_registry row appears here.
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => StockSelectionPage(initialSearchQuery: animal.species),
+      ),
+    );
+  }
+
+  void _recordActivity(BuildContext context, LivestockEntity animal) {
+    // Activities belong to a livestock record within the hierarchy
+    // (farm → field → livestock).
+    ref.read(hierarchyProvider.notifier).selectLivestock(animal);
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const ActivityTemplateSelectionPage(),
+      ),
+    );
+  }
 }
 
 class _LivestockCard extends StatelessWidget {
   final LivestockEntity animal;
+  final VoidCallback onSell;
+  final VoidCallback onRecordActivity;
 
-  const _LivestockCard({required this.animal});
+  const _LivestockCard({
+    required this.animal,
+    required this.onSell,
+    required this.onRecordActivity,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -274,6 +306,34 @@ class _LivestockCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onRecordActivity,
+                    icon: const Icon(Icons.event_note, size: 16),
+                    label: const Text('Activity'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    onPressed: onSell,
+                    icon: const Icon(Icons.storefront_outlined, size: 16),
+                    label: const Text('Sell on Marketplace'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),

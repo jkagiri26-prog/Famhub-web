@@ -639,6 +639,7 @@ class FarmRepositoryImpl implements FarmRepository {
                 id: row['id'] as String,
                 activityId: row['activity_id'] as String?,
                 variantId: row['variant_id'] as String?,
+                outputCommodityId: row['output_commodity_id'] as String?,
                 quantity: (row['quantity'] as num?)?.toDouble(),
                 unitId: row['unit_id'] as String?,
                 categoryId: row['category_id'] as String?,
@@ -659,18 +660,25 @@ class FarmRepositoryImpl implements FarmRepository {
     required ProductionEntity production,
   }) async {
     try {
+      // Only documented production_records columns are sent. Nullable
+      // context is omitted so invalid payloads (e.g. non-UUID category/unit
+      // labels) can never reach the backend FK columns. `entity_id` is left
+      // to the server default (core.auth_user_id()).
+      final payload = <String, dynamic>{
+        'farm_id': farmId,
+        'quantity': production.quantity,
+        if (production.outputCommodityId != null)
+          'output_commodity_id': production.outputCommodityId,
+        if (production.variantId != null) 'variant_id': production.variantId,
+        if (production.unitId != null) 'unit_id': production.unitId,
+        if (production.categoryId != null) 'category_id': production.categoryId,
+        if (production.assetId != null) 'asset_id': production.assetId,
+        if (production.fieldId != null) 'field_id': production.fieldId,
+        if (production.activityId != null) 'activity_id': production.activityId,
+      };
       final response = await _client
           .schema('farm_management').from('production_records')
-          .insert({
-            'farm_id': farmId,
-            'variant_id': production.variantId,
-            'quantity': production.quantity,
-            'unit_id': production.unitId,
-            'category_id': production.categoryId,
-            'asset_id': production.assetId,
-            'field_id': production.fieldId,
-            'activity_id': production.activityId,
-          })
+          .insert(payload)
           .select()
           .single();
       // Auto-trigger KPI update
@@ -684,6 +692,7 @@ class FarmRepositoryImpl implements FarmRepository {
         id: response['id'] as String,
         activityId: response['activity_id'] as String?,
         variantId: response['variant_id'] as String?,
+        outputCommodityId: response['output_commodity_id'] as String?,
         quantity: (response['quantity'] as num?)?.toDouble(),
         unitId: response['unit_id'] as String?,
         categoryId: response['category_id'] as String?,
@@ -694,6 +703,54 @@ class FarmRepositoryImpl implements FarmRepository {
       throw Exception('Failed to record production: ${e.message}');
     } catch (e) {
       throw Exception('Failed to record production: $e');
+    }
+  }
+
+  // ── Reference Data (Taxonomy) ──
+
+  @override
+  Future<List<({String id, String name, String category})>> getCommodities() async {
+    try {
+      final rows = await _client
+          .schema('core')
+          .from('commodities')
+          .select('id, name, category')
+          .eq('is_active', true)
+          .order('name', ascending: true);
+      return (rows as List)
+          .cast<Map<String, dynamic>>()
+          .map((r) => (
+                id: r['id'].toString(),
+                name: r['name']?.toString() ?? '',
+                category: r['category']?.toString() ?? '',
+              ))
+          .toList();
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to load commodities: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to load commodities: $e');
+    }
+  }
+
+  @override
+  Future<List<({String id, String name})>> getUnits() async {
+    try {
+      final rows = await _client
+          .schema('core')
+          .from('units')
+          .select('id, name')
+          .order('name', ascending: true);
+      return (rows as List)
+          .cast<Map<String, dynamic>>()
+          .map((r) => (
+                id: r['id'].toString(),
+                name: r['name']?.toString() ?? '',
+              ))
+          .toList();
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to load units: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to load units: $e');
     }
   }
 

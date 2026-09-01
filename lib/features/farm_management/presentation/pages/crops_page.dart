@@ -15,6 +15,7 @@ import 'package:famhub_app/features/farm_management/application/providers/hierar
 import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/enums/crop_status.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/add_crop_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/activity_template_selection_page.dart';
 import 'package:famhub_app/features/marketplace/presentation/pages/stock_selection_page.dart';
 
 
@@ -191,7 +192,11 @@ class _CropsPageState extends ConsumerState<CropsPage> {
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 final crop = filtered[index];
-                return _CropCard(crop: crop);
+                return _CropCard(
+                  crop: crop,
+                  onSell: () => _sellCrop(context, crop),
+                  onRecordActivity: () => _recordActivity(context, crop),
+                );
               },
             ),
           ),
@@ -210,12 +215,38 @@ class _CropsPageState extends ConsumerState<CropsPage> {
       MaterialPageRoute(builder: (_) => const StockSelectionPage()),
     );
   }
+
+  void _sellCrop(BuildContext context, CropEntity crop) {
+    // Opens the eligible-stock picker pre-filtered to this crop's name.
+    // After production, the matching commerce.stock_registry row appears here.
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => StockSelectionPage(initialSearchQuery: crop.cropName),
+      ),
+    );
+  }
+
+  void _recordActivity(BuildContext context, CropEntity crop) {
+    // Activities belong to a crop within the hierarchy (farm → field → crop).
+    ref.read(hierarchyProvider.notifier).selectCrop(crop);
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const ActivityTemplateSelectionPage(),
+      ),
+    );
+  }
 }
 
 class _CropCard extends StatelessWidget {
   final CropEntity crop;
+  final VoidCallback onSell;
+  final VoidCallback onRecordActivity;
 
-  const _CropCard({required this.crop});
+  const _CropCard({
+    required this.crop,
+    required this.onSell,
+    required this.onRecordActivity,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -318,6 +349,34 @@ class _CropCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onRecordActivity,
+                    icon: const Icon(Icons.event_note, size: 16),
+                    label: const Text('Activity'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    onPressed: onSell,
+                    icon: const Icon(Icons.storefront_outlined, size: 16),
+                    label: const Text('Sell on Marketplace'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),

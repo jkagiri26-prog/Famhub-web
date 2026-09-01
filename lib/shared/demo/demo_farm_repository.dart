@@ -487,6 +487,7 @@ class DemoFarmRepository implements FarmRepository {
               id: p.id,
               activityId: p.activityId,
               variantId: p.variantId,
+              outputCommodityId: p.outputCommodityId,
               quantity: p.quantity,
               unitId: p.unitId,
               categoryId: p.categoryId,
@@ -503,8 +504,9 @@ class DemoFarmRepository implements FarmRepository {
       id: 'demo-prod-001',
       activityId: 'demo-act-003',
       variantId: 'snow-peas',
+      outputCommodityId: 'demo-commodity-crops-003',
       quantity: 45.0,
-      unitId: 'kg',
+      unitId: 'demo-unit-kg',
       categoryId: 'vegetables',
       assetId: 'demo-asset-001',
       fieldId: 'demo-field-001',
@@ -514,8 +516,9 @@ class DemoFarmRepository implements FarmRepository {
       id: 'demo-prod-002',
       activityId: null,
       variantId: 'tomatoes',
+      outputCommodityId: 'demo-commodity-crops-002',
       quantity: 120.0,
-      unitId: 'kg',
+      unitId: 'demo-unit-kg',
       categoryId: 'vegetables',
       assetId: 'demo-asset-001',
       fieldId: 'demo-field-002',
@@ -525,8 +528,9 @@ class DemoFarmRepository implements FarmRepository {
       id: 'demo-prod-003',
       activityId: null,
       variantId: 'eggs',
+      outputCommodityId: 'demo-commodity-poultry-001',
       quantity: 240.0,
-      unitId: 'pieces',
+      unitId: 'demo-unit-piece',
       categoryId: 'poultry',
       assetId: 'demo-ls-002',
       fieldId: null,
@@ -538,6 +542,38 @@ class DemoFarmRepository implements FarmRepository {
       await Future.delayed(const Duration(milliseconds: 100));
       return production; // Simulated success
     }
+
+  // ── Reference Data (Taxonomy) ──
+
+  @override
+  Future<List<({String id, String name, String category})>> getCommodities() async {
+    await Future.delayed(const Duration(milliseconds: 50));
+    return const [
+      (id: 'demo-commodity-crops-001', name: 'Maize', category: 'Crops'),
+      (id: 'demo-commodity-crops-002', name: 'Tomatoes', category: 'Crops'),
+      (id: 'demo-commodity-crops-003', name: 'Snow Peas', category: 'Crops'),
+      (id: 'demo-commodity-livestock-001', name: 'Beef', category: 'Livestock'),
+      (id: 'demo-commodity-dairy-001', name: 'Milk', category: 'Dairy'),
+      (id: 'demo-commodity-poultry-001', name: 'Eggs', category: 'Poultry'),
+      (id: 'demo-commodity-fish-001', name: 'Tilapia', category: 'Fish'),
+      (id: 'demo-commodity-honey-001', name: 'Honey', category: 'Honey'),
+    ];
+  }
+
+  @override
+  Future<List<({String id, String name})>> getUnits() async {
+    await Future.delayed(const Duration(milliseconds: 50));
+    return const [
+      (id: 'demo-unit-kg', name: 'Kilogram (kg)'),
+      (id: 'demo-unit-ton', name: 'Tonne'),
+      (id: 'demo-unit-litre', name: 'Litre'),
+      (id: 'demo-unit-piece', name: 'Piece'),
+      (id: 'demo-unit-crate', name: 'Crate'),
+      (id: 'demo-unit-bag', name: 'Bag'),
+      (id: 'demo-unit-dozen', name: 'Dozen'),
+      (id: 'demo-unit-head', name: 'Head'),
+    ];
+  }
 
   // â”€â”€ Activities â”€â”€
 
@@ -712,6 +748,7 @@ class _DemoProductionRecord {
   final String id;
   final String? activityId;
   final String? variantId;
+  final String? outputCommodityId;
   final double quantity;
   final String? unitId;
   final String? categoryId;
@@ -723,6 +760,7 @@ class _DemoProductionRecord {
     required this.id,
     this.activityId,
     this.variantId,
+    this.outputCommodityId,
     required this.quantity,
     this.unitId,
     this.categoryId,
