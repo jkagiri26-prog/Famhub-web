@@ -135,6 +135,150 @@ class MarketplaceRemoteDataSource {
     }
   }
 
+  /// Resolve variant names for the given variant IDs (id → name).
+  ///
+  /// Direct `core.item_variants` query — never depends on the schema cache.
+  Future<Map<String, String>> fetchVariantsByIds(Set<String> variantIds) async {
+    final ids = variantIds.where((id) => id.isNotEmpty).toList();
+    if (ids.isEmpty) return const {};
+    try {
+      final response = await _client
+          .schema('core')
+          .from('item_variants')
+          .select('id, name')
+          .inFilter('id', ids);
+      final rows = (response as List).cast<Map<String, dynamic>>();
+      return {
+        for (final row in rows)
+          if (row['id'] != null)
+            row['id'].toString(): row['name']?.toString() ?? '',
+      };
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to fetch variants: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to fetch variants: $e');
+    }
+  }
+
+  /// Resolve item (product) names for the given item IDs (id → name).
+  ///
+  /// Direct `core.items` query — never depends on the schema cache.
+  Future<Map<String, String>> fetchItemsByIds(Set<String> itemIds) async {
+    final ids = itemIds.where((id) => id.isNotEmpty).toList();
+    if (ids.isEmpty) return const {};
+    try {
+      final response = await _client
+          .schema('core')
+          .from('items')
+          .select('id, name')
+          .inFilter('id', ids);
+      final rows = (response as List).cast<Map<String, dynamic>>();
+      return {
+        for (final row in rows)
+          if (row['id'] != null)
+            row['id'].toString(): row['name']?.toString() ?? '',
+      };
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to fetch items: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to fetch items: $e');
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // MANAGED-STOCK PUBLISHING (PHASE 1)
+  // ════════════════════════════════════════════════════════════════
+  //
+  // Reads `commerce.stock_registry` — the existing inventory system —
+  // scoped by RLS. No cross-schema FK embeds (stale schema cache; see the
+  // class docs above): scalar columns are selected and referenced display
+  // data is resolved via the batched lookup helpers above.
+
+  /// Select fragment for `commerce.stock_registry` — scalar columns only.
+  static const String _stockSelectQuery = '''
+    id, entity_id, variant_id, product_id, unit_id, location_id,
+    quantity, reserved_quantity, status
+  ''';
+
+  /// Fetch managed stock owned by the authenticated user (RLS-scoped).
+  ///
+  /// Only `active` records with positive on-hand quantity are returned.
+  /// Availability (`quantity - reserved_quantity > 0`) is enforced
+  /// client-side by the repository enrichment layer.
+  Future<List<Map<String, dynamic>>> fetchManagedStock() async {
+    try {
+      final response = await _client
+          .schema('commerce')
+          .from('stock_registry')
+          .select(_stockSelectQuery)
+          .eq('status', 'active')
+          .gt('quantity', 0)
+          .order('updated_at', ascending: false);
+      return (response as List).cast<Map<String, dynamic>>();
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to fetch managed stock: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to fetch managed stock: $e');
+    }
+  }
+
+  /// Fetch a single managed stock record by id (RLS-scoped).
+  Future<Map<String, dynamic>?> fetchManagedStockById(String stockId) async {
+    try {
+      final response = await _client
+          .schema('commerce')
+          .from('stock_registry')
+          .select(_stockSelectQuery)
+          .eq('id', stockId)
+          .maybeSingle();
+      return response;
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to fetch managed stock: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to fetch managed stock: $e');
+    }
+  }
+
+  /// Publish a listing from managed stock via the
+  /// `marketplace.publish_listing_from_stock` RPC.
+  ///
+  /// The client only supplies the stock id, price, title, description and
+  /// images. entity_id / variant_id / unit_id / location_id / quantity are
+  /// resolved server-side under RLS — the client never inserts into
+  /// `marketplace.listings` directly.
+  ///
+  /// NOTE: `PostgrestException` is deliberately NOT wrapped so callers can
+  /// map error codes/messages (unique violation, insufficient stock,
+  /// unauthorized, invalid price) for user-friendly handling.
+  Future<Map<String, dynamic>?> publishListingFromStock({
+    required String stockId,
+    required double pricePerUnit,
+    String? title,
+    String? description,
+    required List<String> images,
+  }) async {
+    final params = <String, dynamic>{
+      'p_stock_id': stockId,
+      'p_price_per_unit': pricePerUnit,
+      if (title != null && title.trim().isNotEmpty)
+        'p_title': title.trim(),
+      if (description != null && description.trim().isNotEmpty)
+        'p_description': description.trim(),
+      'p_images': images,
+    };
+    final response = await _client
+        .schema('marketplace')
+        .rpc('publish_listing_from_stock', params: params);
+    // The RPC may return the created listing (RETURNING), a row set, or
+    // nothing at all. Parse defensively.
+    if (response is Map<String, dynamic>) return response;
+    if (response is List && response.isNotEmpty) {
+      final first = response.first;
+      if (first is Map<String, dynamic>) return first;
+    }
+    return null;
+  }
+
   /// Fetch all listings (with optional filters).
   Future<List<Map<String, dynamic>>> fetchListings({
     String? category,

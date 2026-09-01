@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/listing.dart';
+import '../../domain/entities/stock_item.dart';
 import '../../domain/repositories/marketplace_repository.dart';
 import '../../domain/enums/listing_status.dart';
 import '../../infrastructure/data_sources/marketplace_remote_data_source.dart';
@@ -89,6 +90,36 @@ class MarketplaceController extends AsyncNotifier<List<Listing>> {
     ref.invalidate(listingDetailsProvider(id));
   }
 
+  /// Publish a listing from managed stock via the
+  /// `marketplace.publish_listing_from_stock` RPC.
+  ///
+  /// Only the selected stock id, price, title, description and images are
+  /// collected client-side; entity/variant/unit/location/quantity are
+  /// resolved server-side under RLS. On success the marketplace cache is
+  /// invalidated so the new listing appears immediately.
+  Future<Listing> publishFromStock({
+    required String stockId,
+    required double pricePerUnit,
+    String? title,
+    String? description,
+    List<String> images = const [],
+  }) async {
+    final listing = await _repo.publishListingFromStock(
+      stockId: stockId,
+      pricePerUnit: pricePerUnit,
+      title: title,
+      description: description,
+      images: images,
+    );
+
+    // Refresh marketplace providers/cache so the freshly published listing
+    // appears immediately in Marketplace.
+    ref.invalidateSelf();
+    ref.invalidate(eligibleStockProvider);
+
+    return listing;
+  }
+
     Future<void> updateInventory({
     required String listingId,
     double? availableQuantity,
@@ -127,3 +158,27 @@ final sellerStatsProvider =
     return repo.getSellerStats(sellerId);
   },
 );
+
+/// ============================================================
+/// MANAGED-STOCK PROVIDERS (PHASE 1)
+/// ============================================================
+
+/// Eligible managed stock owned by the authenticated user.
+///
+/// Reads `commerce.stock_registry` (RLS-scoped, available quantity > 0).
+/// Powers the Marketplace → Add Listing stock-selection screen.
+final eligibleStockProvider =
+    FutureProvider<List<StockItem>>((ref) async {
+  final repo = ref.read(marketplaceRepositoryProvider);
+  return repo.fetchEligibleStock();
+});
+
+/// Read-only details for a single managed stock record.
+///
+/// Used by the publish form to display product/variant, available
+/// quantity, unit and location without letting the client edit them.
+final stockItemDetailsProvider =
+    FutureProvider.family<StockItem?, String>((ref, stockId) async {
+  final repo = ref.read(marketplaceRepositoryProvider);
+  return repo.fetchStockById(stockId);
+});

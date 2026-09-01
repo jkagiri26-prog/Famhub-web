@@ -30,6 +30,7 @@ import 'package:famhub_app/features/farm_management/application/providers/produc
 import 'package:famhub_app/features/farm_management/application/providers/fields_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_cascade_coordinator.dart';
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
+import 'package:famhub_app/features/marketplace/presentation/pages/stock_selection_page.dart';
 import 'package:famhub_app/features/guest/auth_guard.dart';
 
 /// Production Recording Form
@@ -88,6 +89,14 @@ class _ProductionRecordingPageState extends ConsumerState<ProductionRecordingPag
 
         return ShellPageContent(
       title: 'Record Production',
+      actions: [
+        // Phase 1: publish managed stock to Marketplace
+        IconButton(
+          onPressed: () => _navigateToSellOnMarketplace(context),
+          icon: const Icon(Icons.storefront_outlined),
+          tooltip: 'Sell on Marketplace',
+        ),
+      ],
       child: farmId == null
           ? const Center(child: Text('Select a farm first'))
           : Form(
@@ -312,6 +321,12 @@ class _ProductionRecordingPageState extends ConsumerState<ProductionRecordingPag
                 ),
               ),
             ),
+    );
+  }
+
+  void _navigateToSellOnMarketplace(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const StockSelectionPage()),
     );
   }
 

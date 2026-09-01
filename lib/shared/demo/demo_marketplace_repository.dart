@@ -13,6 +13,7 @@
 library;
 
 import 'package:famhub_app/features/marketplace/domain/entities/listing.dart';
+import 'package:famhub_app/features/marketplace/domain/entities/stock_item.dart';
 import 'package:famhub_app/features/marketplace/domain/enums/listing_status.dart';
 import 'package:famhub_app/features/marketplace/domain/repositories/marketplace_repository.dart';
 
@@ -252,5 +253,118 @@ class DemoMarketplaceRepository implements MarketplaceRepository {
       'totalSales': 89000.0,
       'rating': 4.5,
     };
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // MANAGED-STOCK PUBLISHING (PHASE 1)
+  // ──────────────────────────────────────────────────────────
+
+  static final List<StockItem> _sampleStock = [
+    const StockItem(
+      id: 'demo-stock-001',
+      entityId: 'demo-farm-001',
+      variantId: 'snow-peas',
+      productName: 'Snow Peas',
+      unitId: 'kg',
+      unitName: 'kg',
+      locationId: 'demo-loc-nairobi',
+      locationName: 'Nairobi, Kenya',
+      quantity: 60,
+      reservedQuantity: 15,
+    ),
+    const StockItem(
+      id: 'demo-stock-002',
+      entityId: 'demo-farm-001',
+      variantId: 'tomatoes',
+      productName: 'Tomatoes',
+      unitId: 'kg',
+      unitName: 'kg',
+      locationId: 'demo-loc-nairobi',
+      locationName: 'Nairobi, Kenya',
+      quantity: 160,
+      reservedQuantity: 40,
+    ),
+    const StockItem(
+      id: 'demo-stock-003',
+      entityId: 'demo-farm-001',
+      variantId: 'eggs',
+      productName: 'Free-Range Eggs',
+      unitId: 'piece',
+      unitName: 'piece',
+      locationId: 'demo-loc-nairobi',
+      locationName: 'Nairobi, Kenya',
+      quantity: 300,
+      reservedQuantity: 60,
+    ),
+    const StockItem(
+      id: 'demo-stock-005',
+      entityId: 'demo-farm-001',
+      variantId: 'goats',
+      productName: 'Saanen Goats',
+      unitId: 'head',
+      unitName: 'head',
+      locationId: 'demo-loc-nairobi',
+      locationName: 'Nairobi, Kenya',
+      quantity: 8,
+      reservedQuantity: 3,
+    ),
+  ];
+
+  @override
+  Future<List<StockItem>> fetchEligibleStock({String? searchQuery}) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    var stock = _sampleStock.where((s) => s.isEligible).toList();
+    if (searchQuery != null && searchQuery.trim().isNotEmpty) {
+      final q = searchQuery.trim().toLowerCase();
+      stock = stock
+          .where((s) =>
+              s.displayName.toLowerCase().contains(q) ||
+              s.displayUnit.toLowerCase().contains(q) ||
+              s.displayLocation.toLowerCase().contains(q))
+          .toList();
+    }
+    return stock;
+  }
+
+  @override
+  Future<StockItem?> fetchStockById(String stockId) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    for (final stock in _sampleStock) {
+      if (stock.id == stockId) return stock;
+    }
+    return null;
+  }
+
+  @override
+  Future<Listing> publishListingFromStock({
+    required String stockId,
+    required double pricePerUnit,
+    String? title,
+    String? description,
+    List<String> images = const [],
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    final stock = await fetchStockById(stockId);
+    final now = DateTime.now();
+    return Listing(
+      id: 'demo-listing-${now.millisecondsSinceEpoch}',
+      title: (title != null && title.trim().isNotEmpty)
+          ? title.trim()
+          : stock?.displayName ?? 'Published listing',
+      description: description,
+      pricePerUnit: pricePerUnit,
+      currency: 'KES',
+      images: List<String>.from(images),
+      entityId: stock?.entityId ?? 'demo-farm-001',
+      variantId: stock?.variantId ?? 'demo-variant',
+      stockId: stockId,
+      unitId: stock?.unitId,
+      locationId: stock?.locationId,
+      unitName: stock?.unitName,
+      locationName: stock?.locationName,
+      status: ListingStatus.active,
+      createdAt: now,
+      updatedAt: now,
+    );
   }
 }

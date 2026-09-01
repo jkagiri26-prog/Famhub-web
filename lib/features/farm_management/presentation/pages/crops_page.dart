@@ -15,6 +15,7 @@ import 'package:famhub_app/features/farm_management/application/providers/hierar
 import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/enums/crop_status.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/add_crop_page.dart';
+import 'package:famhub_app/features/marketplace/presentation/pages/stock_selection_page.dart';
 
 
 class CropsPage extends ConsumerStatefulWidget {
@@ -129,6 +130,12 @@ class _CropsPageState extends ConsumerState<CropsPage> {
             icon: const Icon(Icons.add_circle_outline),
             tooltip: 'Add Crop to ${hierarchy.field!.fieldName}',
           ),
+        // Phase 1: publish managed stock to Marketplace
+        IconButton(
+          onPressed: () => _navigateToSellOnMarketplace(context),
+          icon: const Icon(Icons.storefront_outlined),
+          tooltip: 'Sell on Marketplace',
+        ),
       ],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -195,6 +202,12 @@ class _CropsPageState extends ConsumerState<CropsPage> {
   void _navigateToAddCrop(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const AddCropPage()),
+    );
+  }
+
+  void _navigateToSellOnMarketplace(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const StockSelectionPage()),
     );
   }
 }

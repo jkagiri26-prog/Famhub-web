@@ -11,7 +11,7 @@ import '../widgets/marketplace_filter_tabs_widget.dart';
 import '../widgets/listing_tile.dart';
 import '../../application/providers/marketplace_provider.dart';
 import '../../domain/entities/listing.dart';
-import 'create_listing_page.dart';
+import 'stock_selection_page.dart';
 
 class MarketplacePage extends ConsumerStatefulWidget {
   const MarketplacePage({super.key});
@@ -52,9 +52,12 @@ class _MarketplacePageState extends ConsumerState<MarketplacePage> {
             subtitle: 'Buy & Sell — Inputs, Livestock, Produce',
             trailingIcon: Icons.add_circle_outline,
             onTrailingTap: () {
+              // Phase 1: Add Listing → choose eligible managed stock →
+              // publish from stock. Replaces the legacy raw-UUID form which
+              // let the client submit entity/variant/unit/location directly.
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => const CreateListingPage(),
+                  builder: (_) => const StockSelectionPage(),
                 ),
               );
             },

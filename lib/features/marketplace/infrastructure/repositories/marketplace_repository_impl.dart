@@ -8,6 +8,7 @@
 library;
 
 import 'package:famhub_app/features/marketplace/domain/entities/listing.dart';
+import 'package:famhub_app/features/marketplace/domain/entities/stock_item.dart';
 import 'package:famhub_app/features/marketplace/domain/enums/listing_status.dart';
 import 'package:famhub_app/features/marketplace/domain/repositories/marketplace_repository.dart';
 import 'package:famhub_app/features/marketplace/infrastructure/data_sources/marketplace_remote_data_source.dart';
@@ -231,6 +232,154 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
   @override
   Future<Map<String, dynamic>> getSellerStats(String sellerId) async {
     return dataSource.fetchSellerStats(sellerId);
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // MANAGED-STOCK PUBLISHING (PHASE 1)
+  // ──────────────────────────────────────────────────────────
+
+  /// Resolve display names for stock rows in batched lookups (no
+  /// cross-schema PostgREST embeds) and build [StockItem] entities.
+  Future<List<StockItem>> _buildStockItems(
+      List<Map<String, dynamic>> rawRows) async {
+    if (rawRows.isEmpty) return const [];
+
+    final variantIds = <String>{};
+    final itemIds = <String>{};
+    final unitIds = <String>{};
+    final locationIds = <String>{};
+
+    for (final raw in rawRows) {
+      final variantId = raw['variant_id']?.toString();
+      final productId = raw['product_id']?.toString();
+      final unitId = raw['unit_id']?.toString();
+      final locationId = raw['location_id']?.toString();
+      if (variantId != null && variantId.isNotEmpty) variantIds.add(variantId);
+      if (productId != null && productId.isNotEmpty) itemIds.add(productId);
+      if (unitId != null && unitId.isNotEmpty) unitIds.add(unitId);
+      if (locationId != null && locationId.isNotEmpty) {
+        locationIds.add(locationId);
+      }
+    }
+
+    // Independent best-effort lookups — never fail the stock load.
+    Map<String, String> variants = const {};
+    Map<String, String> items = const {};
+    Map<String, String> units = const {};
+    Map<String, String> locations = const {};
+    try {
+      variants = await dataSource.fetchVariantsByIds(variantIds);
+    } catch (_) {}
+    try {
+      items = await dataSource.fetchItemsByIds(itemIds);
+    } catch (_) {}
+    try {
+      units = await dataSource.fetchUnitsByIds(unitIds);
+    } catch (_) {}
+    try {
+      locations = await dataSource.fetchLocationsByIds(locationIds);
+    } catch (_) {}
+
+    final result = <StockItem>[];
+    for (final raw in rawRows) {
+      final variantId = raw['variant_id']?.toString();
+      final productId = raw['product_id']?.toString();
+      final unitId = raw['unit_id']?.toString();
+      final locationId = raw['location_id']?.toString();
+
+      // Product/variant display name: prefer the product (item) name and
+      // fall back to the variant name when the product is not linked.
+      final productName =
+          (productId != null && items.containsKey(productId))
+              ? items[productId]
+              : (variantId != null && variants.containsKey(variantId))
+                  ? variants[variantId]
+                  : null;
+
+      final stock = StockItem(
+        id: raw['id']?.toString() ?? '',
+        entityId: raw['entity_id']?.toString() ?? '',
+        variantId: variantId,
+        productName: productName,
+        unitId: unitId,
+        unitName: unitId != null && units.containsKey(unitId)
+            ? units[unitId]
+            : null,
+        locationId: locationId,
+        locationName: locationId != null && locations.containsKey(locationId)
+            ? locations[locationId]
+            : null,
+        quantity: (raw['quantity'] as num?)?.toDouble() ?? 0,
+        reservedQuantity: (raw['reserved_quantity'] as num?)?.toDouble() ?? 0,
+      );
+
+      // Only "eligible" managed stock can be listed.
+      if (stock.isEligible) result.add(stock);
+    }
+    return result;
+  }
+
+  @override
+  Future<List<StockItem>> fetchEligibleStock({String? searchQuery}) async {
+    final rows = await dataSource.fetchManagedStock();
+    var stock = await _buildStockItems(rows);
+
+    if (searchQuery != null && searchQuery.trim().isNotEmpty) {
+      final q = searchQuery.trim().toLowerCase();
+      stock = stock
+          .where((s) =>
+              s.displayName.toLowerCase().contains(q) ||
+              s.displayUnit.toLowerCase().contains(q) ||
+              s.displayLocation.toLowerCase().contains(q))
+          .toList();
+    }
+    return stock;
+  }
+
+  @override
+  Future<StockItem?> fetchStockById(String stockId) async {
+    final row = await dataSource.fetchManagedStockById(stockId);
+    if (row == null) return null;
+    final items = await _buildStockItems([row]);
+    return items.isEmpty ? null : items.first;
+  }
+
+  @override
+  Future<Listing> publishListingFromStock({
+    required String stockId,
+    required double pricePerUnit,
+    String? title,
+    String? description,
+    required List<String> images,
+  }) async {
+    final data = await dataSource.publishListingFromStock(
+      stockId: stockId,
+      pricePerUnit: pricePerUnit,
+      title: title,
+      description: description,
+      images: images,
+    );
+    if (data == null) {
+      // The RPC succeeded but returned nothing; build a minimal listing
+      // so callers can acknowledge the publication.
+      return Listing(
+        id: '',
+        title: (title != null && title.trim().isNotEmpty)
+            ? title.trim()
+            : 'Published listing',
+        description: description,
+        pricePerUnit: pricePerUnit,
+        currency: 'KES',
+        images: List<String>.from(images),
+        entityId: '',
+        variantId: '',
+        stockId: stockId,
+        status: ListingStatus.active,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+    }
+    return ListingMapper.fromJson(data);
   }
 }
 

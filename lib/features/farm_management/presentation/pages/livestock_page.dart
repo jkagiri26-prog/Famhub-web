@@ -13,6 +13,7 @@ import 'package:famhub_app/features/farm_management/application/providers/farm_c
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/add_livestock_page.dart';
+import 'package:famhub_app/features/marketplace/presentation/pages/stock_selection_page.dart';
 
 class LivestockPage extends ConsumerStatefulWidget {
   const LivestockPage({super.key});
@@ -118,6 +119,12 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
             icon: const Icon(Icons.add_circle_outline),
             tooltip: 'Add Livestock to ${hierarchy.field!.fieldName}',
           ),
+        // Phase 1: publish managed stock to Marketplace
+        IconButton(
+          onPressed: () => _navigateToSellOnMarketplace(context),
+          icon: const Icon(Icons.storefront_outlined),
+          tooltip: 'Sell on Marketplace',
+        ),
       ],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,6 +183,12 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
   void _navigateToAddLivestock(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const AddLivestockPage()),
+    );
+  }
+
+  void _navigateToSellOnMarketplace(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const StockSelectionPage()),
     );
   }
 }

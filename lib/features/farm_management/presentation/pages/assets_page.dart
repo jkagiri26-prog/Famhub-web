@@ -12,6 +12,7 @@ import 'package:famhub_app/shared/layouts/adaptive_content_grid.dart';
 import 'package:famhub_app/features/farm_management/application/providers/assets_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/asset_entity.dart';
+import 'package:famhub_app/features/marketplace/presentation/pages/stock_selection_page.dart';
 
 class AssetsPage extends ConsumerStatefulWidget {
   const AssetsPage({super.key});
@@ -76,6 +77,14 @@ class _AssetsPageState extends ConsumerState<AssetsPage> {
         return ShellPageContent(
       title: 'Assets',
       subtitle: '${assetState.assets.length} asset${assetState.assets.length == 1 ? '' : 's'}',
+      actions: [
+        // Phase 1: publish managed stock to Marketplace
+        IconButton(
+          onPressed: () => _navigateToSellOnMarketplace(context),
+          icon: const Icon(Icons.storefront_outlined),
+          tooltip: 'Sell on Marketplace',
+        ),
+      ],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -158,6 +167,12 @@ class _AssetsPageState extends ConsumerState<AssetsPage> {
       default:
         return type;
     }
+  }
+
+  void _navigateToSellOnMarketplace(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const StockSelectionPage()),
+    );
   }
 }
 
