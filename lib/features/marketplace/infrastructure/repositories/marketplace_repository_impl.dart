@@ -69,6 +69,7 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
   /// which PostgREST cannot express natively.
   Future<List<Listing>> _enrichWithSellerProfiles(
       List<Map<String, dynamic>> rawListings) async {
+    await _enrichWithUnitNames(rawListings);
     final enriched = <Listing>[];
     for (final raw in rawListings) {
       final entityId = raw['entity_id']?.toString();
@@ -93,6 +94,7 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
   /// Enrich a single listing with seller profile data.
   Future<Listing> _enrichSingleSellerProfile(
       Map<String, dynamic> raw) async {
+    await _enrichWithUnitNames([raw]);
     final entityId = raw['entity_id']?.toString();
     if (entityId != null && entityId.isNotEmpty) {
       try {
@@ -106,6 +108,33 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
       }
     }
     return ListingMapper.fromJson(raw);
+  }
+
+  /// Resolve unit names (unit_id → core.units.name) in a single batched
+  /// lookup and stamp them as `unit_name` for [ListingMapper].
+  ///
+  /// This replaces the PostgREST embed (`unit:unit_id(name)`) which fails
+  /// when the cross-schema FK is not yet in the PostgREST schema cache.
+  Future<void> _enrichWithUnitNames(
+      List<Map<String, dynamic>> rawListings) async {
+    final unitIds = rawListings
+        .map((r) => r['unit_id']?.toString())
+        .whereType<String>()
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    if (unitIds.isEmpty) return;
+    try {
+      final units = await dataSource.fetchUnitsByIds(unitIds);
+      if (units.isEmpty) return;
+      for (final raw in rawListings) {
+        final unitId = raw['unit_id']?.toString();
+        if (unitId != null && units.containsKey(unitId)) {
+          raw['unit_name'] = units[unitId];
+        }
+      }
+    } catch (_) {
+      // Silently continue without unit names
+    }
   }
   @override
   Future<List<Listing>> fetchListings({

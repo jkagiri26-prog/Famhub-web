@@ -13,10 +13,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// Remote data source for marketplace listings.
 ///
 /// Handles all Supabase queries for `marketplace.listings`.
-/// Uses PostgREST joins to resolve FK relationships:
-///   - unit_id     → core.units(name)
-///   - location_id → core.locations(name)
-///   - stock_id    → commerce.stock_registry(quantity, reserved_quantity)
+/// `unit_id` is a scalar FK column (→ core.units.id via fk_listing_unit).
+/// Unit names are NOT embedded through PostgREST: cross-schema embeds depend
+/// on the FK being present in the PostgREST schema cache (a stale cache makes
+/// `unit:unit_id(name)` fail with a relationship error). The name is resolved
+/// with a separate batched `core.units` lookup (see [fetchUnitsByIds]).
+///
+/// location_id → core.locations(name)
+/// stock_id    → commerce.stock_registry(quantity, reserved_quantity)
 ///
 /// sellerName/sellerRating resolved via separate 2-hop query:
 ///   entity_id → core.entities → commerce.business_profiles
@@ -32,10 +36,35 @@ class MarketplaceRemoteDataSource {
     id, title, description, price_per_unit, currency, status, images,
     contact_visibility, is_promoted, promoted_until, created_at, updated_at,
     entity_id, variant_id, stock_id, unit_id, location_id,
-    unit:unit_id(name),
     location:location_id(name),
     stock:stock_id(quantity, reserved_quantity)
   ''';
+
+  /// Resolve unit names for the given unit IDs (id → name).
+  ///
+  /// Uses a direct `core.units` query keyed on the scalar `unit_id` FK column
+  /// instead of a PostgREST embed, so it never depends on the schema cache.
+  Future<Map<String, String>> fetchUnitsByIds(Set<String> unitIds) async {
+    final ids = unitIds.where((id) => id.isNotEmpty).toList();
+    if (ids.isEmpty) return const {};
+    try {
+      final response = await _client
+          .schema('core')
+          .from('units')
+          .select('id, name')
+          .inFilter('id', ids);
+      final rows = (response as List).cast<Map<String, dynamic>>();
+      return {
+        for (final row in rows)
+          if (row['id'] != null)
+            row['id'].toString(): row['name']?.toString() ?? '',
+      };
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to fetch units: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to fetch units: $e');
+    }
+  }
 
   /// Fetch all listings (with optional filters).
   Future<List<Map<String, dynamic>>> fetchListings({
