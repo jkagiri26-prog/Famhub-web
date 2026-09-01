@@ -8,8 +8,7 @@ import 'package:famhub_app/features/farm_management/application/providers/fields
 import 'package:famhub_app/features/guest/auth_guard.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_onboarding_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/farm_entity.dart';
-import 'package:famhub_app/features/farm_management/presentation/pages/farm_management_page.dart';
-import 'package:famhub_app/features/farm_management/presentation/widgets/farm_created_success_dialog.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/farm_detail_page.dart';
 import 'package:famhub_app/core/session/providers/session_country_provider.dart';
 import 'package:famhub_app/features/profile/application/providers/profile_location_provider.dart';
 import 'package:famhub_app/features/profile/presentation/widgets/dynamic_location_fields.dart';
@@ -472,10 +471,15 @@ class _AddFarmPageState extends ConsumerState<AddFarmPage> {
 
       if (!mounted) return;
 
-      // Navigate to dashboard first, then show the success dialog
+      // Enter Farm Detail with the farm AND its auto-created Main Field
+      // already selected in the hierarchy — the farmer can immediately
+      // add crops/livestock without manually creating the first field.
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (_) => const FarmManagementPage(),
+          builder: (_) => FarmDetailPage(
+            farmId: createdFarm.id,
+            farmName: createdFarm.farmName,
+          ),
         ),
         (route) => route.isFirst,
       );

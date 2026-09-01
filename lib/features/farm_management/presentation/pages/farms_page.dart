@@ -170,6 +170,10 @@ class _FarmsPageState extends ConsumerState<FarmsPage> {
   }
 
   void _navigateToFarmDetail(BuildContext context, FarmEntity farm) {
+    // Single source of truth: set the selected farm in the hierarchy
+    // BEFORE entering Farm Detail (hierarchyProvider.selectEntity).
+    ref.read(hierarchyProvider.notifier).selectEntity(farm);
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => FarmDetailPage(farmId: farm.id, farmName: farm.farmName),

@@ -32,6 +32,7 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/farm_selector_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/hierarchy_cascade_coordinator.dart';
 
 /// ============================================================
 /// BOOTSTRAP MODULE
@@ -80,6 +81,10 @@ class FarmModuleBootstrapCoordinator {
     try {
       // Step 1: Initialize repositories (handled by provider)
       // farmRepositoryProvider is lazy — no action needed
+
+      // Step 1b: Activate the hierarchy cascade so selecting a farm/field
+      // invalidates dependent providers (fields, crops, livestock, etc.).
+      ref.read(hierarchyCascadeCoordinatorProvider).setupListener();
 
       // Step 2: Load farms and auto-select default
       final selectorNotifier = ref.read(farmSelectorProvider.notifier);

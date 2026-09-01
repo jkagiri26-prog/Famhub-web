@@ -259,6 +259,7 @@ class _AddCropPageState extends ConsumerState<AddCropPage> {
 
       await repository.createCrop(farmId: farmId, crop: crop);
       ref.invalidate(cropsProvider);
+      ref.invalidate(cropsByFieldProvider);
       ref.read(hierarchyCascadeCoordinatorProvider).refreshAfterMutation();
 
       if (!mounted) return;

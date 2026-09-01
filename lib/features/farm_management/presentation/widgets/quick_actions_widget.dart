@@ -16,6 +16,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
+import 'package:famhub_app/features/farm_management/presentation/navigation/farm_action_navigation.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/add_farm_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/add_field_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/add_crop_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/add_livestock_page.dart';
 
 /// Quick Actions dashboard widget for Farm Management.
 ///
@@ -30,7 +35,7 @@ class QuickActionsWidget extends ConsumerWidget {
     final theme = Theme.of(context);
 
     // Determine what actions to show based on hierarchy depth
-    final actions = _getAvailableActions(hierarchy);
+    final actions = _getAvailableActions(context, ref, hierarchy);
 
     if (actions.isEmpty) {
       return const SizedBox.shrink();
@@ -77,7 +82,11 @@ class QuickActionsWidget extends ConsumerWidget {
   }
 
   /// Hierarchy-aware action definitions
-  List<_QuickAction> _getAvailableActions(HierarchySelectionState hierarchy) {
+  List<_QuickAction> _getAvailableActions(
+    BuildContext context,
+    WidgetRef ref,
+    HierarchySelectionState hierarchy,
+  ) {
     final actions = <_QuickAction>[];
 
     if (!hierarchy.hasEntity) {
@@ -89,6 +98,7 @@ class QuickActionsWidget extends ConsumerWidget {
         color: Colors.green,
         route: '/farm/create',
         showIf: () => true,
+        open: () => _openPage(context, (_) => const AddFarmPage()),
       ));
       return actions;
     }
@@ -101,6 +111,7 @@ class QuickActionsWidget extends ConsumerWidget {
       color: Colors.brown,
       route: '/farm/fields/create',
       showIf: () => true,
+      open: () => _openPage(context, (_) => const AddFieldPage()),
     ));
 
     // ── Field level actions (no Crop/Livestock selected) ──
@@ -112,6 +123,11 @@ class QuickActionsWidget extends ConsumerWidget {
         color: Colors.green,
         route: '/farm/crops/create',
         showIf: () => true,
+        open: () => ensureFieldSelectedAndOpen(
+          context,
+          ref,
+          (_) => const AddCropPage(),
+        ),
       ));
       actions.add(_QuickAction(
         key: 'add_livestock',
@@ -120,6 +136,11 @@ class QuickActionsWidget extends ConsumerWidget {
         color: Colors.orange,
         route: '/farm/livestock/create',
         showIf: () => true,
+        open: () => ensureFieldSelectedAndOpen(
+          context,
+          ref,
+          (_) => const AddLivestockPage(),
+        ),
       ));
       actions.add(_QuickAction(
         key: 'edit_field',
@@ -192,12 +213,18 @@ class QuickActionsWidget extends ConsumerWidget {
         style: const TextStyle(fontSize: 11, color: Colors.white),
       ),
       backgroundColor: action.color,
-      onPressed: () => context.push(action.route),
+      onPressed: action.open ?? () => context.push(action.route),
       padding: const EdgeInsets.symmetric(horizontal: 4),
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
       ),
+    );
+  }
+
+  void _openPage(BuildContext context, WidgetBuilder pageBuilder) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: pageBuilder),
     );
   }
 }
@@ -211,6 +238,10 @@ class _QuickAction {
   final String route;
   final bool Function() showIf;
 
+  /// When set, opens the page directly (with the required hierarchy
+  /// context) instead of pushing the (unregistered) [route].
+  final VoidCallback? open;
+
   const _QuickAction({
     required this.key,
     required this.icon,
@@ -218,5 +249,6 @@ class _QuickAction {
     required this.color,
     required this.route,
     required this.showIf,
+    this.open,
   });
 }

@@ -13,9 +13,11 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/farm_onboarding_provider.dart';
+import 'package:famhub_app/features/farm_management/presentation/navigation/farm_action_navigation.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/add_crop_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/add_livestock_page.dart';
 
 /// Guided setup card shown when a farm has no crops and no livestock.
 class FarmSetupGuideWidget extends ConsumerWidget {
@@ -115,7 +117,11 @@ class FarmSetupGuideWidget extends ConsumerWidget {
             children: [
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: () => context.push('/farm/crops/create'),
+                  onPressed: () => ensureFieldSelectedAndOpen(
+                    context,
+                    ref,
+                    (_) => const AddCropPage(),
+                  ),
                   icon: const Icon(Icons.eco, size: 18),
                   label: const Text('Add Crop'),
                   style: FilledButton.styleFrom(
@@ -131,7 +137,11 @@ class FarmSetupGuideWidget extends ConsumerWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: () => context.push('/farm/livestock/create'),
+                  onPressed: () => ensureFieldSelectedAndOpen(
+                    context,
+                    ref,
+                    (_) => const AddLivestockPage(),
+                  ),
                   icon: const Icon(Icons.pets, size: 18),
                   label: const Text('Add Livestock'),
                   style: FilledButton.styleFrom(

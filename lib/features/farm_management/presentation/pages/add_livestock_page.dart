@@ -237,6 +237,7 @@ class _AddLivestockPageState extends ConsumerState<AddLivestockPage> {
 
       await repository.createLivestock(farmId: farmId, livestock: livestock);
       ref.invalidate(livestockProvider);
+      ref.invalidate(livestockByFieldProvider);
       ref.read(hierarchyCascadeCoordinatorProvider).refreshAfterMutation();
 
       if (!mounted) return;
