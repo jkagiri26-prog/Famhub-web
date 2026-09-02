@@ -2,18 +2,21 @@
 /// FARM DASHBOARD PAGE (BACKWARD COMPATIBILITY WRAPPER)
 /// ============================================================
 ///
-/// ⚠️ DEPRECATED: Use farm_management_page.dart instead.
+/// ⚠️ DEPRECATED: Use farm_home_page.dart instead.
 ///
-/// This file re-exports FarmManagementPage from the new location
-/// for backward compatibility with existing imports.
+/// This file keeps legacy imports pointed at the official tabbed farm
+/// workspace for backward compatibility.
 ///
-/// All actual logic has moved to:
-///   features/farm_management/presentation/pages/farm_management_page.dart
+/// The active farm workspace is:
+///   features/farm_management/presentation/pages/farm_home_page.dart
 ///
 /// Routes reference this file via:
 ///   import '...farm_dashboard_page.dart' as farm;
-///   farm.FarmManagementPage()
+///   farm.FarmHomePage()
 /// ============================================================
 library;
 
-export 'farm_management_page.dart';
+export 'farm_home_page.dart';
+
+/// Legacy name retained for callers that still construct the old page.
+typedef FarmManagementPage = FarmHomePage;
