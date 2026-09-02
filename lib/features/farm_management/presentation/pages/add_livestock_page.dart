@@ -269,11 +269,14 @@ class _AddLivestockPageState extends ConsumerState<AddLivestockPage> {
                   )
                 else
                   DropdownButtonFormField<String>(
+                    key: ValueKey(_selectedItemId),
                     value: _selectedVariantId,
                     decoration: InputDecoration(
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      hintText: 'Select livestock type',
+                      hintText: _variants.isEmpty
+                          ? 'No livestock types available'
+                          : 'Select livestock type',
                     ),
                     items: _variants.map((v) => DropdownMenuItem(
                       value: v.id,
@@ -282,7 +285,7 @@ class _AddLivestockPageState extends ConsumerState<AddLivestockPage> {
                         style: const TextStyle(fontSize: 14),
                       ),
                     )).toList(),
-                    onChanged: _selectedItemId == null
+                    onChanged: _selectedItemId == null || _variants.isEmpty
                         ? null
                         : (value) => setState(() => _selectedVariantId = value),
                     validator: (value) => (_selectedItemId == null || value == null) ? 'Select a livestock type' : null,
