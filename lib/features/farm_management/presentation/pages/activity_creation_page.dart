@@ -389,6 +389,8 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
       }
 
       // Build activity model with UI context fields (NOT persisted to backend)
+      // Authoritative contract: activity.asset_id = the selected crop/livestock
+      // ASSET instance. The crop/livestock id in the hierarchy IS the asset id.
       final activity = ActivityModel(
         id: '', // Backend will generate
         activityTypeId: _activityTypeId,
@@ -398,15 +400,13 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
         cropOrLivestockType: hierarchy.cropOrLivestockType, // UI context only
         performedAt: _performedAt,
         notes: _notesController.text.trim(),
-        assetId: _selectedAssetId,
+        assetId: hierarchy.cropOrLivestockId ?? _selectedAssetId,
         planId: null,
       );
 
-      // Create activity — only documented columns are sent to backend
-      final createdActivity = await repository.createActivity(activity: activity);
-
-      // Use the backend-generated ID for subsequent operations
-      print('Activity created with backend ID: ${createdActivity.id}');
+      // Create activity via the create_activity RPC — only documented
+      // activity columns are sent.
+      await repository.createActivity(activity: activity);
 
       // Invalidate activities + central mutation refresh (dashboard,
       // lifecycle, AI context)

@@ -114,6 +114,10 @@ abstract class FarmRepository {
   /// Returns id and name for each unit.
   Future<List<({String id, String name})>> getUnits();
 
+  /// Crop/livestock variants from `core.item_variants` (joined with their
+  /// parent `core.items` name). Returns id, itemName, variantName.
+  Future<List<({String id, String itemName, String variantName})>> getVariants();
+
   // ── Activities ─────────────────────────────────────────────
   /// Get activities for a farm. UI filtering by hierarchy is client-side.
   Future<List<ActivityModel>> getActivities({required String farmId});

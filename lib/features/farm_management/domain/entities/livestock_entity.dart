@@ -4,28 +4,27 @@
 ///
 /// 🧠 DOMAIN LAYER — PURE DART, NO FLUTTER, NO SUPABASE
 ///
-/// Represents a livestock animal or group within a farm.
+/// Represents a livestock INSTANCE (group) on a farm.
 ///
 /// Schema source (Supabase / Postgres):
-///   farm_management.livestock:
-///     - id (uuid)
+///   farm_management.assets (asset_type = 'livestock'):
+///     - id (uuid)  ← the livestock asset id
 ///     - farm_id (uuid)
-///     - species (text)
-///     - breed (text, nullable)
-///     - count (integer)
-///     - date_of_birth (date, nullable)
-///     - health_status (text, nullable)
-///     - purpose (text, nullable): meat, dairy, breeding, etc.
-///     - notes (text, nullable)
+///     - field_id (uuid, nullable)
+///     - variant_id (uuid → core.item_variants)
+///     - quantity (numeric, nullable; head count)
+///     - unit_id (uuid, nullable)
+///     - status (text)
+///     - metadata (jsonb: breed, notes, ...)
 ///     - created_at (timestamptz)
-/// ============================================================
-
-// ignore_for_file: dangling_library_doc_comments
-
+///
+/// There is no separate `farm_management.livestock` table; the species is the
+/// linked core.item_variants row (e.g. "Friesian").
 class LivestockEntity {
   final String id;
   final String farmId;
   final String? fieldId;
+  final String? variantId;
   final String species;
   final String? breed;
   final int count;
@@ -39,6 +38,7 @@ class LivestockEntity {
     required this.id,
     required this.farmId,
     this.fieldId,
+    this.variantId,
     required this.species,
     this.breed,
     required this.count,
@@ -66,6 +66,7 @@ class LivestockEntity {
     String? id,
     String? farmId,
     String? fieldId,
+    String? variantId,
     String? species,
     String? breed,
     int? count,
@@ -79,6 +80,7 @@ class LivestockEntity {
       id: id ?? this.id,
       farmId: farmId ?? this.farmId,
       fieldId: fieldId ?? this.fieldId,
+      variantId: variantId ?? this.variantId,
       species: species ?? this.species,
       breed: breed ?? this.breed,
       count: count ?? this.count,

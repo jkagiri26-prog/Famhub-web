@@ -26,6 +26,10 @@ import 'package:famhub_app/features/guest/auth_guard.dart';
 ///
 /// farmId and fieldId are automatically read from hierarchy — user does NOT
 /// pick them. This enforces: "you must be IN a field to plant a crop."
+///
+/// Crops are farm_management.assets (asset_type='crop') created from a
+/// selected core.item_variants (the crop kind). The farmer picks the
+/// variant; the backend creates the asset instance on the selected field.
 class AddCropPage extends ConsumerStatefulWidget {
   const AddCropPage({super.key});
 
@@ -35,18 +39,42 @@ class AddCropPage extends ConsumerStatefulWidget {
 
 class _AddCropPageState extends ConsumerState<AddCropPage> {
   final _formKey = GlobalKey<FormState>();
-  final _cropNameController = TextEditingController();
-  final _varietyController = TextEditingController();
-  final _areaPlantedController = TextEditingController();
   final _notesController = TextEditingController();
-  CropStatus _status = CropStatus.planted;
+  String? _selectedVariantId;
   bool _isSubmitting = false;
+  bool _loadingVariants = true;
+  String? _variantsError;
+  List<({String id, String itemName, String variantName})> _variants = [];
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_loadVariants);
+  }
+
+  Future<void> _loadVariants() async {
+    setState(() {
+      _loadingVariants = true;
+      _variantsError = null;
+    });
+    try {
+      final variants = await ref.read(farmRepositoryProvider).getVariants();
+      if (!mounted) return;
+      setState(() {
+        _variants = variants;
+        _loadingVariants = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _variantsError = e.toString();
+        _loadingVariants = false;
+      });
+    }
+  }
 
   @override
   void dispose() {
-    _cropNameController.dispose();
-    _varietyController.dispose();
-    _areaPlantedController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -94,73 +122,55 @@ class _AddCropPageState extends ConsumerState<AddCropPage> {
               _buildContextBanner(farmName, fieldName),
               const SizedBox(height: 24),
 
-              // ── Crop Name ──
-              Text('Crop Name',
+              // ── Crop Variant (the crop kind = core.item_variants) ──
+              Text('Crop / Variety',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _cropNameController,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  hintText: 'e.g. Maize, Tomatoes',
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                ),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter crop name' : null,
+              const SizedBox(height: 4),
+              Text(
+                'Choose the crop you are planting. It is added as a crop asset '
+                'to $fieldName.',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
-              const SizedBox(height: 20),
-
-              // ── Variety ──
-              Text('Variety (Optional)',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
-              TextFormField(
-                controller: _varietyController,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  hintText: 'e.g. Hybrid, H411',
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // ── Area Planted ──
-              Text('Area Planted (hectares)',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _areaPlantedController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  hintText: 'e.g. 2.5',
-                  suffixText: 'ha',
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // ── Status ──
-              Text('Status',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<CropStatus>(
-                value: _status,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                ),
-                items: CropStatus.values.map((s) => DropdownMenuItem(
-                  value: s,
-                  child: Row(
-                    children: [
-                      Icon(_statusIcon(s), size: 16, color: _statusColor(s)),
-                      const SizedBox(width: 8),
-                      Text(_statusLabel(s)),
-                    ],
+              if (_loadingVariants)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                )
+              else if (_variantsError != null)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Could not load crop variants: $_variantsError',
+                      style: TextStyle(fontSize: 13, color: Colors.red.shade700),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: _loadVariants,
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: const Text('Retry'),
+                    ),
+                  ],
+                )
+              else
+                DropdownButtonFormField<String>(
+                  value: _selectedVariantId,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    hintText: 'Select crop variety',
                   ),
-                )).toList(),
-                onChanged: (v) => setState(() => _status = v!),
-              ),
+                  items: _variants.map((v) => DropdownMenuItem(
+                    value: v.id,
+                    child: Text(
+                      v.itemName.isEmpty ? v.variantName : '${v.itemName} — ${v.variantName}',
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  )).toList(),
+                  onChanged: (value) => setState(() => _selectedVariantId = value),
+                  validator: (value) => (value == null) ? 'Select a crop variety' : null,
+                ),
               const SizedBox(height: 20),
 
               // ── Notes ──
@@ -244,27 +254,48 @@ class _AddCropPageState extends ConsumerState<AddCropPage> {
 
     try {
       final repository = ref.read(farmRepositoryProvider);
+      final variant = _variants.firstWhere(
+        (v) => v.id == _selectedVariantId,
+        orElse: () => (id: '', itemName: '', variantName: ''),
+      );
       final crop = CropEntity(
         id: '',
         farmId: farmId,
         fieldId: fieldId,
-        cropName: _cropNameController.text.trim(),
-        variety: _varietyController.text.trim().isEmpty ? null : _varietyController.text.trim(),
+        variantId: _selectedVariantId,
+        cropName: variant.itemName.isEmpty
+            ? variant.variantName
+            : '${variant.itemName} ${variant.variantName}'.trim(),
+        variety: variant.variantName.isEmpty ? null : variant.variantName,
         plantingDate: DateTime.now(),
-        areaPlanted: double.tryParse(_areaPlantedController.text.trim()),
-        status: _status,
-        notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+        status: CropStatus.planted,
+        notes: _notesController.text.trim().isEmpty
+            ? null
+            : _notesController.text.trim(),
         createdAt: DateTime.now(),
       );
 
-      await repository.createCrop(farmId: farmId, crop: crop);
+      final created = await repository.createCrop(farmId: farmId, crop: crop);
+
+      // Attach the new crop asset to the current hierarchy context so the
+      // crop page refreshes its selected field's data.
+      final refreshCrop = crop.copyWith(id: created.id);
+      ref.read(cropsProvider.notifier).loadCrops(farmId: farmId, fieldId: fieldId);
       ref.invalidate(cropsProvider);
       ref.invalidate(cropsByFieldProvider);
       ref.read(hierarchyCascadeCoordinatorProvider).refreshAfterMutation();
 
       if (!mounted) return;
+      final fieldLabel = ref.read(hierarchyProvider).field?.fieldName ?? 'field';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Crop added successfully'), backgroundColor: Colors.green),
+        SnackBar(
+          content: Text(
+            _selectedVariantId == null
+                ? 'Select a crop variety first'
+                : '${refreshCrop.cropName} added to $fieldLabel',
+          ),
+          backgroundColor: Colors.green,
+        ),
       );
       Navigator.of(context).pop();
     } catch (e) {
@@ -274,33 +305,6 @@ class _AddCropPageState extends ConsumerState<AddCropPage> {
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
-    }
-  }
-
-  String _statusLabel(CropStatus status) {
-    switch (status) {
-      case CropStatus.planted: return 'Planted';
-      case CropStatus.growing: return 'Growing';
-      case CropStatus.harvested: return 'Harvested';
-      case CropStatus.failed: return 'Failed';
-    }
-  }
-
-  IconData _statusIcon(CropStatus status) {
-    switch (status) {
-      case CropStatus.planted: return Icons.eco;
-      case CropStatus.growing: return Icons.trending_up;
-      case CropStatus.harvested: return Icons.shopping_basket;
-      case CropStatus.failed: return Icons.warning;
-    }
-  }
-
-  Color _statusColor(CropStatus status) {
-    switch (status) {
-      case CropStatus.planted: return Colors.blue;
-      case CropStatus.growing: return Colors.green;
-      case CropStatus.harvested: return Colors.orange;
-      case CropStatus.failed: return Colors.red;
     }
   }
 }

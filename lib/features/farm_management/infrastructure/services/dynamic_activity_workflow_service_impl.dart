@@ -117,28 +117,24 @@ class DynamicActivityWorkflowServiceImpl
       cropOrLivestockType: cropOrLivestockType,
       performedAt: DateTime.now(),
       notes: notes,
-      assetId: null,
+      // Authoritative contract: the activity attaches to the crop/livestock
+      // ASSET (which IS the selected crop/livestock instance id).
+      assetId: cropOrLivestockId.isEmpty ? null : cropOrLivestockId,
       planId: null,
     );
 
-    // Only documented columns are sent to the backend activities table.
-    // farmId, fieldId, cropOrLivestockId, cropOrLivestockType are UI context only.
+    // Only documented activity columns are sent to the backend via the
+    // create_activity RPC. farmId, fieldId, cropOrLivestockId,
+    // cropOrLivestockType are UI context only.
     final createdActivity = await _repository.createActivity(activity: activity);
     final backendId = createdActivity.id; // USE the backend-generated ID
 
     // ════════════════════════════════════════════════════════════
-    // STEP 4 — STOCK MUTATION (uses backend-generated activity ID)
+    // STEP 4 — FINANCIAL RECORDING (only)
     // ════════════════════════════════════════════════════════════
-    await _handleStockMutation(
-      farmId: farmId,
-      template: template,
-      formValues: formValues,
-      activityId: backendId,
-    );
-
-    // ════════════════════════════════════════════════════════════
-    // STEP 5 — FINANCIAL RECORDING
-    // ════════════════════════════════════════════════════════════
+    // NOTE: creating an activity NEVER auto-creates production.
+    // Production is recorded explicitly from an activity (see the
+    // create_production_record RPC flow).
     await _handleFinancialRecording(
       farmId: farmId,
       template: template,

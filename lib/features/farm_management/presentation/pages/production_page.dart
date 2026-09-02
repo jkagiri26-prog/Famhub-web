@@ -33,6 +33,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famhub_app/shared/layouts/shell_page_content.dart';
 
 import 'package:famhub_app/features/farm_management/domain/entities/production_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/models/activity_model.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/production_provider.dart';
@@ -44,11 +45,15 @@ import 'package:famhub_app/features/guest/auth_guard.dart';
 
 /// Production Recording Form
 ///
-/// Records farm production against the existing `production_records`
-/// contract. The backend trigger then creates/updates Commerce stock
-/// automatically. Publishing is always explicit via "Sell on Marketplace".
+/// Production is created EXPLICITLY from an existing activity via
+/// `farm_management.create_production_record(p_production_data jsonb)`.
+/// The backend derives farm/field/asset/entity context from the
+/// activity → asset chain. Publishing to Marketplace is always explicit.
 class ProductionRecordingPage extends ConsumerStatefulWidget {
-  const ProductionRecordingPage({super.key});
+  /// Optional pre-selected activity to record production against.
+  final String? initialActivityId;
+
+  const ProductionRecordingPage({super.key, this.initialActivityId});
 
   @override
   ConsumerState<ProductionRecordingPage> createState() => _ProductionRecordingPageState();
@@ -68,6 +73,12 @@ class _ProductionRecordingPageState extends ConsumerState<ProductionRecordingPag
   String? _loadError;
   List<({String id, String name, String category})> _commodities = [];
   List<({String id, String name})> _units = [];
+
+  // Activities to produce from (production requires an existing activity).
+  bool _loadingActivities = true;
+  String? _activitiesError;
+  List<ActivityModel> _activities = [];
+  String? _selectedActivityId;
 
   // Production categories are used as a browsing FILTER over the existing
   // core.commodities table (commodity.category). No new mapping is invented.
@@ -95,7 +106,47 @@ class _ProductionRecordingPageState extends ConsumerState<ProductionRecordingPag
     if (hierarchy.hasField) {
       _selectedFieldId = hierarchy.fieldId;
     }
+    await _loadActivities();
     await _loadReferences();
+  }
+
+  Future<void> _loadActivities() async {
+    setState(() {
+      _loadingActivities = true;
+      _activitiesError = null;
+    });
+    try {
+      final repository = ref.read(farmRepositoryProvider);
+      final farmId = ref.read(farmContextProvider).farmId;
+      final hierarchy = ref.read(hierarchyProvider);
+      if (farmId == null) {
+        _activities = const [];
+      } else {
+        var activities = await repository.getActivities(farmId: farmId);
+        // Production derives context from the activity → asset chain. When a
+        // crop/livestock asset is selected in the hierarchy, prefer its
+        // activities.
+        final assetId = hierarchy.cropOrLivestockId;
+        if (assetId != null) {
+          final scoped = activities.where((a) => a.assetId == assetId).toList();
+          if (scoped.isNotEmpty) activities = scoped;
+        }
+        _activities = activities;
+      }
+      _selectedActivityId = _activities.any((a) => a.id == widget.initialActivityId)
+          ? widget.initialActivityId
+          : null;
+      if (!mounted) return;
+      setState(() {
+        _loadingActivities = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _activitiesError = e.toString();
+        _loadingActivities = false;
+      });
+    }
   }
 
   @override
@@ -173,6 +224,23 @@ class _ProductionRecordingPageState extends ConsumerState<ProductionRecordingPag
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // ── Activity (production is recorded from an activity) ──
+                    Text(
+                      'From Activity',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Production is recorded against an existing activity. '
+                      'Farm, field and asset context are derived from it.',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildActivityPicker(),
+                    const SizedBox(height: 24),
+
                     // ── Production Category (filter for commodity picker) ──
                     Text(
                       'Production Category',
@@ -373,7 +441,7 @@ class _ProductionRecordingPageState extends ConsumerState<ProductionRecordingPag
                       width: double.infinity,
                       height: 48,
                       child: ElevatedButton.icon(
-                        onPressed: (_isSubmitting || _commodities.isEmpty || _loadError != null)
+                        onPressed: (_isSubmitting || _activities.isEmpty || _commodities.isEmpty || _loadError != null)
                             ? null
                             : () => _submitProduction(farmId),
                         icon: _isSubmitting
@@ -397,6 +465,64 @@ class _ProductionRecordingPageState extends ConsumerState<ProductionRecordingPag
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildActivityPicker() {
+    if (_loadingActivities) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+    if (_activitiesError != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Could not load activities: $_activitiesError',
+            style: TextStyle(fontSize: 13, color: Colors.red.shade700),
+          ),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            onPressed: _loadActivities,
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('Retry'),
+          ),
+        ],
+      );
+    }
+    if (_activities.isEmpty) {
+      return Text(
+        'No activities yet. Record an activity on a crop or livestock first '
+        '— production must be created from an activity.',
+        style: TextStyle(fontSize: 13, color: Colors.orange.shade800),
+      );
+    }
+    return DropdownButtonFormField<String>(
+      value: _selectedActivityId,
+      decoration: InputDecoration(
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        hintText: 'Select activity',
+      ),
+      items: _activities.map((a) => DropdownMenuItem(
+        value: a.id,
+        child: Text(
+          '${a.activityTypeId} · '
+          '${a.performedAt.day}/${a.performedAt.month}/${a.performedAt.year}',
+          style: const TextStyle(fontSize: 13),
+        ),
+      )).toList(),
+      onChanged: (value) {
+        setState(() => _selectedActivityId = value);
+      },
+      validator: (value) {
+        if (value == null) return 'Select the activity that produced this output';
+        return null;
+      },
     );
   }
 
@@ -488,18 +614,20 @@ class _ProductionRecordingPageState extends ConsumerState<ProductionRecordingPag
 
       final production = ProductionEntity(
         id: '',
+        activityId: _selectedActivityId,
         variantId: null,
         outputCommodityId: _selectedCommodityId,
         quantity: quantity,
         unitId: _selectedUnitId,
         categoryId: null,
         assetId: null,
-        fieldId: _selectedFieldId,
-        activityId: null,
+        fieldId: null,
+        sourceType: 'activity',
       );
 
-      // Step 1: Record production — the backend trigger then creates/updates
-      // Commerce stock for entity/variant/location automatically.
+      // Step 1: Record production via create_production_record. The backend
+      // derives farm/field/asset/entity from the activity → asset chain, then
+      // the production → Commerce stock pipeline creates/updates stock.
       await repository.recordProduction(farmId: farmId, production: production);
 
       // Step 2: Auto-update production KPIs

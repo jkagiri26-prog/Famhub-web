@@ -19,6 +19,7 @@ class ProductionEntity {
   final String? categoryId;
   final String? assetId;
   final String? fieldId;
+  final String? sourceType;
 
   const ProductionEntity({
     required this.id,
@@ -30,6 +31,7 @@ class ProductionEntity {
     this.categoryId,
     this.assetId,
     this.fieldId,
+    this.sourceType,
   });
 }
 

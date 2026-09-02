@@ -25,6 +25,9 @@ import 'package:famhub_app/features/guest/auth_guard.dart';
 ///
 /// farmId and fieldId are automatically read from hierarchy — user does NOT
 /// pick them. This enforces: "you must be IN a field to add livestock."
+///
+/// Livestock are farm_management.assets (asset_type='livestock') created
+/// from a selected core.item_variants (the species/breed kind).
 class AddLivestockPage extends ConsumerStatefulWidget {
   const AddLivestockPage({super.key});
 
@@ -34,16 +37,43 @@ class AddLivestockPage extends ConsumerStatefulWidget {
 
 class _AddLivestockPageState extends ConsumerState<AddLivestockPage> {
   final _formKey = GlobalKey<FormState>();
-  final _speciesController = TextEditingController();
-  final _breedController = TextEditingController();
   final _countController = TextEditingController();
   final _notesController = TextEditingController();
+  String? _selectedVariantId;
   bool _isSubmitting = false;
+  bool _loadingVariants = true;
+  String? _variantsError;
+  List<({String id, String itemName, String variantName})> _variants = [];
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_loadVariants);
+  }
+
+  Future<void> _loadVariants() async {
+    setState(() {
+      _loadingVariants = true;
+      _variantsError = null;
+    });
+    try {
+      final variants = await ref.read(farmRepositoryProvider).getVariants();
+      if (!mounted) return;
+      setState(() {
+        _variants = variants;
+        _loadingVariants = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _variantsError = e.toString();
+        _loadingVariants = false;
+      });
+    }
+  }
 
   @override
   void dispose() {
-    _speciesController.dispose();
-    _breedController.dispose();
     _countController.dispose();
     _notesController.dispose();
     super.dispose();
@@ -92,33 +122,55 @@ class _AddLivestockPageState extends ConsumerState<AddLivestockPage> {
               _buildContextBanner(farmName, fieldName),
               const SizedBox(height: 24),
 
-              // ── Species ──
-              Text('Species',
+              // ── Species / Breed Variant ──
+              Text('Species / Breed',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _speciesController,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  hintText: 'e.g. Cattle, Goats, Chickens',
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                ),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Enter species' : null,
+              const SizedBox(height: 4),
+              Text(
+                'Choose the livestock you are adding. It is added as a livestock '
+                'asset to $fieldName.',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
-              const SizedBox(height: 20),
-
-              // ── Breed ──
-              Text('Breed (Optional)',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
-              TextFormField(
-                controller: _breedController,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  hintText: 'e.g. Friesian, Boer, Rhode Island Red',
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              if (_loadingVariants)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                )
+              else if (_variantsError != null)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Could not load livestock variants: $_variantsError',
+                      style: TextStyle(fontSize: 13, color: Colors.red.shade700),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: _loadVariants,
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: const Text('Retry'),
+                    ),
+                  ],
+                )
+              else
+                DropdownButtonFormField<String>(
+                  value: _selectedVariantId,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    hintText: 'Select livestock type',
+                  ),
+                  items: _variants.map((v) => DropdownMenuItem(
+                    value: v.id,
+                    child: Text(
+                      v.itemName.isEmpty ? v.variantName : '${v.itemName} — ${v.variantName}',
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  )).toList(),
+                  onChanged: (value) => setState(() => _selectedVariantId = value),
+                  validator: (value) => (value == null) ? 'Select a livestock type' : null,
                 ),
-              ),
               const SizedBox(height: 20),
 
               // ── Count ──
@@ -224,12 +276,19 @@ class _AddLivestockPageState extends ConsumerState<AddLivestockPage> {
 
     try {
       final repository = ref.read(farmRepositoryProvider);
+      final variant = _variants.firstWhere(
+        (v) => v.id == _selectedVariantId,
+        orElse: () => (id: '', itemName: '', variantName: ''),
+      );
       final livestock = LivestockEntity(
         id: '',
         farmId: farmId,
         fieldId: fieldId,
-        species: _speciesController.text.trim(),
-        breed: _breedController.text.trim().isEmpty ? null : _breedController.text.trim(),
+        variantId: _selectedVariantId,
+        species: variant.itemName.isEmpty
+            ? variant.variantName
+            : variant.itemName,
+        breed: variant.variantName.isEmpty ? null : variant.variantName,
         count: int.parse(_countController.text.trim()),
         notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
         createdAt: DateTime.now(),
@@ -241,8 +300,12 @@ class _AddLivestockPageState extends ConsumerState<AddLivestockPage> {
       ref.read(hierarchyCascadeCoordinatorProvider).refreshAfterMutation();
 
       if (!mounted) return;
+      final fieldLabel = ref.read(hierarchyProvider).field?.fieldName ?? 'field';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Livestock added successfully'), backgroundColor: Colors.green),
+        SnackBar(
+          content: Text('${livestock.species} added to $fieldLabel'),
+          backgroundColor: Colors.green,
+        ),
       );
       Navigator.of(context).pop();
     } catch (e) {

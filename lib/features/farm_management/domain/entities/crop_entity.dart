@@ -4,33 +4,30 @@
 ///
 /// 🧠 DOMAIN LAYER — PURE DART, NO FLUTTER, NO SUPABASE
 ///
-/// Represents a crop record within a farm.
+/// Represents a crop INSTANCE on a farm.
 ///
 /// Schema source (Supabase / Postgres):
-///   farm_management.crops:
-///     - id (uuid)
+///   farm_management.assets (asset_type = 'crop'):
+///     - id (uuid)  ← the crop asset id
 ///     - farm_id (uuid)
 ///     - field_id (uuid, nullable)
-///     - crop_name (text)
-///     - variety (text, nullable)
-///     - planting_date (date)
-///     - expected_harvest_date (date, nullable)
-///     - area_planted (numeric, nullable, hectares)
-///     - quantity_planted (numeric, nullable)
-///     - unit (text, nullable)
-///     - status (crop_status enum): planted, growing, harvested, failed
-///     - notes (text, nullable)
+///     - variant_id (uuid → core.item_variants)
+///     - quantity (numeric, nullable)
+///     - unit_id (uuid, nullable)
+///     - status (text)
+///     - metadata (jsonb: variety, planting_date, notes, ...)
 ///     - created_at (timestamptz)
-/// ============================================================
+///
+/// There is no separate `farm_management.crops` table; the crop kind is the
+/// linked core.item_variants row (e.g. "Maize variant H614").
 
 import 'package:famhub_app/features/farm_management/domain/enums/crop_status.dart';
-
-// ignore_for_file: dangling_library_doc_comments
 
 class CropEntity {
   final String id;
   final String farmId;
   final String? fieldId;
+  final String? variantId;
   final String cropName;
   final String? variety;
   final DateTime plantingDate;
@@ -46,6 +43,7 @@ class CropEntity {
     required this.id,
     required this.farmId,
     this.fieldId,
+    this.variantId,
     required this.cropName,
     this.variety,
     required this.plantingDate,
@@ -86,6 +84,7 @@ class CropEntity {
     String? id,
     String? farmId,
     String? fieldId,
+    String? variantId,
     String? cropName,
     String? variety,
     DateTime? plantingDate,
@@ -101,6 +100,7 @@ class CropEntity {
       id: id ?? this.id,
       farmId: farmId ?? this.farmId,
       fieldId: fieldId ?? this.fieldId,
+      variantId: variantId ?? this.variantId,
       cropName: cropName ?? this.cropName,
       variety: variety ?? this.variety,
       plantingDate: plantingDate ?? this.plantingDate,

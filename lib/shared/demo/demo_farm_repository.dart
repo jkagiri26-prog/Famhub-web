@@ -575,6 +575,21 @@ class DemoFarmRepository implements FarmRepository {
     ];
   }
 
+  @override
+  Future<List<({String id, String itemName, String variantName})>> getVariants() async {
+    await Future.delayed(const Duration(milliseconds: 50));
+    return const [
+      (id: 'demo-variant-maize-1', itemName: 'Maize', variantName: 'H614'),
+      (id: 'demo-variant-maize-2', itemName: 'Maize', variantName: 'DK8031'),
+      (id: 'demo-variant-tomato-1', itemName: 'Tomatoes', variantName: 'Anna F1'),
+      (id: 'demo-variant-peas-1', itemName: 'Snow Peas', variantName: 'Oregon'),
+      (id: 'demo-variant-cattle-1', itemName: 'Cattle', variantName: 'Friesian'),
+      (id: 'demo-variant-cattle-2', itemName: 'Cattle', variantName: 'Sahiwal'),
+      (id: 'demo-variant-goat-1', itemName: 'Goats', variantName: 'Saanen'),
+      (id: 'demo-variant-chicken-1', itemName: 'Chicken', variantName: 'Layer'),
+    ];
+  }
+
   // â”€â”€ Activities â”€â”€
 
   @override
