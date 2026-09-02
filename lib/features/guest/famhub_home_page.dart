@@ -34,7 +34,7 @@ import 'package:famhub_app/shared/demo/demo_banner_widget.dart';
 import 'package:famhub_app/features/auth/presentation/widgets/split_screen_hero.dart';
 
 // Module page imports for direct navigation from FAMHUB Home
-import 'package:famhub_app/features/farm_management/presentation/pages/farm_dashboard_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/farm_home_page.dart';
 import 'package:famhub_app/features/marketplace/presentation/pages/marketplace_page.dart';
 import 'package:famhub_app/features/knowledge_link/presentation/pages/knowledge_link_page.dart';
 import 'package:famhub_app/features/financing/presentation/pages/financing_page.dart';
@@ -1154,7 +1154,7 @@ class FamhubHomePage extends ConsumerWidget {
                 backgroundColor: Colors.transparent,
                 elevation: 0,
               ),
-              body: const FarmManagementPage(),
+              body: const FarmHomePage(),
             ),
           ),
         );
