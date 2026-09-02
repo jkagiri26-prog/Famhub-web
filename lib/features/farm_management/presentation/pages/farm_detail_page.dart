@@ -20,6 +20,7 @@ import 'package:famhub_app/features/farm_management/presentation/pages/add_lives
 import 'package:famhub_app/features/farm_management/presentation/pages/activities_page.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/production_page.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/reports_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/crop_livestock_detail_page.dart';
 
 /// Farm Detail Page — the farm workspace.
 ///
@@ -197,6 +198,16 @@ class _FarmDetailPageState extends ConsumerState<FarmDetailPage> {
         ],
       ),
     );
+  }
+
+  void _openCropDetails(CropEntity crop) {
+    ref.read(hierarchyProvider.notifier).selectCrop(crop);
+    _openPage(CropLivestockDetailPage.crop(crop: crop));
+  }
+
+  void _openLivestockDetails(LivestockEntity animal) {
+    ref.read(hierarchyProvider.notifier).selectLivestock(animal);
+    _openPage(CropLivestockDetailPage.livestock(livestock: animal));
   }
 
   void _openPage(Widget page) {
@@ -469,7 +480,7 @@ class _FarmDetailPageState extends ConsumerState<FarmDetailPage> {
             for (final crop in crops)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
-                child: _CropTile(crop: crop),
+                child: _CropTile(crop: crop, onTap: () => _openCropDetails(crop)),
               ),
             const SizedBox(height: 12),
           ],
@@ -484,7 +495,7 @@ class _FarmDetailPageState extends ConsumerState<FarmDetailPage> {
             for (final animal in livestock)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
-                child: _LivestockTile(animal: animal),
+                child: _LivestockTile(animal: animal, onTap: () => _openLivestockDetails(animal)),
               ),
             const SizedBox(height: 12),
           ],
@@ -668,13 +679,17 @@ class _FieldCard extends StatelessWidget {
 /// ────────────────────────────────────────────────────────────
 class _CropTile extends StatelessWidget {
   final CropEntity crop;
+  final VoidCallback onTap;
 
-  const _CropTile({required this.crop});
+  const _CropTile({required this.crop, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final statusColor = _cropColor(crop.status);
-    return Container(
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -702,6 +717,7 @@ class _CropTile extends StatelessWidget {
           ),
         ],
       ),
+      ),
     );
   }
 
@@ -724,12 +740,16 @@ class _CropTile extends StatelessWidget {
 /// ────────────────────────────────────────────────────────────
 class _LivestockTile extends StatelessWidget {
   final LivestockEntity animal;
+  final VoidCallback onTap;
 
-  const _LivestockTile({required this.animal});
+  const _LivestockTile({required this.animal, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -756,6 +776,7 @@ class _LivestockTile extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

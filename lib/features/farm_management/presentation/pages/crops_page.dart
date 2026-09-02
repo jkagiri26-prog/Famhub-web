@@ -16,6 +16,7 @@ import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.
 import 'package:famhub_app/features/farm_management/domain/enums/crop_status.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/add_crop_page.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/activity_template_selection_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/crop_livestock_detail_page.dart';
 import 'package:famhub_app/features/marketplace/presentation/pages/stock_selection_page.dart';
 
 
@@ -194,6 +195,7 @@ class _CropsPageState extends ConsumerState<CropsPage> {
                 final crop = filtered[index];
                 return _CropCard(
                   crop: crop,
+                  onTap: () => _openCropDetails(context, crop),
                   onSell: () => _sellCrop(context, crop),
                   onRecordActivity: () => _recordActivity(context, crop),
                 );
@@ -235,15 +237,26 @@ class _CropsPageState extends ConsumerState<CropsPage> {
       ),
     );
   }
+
+  void _openCropDetails(BuildContext context, CropEntity crop) {
+    ref.read(hierarchyProvider.notifier).selectCrop(crop);
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CropLivestockDetailPage.crop(crop: crop),
+      ),
+    );
+  }
 }
 
 class _CropCard extends StatelessWidget {
   final CropEntity crop;
+  final VoidCallback onTap;
   final VoidCallback onSell;
   final VoidCallback onRecordActivity;
 
   const _CropCard({
     required this.crop,
+    required this.onTap,
     required this.onSell,
     required this.onRecordActivity,
   });
@@ -258,11 +271,14 @@ class _CropCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: Colors.grey.shade200),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Row(
               children: [
                 Container(

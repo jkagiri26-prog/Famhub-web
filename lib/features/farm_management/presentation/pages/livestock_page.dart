@@ -14,6 +14,7 @@ import 'package:famhub_app/features/farm_management/application/providers/hierar
 import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/add_livestock_page.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/activity_template_selection_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/crop_livestock_detail_page.dart';
 import 'package:famhub_app/features/marketplace/presentation/pages/stock_selection_page.dart';
 
 class LivestockPage extends ConsumerStatefulWidget {
@@ -174,6 +175,7 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
                 final animal = livestock[index];
                 return _LivestockCard(
                   animal: animal,
+                  onTap: () => _openLivestockDetails(context, animal),
                   onSell: () => _sellLivestock(context, animal),
                   onRecordActivity: () => _recordActivity(context, animal),
                 );
@@ -217,15 +219,26 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
       ),
     );
   }
+
+  void _openLivestockDetails(BuildContext context, LivestockEntity animal) {
+    ref.read(hierarchyProvider.notifier).selectLivestock(animal);
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CropLivestockDetailPage.livestock(livestock: animal),
+      ),
+    );
+  }
 }
 
 class _LivestockCard extends StatelessWidget {
   final LivestockEntity animal;
+  final VoidCallback onTap;
   final VoidCallback onSell;
   final VoidCallback onRecordActivity;
 
   const _LivestockCard({
     required this.animal,
+    required this.onTap,
     required this.onSell,
     required this.onRecordActivity,
   });
@@ -238,11 +251,14 @@ class _LivestockCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: Colors.grey.shade200),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Row(
               children: [
                 Container(
