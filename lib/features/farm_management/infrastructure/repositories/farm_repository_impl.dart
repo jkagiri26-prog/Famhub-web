@@ -901,6 +901,105 @@ class FarmRepositoryImpl implements FarmRepository {
     }
   }
 
+  @override
+  Future<List<({String id, String name})>> getCategoriesForAssetType({
+    required String assetType,
+  }) async {
+    try {
+      final domainRows = await _client
+          .schema('core')
+          .from('domains')
+          .select('id, name');
+      final normalized = assetType.trim().toLowerCase();
+      final candidates = <String>{normalized, '${normalized}s'};
+      final matchingDomainId = (domainRows as List)
+          .cast<Map<String, dynamic>>()
+          .firstWhere(
+            (row) => candidates.contains((row['name']?.toString() ?? '').trim().toLowerCase()),
+            orElse: () => const <String, dynamic>{},
+          )['id']?.toString();
+      if (matchingDomainId == null || matchingDomainId.isEmpty) {
+        return const [];
+      }
+      final rows = await _client
+          .schema('core')
+          .from('categories')
+          .select('id, name')
+          .eq('domain_id', matchingDomainId)
+          .order('name', ascending: true);
+      return (rows as List)
+          .cast<Map<String, dynamic>>()
+          .map((r) => (
+                id: r['id']?.toString() ?? '',
+                name: r['name']?.toString() ?? '',
+              ))
+          .toList();
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to load taxonomy categories: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to load taxonomy categories: $e');
+    }
+  }
+
+  @override
+  Future<List<({String id, String categoryId, String name})>> getItemsForCategory({
+    required String categoryId,
+  }) async {
+    try {
+      final rows = await _client
+          .schema('core')
+          .from('items')
+          .select('id, category_id, name')
+          .eq('category_id', categoryId)
+          .order('name', ascending: true);
+      return (rows as List)
+          .cast<Map<String, dynamic>>()
+          .map((r) => (
+                id: r['id']?.toString() ?? '',
+                categoryId: r['category_id']?.toString() ?? '',
+                name: r['name']?.toString() ?? '',
+              ))
+          .toList();
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to load taxonomy items: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to load taxonomy items: $e');
+    }
+  }
+
+  @override
+  Future<List<({String id, String itemName, String variantName})>> getVariantsForItem({
+    required String itemId,
+  }) async {
+    try {
+      final variantRows = await _client
+          .schema('core')
+          .from('item_variants')
+          .select('id, item_id, name')
+          .eq('item_id', itemId)
+          .order('name', ascending: true);
+      final variants = (variantRows as List).cast<Map<String, dynamic>>();
+      final itemRows = await _client
+          .schema('core')
+          .from('items')
+          .select('id, name')
+          .inFilter('id', [itemId]);
+      final items = <String, String>{};
+      for (final row in (itemRows as List).cast<Map<String, dynamic>>()) {
+        items[row['id'].toString()] = row['name']?.toString() ?? '';
+      }
+      return variants.map((v) => (
+            id: v['id']?.toString() ?? '',
+            itemName: items[v['item_id']?.toString()] ?? '',
+            variantName: v['name']?.toString() ?? '',
+          )).toList();
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to load taxonomy variants: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to load taxonomy variants: $e');
+    }
+  }
+
   // ── Activities ──
 
   /// Query activities for a farm.

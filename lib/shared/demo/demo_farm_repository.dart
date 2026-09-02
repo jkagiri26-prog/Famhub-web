@@ -590,6 +590,98 @@ class DemoFarmRepository implements FarmRepository {
     ];
   }
 
+  @override
+  Future<List<({String id, String name})>> getCategoriesForAssetType({
+    required String assetType,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 50));
+    switch (assetType.toLowerCase()) {
+      case 'crop':
+        return const [
+          (id: 'demo-cat-crop-grains', name: 'Grains'),
+          (id: 'demo-cat-crop-vegetables', name: 'Vegetables'),
+        ];
+      case 'livestock':
+        return const [
+          (id: 'demo-cat-livestock-cattle', name: 'Cattle'),
+          (id: 'demo-cat-livestock-poultry', name: 'Poultry'),
+        ];
+      default:
+        return const [];
+    }
+  }
+
+  @override
+  Future<List<({String id, String categoryId, String name})>> getItemsForCategory({
+    required String categoryId,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 50));
+    switch (categoryId) {
+      case 'demo-cat-crop-grains':
+        return const [
+          (id: 'demo-item-maize', categoryId: 'demo-cat-crop-grains', name: 'Maize'),
+          (id: 'demo-item-wheat', categoryId: 'demo-cat-crop-grains', name: 'Wheat'),
+        ];
+      case 'demo-cat-crop-vegetables':
+        return const [
+          (id: 'demo-item-tomato', categoryId: 'demo-cat-crop-vegetables', name: 'Tomatoes'),
+          (id: 'demo-item-peas', categoryId: 'demo-cat-crop-vegetables', name: 'Snow Peas'),
+        ];
+      case 'demo-cat-livestock-cattle':
+        return const [
+          (id: 'demo-item-cattle', categoryId: 'demo-cat-livestock-cattle', name: 'Cattle'),
+          (id: 'demo-item-goat', categoryId: 'demo-cat-livestock-cattle', name: 'Goats'),
+        ];
+      case 'demo-cat-livestock-poultry':
+        return const [
+          (id: 'demo-item-chicken', categoryId: 'demo-cat-livestock-poultry', name: 'Chicken'),
+        ];
+      default:
+        return const [];
+    }
+  }
+
+  @override
+  Future<List<({String id, String itemName, String variantName})>> getVariantsForItem({
+    required String itemId,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 50));
+    switch (itemId) {
+      case 'demo-item-maize':
+        return const [
+          (id: 'demo-variant-maize-1', itemName: 'Maize', variantName: 'H614'),
+          (id: 'demo-variant-maize-2', itemName: 'Maize', variantName: 'DK8031'),
+        ];
+      case 'demo-item-wheat':
+        return const [
+          (id: 'demo-variant-wheat-1', itemName: 'Wheat', variantName: 'Kanyoni'),
+        ];
+      case 'demo-item-tomato':
+        return const [
+          (id: 'demo-variant-tomato-1', itemName: 'Tomatoes', variantName: 'Anna F1'),
+        ];
+      case 'demo-item-peas':
+        return const [
+          (id: 'demo-variant-peas-1', itemName: 'Snow Peas', variantName: 'Oregon'),
+        ];
+      case 'demo-item-cattle':
+        return const [
+          (id: 'demo-variant-cattle-1', itemName: 'Cattle', variantName: 'Friesian'),
+          (id: 'demo-variant-cattle-2', itemName: 'Cattle', variantName: 'Sahiwal'),
+        ];
+      case 'demo-item-goat':
+        return const [
+          (id: 'demo-variant-goat-1', itemName: 'Goats', variantName: 'Saanen'),
+        ];
+      case 'demo-item-chicken':
+        return const [
+          (id: 'demo-variant-chicken-1', itemName: 'Chicken', variantName: 'Layer'),
+        ];
+      default:
+        return const [];
+    }
+  }
+
   // â”€â”€ Activities â”€â”€
 
   @override

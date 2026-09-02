@@ -118,6 +118,24 @@ abstract class FarmRepository {
   /// parent `core.items` name). Returns id, itemName, variantName.
   Future<List<({String id, String itemName, String variantName})>> getVariants();
 
+  /// Categories for the requested asset domain, using the authoritative
+  /// `core.categories -> core.domains` relationship.
+  Future<List<({String id, String name})>> getCategoriesForAssetType({
+    required String assetType,
+  });
+
+  /// Items for a specific category, constrained by the existing
+  /// `core.categories -> core.items` relationship.
+  Future<List<({String id, String categoryId, String name})>> getItemsForCategory({
+    required String categoryId,
+  });
+
+  /// Variants for a specific item, constrained by the existing
+  /// `core.items -> core.item_variants` relationship.
+  Future<List<({String id, String itemName, String variantName})>> getVariantsForItem({
+    required String itemId,
+  });
+
   // ── Activities ─────────────────────────────────────────────
   /// Get activities for a farm. UI filtering by hierarchy is client-side.
   Future<List<ActivityModel>> getActivities({required String farmId});

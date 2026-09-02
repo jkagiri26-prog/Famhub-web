@@ -39,25 +39,84 @@ class _AddLivestockPageState extends ConsumerState<AddLivestockPage> {
   final _formKey = GlobalKey<FormState>();
   final _countController = TextEditingController();
   final _notesController = TextEditingController();
+  String? _selectedCategoryId;
+  String? _selectedItemId;
   String? _selectedVariantId;
   bool _isSubmitting = false;
-  bool _loadingVariants = true;
-  String? _variantsError;
+  bool _loadingCategories = true;
+  bool _loadingItems = false;
+  bool _loadingVariants = false;
+  String? _taxonomyError;
+  List<({String id, String name})> _categories = [];
+  List<({String id, String categoryId, String name})> _items = [];
   List<({String id, String itemName, String variantName})> _variants = [];
 
   @override
   void initState() {
     super.initState();
-    Future.microtask(_loadVariants);
+    Future.microtask(_loadCategories);
   }
 
-  Future<void> _loadVariants() async {
+  Future<void> _loadCategories() async {
     setState(() {
-      _loadingVariants = true;
-      _variantsError = null;
+      _loadingCategories = true;
+      _taxonomyError = null;
     });
     try {
-      final variants = await ref.read(farmRepositoryProvider).getVariants();
+      final categories = await ref.read(farmRepositoryProvider).getCategoriesForAssetType(assetType: 'livestock');
+      if (!mounted) return;
+      setState(() {
+        _categories = categories;
+        _selectedCategoryId = null;
+        _selectedItemId = null;
+        _selectedVariantId = null;
+        _items = [];
+        _variants = [];
+        _loadingCategories = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _taxonomyError = e.toString();
+        _loadingCategories = false;
+      });
+    }
+  }
+
+  Future<void> _loadItemsForCategory(String categoryId) async {
+    setState(() {
+      _loadingItems = true;
+      _taxonomyError = null;
+      _selectedItemId = null;
+      _selectedVariantId = null;
+      _variants = [];
+      _items = [];
+    });
+    try {
+      final items = await ref.read(farmRepositoryProvider).getItemsForCategory(categoryId: categoryId);
+      if (!mounted) return;
+      setState(() {
+        _items = items;
+        _loadingItems = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _taxonomyError = e.toString();
+        _loadingItems = false;
+      });
+    }
+  }
+
+  Future<void> _loadVariantsForItem(String itemId) async {
+    setState(() {
+      _loadingVariants = true;
+      _taxonomyError = null;
+      _selectedVariantId = null;
+      _variants = [];
+    });
+    try {
+      final variants = await ref.read(farmRepositoryProvider).getVariantsForItem(itemId: itemId);
       if (!mounted) return;
       setState(() {
         _variants = variants;
@@ -66,7 +125,7 @@ class _AddLivestockPageState extends ConsumerState<AddLivestockPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _variantsError = e.toString();
+        _taxonomyError = e.toString();
         _loadingVariants = false;
       });
     }
@@ -122,55 +181,113 @@ class _AddLivestockPageState extends ConsumerState<AddLivestockPage> {
               _buildContextBanner(farmName, fieldName),
               const SizedBox(height: 24),
 
-              // ── Species / Breed Variant ──
-              Text('Species / Breed',
+              // ── Taxonomy selection (authoritative: core.categories → core.items → core.item_variants) ──
+              Text('Livestock taxonomy',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
               const SizedBox(height: 4),
               Text(
-                'Choose the livestock you are adding. It is added as a livestock '
+                'Choose the livestock category, item, and breed/species to add as a livestock '
                 'asset to $fieldName.',
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
-              const SizedBox(height: 8),
-              if (_loadingVariants)
+              const SizedBox(height: 12),
+              if (_loadingCategories)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 16),
                   child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
                 )
-              else if (_variantsError != null)
+              else if (_taxonomyError != null)
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Could not load livestock variants: $_variantsError',
+                      'Could not load livestock taxonomy: $_taxonomyError',
                       style: TextStyle(fontSize: 13, color: Colors.red.shade700),
                     ),
                     const SizedBox(height: 8),
                     TextButton.icon(
-                      onPressed: _loadVariants,
+                      onPressed: _loadCategories,
                       icon: const Icon(Icons.refresh, size: 18),
                       label: const Text('Retry'),
                     ),
                   ],
                 )
-              else
+              else ...[
                 DropdownButtonFormField<String>(
-                  value: _selectedVariantId,
+                  value: _selectedCategoryId,
                   decoration: InputDecoration(
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    hintText: 'Select livestock type',
+                    hintText: 'Select livestock category',
                   ),
-                  items: _variants.map((v) => DropdownMenuItem(
-                    value: v.id,
-                    child: Text(
-                      v.itemName.isEmpty ? v.variantName : '${v.itemName} — ${v.variantName}',
-                      style: const TextStyle(fontSize: 14),
-                    ),
+                  items: _categories.map((c) => DropdownMenuItem(
+                    value: c.id,
+                    child: Text(c.name, style: const TextStyle(fontSize: 14)),
                   )).toList(),
-                  onChanged: (value) => setState(() => _selectedVariantId = value),
-                  validator: (value) => (value == null) ? 'Select a livestock type' : null,
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() {
+                      _selectedCategoryId = value;
+                      _selectedItemId = null;
+                      _selectedVariantId = null;
+                      _variants = [];
+                    });
+                    _loadItemsForCategory(value);
+                  },
+                  validator: (value) => (value == null) ? 'Select a livestock category' : null,
                 ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: _selectedItemId,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    hintText: 'Select livestock item',
+                  ),
+                  items: _items.map((item) => DropdownMenuItem(
+                    value: item.id,
+                    child: Text(item.name, style: const TextStyle(fontSize: 14)),
+                  )).toList(),
+                  onChanged: _selectedCategoryId == null
+                      ? null
+                      : (value) {
+                          if (value == null) return;
+                          setState(() {
+                            _selectedItemId = value;
+                            _selectedVariantId = null;
+                            _variants = [];
+                          });
+                          _loadVariantsForItem(value);
+                        },
+                  validator: (value) => (_selectedCategoryId == null || value == null) ? 'Select a livestock item' : null,
+                ),
+                const SizedBox(height: 16),
+                if (_loadingItems || _loadingVariants)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                  )
+                else
+                  DropdownButtonFormField<String>(
+                    value: _selectedVariantId,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      hintText: 'Select livestock type',
+                    ),
+                    items: _variants.map((v) => DropdownMenuItem(
+                      value: v.id,
+                      child: Text(
+                        v.itemName.isEmpty ? v.variantName : '${v.itemName} — ${v.variantName}',
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    )).toList(),
+                    onChanged: _selectedItemId == null
+                        ? null
+                        : (value) => setState(() => _selectedVariantId = value),
+                    validator: (value) => (_selectedItemId == null || value == null) ? 'Select a livestock type' : null,
+                  ),
+              ],
               const SizedBox(height: 20),
 
               // ── Count ──
