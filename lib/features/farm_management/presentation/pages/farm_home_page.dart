@@ -6,7 +6,7 @@
 ///   Farm / Entity → Field / Block → Crop or Livestock → Activity → Report
 ///
 /// ✅ Responsibilities:
-///   - Top-level tabs: Overview | My Farms | Fields/Blocks | Crops | Livestock | Activities | Reports
+///   - Top-level tabs: Overview | My Farms | Crops | Livestock | Activity Logs | Reports
 ///   - Breadcrumb navigation: Farm > Field > Crop/Livestock > Activities > Reports
 ///   - Dashboard widgets receive entityId, fieldId, cropOrLivestockId as filter context
 ///   - Visual layout follows hierarchy order
@@ -39,7 +39,6 @@ import 'package:famhub_app/features/farm_management/application/providers/farm_s
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 
 import 'package:famhub_app/features/farm_management/presentation/pages/farms_page.dart';
-import 'package:famhub_app/features/farm_management/presentation/pages/fields_page.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/crops_page.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/livestock_page.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/activities_page.dart';
@@ -64,10 +63,9 @@ class _FarmHomePageState extends ConsumerState<FarmHomePage>
   static const _tabs = <_TabInfo>[
     _TabInfo('Overview', Icons.dashboard),
     _TabInfo('My Farms', Icons.agriculture),
-    _TabInfo('Fields/Blocks', Icons.terrain),
     _TabInfo('Crops', Icons.eco),
     _TabInfo('Livestock', Icons.pets),
-    _TabInfo('Activities', Icons.list_alt),
+    _TabInfo('Activity Logs', Icons.list_alt),
     _TabInfo('Reports', Icons.description),
   ];
 
@@ -148,19 +146,16 @@ class _FarmHomePageState extends ConsumerState<FarmHomePage>
                 // 2. My Farms
                 const FarmsPage(),
 
-                // 3. Fields/Blocks
-                const FieldsPage(),
-
-                // 4. Crops
+                // 3. Crops
                 const CropsPage(),
 
-                // 5. Livestock
+                // 4. Livestock
                 const LivestockPage(),
 
-                // 6. Activities
+                // 5. Activity Logs
                 const ActivitiesPage(),
 
-                // 7. Reports
+                // 6. Reports
                 const ReportsPage(),
               ],
             ),
