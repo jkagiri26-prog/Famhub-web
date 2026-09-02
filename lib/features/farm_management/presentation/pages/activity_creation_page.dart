@@ -11,8 +11,12 @@ import 'package:famhub_app/features/farm_management/application/providers/farm_c
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/assets_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/activities_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/production_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_cascade_coordinator.dart';
+import 'package:famhub_app/features/farm_management/application/providers/farm_live_providers.dart';
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/production_entity.dart';
+import 'package:famhub_app/features/marketplace/application/providers/marketplace_provider.dart';
 
 import 'package:famhub_app/features/farm_management/presentation/pages/activity_template_selection_page.dart';
 
@@ -31,10 +35,17 @@ class ActivityCreationPage extends ConsumerStatefulWidget {
 class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
   final _formKey = GlobalKey<FormState>();
   final _notesController = TextEditingController();
+  final _quantityController = TextEditingController();
   String? _selectedAssetId;
+  String? _selectedCommodityId;
+  String? _selectedUnitId;
   String _activityTypeId = 'general';
   DateTime _performedAt = DateTime.now();
   bool _isSubmitting = false;
+  bool _loadingProductionReferences = false;
+  String? _productionReferencesError;
+  List<({String id, String name, String category})> _commodities = [];
+  List<({String id, String name})> _units = [];
 
   static const _activityTypes = [
     ('general', 'General Activity', Icons.event_note, Colors.blue),
@@ -55,7 +66,44 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
   @override
   void dispose() {
     _notesController.dispose();
+    _quantityController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadProductionReferences() async {
+    if (_loadingProductionReferences || _commodities.isNotEmpty) return;
+    setState(() {
+      _loadingProductionReferences = true;
+      _productionReferencesError = null;
+    });
+    try {
+      final repository = ref.read(farmRepositoryProvider);
+      final commodities = await repository.getCommodities();
+      final units = await repository.getUnits();
+      if (!mounted) return;
+      setState(() {
+        _commodities = commodities;
+        _units = units;
+        _loadingProductionReferences = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _productionReferencesError = e.toString();
+        _loadingProductionReferences = false;
+      });
+    }
+  }
+
+  List<({String id, String name, String category})> _commoditiesFor(
+    HierarchySelectionState hierarchy,
+  ) {
+    final type = hierarchy.cropOrLivestockType;
+    if (type == null) return _commodities;
+    return _commodities
+        .where((commodity) =>
+            commodity.category.toLowerCase().contains(type.toLowerCase()))
+        .toList();
   }
 
   @override
@@ -109,7 +157,7 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
                   // ── Quick Activity Form ──
                   Form(
                     key: _formKey,
-                    child: _buildQuickForm(context, assetState, farmId),
+                    child: _buildQuickForm(context, assetState, farmId, hierarchy),
                   ),
                 ],
               ),
@@ -215,7 +263,12 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
     );
   }
 
-  Widget _buildQuickForm(BuildContext context, dynamic assetState, String farmId) {
+  Widget _buildQuickForm(
+    BuildContext context,
+    dynamic assetState,
+    String farmId,
+    HierarchySelectionState hierarchy,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -314,6 +367,11 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
         ),
         const SizedBox(height: 32),
 
+        if (_activityTypeId == 'harvesting') ...[
+          _buildHarvestingOutputForm(context, hierarchy),
+          const SizedBox(height: 32),
+        ],
+
         // Submit
         SizedBox(
           width: double.infinity,
@@ -330,6 +388,116 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHarvestingOutputForm(
+    BuildContext context,
+    HierarchySelectionState hierarchy,
+  ) {
+    if (_commodities.isEmpty && !_loadingProductionReferences) {
+      Future.microtask(_loadProductionReferences);
+    }
+
+    if (_loadingProductionReferences) {
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+    }
+    if (_productionReferencesError != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Could not load production references: $_productionReferencesError',
+            style: TextStyle(fontSize: 13, color: Colors.red.shade700),
+          ),
+          TextButton.icon(
+            onPressed: _loadProductionReferences,
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('Retry'),
+          ),
+        ],
+      );
+    }
+
+    final isLivestock = hierarchy.cropOrLivestockType == 'livestock';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Harvest Output',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          isLivestock
+              ? 'Livestock harvesting requires a canonical backend unit before it can be submitted.'
+              : 'Record the output created by this harvesting activity.',
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+        ),
+        const SizedBox(height: 12),
+        TextFormField(
+          controller: _quantityController,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            labelText: 'Quantity',
+            hintText: 'e.g. 10',
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+          validator: (value) {
+            if (_activityTypeId != 'harvesting') return null;
+            final quantity = double.tryParse(value?.trim() ?? '');
+            if (quantity == null || quantity <= 0) return 'Enter a positive quantity';
+            return null;
+          },
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          value: _selectedUnitId,
+          decoration: InputDecoration(
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            labelText: 'Unit',
+            hintText: 'Select canonical unit',
+          ),
+          items: _units
+              .map((unit) => DropdownMenuItem(
+                    value: unit.id,
+                    child: Text(unit.name),
+                  ))
+              .toList(),
+          onChanged: isLivestock
+              ? null
+              : (value) => setState(() => _selectedUnitId = value),
+          validator: (value) {
+            if (_activityTypeId != 'harvesting') return null;
+            if (isLivestock) {
+              return 'Livestock harvesting is unavailable until a canonical unit is configured';
+            }
+            return value == null ? 'Select a unit' : null;
+          },
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          value: _selectedCommodityId,
+          decoration: InputDecoration(
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            labelText: 'Output commodity',
+            hintText: 'Select canonical commodity',
+          ),
+          items: _commoditiesFor(hierarchy)
+              .map((commodity) => DropdownMenuItem(
+                    value: commodity.id,
+                    child: Text(commodity.name),
+                  ))
+              .toList(),
+          onChanged: (value) => setState(() => _selectedCommodityId = value),
+          validator: (value) => _activityTypeId == 'harvesting' && value == null
+              ? 'Select an output commodity'
+              : null,
         ),
       ],
     );
@@ -388,6 +556,20 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
         return;
       }
 
+      if (_activityTypeId == 'harvesting' &&
+          hierarchy.cropOrLivestockType == 'livestock') {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Livestock harvesting is unavailable until a canonical output unit is configured.',
+            ),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
       // Build activity model with UI context fields (NOT persisted to backend)
       // Authoritative contract: activity.asset_id = the selected crop/livestock
       // ASSET instance. The crop/livestock id in the hierarchy IS the asset id.
@@ -406,11 +588,45 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
 
       // Create activity via the create_activity RPC — only documented
       // activity columns are sent.
-      await repository.createActivity(activity: activity);
+      final createdActivity = await repository.createActivity(activity: activity);
 
       // Invalidate activities + central mutation refresh (dashboard,
       // lifecycle, AI context)
       ref.invalidate(activitiesProvider);
+      if (_activityTypeId == 'harvesting') {
+        final quantity = double.parse(_quantityController.text.trim());
+        try {
+          await repository.recordProduction(
+            farmId: farmId,
+            production: ProductionEntity(
+              id: '',
+              activityId: createdActivity.id,
+              quantity: quantity,
+              unitId: _selectedUnitId,
+              outputCommodityId: _selectedCommodityId,
+              sourceType: 'activity',
+              assetId: hierarchy.cropOrLivestockId,
+            ),
+          );
+        } catch (e) {
+          ref.invalidate(productionProvider);
+          ref.invalidate(farmStockValueProvider);
+          ref.invalidate(eligibleStockProvider);
+          ref.read(hierarchyCascadeCoordinatorProvider).refreshAfterMutation();
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Activity saved, but production/stock failed: $e'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 6),
+            ),
+          );
+          return;
+        }
+        ref.invalidate(productionProvider);
+        ref.invalidate(farmStockValueProvider);
+        ref.invalidate(eligibleStockProvider);
+      }
       ref.read(hierarchyCascadeCoordinatorProvider).refreshAfterMutation();
 
       if (!mounted) return;

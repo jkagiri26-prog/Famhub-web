@@ -777,7 +777,6 @@ class FarmRepositoryImpl implements FarmRepository {
         if (production.sourceType != null) 'source_type': production.sourceType,
         if (production.outputCommodityId != null)
           'output_commodity_id': production.outputCommodityId,
-        if (production.variantId != null) 'variant_id': production.variantId,
       };
 
       final response = await _client
