@@ -103,6 +103,14 @@ class _CropLivestockDetailPageState
             const SizedBox(height: 10),
             _ActionButton(
               icon: Icons.shopping_basket,
+              label: 'Sell on Marketplace',
+              onPressed: () => _open(
+                StockSelectionPage(initialSearchQuery: widget.searchQuery),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _ActionButton(
+              icon: Icons.factory_outlined,
               label: 'Record Production',
               onPressed: () => _open(const ProductionRecordingPage()),
             ),
