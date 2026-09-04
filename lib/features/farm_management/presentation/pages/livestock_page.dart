@@ -353,6 +353,7 @@ class _LivestockCard extends StatelessWidget {
           ],
         ),
       ),
+      ),
     );
   }
 }

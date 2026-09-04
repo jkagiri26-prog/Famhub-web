@@ -16,6 +16,8 @@
 /// ============================================================
 library;
 
+import 'farm_home_page.dart';
+
 export 'farm_home_page.dart';
 
 /// Legacy name retained for callers that still construct the old page.

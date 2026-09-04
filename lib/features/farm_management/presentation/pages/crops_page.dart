@@ -396,6 +396,7 @@ class _CropCard extends StatelessWidget {
           ],
         ),
       ),
+      ),
     );
   }
 
