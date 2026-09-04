@@ -129,13 +129,17 @@ class _StockSelectionPageState extends ConsumerState<StockSelectionPage> {
                 detailedError: e.toString(),
               ),
               data: (stock) {
-                final variantStock = widget.initialVariantId == null
+                final matchingStock = widget.initialVariantId == null
                     ? stock
                     : stock
                         .where((item) =>
                             item.variantId == widget.initialVariantId)
                         .toList();
-                final filtered = _filterStock(variantStock, _query);
+                final hasVariantMatch = matchingStock.isNotEmpty;
+                final filtered = _filterStock(
+                  hasVariantMatch ? matchingStock : stock,
+                  _query,
+                );
 
                 if (filtered.isEmpty) {
                   return EmptyStateWidget(
@@ -157,16 +161,34 @@ class _StockSelectionPageState extends ConsumerState<StockSelectionPage> {
                   itemCount: filtered.length + 1,
                   itemBuilder: (context, index) {
                     if (index == 0) {
-                      return Padding(
-                        padding: const EdgeInsets.only(left: 4, bottom: 8),
-                        child: Text(
-                          '${filtered.length} stock item'
-                          '${filtered.length == 1 ? '' : 's'} available',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (!hasVariantMatch &&
+                              widget.initialVariantId != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Text(
+                                'No stock is linked to this asset variant. '
+                                'Showing your eligible managed stock.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.orange.shade800,
+                                ),
+                              ),
+                            ),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4, bottom: 8),
+                            child: Text(
+                              '${filtered.length} stock item'
+                              '${filtered.length == 1 ? '' : 's'} available',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       );
                     }
                     final item = filtered[index - 1];
