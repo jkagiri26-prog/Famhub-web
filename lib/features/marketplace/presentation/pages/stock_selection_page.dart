@@ -29,7 +29,14 @@ class StockSelectionPage extends ConsumerStatefulWidget {
   /// farm/livestock screen with relevant context).
   final String? initialSearchQuery;
 
-  const StockSelectionPage({super.key, this.initialSearchQuery});
+  /// Optional canonical variant to limit stock to the selected asset.
+  final String? initialVariantId;
+
+  const StockSelectionPage({
+    super.key,
+    this.initialSearchQuery,
+    this.initialVariantId,
+  });
 
   @override
   ConsumerState<StockSelectionPage> createState() =>
@@ -122,7 +129,13 @@ class _StockSelectionPageState extends ConsumerState<StockSelectionPage> {
                 detailedError: e.toString(),
               ),
               data: (stock) {
-                final filtered = _filterStock(stock, _query);
+                final variantStock = widget.initialVariantId == null
+                    ? stock
+                    : stock
+                        .where((item) =>
+                            item.variantId == widget.initialVariantId)
+                        .toList();
+                final filtered = _filterStock(variantStock, _query);
 
                 if (filtered.isEmpty) {
                   return EmptyStateWidget(
@@ -133,7 +146,7 @@ class _StockSelectionPageState extends ConsumerState<StockSelectionPage> {
                         ? 'No Matching Stock'
                         : 'No Managed Stock Yet',
                     subtitle: _query.isNotEmpty
-                        ? 'Try a different search term.'
+                        ? 'Try a different search term or clear the search.'
                         : 'Add inventory to your entity before you can '
                             'publish listings.',
                   );

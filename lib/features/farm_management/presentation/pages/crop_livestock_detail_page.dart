@@ -105,7 +105,11 @@ class _CropLivestockDetailPageState
               icon: Icons.shopping_basket,
               label: 'Sell on Marketplace',
               onPressed: () => _open(
-                StockSelectionPage(initialSearchQuery: widget.searchQuery),
+                StockSelectionPage(
+                  initialVariantId: widget.isCrop
+                      ? widget.crop!.variantId
+                      : widget.livestock!.variantId,
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -119,7 +123,11 @@ class _CropLivestockDetailPageState
               icon: Icons.inventory_2_outlined,
               label: 'View Stock',
               onPressed: () => _open(
-                StockSelectionPage(initialSearchQuery: widget.searchQuery),
+                StockSelectionPage(
+                  initialVariantId: widget.isCrop
+                      ? widget.crop!.variantId
+                      : widget.livestock!.variantId,
+                ),
               ),
             ),
           ],
