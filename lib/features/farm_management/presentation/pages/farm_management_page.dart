@@ -60,6 +60,12 @@ import 'package:famhub_app/features/farm_management/presentation/widgets/farm_se
 import 'package:famhub_app/features/farm_management/presentation/widgets/farm_onboarding_checklist_widget.dart';
 import 'package:famhub_app/features/farm_management/presentation/widgets/farm_created_success_dialog.dart';
 
+import 'package:famhub_app/features/farm_management/presentation/pages/farms_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/crops_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/livestock_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/activities_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/reports_page.dart';
+
 /// ============================================================
 /// FARM MANAGEMENT PAGE (PRIMARY MODULE ENTRY POINT)
 /// ============================================================
@@ -98,13 +104,32 @@ class FarmManagementPage extends ConsumerStatefulWidget {
   ConsumerState<FarmManagementPage> createState() => _FarmManagementPageState();
 }
 
-class _FarmManagementPageState extends ConsumerState<FarmManagementPage> {
+class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
+    with SingleTickerProviderStateMixin {
   bool _bootstrapped = false;
+  late TabController _tabController;
+
+  /// 🏗️ Farm Workspace Tabs
+  static const _tabDefs = <(String, IconData)>[
+    ('Overview', Icons.dashboard),
+    ('My Farms', Icons.agriculture),
+    ('Crops', Icons.eco),
+    ('Livestock', Icons.pets),
+    ('Activity Logs', Icons.list_alt),
+    ('Reports', Icons.description),
+  ];
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: _tabDefs.length, vsync: this);
     _initializeModule();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   /// Initialize the module through the bootstrap coordinator.
@@ -123,31 +148,83 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage> {
   @override
   Widget build(BuildContext context) {
     final selectorState = ref.watch(farmSelectorProvider);
-    final isAuthenticated = ref.watch(isAuthenticatedProvider);
+    final hierarchy = ref.watch(hierarchyProvider);
 
     return ShellPageContent(
       title: 'Farm Management',
-      subtitle: 'Manage your farms, fields, crops, and livestock',
-      scrollable: true,
-      child: _buildContent(context, selectorState, isAuthenticated),
+      subtitle: hierarchy.hasEntity
+          ? hierarchy.entity!.farmName
+          : 'Manage your farms, fields, crops, and livestock',
+      scrollable: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Tab Bar ──
+          SizedBox(
+            width: double.infinity,
+            child: TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              tabs: _tabDefs
+                  .map((t) => Tab(
+                        text: t.$1,
+                        icon: Icon(t.$2, size: 18),
+                      ))
+                  .toList(),
+              indicatorColor: Theme.of(context).colorScheme.primary,
+              labelColor: Theme.of(context).colorScheme.primary,
+              unselectedLabelColor: Colors.grey.shade600,
+              labelStyle: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const Divider(height: 1),
+
+          // ── Tab Content ──
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                // 1. Overview — full farm dashboard
+                _buildOverviewTab(context, selectorState),
+
+                // 2. My Farms
+                const FarmsPage(),
+
+                // 3. Crops
+                const CropsPage(),
+
+                // 4. Livestock
+                const LivestockPage(),
+
+                // 5. Activity Logs
+                const ActivitiesPage(),
+
+                // 6. Reports
+                const ReportsPage(),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  /// Decides the correct UI state based on the farm selector state.
-  ///
-  /// States:
-  ///   - Loading: Animated skeleton
-  ///   - Error: Error message + retry
-  ///   - Empty (no farms): Onboarding + CTA
-  ///   - Data (farms loaded): Dashboard with registered widgets
-  Widget _buildContent(
+  /// Overview tab: renders the farm selector-driven state machine
+  /// (loading / error / empty onboarding / full dashboard) inside a
+  /// scrollable area.
+  Widget _buildOverviewTab(
     BuildContext context,
     FarmSelectorState selectorState,
-    bool isAuthenticated,
   ) {
     // ── State 1: Loading ──
     if (selectorState.isLoading) {
-      return _buildLoadingState();
+      return SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: _buildLoadingState(),
+      );
     }
 
     // ── State 2: Error ──
@@ -157,11 +234,14 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage> {
 
     // ── State 3: Empty / No Farms ──
     if (selectorState.farms.isEmpty) {
-      return _buildEmptyState(context, isAuthenticated);
+      return _buildEmptyState(context, ref.watch(isAuthenticatedProvider));
     }
 
-    // ── State 4: Data — Dashboard with registered widgets ──
-    return _buildDashboard(context);
+    // ── State 4: Data — full dashboard with registered widgets ──
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: _buildDashboard(context),
+    );
   }
 
   /// ============================================================

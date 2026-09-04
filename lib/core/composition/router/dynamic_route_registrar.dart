@@ -20,7 +20,7 @@ import 'package:famhub_app/core/shell/presentation/regions/unified_dashboard_hos
 import 'package:famhub_app/core/composition/domain/models/composition_metrics.dart';
 
 // ── Module Page Imports ──
-import 'package:famhub_app/features/farm_management/presentation/pages/farm_home_page.dart' as farm;
+import 'package:famhub_app/features/farm_management/presentation/pages/farm_management_page.dart' as farm;
 import 'package:famhub_app/features/marketplace/presentation/pages/marketplace_page.dart';
 import 'package:famhub_app/features/analytics/presentation/pages/analytics_page.dart';
 import 'package:famhub_app/features/financing/presentation/pages/financing_page.dart';
@@ -199,7 +199,7 @@ class DynamicRouteRegistrar {
 void bootstrapModulePageBuilders() {
   // ── Feature Modules ──
   ModulePageRegistry.register(
-      'farm_management', (_) => const farm.FarmHomePage());
+      'farm_management', (_) => const farm.FarmManagementPage());
   ModulePageRegistry.register(
       'marketplace', (_) => const MarketplacePage());
   ModulePageRegistry.register(
