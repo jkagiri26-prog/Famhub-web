@@ -86,9 +86,10 @@ class _FarmHomePageState extends ConsumerState<FarmHomePage>
     if (_bootstrapped) return;
     _bootstrapped = true;
 
-    // Load farms if not loaded
+    // Load farms if not loaded. Do NOT gate on isLoading: the selector's
+    // initial state is isLoading=true, so a cold start would never load.
     final selectorState = ref.read(farmSelectorProvider);
-    if (selectorState.farms.isEmpty && !selectorState.isLoading) {
+    if (selectorState.farms.isEmpty) {
       await ref.read(farmSelectorProvider.notifier).loadFarms();
     }
   }
