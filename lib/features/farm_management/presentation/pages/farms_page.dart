@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
+import 'package:famhub_app/shared/widgets/states/loading_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
 
@@ -18,6 +19,7 @@ import 'package:famhub_app/features/farm_management/application/providers/livest
 
 import 'package:famhub_app/features/farm_management/presentation/pages/add_farm_page.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/add_field_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/widgets/workspace_tab_header.dart';
 
 /// My Farms tab — the Farm → Field → Crop/Livestock hierarchy workspace.
 ///
@@ -129,29 +131,13 @@ class _FarmsPageState extends ConsumerState<FarmsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'My Farms',
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Select a farm to browse its fields, crops and livestock',
-                      style: TextStyle(
-                          color: Colors.grey.shade600, fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
+          const SizedBox(height: 4),
+          WorkspaceTabHeader(
+            title: 'My Farms',
+            subtitle: 'Select a farm to browse its fields, crops and livestock',
+            icon: Icons.agriculture,
+            color: Theme.of(context).colorScheme.primary,
+            actions: [
               IconButton(
                 onPressed: _openAddFarm,
                 icon: const Icon(Icons.add_circle_outline),
@@ -159,11 +145,11 @@ class _FarmsPageState extends ConsumerState<FarmsPage> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 4),
 
           if (farmState.isLoading)
             const Expanded(
-              child: Center(child: CircularProgressIndicator()),
+              child: LoadingStateWidget(useSkeleton: true),
             )
           else if (farmState.errorMessage != null)
             Expanded(
@@ -372,37 +358,12 @@ class _FarmsPageState extends ConsumerState<FarmsPage> {
   }
 
   Widget _buildEmptyFields(ThemeData theme) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.map, size: 36, color: Colors.grey.shade400),
-          const SizedBox(height: 10),
-          Text(
-            'No fields yet',
-            style: theme.textTheme.titleSmall
-                ?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Add a field to start managing crops and livestock.',
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: _openAddField,
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('Add Field'),
-          ),
-        ],
-      ),
+    return EmptyStateWidget(
+      icon: Icons.map,
+      title: 'No fields yet',
+      subtitle: 'Add a field to start managing crops and livestock.',
+      actionLabel: 'Add Field',
+      onAction: _openAddField,
     );
   }
 

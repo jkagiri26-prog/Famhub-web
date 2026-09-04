@@ -18,10 +18,11 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:famhub_app/shared/layouts/shell_page_content.dart';
+import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
 import 'package:famhub_app/shared/widgets/states/loading_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
+import 'package:famhub_app/features/farm_management/presentation/widgets/workspace_tab_header.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
@@ -86,21 +87,34 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     final hierarchy = ref.watch(hierarchyProvider);
 
     if (farmId == null) {
-      return const ShellPageContent(
-        title: 'Reports',
-        subtitle: 'Select a farm to view reports',
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.description_outlined, size: 48, color: Colors.grey),
-              SizedBox(height: 16),
-              Text(
-                'Select a farm to generate reports',
-                style: TextStyle(color: Colors.grey, fontSize: 16),
+      return const ResponsiveWrapper(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(height: 4),
+            WorkspaceTabHeader(
+              title: 'Reports',
+              subtitle: 'Select a farm to view reports',
+              icon: Icons.description,
+              color: Colors.purple,
+            ),
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.description_outlined,
+                        size: 48, color: Colors.grey),
+                    SizedBox(height: 16),
+                    Text(
+                      'Select a farm to generate reports',
+                      style: TextStyle(color: Colors.grey, fontSize: 16),
+                    ),
+                  ],
+                ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     }
@@ -139,46 +153,44 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
   ) {
     final theme = Theme.of(context);
 
-    return ShellPageContent(
-      title: _getReportTitle(level),
-      subtitle: _getReportSubtitle(level, hierarchy),
-      child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Drill Navigation ──
-            _buildDrillNavigation(theme, level, hierarchy),
-            const SizedBox(height: 20),
+    return ResponsiveWrapper(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 4),
+          WorkspaceTabHeader(
+            title: 'Reports',
+            subtitle: _getReportSubtitle(level, hierarchy),
+            icon: Icons.description,
+            color: Colors.purple,
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Drill Navigation ──
+                  _buildDrillNavigation(theme, level, hierarchy),
+                  const SizedBox(height: 20),
 
-            // ── Report Content by Level ──
-            switch (level) {
-              'farm' => _buildFarmLevelReport(theme, hierarchy),
-              'field' => _buildFieldLevelReport(theme, hierarchy),
-              'crop_livestock' => _buildCropLivestockLevelReport(theme, hierarchy),
-              'activity' => _buildActivityLevelReport(theme, hierarchy),
-              _ => _buildFarmLevelReport(theme, hierarchy),
-            },
-          ],
-        ),
+                  // ── Report Content by Level ──
+                  switch (level) {
+                    'farm' => _buildFarmLevelReport(theme, hierarchy),
+                    'field' => _buildFieldLevelReport(theme, hierarchy),
+                    'crop_livestock' =>
+                      _buildCropLivestockLevelReport(theme, hierarchy),
+                    'activity' => _buildActivityLevelReport(theme, hierarchy),
+                    _ => _buildFarmLevelReport(theme, hierarchy),
+                  },
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
-  }
-
-  String _getReportTitle(String level) {
-    switch (level) {
-      case 'farm':
-        return 'Farm-Level Report';
-      case 'field':
-        return 'Field-Level Report';
-      case 'crop_livestock':
-        return 'Crop / Livestock Report';
-      case 'activity':
-        return 'Activity Report';
-      default:
-        return 'Reports';
-    }
   }
 
   String _getReportSubtitle(String level, HierarchySelectionState hierarchy) {

@@ -11,6 +11,7 @@ import 'package:famhub_app/features/farm_management/application/providers/hierar
 import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/activity_creation_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/widgets/workspace_tab_header.dart';
 
 /// Activity Logs tab — the user's GLOBAL activity journal.
 ///
@@ -107,19 +108,13 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Activity Logs',
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.w700),
-                ),
-              ),
-              // Record activity uses the already-selected asset context.
+          const SizedBox(height: 4),
+          WorkspaceTabHeader(
+            title: 'Activity Logs',
+            subtitle: 'All crop & livestock activities across your farms',
+            icon: Icons.list_alt,
+            color: Colors.blue,
+            actions: [
               if (hierarchy.cropOrLivestock != null)
                 IconButton(
                   onPressed: _recordActivity,
@@ -127,11 +122,6 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
                   tooltip: 'Record Activity',
                 ),
             ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'All crop & livestock activities across your farms',
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
           ),
 
           // ── Contextual filter header ──

@@ -10,6 +10,7 @@ import 'package:famhub_app/features/farm_management/application/providers/livest
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/production_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/widgets/workspace_tab_header.dart';
 import 'package:famhub_app/features/marketplace/presentation/pages/stock_selection_page.dart';
 
 /// Livestock tab — the user's GLOBAL livestock workspace.
@@ -105,20 +106,14 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 8),
-          Text(
-            'Livestock',
-            style: Theme.of(context)
-                .textTheme
-                .headlineSmall
-                ?.copyWith(fontWeight: FontWeight.w700),
+          const SizedBox(height: 4),
+          const WorkspaceTabHeader(
+            title: 'Livestock',
+            subtitle: 'All your livestock across every farm',
+            icon: Icons.pets,
+            color: Colors.orange,
           ),
           const SizedBox(height: 4),
-          Text(
-            'All your livestock across every farm',
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-          ),
-          const SizedBox(height: 14),
           TextField(
             onChanged: (value) => setState(() => _query = value),
             decoration: InputDecoration(

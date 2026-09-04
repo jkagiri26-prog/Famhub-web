@@ -9,6 +9,7 @@ import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
 import 'package:famhub_app/features/farm_management/application/providers/crops_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
+import 'package:famhub_app/features/farm_management/presentation/widgets/workspace_tab_header.dart';
 
 /// Crops tab — the user's GLOBAL crop workspace.
 ///
@@ -86,20 +87,14 @@ class _CropsPageState extends ConsumerState<CropsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 8),
-          Text(
-            'Crops',
-            style: Theme.of(context)
-                .textTheme
-                .headlineSmall
-                ?.copyWith(fontWeight: FontWeight.w700),
+          const SizedBox(height: 4),
+          const WorkspaceTabHeader(
+            title: 'Crops',
+            subtitle: 'All your crops across every farm',
+            icon: Icons.eco,
+            color: Colors.green,
           ),
           const SizedBox(height: 4),
-          Text(
-            'All your crops across every farm',
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-          ),
-          const SizedBox(height: 14),
           TextField(
             onChanged: (value) => setState(() => _query = value),
             decoration: InputDecoration(
