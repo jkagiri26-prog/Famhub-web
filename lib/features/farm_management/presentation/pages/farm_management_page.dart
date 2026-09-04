@@ -109,6 +109,9 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
   bool _bootstrapped = false;
   late TabController _tabController;
 
+  /// Keys per tab so we can scroll the strip to keep the active tab visible.
+  late final List<GlobalKey> _tabKeys;
+
   /// 🏗️ Farm Workspace Tabs
   static const _tabDefs = <(String, IconData)>[
     ('Overview', Icons.dashboard),
@@ -122,14 +125,34 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
   @override
   void initState() {
     super.initState();
+    _tabKeys =
+        List<GlobalKey>.generate(_tabDefs.length, (_) => GlobalKey());
     _tabController = TabController(length: _tabDefs.length, vsync: this);
+    _tabController.addListener(_onTabChanged);
     _initializeModule();
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
+  }
+
+  /// Keep the active tab fully visible in the (scrollable) tab strip,
+  /// including when the tab is switched programmatically.
+  void _onTabChanged() {
+    if (_tabController.indexIsChanging) return;
+    final key = _tabKeys[_tabController.index].currentContext;
+    if (key == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Scrollable.ensureVisible(
+        key,
+        alignment: 0.5,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   /// Initialize the module through the bootstrap coordinator.
@@ -166,12 +189,14 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
               child: TabBar(
                 controller: _tabController,
                 isScrollable: true,
-                tabs: _tabDefs
-                    .map((t) => Tab(
-                          text: t.$1,
-                          icon: Icon(t.$2, size: 18),
-                        ))
-                    .toList(),
+                tabs: [
+                  for (var i = 0; i < _tabDefs.length; i++)
+                    Tab(
+                      key: _tabKeys[i],
+                      text: _tabDefs[i].$1,
+                      icon: Icon(_tabDefs[i].$2, size: 18),
+                    ),
+                ],
                 indicatorColor: Theme.of(context).colorScheme.primary,
                 labelColor: Theme.of(context).colorScheme.primary,
                 unselectedLabelColor: Colors.grey.shade600,

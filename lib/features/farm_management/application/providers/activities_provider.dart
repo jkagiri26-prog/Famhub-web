@@ -30,6 +30,7 @@ import 'package:famhub_app/features/farm_management/domain/entities/farm_entity.
 import 'package:famhub_app/features/farm_management/domain/entities/field_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/utils/display_text.dart';
 
 /// Activity list state
 class ActivityListState {
@@ -243,7 +244,7 @@ final allUserActivitiesProvider = FutureProvider<List<GlobalActivityEntry>>(
       if (crop != null) {
         asset = crop;
         assetType = 'crop';
-        assetLabel = crop.cropName;
+        assetLabel = assetDisplayTitle(crop.cropName);
         if (crop.fieldId != null) field = fieldsById[crop.fieldId];
         entries.add(_entry(activity, typeNames, farm, field, asset, assetType,
             assetLabel));
@@ -253,7 +254,7 @@ final allUserActivitiesProvider = FutureProvider<List<GlobalActivityEntry>>(
       if (animal != null) {
         asset = animal;
         assetType = 'livestock';
-        assetLabel = animal.species;
+        assetLabel = assetDisplayTitle(animal.species);
         if (animal.fieldId != null) field = fieldsById[animal.fieldId];
         entries.add(_entry(activity, typeNames, farm, field, asset, assetType,
             assetLabel));
@@ -278,7 +279,9 @@ GlobalActivityEntry _entry(
 ) {
   return GlobalActivityEntry(
     activity: activity,
-    typeName: typeNames[activity.activityTypeId] ?? activity.activityTypeId,
+    typeName: activityTypeDisplay(
+      typeNames[activity.activityTypeId] ?? activity.activityTypeId,
+    ),
     farm: farm,
     field: field,
     asset: asset,
