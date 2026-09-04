@@ -9,7 +9,6 @@ import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
 import 'package:famhub_app/features/farm_management/application/providers/livestock_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
-import 'package:famhub_app/features/farm_management/presentation/pages/activity_creation_page.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/production_page.dart';
 import 'package:famhub_app/features/marketplace/presentation/pages/stock_selection_page.dart';
 
@@ -63,12 +62,6 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
 
   void _openActivities() {
     widget.onOpenActivities?.call();
-  }
-
-  void _openRecordActivity() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const ActivityCreationPage()),
-    );
   }
 
   void _openProduction() {
@@ -260,14 +253,11 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
                 ),
                 const SizedBox(height: 16),
 
+                // ── Actions ──
+                // Record Activity opens the Activity Logs tab with the
+                // selected livestock context preserved (no standalone push).
                 FilledButton.icon(
                   onPressed: _openActivities,
-                  icon: const Icon(Icons.list_alt),
-                  label: const Text('Activities'),
-                ),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed: _openRecordActivity,
                   icon: const Icon(Icons.event_note),
                   label: const Text('Record Activity'),
                 ),

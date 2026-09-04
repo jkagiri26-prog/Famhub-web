@@ -9,8 +9,6 @@ import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
 import 'package:famhub_app/features/farm_management/application/providers/crops_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
-import 'package:famhub_app/features/farm_management/presentation/pages/activity_creation_page.dart';
-import 'package:famhub_app/features/farm_management/presentation/pages/production_page.dart';
 
 /// Crops tab — the user's GLOBAL crop workspace.
 ///
@@ -62,12 +60,6 @@ class _CropsPageState extends ConsumerState<CropsPage> {
 
   void _openActivities() {
     widget.onOpenActivities?.call();
-  }
-
-  void _openRecordActivity() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const ActivityCreationPage()),
-    );
   }
 
   @override
@@ -246,14 +238,10 @@ class _CropsPageState extends ConsumerState<CropsPage> {
                 const SizedBox(height: 16),
 
                 // ── Actions ──
+                // Record Activity opens the Activity Logs tab with the
+                // selected crop context preserved (no standalone push).
                 FilledButton.icon(
                   onPressed: _openActivities,
-                  icon: const Icon(Icons.list_alt),
-                  label: const Text('Activities'),
-                ),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed: _openRecordActivity,
                   icon: const Icon(Icons.event_note),
                   label: const Text('Record Activity'),
                 ),
