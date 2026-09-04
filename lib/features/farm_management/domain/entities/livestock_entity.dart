@@ -23,6 +23,7 @@
 class LivestockEntity {
   final String id;
   final String farmId;
+  final String? entityId;
   final String? fieldId;
   final String? variantId;
   final String species;
@@ -37,6 +38,7 @@ class LivestockEntity {
   const LivestockEntity({
     required this.id,
     required this.farmId,
+    this.entityId,
     this.fieldId,
     this.variantId,
     required this.species,
@@ -65,6 +67,7 @@ class LivestockEntity {
   LivestockEntity copyWith({
     String? id,
     String? farmId,
+    String? entityId,
     String? fieldId,
     String? variantId,
     String? species,
@@ -79,6 +82,7 @@ class LivestockEntity {
     return LivestockEntity(
       id: id ?? this.id,
       farmId: farmId ?? this.farmId,
+      entityId: entityId ?? this.entityId,
       fieldId: fieldId ?? this.fieldId,
       variantId: variantId ?? this.variantId,
       species: species ?? this.species,
@@ -92,4 +96,3 @@ class LivestockEntity {
     );
   }
 }
-

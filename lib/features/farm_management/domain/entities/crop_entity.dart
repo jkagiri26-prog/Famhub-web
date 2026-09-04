@@ -26,6 +26,7 @@ import 'package:famhub_app/features/farm_management/domain/enums/crop_status.dar
 class CropEntity {
   final String id;
   final String farmId;
+  final String? entityId;
   final String? fieldId;
   final String? variantId;
   final String cropName;
@@ -42,6 +43,7 @@ class CropEntity {
   const CropEntity({
     required this.id,
     required this.farmId,
+    this.entityId,
     this.fieldId,
     this.variantId,
     required this.cropName,
@@ -83,6 +85,7 @@ class CropEntity {
   CropEntity copyWith({
     String? id,
     String? farmId,
+    String? entityId,
     String? fieldId,
     String? variantId,
     String? cropName,
@@ -99,6 +102,7 @@ class CropEntity {
     return CropEntity(
       id: id ?? this.id,
       farmId: farmId ?? this.farmId,
+      entityId: entityId ?? this.entityId,
       fieldId: fieldId ?? this.fieldId,
       variantId: variantId ?? this.variantId,
       cropName: cropName ?? this.cropName,
@@ -114,4 +118,3 @@ class CropEntity {
     );
   }
 }
-

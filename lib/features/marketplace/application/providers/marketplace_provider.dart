@@ -182,3 +182,22 @@ final stockItemDetailsProvider =
   final repo = ref.read(marketplaceRepositoryProvider);
   return repo.fetchStockById(stockId);
 });
+
+Future<StockItem> createStockRecord(WidgetRef ref, {
+  required String entityId,
+  required String variantId,
+  required double quantity,
+  String? unitId,
+  String? locationId,
+}) async {
+  final stock = await ref.read(marketplaceRepositoryProvider).createStockRecord(
+    entityId: entityId,
+    variantId: variantId,
+    quantity: quantity,
+    unitId: unitId,
+    locationId: locationId,
+  );
+  ref.invalidate(eligibleStockProvider);
+  ref.invalidate(stockItemDetailsProvider(stock.id));
+  return stock;
+}

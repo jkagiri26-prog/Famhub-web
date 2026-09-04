@@ -336,6 +336,26 @@ class DemoMarketplaceRepository implements MarketplaceRepository {
   }
 
   @override
+  Future<StockItem> createStockRecord({
+    required String entityId,
+    required String variantId,
+    required double quantity,
+    String? unitId,
+    String? locationId,
+  }) async {
+    final stock = StockItem(
+      id: 'demo-stock-${DateTime.now().millisecondsSinceEpoch}',
+      entityId: entityId,
+      variantId: variantId,
+      unitId: unitId,
+      locationId: locationId,
+      quantity: quantity,
+    );
+    _sampleStock.add(stock);
+    return stock;
+  }
+
+  @override
   Future<Listing> publishListingFromStock({
     required String stockId,
     required double pricePerUnit,

@@ -414,6 +414,7 @@ class FarmRepositoryImpl implements FarmRepository {
     return CropEntity(
       id: row['id'] as String,
       farmId: row['farm_id'] as String,
+      entityId: row['entity_id'] as String?,
       fieldId: row['field_id'] as String?,
       cropName: label.isNotEmpty ? label : (metadata['name'] as String? ?? 'Crop'),
       variety: metadata['variety'] as String?,
@@ -540,6 +541,7 @@ class FarmRepositoryImpl implements FarmRepository {
     return LivestockEntity(
       id: row['id'] as String,
       farmId: row['farm_id'] as String,
+      entityId: row['entity_id'] as String?,
       fieldId: row['field_id'] as String?,
       variantId: variantId,
       species: label.isNotEmpty

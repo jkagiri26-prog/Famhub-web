@@ -239,6 +239,39 @@ class MarketplaceRemoteDataSource {
     }
   }
 
+  Future<Map<String, dynamic>> createStockRecord({
+    required String entityId,
+    required String variantId,
+    required double quantity,
+    String? unitId,
+    String? locationId,
+  }) async {
+    final session = _client.auth.currentSession;
+    if (session == null || session.accessToken.isEmpty) {
+      throw Exception('Your session has expired. Sign in again to create stock.');
+    }
+    try {
+      final response = await _client
+          .schema('commerce')
+          .from('stock_registry')
+          .insert({
+            'entity_id': entityId,
+            'variant_id': variantId,
+            'quantity': quantity,
+            if (unitId != null) 'unit_id': unitId,
+            if (locationId != null) 'location_id': locationId,
+            'status': 'active',
+          })
+          .select(_stockSelectQuery)
+          .single();
+      return response;
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to create stock: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to create stock: $e');
+    }
+  }
+
   /// Publish a listing from managed stock via the
   /// `marketplace.publish_listing_from_stock` RPC.
   ///

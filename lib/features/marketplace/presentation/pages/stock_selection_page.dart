@@ -31,11 +31,17 @@ class StockSelectionPage extends ConsumerStatefulWidget {
 
   /// Optional canonical variant to limit stock to the selected asset.
   final String? initialVariantId;
+  final String? assetEntityId;
+  final double? assetQuantity;
+  final String? assetUnitId;
 
   const StockSelectionPage({
     super.key,
     this.initialSearchQuery,
     this.initialVariantId,
+    this.assetEntityId,
+    this.assetQuantity,
+    this.assetUnitId,
   });
 
   @override
@@ -68,6 +74,31 @@ class _StockSelectionPageState extends ConsumerState<StockSelectionPage> {
         builder: (_) => PublishListingPage(stockId: stock.id),
       ),
     );
+  }
+
+  Future<void> _createStockForAsset() async {
+    final entityId = widget.assetEntityId;
+    final variantId = widget.initialVariantId;
+    final quantity = widget.assetQuantity;
+    if (entityId == null || variantId == null || quantity == null || quantity <= 0) {
+      return;
+    }
+    try {
+      final stock = await createStockRecord(
+        ref,
+        entityId: entityId,
+        variantId: variantId,
+        quantity: quantity,
+        unitId: widget.assetUnitId,
+      );
+      if (mounted) _openPublishForm(stock);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not create stock: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -142,6 +173,9 @@ class _StockSelectionPageState extends ConsumerState<StockSelectionPage> {
                 );
 
                 if (filtered.isEmpty) {
+                  final canCreateStock = widget.assetEntityId != null &&
+                      widget.initialVariantId != null &&
+                      (widget.assetQuantity ?? 0) > 0;
                   return EmptyStateWidget(
                     icon: _query.isNotEmpty
                         ? Icons.search_off
@@ -153,6 +187,10 @@ class _StockSelectionPageState extends ConsumerState<StockSelectionPage> {
                         ? 'Try a different search term or clear the search.'
                         : 'Add inventory to your entity before you can '
                             'publish listings.',
+                    actionLabel: canCreateStock
+                        ? 'Create stock from this asset'
+                        : null,
+                    onAction: canCreateStock ? _createStockForAsset : null,
                   );
                 }
 
