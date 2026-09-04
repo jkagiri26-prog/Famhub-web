@@ -156,58 +156,60 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
           ? hierarchy.entity!.farmName
           : 'Manage your farms, fields, crops, and livestock',
       scrollable: false,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Tab Bar ──
-          SizedBox(
-            width: double.infinity,
-            child: TabBar(
-              controller: _tabController,
-              isScrollable: true,
-              tabs: _tabDefs
-                  .map((t) => Tab(
-                        text: t.$1,
-                        icon: Icon(t.$2, size: 18),
-                      ))
-                  .toList(),
-              indicatorColor: Theme.of(context).colorScheme.primary,
-              labelColor: Theme.of(context).colorScheme.primary,
-              unselectedLabelColor: Colors.grey.shade600,
-              labelStyle: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+      child: Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Tab Bar ──
+            SizedBox(
+              width: double.infinity,
+              child: TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                tabs: _tabDefs
+                    .map((t) => Tab(
+                          text: t.$1,
+                          icon: Icon(t.$2, size: 18),
+                        ))
+                    .toList(),
+                indicatorColor: Theme.of(context).colorScheme.primary,
+                labelColor: Theme.of(context).colorScheme.primary,
+                unselectedLabelColor: Colors.grey.shade600,
+                labelStyle: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          ),
-          const Divider(height: 1),
+            const Divider(height: 1),
 
-          // ── Tab Content ──
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                // 1. Overview — full farm dashboard
-                _buildOverviewTab(context, selectorState),
+            // ── Tab Content ──
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  // 1. Overview — full farm dashboard
+                  _buildOverviewTab(context, selectorState),
 
-                // 2. My Farms
-                const FarmsPage(),
+                  // 2. My Farms
+                  const FarmsPage(),
 
-                // 3. Crops
-                const CropsPage(),
+                  // 3. Crops
+                  const CropsPage(),
 
-                // 4. Livestock
-                const LivestockPage(),
+                  // 4. Livestock
+                  const LivestockPage(),
 
-                // 5. Activity Logs
-                const ActivitiesPage(),
+                  // 5. Activity Logs
+                  const ActivitiesPage(),
 
-                // 6. Reports
-                const ReportsPage(),
-              ],
+                  // 6. Reports
+                  const ReportsPage(),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
