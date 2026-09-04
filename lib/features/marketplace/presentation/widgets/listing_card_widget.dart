@@ -42,29 +42,36 @@ class ListingCardWidget extends StatelessWidget {
         children: [
           Stack(
             children: [
-              AspectRatio(
-                aspectRatio: 1.35,
-                child: imageUrl == null
-                    ? Container(
-                        color: const Color(0xfff1f5f2),
-                        child: Icon(
-                          Icons.agriculture_outlined,
-                          size: 38,
-                          color: Colors.green.shade300,
-                        ),
-                      )
-                    : Image.network(
-                        imageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: const Color(0xfff1f5f2),
-                          child: Icon(
-                            Icons.agriculture_outlined,
-                            size: 38,
-                            color: Colors.green.shade300,
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final imageHeight =
+                      (constraints.maxWidth / 1.5).clamp(104.0, 148.0);
+                  return SizedBox(
+                    width: double.infinity,
+                    height: imageHeight,
+                    child: imageUrl == null
+                        ? Container(
+                            color: const Color(0xfff1f5f2),
+                            child: Icon(
+                              Icons.agriculture_outlined,
+                              size: 38,
+                              color: Colors.green.shade300,
+                            ),
+                          )
+                        : Image.network(
+                            imageUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              color: const Color(0xfff1f5f2),
+                              child: Icon(
+                                Icons.agriculture_outlined,
+                                size: 38,
+                                color: Colors.green.shade300,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
+                  );
+                },
               ),
               if (badge != null)
                 Positioned(
@@ -91,7 +98,7 @@ class ListingCardWidget extends StatelessWidget {
             ],
           ),
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -106,20 +113,25 @@ class ListingCardWidget extends StatelessWidget {
                         style: const TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 14,
+                          height: 1.2,
                         ),
                       ),
                     ),
                     if (trailing != null) trailing!,
                   ],
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 2),
                 Text(
                   subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade600,
+                    height: 1.2,
+                  ),
                 ),
-                const SizedBox(height: 9),
+                const SizedBox(height: 6),
                 Text(
                   price,
                   maxLines: 1,
@@ -127,10 +139,11 @@ class ListingCardWidget extends StatelessWidget {
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 14,
+                    height: 1.2,
                     color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Row(
                   children: [
                     Icon(Icons.location_on_outlined,
@@ -141,8 +154,11 @@ class ListingCardWidget extends StatelessWidget {
                         location,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style:
-                            TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
+                          height: 1.2,
+                        ),
                       ),
                     ),
                   ],

@@ -221,7 +221,7 @@ class _MarketplacePageState extends ConsumerState<MarketplacePage> {
       final end = start + 8 < listings.length ? start + 8 : listings.length;
       rows.add(
         SizedBox(
-          height: 258,
+          height: 208,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: end - start,
