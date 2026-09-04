@@ -58,6 +58,15 @@ class _FarmsPageState extends ConsumerState<FarmsPage> {
         ref.read(fieldsProvider.notifier).loadFields(farmId: farmId);
       }
     });
+    // A farm may already be selected before this tab mounts (e.g. Overview
+    // auto-selects the first farm) — the listener only fires on CHANGE, so
+    // ensure fields are loaded for the current farm on first build too.
+    Future.microtask(() {
+      final farmId = ref.read(farmContextProvider).farmId;
+      if (farmId != null) {
+        ref.read(fieldsProvider.notifier).loadFields(farmId: farmId);
+      }
+    });
   }
 
   void _loadFields() {
