@@ -1072,6 +1072,24 @@ class FarmRepositoryImpl implements FarmRepository {
     }
   }
 
+  @override
+  Future<Map<String, String>> getActivityTypeNames() async {
+    try {
+      final rows = await _client
+          .schema('farm_management')
+          .from('activity_types')
+          .select('id, name');
+      return {
+        for (final row in (rows as List).cast<Map<String, dynamic>>())
+          row['id'].toString(): row['name']?.toString() ?? '',
+      };
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to load activity types: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to load activity types: $e');
+    }
+  }
+
   static final RegExp _uuidPattern =
       RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$');
 

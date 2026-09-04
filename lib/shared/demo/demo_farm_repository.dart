@@ -691,6 +691,29 @@ class DemoFarmRepository implements FarmRepository {
     }
 
     @override
+    Future<Map<String, String>> getActivityTypeNames() async {
+      await Future.delayed(const Duration(milliseconds: 50));
+      return {
+        'general': 'General Activity',
+        'planting': 'Planting',
+        'irrigation': 'Irrigation',
+        'fertilizing': 'Fertilizer Application',
+        'pest_control': 'Pest Control',
+        'harvesting': 'Harvesting',
+        'maintenance': 'Maintenance',
+        'feeding': 'Feeding',
+        'milking': 'Milking',
+        'vaccination': 'Vaccination',
+        'inspection': 'Inspection',
+        'transport': 'Transport',
+        'spraying': 'Spraying',
+        'watering': 'Watering',
+        'weeding': 'Weeding',
+        'other': 'Other',
+      };
+    }
+
+    @override
     Future<ActivityModel> createActivity({required ActivityModel activity}) async {
       await Future.delayed(const Duration(milliseconds: 100));
       return activity; // Simulated success

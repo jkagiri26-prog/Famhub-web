@@ -209,8 +209,11 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
                     onGoToMyFarms: () => _tabController.animateTo(1),
                   ),
 
-                  // 5. Activity Logs
-                  const ActivitiesPage(),
+                  // 5. Activity Logs — global activity journal
+                  ActivitiesPage(
+                    onOpenCrops: () => _tabController.animateTo(2),
+                    onOpenLivestock: () => _tabController.animateTo(3),
+                  ),
 
                   // 6. Reports
                   const ReportsPage(),

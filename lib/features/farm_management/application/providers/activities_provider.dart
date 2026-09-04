@@ -26,6 +26,10 @@ import 'package:famhub_app/features/farm_management/domain/repositories/farm_rep
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/farm_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/field_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
 
 /// Activity list state
 class ActivityListState {
@@ -140,3 +144,145 @@ final activitiesProvider =
     NotifierProvider<ActivitiesNotifier, ActivityListState>(
   ActivitiesNotifier.new,
 );
+
+// ─────────────────────────────────────────────────────────────
+// GLOBAL ACTIVITY JOURNAL (all user crop/livestock activities)
+// ─────────────────────────────────────────────────────────────
+
+/// One activity enriched with its owning farm/field and the crop/livestock
+/// asset it was performed on (resolved through activities.asset_id →
+/// farm_management.assets → field → farm).
+class GlobalActivityEntry {
+  final ActivityModel activity;
+
+  /// Display name of the activity type (from farm_management.activity_types).
+  final String typeName;
+
+  final FarmEntity farm;
+  final FieldEntity? field;
+  final Object asset;
+  final String assetType; // 'crop' | 'livestock'
+  final String assetLabel;
+
+  const GlobalActivityEntry({
+    required this.activity,
+    required this.typeName,
+    required this.farm,
+    this.field,
+    required this.asset,
+    required this.assetType,
+    required this.assetLabel,
+  });
+
+  String get farmName => farm.farmName;
+  String? get fieldName => field?.fieldName;
+  String get assetId => activity.assetId ?? activity.cropOrLivestockId ?? '';
+}
+
+/// Loads the current user's activity journal across ALL farms by reusing
+/// the existing authorized single-farm repository path (no client user_id).
+///
+/// Each activity is resolved back to its asset → field → farm so the UI can
+/// show type, asset, farm, field and time. Newest first. RLS remains the
+/// security boundary.
+final allUserActivitiesProvider = FutureProvider<List<GlobalActivityEntry>>(
+  (ref) async {
+  final repository = ref.read(farmRepositoryProvider);
+
+  Map<String, String> typeNames = const {};
+  try {
+    typeNames = await repository.getActivityTypeNames();
+  } catch (_) {
+    typeNames = const {};
+  }
+
+  final farms = await repository.getUserFarms();
+  final entries = <GlobalActivityEntry>[];
+
+  for (final farm in farms) {
+    List<ActivityModel> activities;
+    try {
+      activities = await repository.getActivities(farmId: farm.id);
+    } catch (_) {
+      continue;
+    }
+    if (activities.isEmpty) continue;
+
+    final cropById = <String, CropEntity>{};
+    final livestockById = <String, LivestockEntity>{};
+    final fieldsById = <String, FieldEntity>{};
+    try {
+      final crops = await repository.getCrops(farmId: farm.id);
+      for (final crop in crops) {
+        cropById[crop.id] = crop;
+      }
+    } catch (_) {}
+    try {
+      final livestock = await repository.getLivestock(farmId: farm.id);
+      for (final animal in livestock) {
+        livestockById[animal.id] = animal;
+      }
+    } catch (_) {}
+    try {
+      final fields = await repository.getFields(farmId: farm.id);
+      for (final field in fields) {
+        fieldsById[field.id] = field;
+      }
+    } catch (_) {}
+
+    for (final activity in activities) {
+      final assetKey = activity.assetId ?? activity.cropOrLivestockId;
+      if (assetKey == null) continue;
+
+      FieldEntity? field;
+      Object? asset;
+      var assetType = '';
+      var assetLabel = '';
+
+      final crop = cropById[assetKey];
+      if (crop != null) {
+        asset = crop;
+        assetType = 'crop';
+        assetLabel = crop.cropName;
+        if (crop.fieldId != null) field = fieldsById[crop.fieldId];
+        entries.add(_entry(activity, typeNames, farm, field, asset, assetType,
+            assetLabel));
+        continue;
+      }
+      final animal = livestockById[assetKey];
+      if (animal != null) {
+        asset = animal;
+        assetType = 'livestock';
+        assetLabel = animal.species;
+        if (animal.fieldId != null) field = fieldsById[animal.fieldId];
+        entries.add(_entry(activity, typeNames, farm, field, asset, assetType,
+            assetLabel));
+      }
+    }
+  }
+
+  entries.sort(
+    (a, b) => b.activity.performedAt.compareTo(a.activity.performedAt),
+  );
+  return entries.length > 400 ? entries.take(400).toList() : entries;
+});
+
+GlobalActivityEntry _entry(
+  ActivityModel activity,
+  Map<String, String> typeNames,
+  FarmEntity farm,
+  FieldEntity? field,
+  Object asset,
+  String assetType,
+  String assetLabel,
+) {
+  return GlobalActivityEntry(
+    activity: activity,
+    typeName: typeNames[activity.activityTypeId] ?? activity.activityTypeId,
+    farm: farm,
+    field: field,
+    asset: asset,
+    assetType: assetType,
+    assetLabel: assetLabel,
+  );
+}

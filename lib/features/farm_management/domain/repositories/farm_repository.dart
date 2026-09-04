@@ -140,6 +140,9 @@ abstract class FarmRepository {
   /// Get activities for a farm. UI filtering by hierarchy is client-side.
   Future<List<ActivityModel>> getActivities({required String farmId});
 
+  /// Map of activity_types id → display name (global catalog).
+  Future<Map<String, String>> getActivityTypeNames();
+
   /// Create an activity. Returns the activity with backend-generated ID.
   /// Only columns documented in farm_management.activities are inserted.
   Future<ActivityModel> createActivity({required ActivityModel activity});
