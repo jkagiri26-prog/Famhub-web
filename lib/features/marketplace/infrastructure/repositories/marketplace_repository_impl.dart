@@ -345,28 +345,6 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
   }
 
   @override
-  Future<StockItem> createStockRecord({
-    required String entityId,
-    required String variantId,
-    required double quantity,
-    String? unitId,
-    String? locationId,
-  }) async {
-    final row = await dataSource.createStockRecord(
-      entityId: entityId,
-      variantId: variantId,
-      quantity: quantity,
-      unitId: unitId,
-      locationId: locationId,
-    );
-    final items = await _buildStockItems([row]);
-    if (items.isEmpty) {
-      throw Exception('Stock was created but could not be loaded.');
-    }
-    return items.first;
-  }
-
-  @override
   Future<Listing> publishListingFromStock({
     required String stockId,
     required double pricePerUnit,

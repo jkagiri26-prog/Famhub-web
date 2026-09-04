@@ -48,14 +48,6 @@ abstract class MarketplaceRepository {
   /// Fetch a single managed stock record by id (scoped by RLS).
   Future<StockItem?> fetchStockById(String stockId);
 
-  Future<StockItem> createStockRecord({
-    required String entityId,
-    required String variantId,
-    required double quantity,
-    String? unitId,
-    String? locationId,
-  });
-
   /// Publish a listing from an existing managed stock record via the
   /// `marketplace.publish_listing_from_stock` RPC.
   Future<Listing> publishListingFromStock({

@@ -109,13 +109,6 @@ class _CropLivestockDetailPageState
                   initialVariantId: widget.isCrop
                       ? widget.crop!.variantId
                       : widget.livestock!.variantId,
-                  assetEntityId: widget.isCrop
-                      ? widget.crop!.entityId
-                      : widget.livestock!.entityId,
-                  assetQuantity: widget.isCrop
-                      ? widget.crop!.quantityPlanted
-                      : widget.livestock!.count.toDouble(),
-                  assetUnitId: widget.isCrop ? widget.crop!.unit : null,
                 ),
               ),
             ),
@@ -134,13 +127,6 @@ class _CropLivestockDetailPageState
                   initialVariantId: widget.isCrop
                       ? widget.crop!.variantId
                       : widget.livestock!.variantId,
-                  assetEntityId: widget.isCrop
-                      ? widget.crop!.entityId
-                      : widget.livestock!.entityId,
-                  assetQuantity: widget.isCrop
-                      ? widget.crop!.quantityPlanted
-                      : widget.livestock!.count.toDouble(),
-                  assetUnitId: widget.isCrop ? widget.crop!.unit : null,
                 ),
               ),
             ),
