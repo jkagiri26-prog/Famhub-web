@@ -18,6 +18,8 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/farm_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/field_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
@@ -151,4 +153,64 @@ final livestockByFieldProvider = FutureProvider<List<LivestockEntity>>((ref) asy
   if (fieldId == null) return [];
   final repository = ref.read(farmRepositoryProvider);
   return repository.getLivestockByField(farmId: farmId, fieldId: fieldId);
+});
+
+// ─────────────────────────────────────────────────────────────
+// GLOBAL LIVESTOCK WORKSPACE (all user livestock across all farms)
+// ─────────────────────────────────────────────────────────────
+
+/// One livestock asset enriched with its owning farm and field names.
+class GlobalLivestockEntry {
+  final LivestockEntity livestock;
+  final FarmEntity? farm;
+  final FieldEntity? field;
+
+  const GlobalLivestockEntry({
+    required this.livestock,
+    this.farm,
+    this.field,
+  });
+
+  String? get farmName => farm?.farmName;
+  String? get fieldName => field?.fieldName;
+}
+
+/// Loads every livestock asset the current user can see across ALL their
+/// farms. Authorization stays server-side (RLS) — we only loop the user's
+/// farms and reuse the existing single-farm livestock queries.
+final allUserLivestockProvider =
+    FutureProvider<List<GlobalLivestockEntry>>((ref) async {
+  final repository = ref.read(farmRepositoryProvider);
+  final farms = await repository.getUserFarms();
+  final entries = <GlobalLivestockEntry>[];
+
+  for (final farm in farms) {
+    List<LivestockEntity> livestock;
+    try {
+      livestock = await repository.getLivestock(farmId: farm.id);
+    } catch (_) {
+      continue;
+    }
+    if (livestock.isEmpty) continue;
+
+    final fieldByName = <String, FieldEntity>{};
+    try {
+      final fields = await repository.getFields(farmId: farm.id);
+      for (final field in fields) {
+        fieldByName[field.id] = field;
+      }
+    } catch (_) {
+      // Fields are only used for display; skip when unavailable.
+    }
+
+    for (final animal in livestock) {
+      entries.add(GlobalLivestockEntry(
+        livestock: animal,
+        farm: farm,
+        field: animal.fieldId != null ? fieldByName[animal.fieldId] : null,
+      ));
+    }
+  }
+
+  return entries;
 });

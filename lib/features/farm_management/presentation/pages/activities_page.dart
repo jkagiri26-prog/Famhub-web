@@ -63,6 +63,18 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
   void initState() {
     super.initState();
     Future.microtask(() => _loadActivities());
+    // Reload when the selected farm or asset changes while this tab stays
+    // alive (TabBarView keeps neighbour tabs mounted).
+    ref.listen<HierarchySelectionState>(hierarchyProvider, (previous, next) {
+      if (previous == null) return;
+      final farmChanged = previous.entityId != next.entityId;
+      final assetChanged =
+          previous.cropOrLivestockId != next.cropOrLivestockId ||
+              previous.cropOrLivestockType != next.cropOrLivestockType;
+      if (farmChanged || assetChanged) {
+        _loadActivities();
+      }
+    });
   }
 
         Future<void> _loadActivities() async {

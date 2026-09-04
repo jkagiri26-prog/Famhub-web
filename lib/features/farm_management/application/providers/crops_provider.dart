@@ -18,6 +18,8 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/farm_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/field_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
@@ -157,5 +159,60 @@ final cropsByFieldProvider = FutureProvider<List<CropEntity>>((ref) async {
   if (fieldId == null) return [];
   final repository = ref.read(farmRepositoryProvider);
   return repository.getCropsByField(farmId: farmId, fieldId: fieldId);
+});
+
+// ─────────────────────────────────────────────────────────────
+// GLOBAL CROP WORKSPACE (all user crops across all farms/fields)
+// ─────────────────────────────────────────────────────────────
+
+/// One crop asset enriched with its owning farm and field names.
+class GlobalCropEntry {
+  final CropEntity crop;
+  final FarmEntity? farm;
+  final FieldEntity? field;
+
+  const GlobalCropEntry({required this.crop, this.farm, this.field});
+
+  String? get farmName => farm?.farmName;
+  String? get fieldName => field?.fieldName;
+}
+
+/// Loads every crop asset the current user can see across ALL their
+/// farms. Authorization stays server-side (RLS) — we only loop the user's
+/// farms and reuse the existing single-farm crop queries.
+final allUserCropsProvider = FutureProvider<List<GlobalCropEntry>>((ref) async {
+  final repository = ref.read(farmRepositoryProvider);
+  final farms = await repository.getUserFarms();
+  final entries = <GlobalCropEntry>[];
+
+  for (final farm in farms) {
+    List<CropEntity> crops;
+    try {
+      crops = await repository.getCrops(farmId: farm.id);
+    } catch (_) {
+      continue;
+    }
+    if (crops.isEmpty) continue;
+
+    final fieldByName = <String, FieldEntity>{};
+    try {
+      final fields = await repository.getFields(farmId: farm.id);
+      for (final field in fields) {
+        fieldByName[field.id] = field;
+      }
+    } catch (_) {
+      // Fields are only used for display; skip when unavailable.
+    }
+
+    for (final crop in crops) {
+      entries.add(GlobalCropEntry(
+        crop: crop,
+        farm: farm,
+        field: crop.fieldId != null ? fieldByName[crop.fieldId] : null,
+      ));
+    }
+  }
+
+  return entries;
 });
 

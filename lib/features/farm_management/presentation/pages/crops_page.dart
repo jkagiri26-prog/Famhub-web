@@ -1,203 +1,168 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:famhub_app/shared/layouts/shell_page_content.dart';
+import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
 import 'package:famhub_app/shared/widgets/states/loading_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
-import 'package:famhub_app/shared/widgets/inputs/search_bar_widget.dart';
-import 'package:famhub_app/shared/widgets/cards/kpi_card.dart';
-import 'package:famhub_app/shared/layouts/adaptive_content_grid.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/crops_provider.dart';
-import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
-import 'package:famhub_app/features/farm_management/domain/enums/crop_status.dart';
-import 'package:famhub_app/features/farm_management/presentation/pages/add_crop_page.dart';
-import 'package:famhub_app/features/farm_management/presentation/pages/activity_template_selection_page.dart';
-import 'package:famhub_app/features/farm_management/presentation/pages/crop_livestock_detail_page.dart';
-import 'package:famhub_app/features/marketplace/presentation/pages/stock_selection_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/activity_creation_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/production_page.dart';
 
-
+/// Crops tab — the user's GLOBAL crop workspace.
+///
+/// Lists every crop asset across ALL of the user's farms and fields
+/// (each row shows crop + farm + field). Selecting a crop sets the
+/// hierarchy (farm → field → asset) and shows its details INSIDE this
+/// tab. From details the user can jump to the Activity Logs tab with the
+/// selected crop context preserved.
 class CropsPage extends ConsumerStatefulWidget {
-  const CropsPage({super.key});
+  /// Switch to the Activity Logs tab (selected crop context is in the
+  /// hierarchy).
+  final VoidCallback? onOpenActivities;
+
+  /// Switch to the My Farms tab (used by the empty state).
+  final VoidCallback? onGoToMyFarms;
+
+  const CropsPage({
+    super.key,
+    this.onOpenActivities,
+    this.onGoToMyFarms,
+  });
 
   @override
   ConsumerState<CropsPage> createState() => _CropsPageState();
 }
 
 class _CropsPageState extends ConsumerState<CropsPage> {
-  @override
-  void initState() {
-    super.initState();
-    Future.microtask(() => _loadCrops());
+  String _query = '';
+
+  void _clearSelection() {
+    ref.read(hierarchyProvider.notifier).clearToField();
   }
 
-  Future<void> _loadCrops() async {
-    final farmId = ref.read(farmContextProvider).farmId;
-        if (farmId != null) {
-      ref.read(cropsProvider.notifier).loadCrops(farmId: farmId);
+  void _selectCrop(GlobalCropEntry entry) {
+    if (entry.farm == null || entry.field == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This crop has no linked farm/field yet.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
     }
+    final notifier = ref.read(hierarchyProvider.notifier);
+    notifier.selectEntity(entry.farm!);
+    notifier.selectField(entry.field!);
+    notifier.selectCrop(entry.crop);
   }
 
-    @override
-  Widget build(BuildContext context) {
-    final farmId = ref.watch(farmContextProvider).farmId;
-    final hierarchy = ref.watch(hierarchyProvider);
+  void _openActivities() {
+    widget.onOpenActivities?.call();
+  }
 
-    if (farmId == null) {
-      return const ShellPageContent(
-        title: 'Crops',
-        subtitle: 'Select a farm to view crops',
-        child: SizedBox.shrink(),
-      );
-    }
-
-    // 🚫 BLOCK: Show hint if no field is selected — crops belong to a field
-    if (!hierarchy.hasField) {
-      return ShellPageContent(
-        title: 'Crops',
-        subtitle: 'Select a field to view and add crops',
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.eco, size: 48, color: Colors.grey.shade300),
-                const SizedBox(height: 16),
-                const Text('Select a Field/Block first',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey)),
-                const SizedBox(height: 8),
-                Text(
-                  'Open the My Farms tab, select a farm, then tap a field '
-                  'to select it. Then you can add crops to that field.',
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    final cropState = ref.watch(cropsProvider);
-
-    if (cropState.isLoading) {
-      return const ShellPageContent(
-        title: 'Crops',
-        subtitle: 'Loading crop records...',
-        child: LoadingStateWidget(useSkeleton: true),
-      );
-    }
-
-    if (cropState.errorMessage != null) {
-      return ShellPageContent(
-        title: 'Crops',
-        subtitle: 'Failed to load crop data',
-        child: ErrorStateWidget(
-          title: 'Error Loading Crops',
-          message: cropState.errorMessage!,
-          retryLabel: 'Retry',
-          onRetry: _loadCrops,
-        ),
-      );
-    }
-
-    final filtered = cropState.filteredCrops;
-
-    // ── Summary KPIs ──
-    final activeCrops = cropState.crops.where(
-      (c) => c.status == CropStatus.planted || c.status == CropStatus.growing,
-    ).length;
-    final totalArea = cropState.crops.fold<double>(
-      0.0, (sum, c) => sum + (c.areaPlanted ?? 0),
+  void _openRecordActivity() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ActivityCreationPage()),
     );
-    final harvestedCount = cropState.crops.where(
-      (c) => c.status == CropStatus.harvested,
-    ).length;
+  }
 
-        return ShellPageContent(
-      title: 'Crops',
-      subtitle: hierarchy.hasField
-          ? '${hierarchy.field!.fieldName} — ${cropState.crops.length} crops'
-          : '${cropState.crops.length} crop records',
-      actions: [
-        // ✅ CONTEXT: Add Crop visible ONLY when a Field/Block is selected
-        if (hierarchy.hasField)
-          IconButton(
-            onPressed: () => _navigateToAddCrop(context),
-            icon: const Icon(Icons.add_circle_outline),
-            tooltip: 'Add Crop to ${hierarchy.field!.fieldName}',
-          ),
-        // Phase 1: publish managed stock to Marketplace
-        IconButton(
-          onPressed: () => _navigateToSellOnMarketplace(context),
-          icon: const Icon(Icons.storefront_outlined),
-          tooltip: 'Sell on Marketplace',
-        ),
-      ],
+  @override
+  Widget build(BuildContext context) {
+    final hierarchy = ref.watch(hierarchyProvider);
+    final hasSelected =
+        hierarchy.cropOrLivestockType == 'crop' &&
+            hierarchy.cropOrLivestock is CropEntity;
+
+    if (hasSelected) {
+      return _buildDetail(context, hierarchy.cropOrLivestock as CropEntity);
+    }
+    return _buildList(context);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // ALL CROPS LIST
+  // ─────────────────────────────────────────────────────────────
+  Widget _buildList(BuildContext context) {
+    final cropsAsync = ref.watch(allUserCropsProvider);
+    final query = _query.trim().toLowerCase();
+
+    return ResponsiveWrapper(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-        // ── KPI Summary ──
-        AdaptiveContentGrid(
-          items: [
-            KPICard(
-              label: 'Active Crops',
-              value: '$activeCrops',
-              icon: Icons.grass,
-              iconColor: Colors.green,
+          const SizedBox(height: 8),
+          Text(
+            'Crops',
+            style: Theme.of(context)
+                .textTheme
+                .headlineSmall
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'All your crops across every farm',
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            onChanged: (value) => setState(() => _query = value),
+            decoration: InputDecoration(
+              hintText: 'Search crops by name, farm or field...',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              isDense: true,
+              filled: true,
+              fillColor: Colors.grey.shade100,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
             ),
-            KPICard(
-              label: 'Total Area',
-              value: '${totalArea.toStringAsFixed(1)} ha',
-              icon: Icons.straighten,
-              iconColor: Colors.blue,
-            ),
-            KPICard(
-              label: 'Harvested',
-              value: '$harvestedCount',
-              icon: Icons.shopping_basket,
-              iconColor: Colors.orange,
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
+          ),
+          const SizedBox(height: 12),
 
-        // ── Search ──
-        SearchBarWidget(
-          hintText: 'Search crops...',
-          onChanged: (query) {
-            ref.read(cropsProvider.notifier).setSearchQuery(query);
-          },
-        ),
-        const SizedBox(height: 12),
+          Expanded(
+            child: cropsAsync.when(
+              loading: () => const LoadingStateWidget(useSkeleton: true),
+              error: (err, _) => ErrorStateWidget(
+                title: 'Could not load crops',
+                message: err.toString(),
+                retryLabel: 'Retry',
+                onRetry: () => ref.invalidate(allUserCropsProvider),
+              ),
+              data: (entries) {
+                final filtered = entries.where((e) {
+                  if (query.isEmpty) return true;
+                  return (e.crop.cropName.toLowerCase().contains(query)) ||
+                      (e.crop.variety?.toLowerCase().contains(query) ?? false) ||
+                      (e.farmName?.toLowerCase().contains(query) ?? false) ||
+                      (e.fieldName?.toLowerCase().contains(query) ?? false);
+                }).toList();
 
-        // ── Crop List ──
-        if (filtered.isEmpty)
-          const Expanded(
-            child: EmptyStateWidget(
-              icon: Icons.grass,
-              title: 'No Crops Found',
-              subtitle: 'Plant your first crop to start tracking.',
-            ),
-          )
-        else
-                    Expanded(
-            child: ListView.separated(
-              physics: const BouncingScrollPhysics(),
-              itemCount: filtered.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                final crop = filtered[index];
-                return _CropCard(
-                  crop: crop,
-                  onTap: () => _openCropDetails(context, crop),
-                  onSell: () => _sellCrop(context, crop),
-                  onRecordActivity: () => _recordActivity(context, crop),
+                if (entries.isEmpty) {
+                  return _buildEmpty(context);
+                }
+                if (filtered.isEmpty) {
+                  return const EmptyStateWidget(
+                    icon: Icons.search_off,
+                    title: 'No Crops Match',
+                    subtitle: 'Try a different search term.',
+                  );
+                }
+                return ListView.separated(
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: filtered.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final entry = filtered[index];
+                    return _GlobalCropRow(
+                      entry: entry,
+                      onOpen: () => _selectCrop(entry),
+                    );
+                  },
                 );
               },
             ),
@@ -206,241 +171,256 @@ class _CropsPageState extends ConsumerState<CropsPage> {
       ),
     );
   }
-  void _navigateToAddCrop(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const AddCropPage()),
+
+  Widget _buildEmpty(BuildContext context) {
+    return EmptyStateWidget(
+      icon: Icons.grass,
+      title: 'No crops have been added yet',
+      subtitle: 'Go to My Farms to add your first crop to a field.',
+      actionLabel: 'Go to My Farms',
+      onAction: widget.onGoToMyFarms,
     );
   }
 
-  void _navigateToSellOnMarketplace(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const StockSelectionPage()),
-    );
-  }
+  // ─────────────────────────────────────────────────────────────
+  // SELECTED CROP DETAIL
+  // ─────────────────────────────────────────────────────────────
+  Widget _buildDetail(BuildContext context, CropEntity crop) {
+    final hierarchy = ref.watch(hierarchyProvider);
+    final theme = Theme.of(context);
+    final farmName = hierarchy.entity?.farmName ?? '—';
+    final fieldName = hierarchy.field?.fieldName ?? '—';
 
-  void _sellCrop(BuildContext context, CropEntity crop) {
-    // Opens the eligible-stock picker pre-filtered to this crop's name.
-    // After production, the matching commerce.stock_registry row appears here.
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => StockSelectionPage(initialSearchQuery: crop.cropName),
-      ),
-    );
-  }
+    return ResponsiveWrapper(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextButton.icon(
+            onPressed: _clearSelection,
+            icon: const Icon(Icons.arrow_back, size: 18),
+            label: const Text('All Crops'),
+          ),
+          const Divider(height: 1),
+          const SizedBox(height: 8),
 
-  void _recordActivity(BuildContext context, CropEntity crop) {
-    // Activities belong to a crop within the hierarchy (farm → field → crop).
-    ref.read(hierarchyProvider.notifier).selectCrop(crop);
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const ActivityTemplateSelectionPage(),
-      ),
-    );
-  }
+          Expanded(
+            child: ListView(
+              physics: const BouncingScrollPhysics(),
+              children: [
+                // ── Hierarchy context ──
+                _ContextHeader(
+                  icon: Icons.eco,
+                  color: Colors.green,
+                  segments: [farmName, fieldName, crop.cropName],
+                ),
+                const SizedBox(height: 16),
 
-  void _openCropDetails(BuildContext context, CropEntity crop) {
-    ref.read(hierarchyProvider.notifier).selectCrop(crop);
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => CropLivestockDetailPage.crop(crop: crop),
+                // ── Asset card ──
+                Card(
+                  elevation: 0,
+                  margin: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    side: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          crop.cropName,
+                          style: theme.textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 12),
+                        _InfoRow(label: 'Farm', value: farmName),
+                        _InfoRow(label: 'Field', value: fieldName),
+                        _InfoRow(label: 'Crop', value: crop.cropName),
+                        if (crop.variety != null && crop.variety!.isNotEmpty)
+                          _InfoRow(label: 'Type / Variant', value: crop.variety!),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // ── Actions ──
+                FilledButton.icon(
+                  onPressed: _openActivities,
+                  icon: const Icon(Icons.list_alt),
+                  label: const Text('Activities'),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: _openRecordActivity,
+                  icon: const Icon(Icons.event_note),
+                  label: const Text('Record Activity'),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _CropCard extends StatelessWidget {
-  final CropEntity crop;
-  final VoidCallback onTap;
-  final VoidCallback onSell;
-  final VoidCallback onRecordActivity;
+class _GlobalCropRow extends StatelessWidget {
+  final GlobalCropEntry entry;
+  final VoidCallback onOpen;
 
-  const _CropCard({
-    required this.crop,
-    required this.onTap,
-    required this.onSell,
-    required this.onRecordActivity,
+  const _GlobalCropRow({required this.entry, required this.onOpen});
+
+  @override
+  Widget build(BuildContext context) {
+    final crop = entry.crop;
+    final farmName = entry.farmName ?? 'Unknown farm';
+    final fieldName = entry.fieldName ?? 'Unknown field';
+
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: InkWell(
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.eco, size: 22, color: Colors.green),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      crop.cropName,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Crop: ${crop.cropName}',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      'Farm: $farmName · Field: $fieldName',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: onOpen,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  visualDensity: VisualDensity.compact,
+                ),
+                child: const Text('Open'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ContextHeader extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final List<String> segments;
+
+  const _ContextHeader({
+    required this.icon,
+    required this.color,
+    required this.segments,
   });
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = _statusColor(crop.status);
-
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(Icons.grass, size: 20, color: statusColor),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        crop.cropName,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (crop.variety != null)
-                        Text(
-                          crop.variety!,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    crop.statusLabel,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: statusColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                if (crop.areaPlanted != null) ...[
-                  _InfoChip(
-                    icon: Icons.straighten,
-                    label: '${crop.areaPlanted!.toStringAsFixed(1)} ha',
-                  ),
-                  const SizedBox(width: 12),
-                ],
-                _InfoChip(
-                  icon: Icons.calendar_today,
-                  label: '${crop.daysSincePlanting.inDays}d ago',
-                ),
-                if (crop.expectedHarvestDate != null) ...[
-                  const SizedBox(width: 12),
-                  _InfoChip(
-                    icon: Icons.event,
-                    label: 'Harvest: ${_formatDate(crop.expectedHarvestDate!)}',
-                  ),
-                ],
-              ],
-            ),
-            if (crop.notes != null && crop.notes!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                crop.notes!,
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              segments.join('  ›  '),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurface,
               ),
-            ],
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: onRecordActivity,
-                    icon: const Icon(Icons.event_note, size: 16),
-                    label: const Text('Activity'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: FilledButton.tonalIcon(
-                    onPressed: onSell,
-                    icon: const Icon(Icons.storefront_outlined, size: 16),
-                    label: const Text('Sell on Marketplace'),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-                ),
-              ],
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-      ),
-    );
-  }
-
-  Color _statusColor(CropStatus status) {
-    switch (status) {
-      case CropStatus.planted:
-        return Colors.blue;
-      case CropStatus.growing:
-        return Colors.green;
-      case CropStatus.harvested:
-        return Colors.orange;
-      case CropStatus.failed:
-        return Colors.red;
-    }
-  }
-
-    String _formatDate(DateTime date) =>
-      '${date.day}/${date.month}/${date.year}';
-
-  void _navigateToAddCrop(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const AddCropPage()),
     );
   }
 }
 
-class _InfoChip extends StatelessWidget {
-  final IconData icon;
+class _InfoRow extends StatelessWidget {
   final String label;
+  final String value;
 
-  const _InfoChip({required this.icon, required this.label});
+  const _InfoRow({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: Colors.grey.shade500),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-        ),
-      ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
