@@ -68,8 +68,8 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey)),
                 const SizedBox(height: 8),
                 Text(
-                  'Navigate to the Fields/Blocks tab and tap a field to select it. '
-                  'Then you can add livestock to that field.',
+                  'Open the My Farms tab, select a farm, then tap a field '
+                  'to select it. Then you can add livestock to that field.',
                   style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
                   textAlign: TextAlign.center,
                 ),

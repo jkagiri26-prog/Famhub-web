@@ -102,7 +102,7 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey)),
                 const SizedBox(height: 8),
                 Text(
-                  'Navigate to the Fields/Blocks tab, tap a field, then go to '
+                  'Open the My Farms tab, select a farm and field, then open '
                   'Crops or Livestock and tap a specific record. '
                   'Then you can view and record activities.',
                   style: TextStyle(fontSize: 13, color: Colors.grey.shade500),

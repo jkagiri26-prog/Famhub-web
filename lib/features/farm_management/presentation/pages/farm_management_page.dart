@@ -65,6 +65,9 @@ import 'package:famhub_app/features/farm_management/presentation/pages/crops_pag
 import 'package:famhub_app/features/farm_management/presentation/pages/livestock_page.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/activities_page.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/reports_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/crop_livestock_detail_page.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
 
 /// ============================================================
 /// FARM MANAGEMENT PAGE (PRIMARY MODULE ENTRY POINT)
@@ -191,14 +194,17 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
                   // 1. Overview — full farm dashboard
                   _buildOverviewTab(context, selectorState),
 
-                  // 2. My Farms
-                  const FarmsPage(),
+                  // 2. My Farms — hierarchy workspace (farm → field → asset)
+                  FarmsPage(
+                    onOpenCrops: () => _tabController.animateTo(2),
+                    onOpenLivestock: () => _tabController.animateTo(3),
+                  ),
 
-                  // 3. Crops
-                  const CropsPage(),
+                  // 3. Crops — workspace of the selected crop (if any)
+                  _buildCropsTab(hierarchy),
 
-                  // 4. Livestock
-                  const LivestockPage(),
+                  // 4. Livestock — workspace of the selected livestock (if any)
+                  _buildLivestockTab(hierarchy),
 
                   // 5. Activity Logs
                   const ActivitiesPage(),
@@ -212,6 +218,28 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
         ),
       ),
     );
+  }
+
+  /// Crops tab: the selected crop becomes the detailed crop workspace.
+  /// Without a selected crop, falls back to the field-scoped crop list.
+  Widget _buildCropsTab(HierarchySelectionState hierarchy) {
+    if (hierarchy.cropOrLivestockType == 'crop' &&
+        hierarchy.cropOrLivestock != null) {
+      final crop = hierarchy.cropOrLivestock as CropEntity;
+      return CropLivestockDetailPage.crop(crop: crop);
+    }
+    return const CropsPage();
+  }
+
+  /// Livestock tab: the selected livestock becomes the detailed workspace.
+  /// Without a selected livestock, falls back to the field-scoped list.
+  Widget _buildLivestockTab(HierarchySelectionState hierarchy) {
+    if (hierarchy.cropOrLivestockType == 'livestock' &&
+        hierarchy.cropOrLivestock != null) {
+      final animal = hierarchy.cropOrLivestock as LivestockEntity;
+      return CropLivestockDetailPage.livestock(livestock: animal);
+    }
+    return const LivestockPage();
   }
 
   /// Overview tab: renders the farm selector-driven state machine
