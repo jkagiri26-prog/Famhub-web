@@ -139,29 +139,32 @@ class _MarketplacePageState extends ConsumerState<MarketplacePage> {
                   );
                 }
 
-                return ListView.builder(
+                return ListView(
                   physics: const BouncingScrollPhysics(),
-                  itemCount: filtered.length + 1,
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                      return Padding(
-                        padding: const EdgeInsets.only(left: 4, bottom: 8),
-                        child: Text(
-                          '${filtered.length} listing${filtered.length == 1 ? '' : 's'} available',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      );
-                    }
-
-                    final listing = filtered[index - 1];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: ListingTile(listing: listing),
-                    );
-                  },
+                  padding: const EdgeInsets.only(bottom: 24),
+                  children: [
+                    _buildShelf(
+                      context,
+                      'Promoted',
+                      filtered.where((l) => l.isPromoted).toList(),
+                      promoted: true,
+                    ),
+                    for (final category in const [
+                      'Livestock',
+                      'Equipment',
+                      'Crops',
+                      'Inputs',
+                      'Other',
+                    ])
+                      _buildShelf(
+                        context,
+                        category,
+                        filtered
+                            .where((listing) =>
+                                _listingCategory(listing) == category)
+                            .toList(),
+                      ),
+                  ],
                 );
               },
             ),
@@ -175,23 +178,9 @@ class _MarketplacePageState extends ConsumerState<MarketplacePage> {
     var result = listings;
 
     if (tab != 'ALL') {
-            result = result.where((l) {
-        final category = (l.unitName ?? '').toLowerCase();
-        switch (tab) {
-          case 'LIVESTOCK':
-            return category == 'head' || category == 'animal' || category == 'livestock';
-          case 'CROPS':
-            return category == 'kg' || category == 'tonne' || category == 'bag';
-          case 'INPUTS':
-            return category == 'litre' || category == 'pack' || category == 'piece';
-          case 'MACHINERY':
-            return category == 'unit' || category == 'hour' || category == 'day';
-          case 'SERVICES':
-            return category == 'service' || category == 'consultation';
-          default:
-            return true;
-        }
-      }).toList();
+      result = result
+          .where((listing) => _listingCategory(listing).toUpperCase() == tab)
+          .toList();
     }
 
     if (query.isNotEmpty) {
@@ -205,5 +194,68 @@ class _MarketplacePageState extends ConsumerState<MarketplacePage> {
     }
 
     return result;
+  }
+
+  String _listingCategory(Listing listing) {
+    final unit = (listing.unitName ?? '').toLowerCase();
+    if (unit == 'head' || unit == 'animal' || unit == 'livestock') {
+      return 'Livestock';
+    }
+    if (unit == 'unit' || unit == 'hour' || unit == 'day') {
+      return 'Equipment';
+    }
+    if (unit == 'kg' || unit == 'tonne' || unit == 'bag') return 'Crops';
+    if (unit == 'litre' || unit == 'pack' || unit == 'piece') return 'Inputs';
+    return 'Other';
+  }
+
+  Widget _buildShelf(
+    BuildContext context,
+    String title,
+    List<Listing> listings, {
+    bool promoted = false,
+  }) {
+    if (listings.isEmpty) return const SizedBox.shrink();
+    final rows = <Widget>[];
+    for (var start = 0; start < listings.length && start < 16; start += 8) {
+      final end = start + 8 < listings.length ? start + 8 : listings.length;
+      rows.add(
+        SizedBox(
+          height: 258,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: end - start,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (_, index) => SizedBox(
+              width: MediaQuery.sizeOf(context).width < 420 ? 142 : 176,
+              child: ListingTile(listing: listings[start + index]),
+            ),
+          ),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(title,
+                  style: const TextStyle(
+                      fontSize: 17, fontWeight: FontWeight.w800)),
+              const Spacer(),
+              TextButton(
+                onPressed: () => setState(() {
+                  _activeTab = promoted ? 'ALL' : title.toUpperCase();
+                }),
+                child: const Text('See all ›'),
+              ),
+            ],
+          ),
+          ...rows,
+        ],
+      ),
+    );
   }
 }

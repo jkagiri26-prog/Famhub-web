@@ -13,10 +13,10 @@ class MarketplaceFilterTabsWidget extends StatelessWidget {
   static const List<String> tabs = [
     'ALL',
     'LIVESTOCK',
+    'EQUIPMENT',
     'CROPS',
     'INPUTS',
-    'MACHINERY',
-    'SERVICES',
+    'OTHER',
   ];
 
   @override

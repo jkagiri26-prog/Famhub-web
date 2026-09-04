@@ -28,12 +28,13 @@ class ListingTile extends ConsumerWidget {
       },
       child: ListingCardWidget(
         title: listing.title,
-        subtitle: listing.description ?? 'No description available',
+        subtitle: listing.description ?? 'Available from a local seller',
         price: listing.displayPrice,
-        location: listing.locationName ?? listing.locationId ?? 'Unknown',
+        location: listing.locationName ?? 'Location unavailable',
+        imageUrl: listing.images.isEmpty ? null : listing.images.first,
+        badge: listing.isPromoted ? 'PROMOTED' : null,
         trailing: showBadge ? ListingStatusBadge(status: listing.status) : null,
       ),
     );
   }
 }
-
