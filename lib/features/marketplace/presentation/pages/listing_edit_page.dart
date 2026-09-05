@@ -116,6 +116,9 @@ class _ListingEditFormState extends ConsumerState<_ListingEditForm> {
   @override
   void initState() {
     super.initState();
+    // ignore: avoid_print
+    print('[listing_edit] id=${widget.listing.id} '
+        'entity=${widget.listing.entityId} title=${widget.listing.title}');
     _original = widget.listing;
     _titleController.text = widget.listing.title;
     _descriptionController.text = widget.listing.description ?? '';

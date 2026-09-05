@@ -644,6 +644,9 @@ class MarketplaceRemoteDataSource {
     required String fileName,
     required String listingId,
   }) async {
+    // ignore: avoid_print
+    print('[upload_media] context_id=$listingId file=$fileName '
+        'bytes=${bytes.lengthInBytes}');
     try {
       final response = await _client.functions.invoke(
         _uploadMediaFunction,
