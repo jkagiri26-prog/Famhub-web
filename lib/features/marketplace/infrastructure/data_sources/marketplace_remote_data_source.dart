@@ -626,8 +626,8 @@ class MarketplaceRemoteDataSource {
   // as an authorization mechanism, and never builds storage paths.
   //
   // Context contract:
-  //   context_type = "listings"
-  //   context_id   = marketplace.listings.id
+  //   context    = "listings"
+  //   context_id = marketplace.listings.id
 
   static const String _listingMediaContextType = 'listings';
   static const String _uploadMediaFunction = 'upload_media';
@@ -685,10 +685,7 @@ class MarketplaceRemoteDataSource {
     try {
       final response = await _client.functions.invoke(
         _mediaGetByContextFunction,
-        body: {
-          'context_type': _listingMediaContextType,
-          'context_id': listingId,
-        },
+        body: {'context': _listingMediaContextType, 'context_id': listingId},
       );
       return MarketplaceRemoteDataSource.mediaFileEntries(response.data);
     } on FunctionException catch (e) {
