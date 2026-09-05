@@ -44,6 +44,16 @@ class _ListingEditImagesSectionState
 
   bool _busy = false;
 
+  /// Bytes of photos added in this session, shown immediately as local
+  /// previews so the seller always sees the upload result even when the
+  /// remote album cannot be listed (or its signed URLs cannot be fetched,
+  /// e.g. in a browser).
+  final List<Uint8List> _addedPreviews = [];
+
+  /// When the remote album reaches at least this many photos the local
+  /// previews can be cleared (the server list now shows them).
+  int? _clearPreviewsWhenRemoteAtLeast;
+
   Future<void> _addPhotos(int currentCount) async {
     if (_busy) return;
     final remaining = _maxPhotos - currentCount;
@@ -101,10 +111,16 @@ class _ListingEditImagesSectionState
               fileName: image.fileName,
             );
         uploaded++;
+        // Show the photo immediately from its bytes. The remote album will
+        // take over once it lists the uploaded file (see the ref.listen below).
+        if (mounted) {
+          setState(() => _addedPreviews.add(image.bytes));
+        }
       } catch (e) {
         uploadFailures.add(_describePhotoError(e));
       }
     }
+    _clearPreviewsWhenRemoteAtLeast = currentCount + _addedPreviews.length;
 
     if (!mounted) {
       return;
@@ -225,6 +241,25 @@ class _ListingEditImagesSectionState
   Widget build(BuildContext context) {
     final photosAsync = ref.watch(listingMediaFilesProvider(widget.listingId));
 
+    // Once the remote album catches up (lists the photos added this session)
+    // the local byte-preview tiles are no longer needed.
+    ref.listen(listingMediaFilesProvider(widget.listingId), (previous, next) {
+      final threshold = _clearPreviewsWhenRemoteAtLeast;
+      if (threshold == null || _addedPreviews.isEmpty || !next.hasValue) {
+        return;
+      }
+      final remoteCount = next.value?.length ?? 0;
+      if (remoteCount >= threshold) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          setState(() {
+            _addedPreviews.clear();
+            _clearPreviewsWhenRemoteAtLeast = null;
+          });
+        });
+      }
+    });
+
     // Existing photos (empty while loading or on load failure). The Add tile
     // stays available so a seller can always add a photo — even to a listing
     // that has no photos yet, or when listing the existing ones fails.
@@ -321,7 +356,8 @@ class _ListingEditImagesSectionState
                   busy: _busy,
                   onRemove: () => _removePhoto(image),
                 ),
-              if (photos.length < _maxPhotos)
+              for (final bytes in _addedPreviews) _AddedPhotoTile(bytes: bytes),
+              if (photos.length + _addedPreviews.length < _maxPhotos)
                 _AddTile(
                   busy: _busy,
                   remaining: remaining,
@@ -405,6 +441,56 @@ class _PhotoTile extends StatelessWidget {
                 ),
                 child: const Icon(Icons.close, size: 14, color: Colors.white),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Local preview of a photo added in this session, rendered from its bytes so
+/// it is always visible regardless of remote retrieval/network state.
+class _AddedPhotoTile extends StatelessWidget {
+  final Uint8List bytes;
+
+  const _AddedPhotoTile({required this.bytes});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 96,
+      height: 96,
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Image.memory(
+              bytes,
+              width: 96,
+              height: 96,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              errorBuilder: (_, __, ___) => Container(
+                color: const Color(0xfff1f5f2),
+                child: const Icon(
+                  Icons.broken_image_outlined,
+                  color: Colors.grey,
+                  size: 28,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: const BoxDecoration(
+                color: Colors.black54,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.check, size: 12, color: Colors.white),
             ),
           ),
         ],
