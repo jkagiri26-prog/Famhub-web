@@ -68,8 +68,7 @@ class _FarmDetailPageState extends ConsumerState<FarmDetailPage> {
   }
 
   void _loadFields() {
-    final farmId =
-        ref.read(farmContextProvider).farmId ?? widget.farmId;
+    final farmId = ref.read(farmContextProvider).farmId ?? widget.farmId;
     ref.read(fieldsProvider.notifier).loadFields(farmId: farmId);
   }
 
@@ -78,9 +77,9 @@ class _FarmDetailPageState extends ConsumerState<FarmDetailPage> {
   }
 
   void _openAddField() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const AddFieldPage()),
-    ).then((_) {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const AddFieldPage())).then((_) {
       if (!mounted) return;
       ref.invalidate(fieldsProvider);
       _loadFields();
@@ -88,15 +87,15 @@ class _FarmDetailPageState extends ConsumerState<FarmDetailPage> {
   }
 
   void _openAddCrop() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const AddCropPage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const AddCropPage()));
   }
 
   void _openAddLivestock() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const AddLivestockPage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const AddLivestockPage()));
   }
 
   @override
@@ -211,13 +210,14 @@ class _FarmDetailPageState extends ConsumerState<FarmDetailPage> {
   }
 
   void _openPage(Widget page) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => page),
-    );
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
   }
 
   Widget _buildFarmHeader(
-      BuildContext context, ThemeData theme, FarmEntity farm) {
+    BuildContext context,
+    ThemeData theme,
+    FarmEntity farm,
+  ) {
     final name = farm.farmName;
     final description = farm.description;
     final size = farm.size;
@@ -281,8 +281,11 @@ class _FarmDetailPageState extends ConsumerState<FarmDetailPage> {
               runSpacing: 8,
               children: [
                 if (size != null)
-                  _infoChip(Icons.straighten,
-                      '${size.toStringAsFixed(1)} ha', Colors.blue),
+                  _infoChip(
+                    Icons.straighten,
+                    '${size.toStringAsFixed(1)} ha',
+                    Colors.blue,
+                  ),
                 _infoChip(
                   Icons.check_circle,
                   'You are inside this farm',
@@ -318,9 +321,9 @@ class _FarmDetailPageState extends ConsumerState<FarmDetailPage> {
         Text(
           title,
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-              ),
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
         ),
         if (trailing != null) ...[
           const SizedBox(width: 8),
@@ -381,6 +384,14 @@ class _FarmDetailPageState extends ConsumerState<FarmDetailPage> {
               field: field,
               isSelected: selectedField?.id == field.id,
               onTap: () => _selectField(field),
+              onAddCrop: () {
+                _selectField(field);
+                _openAddCrop();
+              },
+              onAddLivestock: () {
+                _selectField(field);
+                _openAddLivestock();
+              },
             ),
           ),
         if (selectedField != null)
@@ -388,8 +399,11 @@ class _FarmDetailPageState extends ConsumerState<FarmDetailPage> {
             padding: const EdgeInsets.only(bottom: 8),
             child: Row(
               children: [
-                const Icon(Icons.keyboard_arrow_down,
-                    size: 16, color: Colors.grey),
+                const Icon(
+                  Icons.keyboard_arrow_down,
+                  size: 16,
+                  color: Colors.grey,
+                ),
                 const SizedBox(width: 4),
                 Text(
                   'Managing: ${selectedField.fieldName}',
@@ -408,7 +422,9 @@ class _FarmDetailPageState extends ConsumerState<FarmDetailPage> {
 
   /// Crops & Livestock for the currently selected field.
   Widget _buildFieldContent(
-      BuildContext context, HierarchySelectionState hierarchy) {
+    BuildContext context,
+    HierarchySelectionState hierarchy,
+  ) {
     final theme = Theme.of(context);
 
     if (!hierarchy.hasField) {
@@ -450,7 +466,9 @@ class _FarmDetailPageState extends ConsumerState<FarmDetailPage> {
       return ErrorStateWidget(
         title: 'Could not load crops & livestock',
         message:
-            cropsAsync.error?.toString() ?? livestockAsync.error?.toString() ?? '',
+            cropsAsync.error?.toString() ??
+            livestockAsync.error?.toString() ??
+            '',
         retryLabel: 'Retry',
         onRetry: () {
           ref.invalidate(cropsByFieldProvider);
@@ -480,7 +498,10 @@ class _FarmDetailPageState extends ConsumerState<FarmDetailPage> {
             for (final crop in crops)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
-                child: _CropTile(crop: crop, onTap: () => _openCropDetails(crop)),
+                child: _CropTile(
+                  crop: crop,
+                  onTap: () => _openCropDetails(crop),
+                ),
               ),
             const SizedBox(height: 12),
           ],
@@ -495,7 +516,10 @@ class _FarmDetailPageState extends ConsumerState<FarmDetailPage> {
             for (final animal in livestock)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
-                child: _LivestockTile(animal: animal, onTap: () => _openLivestockDetails(animal)),
+                child: _LivestockTile(
+                  animal: animal,
+                  onTap: () => _openLivestockDetails(animal),
+                ),
               ),
             const SizedBox(height: 12),
           ],
@@ -533,7 +557,10 @@ class _FarmDetailPageState extends ConsumerState<FarmDetailPage> {
   }
 
   Widget _buildEmptyFieldState(
-      BuildContext context, ThemeData theme, String fieldName) {
+    BuildContext context,
+    ThemeData theme,
+    String fieldName,
+  ) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -575,7 +602,11 @@ class _FarmDetailPageState extends ConsumerState<FarmDetailPage> {
         const SizedBox(width: 4),
         Text(
           label,
-          style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500),
+          style: TextStyle(
+            fontSize: 12,
+            color: color,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ],
     );
@@ -590,10 +621,18 @@ class _FieldCard extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
 
+  /// Opens the Add Crop flow scoped to this field.
+  final VoidCallback? onAddCrop;
+
+  /// Opens the Add Livestock flow scoped to this field.
+  final VoidCallback? onAddLivestock;
+
   const _FieldCard({
     required this.field,
     required this.isSelected,
     required this.onTap,
+    this.onAddCrop,
+    this.onAddLivestock,
   });
 
   @override
@@ -610,65 +649,114 @@ class _FieldCard extends StatelessWidget {
           width: isSelected ? 1.5 : 1,
         ),
       ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(Icons.landscape, size: 20, color: color),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.landscape, size: 20, color: color),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          field.fieldName,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (field.soilType != null &&
+                            field.soilType!.isNotEmpty)
+                          Text(
+                            field.soilType!,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (field.acreage != null)
                     Text(
-                      field.fieldName,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                      '${field.acreage!.toStringAsFixed(1)} ha',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                    if (field.soilType != null && field.soilType!.isNotEmpty)
-                      Text(
-                        field.soilType!,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey.shade600,
+                  const SizedBox(width: 8),
+                  Icon(
+                    isSelected
+                        ? Icons.radio_button_checked
+                        : Icons.chevron_right,
+                    size: 20,
+                    color: isSelected ? theme.colorScheme.primary : Colors.grey,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (onAddCrop != null || onAddLivestock != null) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+              child: Row(
+                children: [
+                  if (onAddCrop != null)
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: onAddCrop,
+                        icon: const Icon(Icons.eco, size: 16),
+                        label: const Text('Add Crop'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.green.shade600,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                       ),
-                  ],
-                ),
+                    ),
+                  if (onAddCrop != null && onAddLivestock != null)
+                    const SizedBox(width: 8),
+                  if (onAddLivestock != null)
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: onAddLivestock,
+                        icon: const Icon(Icons.pets, size: 16),
+                        label: const Text('Add Livestock'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.orange.shade600,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
-              if (field.acreage != null)
-                Text(
-                  '${field.acreage!.toStringAsFixed(1)} ha',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              const SizedBox(width: 8),
-              Icon(
-                isSelected
-                    ? Icons.radio_button_checked
-                    : Icons.chevron_right,
-                size: 20,
-                color: isSelected ? theme.colorScheme.primary : Colors.grey,
-              ),
-            ],
-          ),
-        ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -690,33 +778,36 @@ class _CropTile extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: statusColor.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: statusColor.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.grass, size: 18, color: statusColor),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              crop.cropName,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: statusColor.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: statusColor.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.grass, size: 18, color: statusColor),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                crop.cropName,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-          ),
-          Text(
-            crop.statusLabel,
-            style: TextStyle(
-              fontSize: 12,
-              color: statusColor,
-              fontWeight: FontWeight.w600,
+            Text(
+              crop.statusLabel,
+              style: TextStyle(
+                fontSize: 12,
+                color: statusColor,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
@@ -750,33 +841,36 @@ class _LivestockTile extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.orange.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.orange.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.pets, size: 18, color: Colors.orange),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              animal.species,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.orange.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.orange.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.pets, size: 18, color: Colors.orange),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                animal.species,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-          ),
-          Text(
-            '${animal.count} head',
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.green,
-              fontWeight: FontWeight.w600,
+            Text(
+              '${animal.count} head',
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.green,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }

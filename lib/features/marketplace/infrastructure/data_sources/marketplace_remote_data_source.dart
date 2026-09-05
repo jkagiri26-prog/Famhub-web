@@ -24,9 +24,7 @@ import '../../domain/models/listing_edit_changes.dart';
 /// Nothing else (images, status, ids, promotion fields, timestamps) can be
 /// produced, because [ListingEditChanges] cannot even carry them.
 /// A description that was intentionally cleared serializes as `null`.
-Map<String, dynamic> editableListingChangesPayload(
-  ListingEditChanges changes,
-) {
+Map<String, dynamic> editableListingChangesPayload(ListingEditChanges changes) {
   final payload = <String, dynamic>{};
   if (changes.title != null) payload['title'] = changes.title;
   if (changes.descriptionChanged) {
@@ -70,7 +68,7 @@ class MarketplaceRemoteDataSource {
   final SupabaseClient _client;
 
   MarketplaceRemoteDataSource({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
   /// PostgREST select fragment — scalar columns only, no FK embeds.
   /// (Cross-schema embeds depend on the PostgREST schema cache, which is
@@ -111,7 +109,8 @@ class MarketplaceRemoteDataSource {
   ///
   /// Direct `core.locations` query — never depends on the schema cache.
   Future<Map<String, String>> fetchLocationsByIds(
-      Set<String> locationIds) async {
+    Set<String> locationIds,
+  ) async {
     final ids = locationIds.where((id) => id.isNotEmpty).toList();
     if (ids.isEmpty) return const {};
     try {
@@ -138,7 +137,7 @@ class MarketplaceRemoteDataSource {
   ///
   /// Direct `commerce.stock_registry` query — never depends on the schema cache.
   Future<Map<String, ({double quantity, double reservedQuantity})>>
-      fetchStockByIds(Set<String> stockIds) async {
+  fetchStockByIds(Set<String> stockIds) async {
     final ids = stockIds.where((id) => id.isNotEmpty).toList();
     if (ids.isEmpty) return const {};
     try {
@@ -289,8 +288,7 @@ class MarketplaceRemoteDataSource {
     final params = <String, dynamic>{
       'p_stock_id': stockId,
       'p_price_per_unit': pricePerUnit,
-      if (title != null && title.trim().isNotEmpty)
-        'p_title': title.trim(),
+      if (title != null && title.trim().isNotEmpty) 'p_title': title.trim(),
       if (description != null && description.trim().isNotEmpty)
         'p_description': description.trim(),
       'p_images': images,
@@ -384,7 +382,8 @@ class MarketplaceRemoteDataSource {
 
   /// Create a new listing.
   Future<Map<String, dynamic>> createListing(
-      Map<String, dynamic> payload) async {
+    Map<String, dynamic> payload,
+  ) async {
     try {
       final response = await _client
           .schema('marketplace')
@@ -406,14 +405,14 @@ class MarketplaceRemoteDataSource {
 
   /// Update an existing listing.
   Future<Map<String, dynamic>> updateListing(
-      String id, Map<String, dynamic> payload) async {
+    String id,
+    Map<String, dynamic> payload,
+  ) async {
     try {
       final response = await _client
-          .schema('marketplace').from('listings')
-          .update({
-            ...payload,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
+          .schema('marketplace')
+          .from('listings')
+          .update({...payload, 'updated_at': DateTime.now().toIso8601String()})
           .eq('id', id)
           .select()
           .single();
@@ -428,10 +427,14 @@ class MarketplaceRemoteDataSource {
   /// Archive (soft-delete) a listing.
   Future<void> archiveListing(String id) async {
     try {
-      await _client.schema('marketplace').from('listings').update({
-        'status': 'archived',
-        'updated_at': DateTime.now().toIso8601String(),
-      }).eq('id', id);
+      await _client
+          .schema('marketplace')
+          .from('listings')
+          .update({
+            'status': 'archived',
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', id);
     } on PostgrestException catch (e) {
       throw Exception('Failed to archive listing: ${e.message}');
     } catch (e) {
@@ -443,7 +446,8 @@ class MarketplaceRemoteDataSource {
   Future<Map<String, dynamic>> publishListing(String id) async {
     try {
       final response = await _client
-          .schema('marketplace').from('listings')
+          .schema('marketplace')
+          .from('listings')
           .update({
             'status': 'active',
             'updated_at': DateTime.now().toIso8601String(),
@@ -525,8 +529,7 @@ class MarketplaceRemoteDataSource {
           .eq('entity_id', entityId);
 
       final listings = (response as List).cast<Map<String, dynamic>>();
-      final active =
-          listings.where((l) => l['status'] == 'active').length;
+      final active = listings.where((l) => l['status'] == 'active').length;
       final total = listings.length;
 
       return {
@@ -590,10 +593,7 @@ class MarketplaceRemoteDataSource {
         .schema('marketplace')
         .rpc(
           setListingStatusRpc,
-          params: {
-            'p_listing_id': listingId,
-            'p_status': status,
-          },
+          params: {'p_listing_id': listingId, 'p_status': status},
         );
     return MarketplaceRemoteDataSource._firstListingRow(response);
   }
@@ -647,10 +647,7 @@ class MarketplaceRemoteDataSource {
     try {
       final response = await _client.functions.invoke(
         _uploadMediaFunction,
-        body: {
-          'context': _listingMediaContextType,
-          'context_id': listingId,
-        },
+        body: {'context': _listingMediaContextType, 'context_id': listingId},
         files: [
           http.MultipartFile.fromBytes(
             'file',
@@ -683,7 +680,8 @@ class MarketplaceRemoteDataSource {
   /// Retrieve a listing's media entries (id + signed URL) via
   /// `media_get_by_context`.
   Future<List<Map<String, String>>> fetchListingMediaEntries(
-      String listingId) async {
+    String listingId,
+  ) async {
     try {
       final response = await _client.functions.invoke(
         _mediaGetByContextFunction,
@@ -694,10 +692,13 @@ class MarketplaceRemoteDataSource {
       );
       return MarketplaceRemoteDataSource.mediaFileEntries(response.data);
     } on FunctionException catch (e) {
-      throw Exception(_describeMediaFunctionError(
-        'Failed to load listing photos',
-        e,
-      ));
+      // A 404 means this context has no media yet (e.g. a freshly published
+      // listing with no photos). Treat it as an empty album so the seller can
+      // still add the first photo.
+      if (e.status == 404) return const [];
+      throw Exception(
+        _describeMediaFunctionError('Failed to load listing photos', e),
+      );
     }
   }
 
@@ -767,23 +768,16 @@ class MarketplaceRemoteDataSource {
     final entries = <Map<String, String>>[];
     for (final item in raw) {
       if (item is! Map) continue;
-      final url = (item['url'] ??
-              item['signed_url'] ??
-              item['public_url'])
+      final url = (item['url'] ?? item['signed_url'] ?? item['public_url'])
           ?.toString();
       final lower = url?.toLowerCase() ?? '';
       if (lower.isEmpty ||
           (!lower.startsWith('http://') && !lower.startsWith('https://'))) {
         continue;
       }
-      final id = (item['id'] ??
-              item['file_id'] ??
-              item['media_id'])
+      final id = (item['id'] ?? item['file_id'] ?? item['media_id'])
           ?.toString();
-      entries.add({
-        'url': url!,
-        if (id != null && id.isNotEmpty) 'id': id,
-      });
+      entries.add({'url': url!, if (id != null && id.isNotEmpty) 'id': id});
     }
     return entries;
   }

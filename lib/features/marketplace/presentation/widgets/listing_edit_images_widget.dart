@@ -35,7 +35,8 @@ class ListingEditImagesSection extends ConsumerStatefulWidget {
 
 class _ListingEditImagesSectionState
     extends ConsumerState<ListingEditImagesSection> {
-  static const int _maxPhotos = ListingImageProcessingService.maxImagesPerListing;
+  static const int _maxPhotos =
+      ListingImageProcessingService.maxImagesPerListing;
 
   final ImagePicker _picker = ImagePicker();
   final ListingImageProcessingService _processor =
@@ -78,10 +79,9 @@ class _ListingEditImagesSectionState
     for (final file in picked) {
       try {
         final bytes = await file.readAsBytes();
-        prepared.add(await _processor.prepare(
-          bytes: bytes,
-          sourceName: file.name,
-        ));
+        prepared.add(
+          await _processor.prepare(bytes: bytes, sourceName: file.name),
+        );
       } on ListingImageException catch (e) {
         prepFailures.add(e.message);
       } catch (_) {
@@ -93,7 +93,9 @@ class _ListingEditImagesSectionState
     final uploadFailures = <String>[];
     for (final image in prepared) {
       try {
-        await ref.read(marketplaceProvider.notifier).uploadListingPhoto(
+        await ref
+            .read(marketplaceProvider.notifier)
+            .uploadListingPhoto(
               listingId: widget.listingId,
               bytes: image.bytes,
               fileName: image.fileName,
@@ -118,9 +120,7 @@ class _ListingEditImagesSectionState
         isError: true,
       );
     } else if (uploaded > 0) {
-      _showMessage(
-        uploaded == 1 ? 'Photo added.' : '$uploaded photos added.',
-      );
+      _showMessage(uploaded == 1 ? 'Photo added.' : '$uploaded photos added.');
     }
   }
 
@@ -131,9 +131,7 @@ class _ListingEditImagesSectionState
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Remove photo?'),
-        content: const Text(
-          'This photo will be removed from the listing.',
-        ),
+        content: const Text('This photo will be removed from the listing.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -152,10 +150,9 @@ class _ListingEditImagesSectionState
 
     setState(() => _busy = true);
     try {
-      await ref.read(marketplaceProvider.notifier).deleteListingPhoto(
-            listingId: widget.listingId,
-            fileId: image.id,
-          );
+      await ref
+          .read(marketplaceProvider.notifier)
+          .deleteListingPhoto(listingId: widget.listingId, fileId: image.id);
       if (!mounted) return;
       _showMessage('Photo removed.');
     } catch (e) {
@@ -215,103 +212,112 @@ class _ListingEditImagesSectionState
   Widget build(BuildContext context) {
     final photosAsync = ref.watch(listingMediaFilesProvider(widget.listingId));
 
-    return photosAsync.when(
-      loading: () => _SectionShell(
-        child: Row(
-          children: [
-            Icon(Icons.photo_outlined, size: 18, color: Colors.grey.shade500),
-            const SizedBox(width: 8),
-            Text(
-              'Loading photos...',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-            ),
-          ],
-        ),
-      ),
-      error: (e, _) => _SectionShell(
-        child: Row(
-          children: [
-            Icon(Icons.error_outline, size: 18, color: Colors.red.shade400),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Could not load the listing photos.',
-                style: TextStyle(fontSize: 13, color: Colors.red.shade700),
-              ),
-            ),
-            TextButton(
-              onPressed: () =>
-                  ref.invalidate(listingMediaFilesProvider(widget.listingId)),
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      ),
-      data: (photos) {
-        final remaining = _maxPhotos - photos.length;
-        return _SectionShell(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    // Existing photos (empty while loading or on load failure). The Add tile
+    // stays available so a seller can always add a photo — even to a listing
+    // that has no photos yet, or when listing the existing ones fails.
+    final photos = photosAsync.value ?? const <ListingImageFile>[];
+    final countKnown = photosAsync.hasValue;
+    final remaining = countKnown ? _maxPhotos - photos.length : _maxPhotos;
+
+    return _SectionShell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  const Text(
-                    'Photos',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                  ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '${photos.length}/$_maxPhotos',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                  ),
-                ],
+              const Text(
+                'Photos',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               ),
-              if (photos.isEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
-                  'No photos yet. Add up to $_maxPhotos photos to show your '
-                  'product.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-              ],
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  for (final image in photos)
-                    _PhotoTile(
-                      image: image,
-                      busy: _busy,
-                      onRemove: () => _removePhoto(image),
-                    ),
-                  if (remaining > 0)
-                    _AddTile(
-                      busy: _busy,
-                      remaining: remaining,
-                      onTap: _busy ? null : () => _addPhotos(photos.length),
-                    ),
-                ],
+                child: Text(
+                  countKnown ? '${photos.length}/$_maxPhotos' : '…/$_maxPhotos',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
               ),
             ],
           ),
-        );
-      },
+          if (photosAsync.hasError) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.error_outline, size: 16, color: Colors.red.shade400),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Could not load existing photos.',
+                    style: TextStyle(fontSize: 12, color: Colors.red.shade700),
+                  ),
+                ),
+                TextButton(
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                  onPressed: () => ref.invalidate(
+                    listingMediaFilesProvider(widget.listingId),
+                  ),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ] else if (photosAsync.isLoading) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(
+                  Icons.photo_outlined,
+                  size: 16,
+                  color: Colors.grey.shade500,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Loading photos...',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+          ] else if (photos.isEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              'No photos yet. Add up to $_maxPhotos photos to show your '
+              'product.',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (final image in photos)
+                _PhotoTile(
+                  image: image,
+                  busy: _busy,
+                  onRemove: () => _removePhoto(image),
+                ),
+              if (photos.length < _maxPhotos)
+                _AddTile(
+                  busy: _busy,
+                  remaining: remaining,
+                  onTap: _busy ? null : () => _addPhotos(photos.length),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -365,8 +371,11 @@ class _PhotoTile extends StatelessWidget {
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => Container(
                 color: const Color(0xfff1f5f2),
-                child: const Icon(Icons.image_outlined,
-                    color: Colors.grey, size: 28),
+                child: const Icon(
+                  Icons.image_outlined,
+                  color: Colors.grey,
+                  size: 28,
+                ),
               ),
             ),
           ),

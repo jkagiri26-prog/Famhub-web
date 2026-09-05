@@ -148,7 +148,8 @@ class _FakeDataSource extends MarketplaceRemoteDataSource {
 
   @override
   Future<List<Map<String, String>>> fetchListingMediaEntries(
-      String listingId) async {
+    String listingId,
+  ) async {
     mediaEntriesFetchCount++;
     return mediaEntriesResult ?? const [];
   }
@@ -330,9 +331,13 @@ class _FakeMarketplaceRepository implements MarketplaceRepository {
 
   @override
   Future<List<ListingImageFile>> fetchListingImageFiles(
-      String listingId) async {
+    String listingId,
+  ) async {
+    if (failImageFiles) throw Exception('media_get_by_context: 404');
     return const [];
   }
+
+  bool failImageFiles = false;
 
   @override
   Future<void> deleteListingImage(String fileId) {
@@ -673,20 +678,22 @@ void main() {
       repository = MarketplaceRepositoryImpl(dataSource);
     });
 
-    test('fetchListingImageFiles maps entries and drops incomplete ones',
-        () async {
-      dataSource.mediaEntriesResult = [
-        {'id': 'file-1', 'url': 'https://cdn.example/a.webp'},
-        {'url': 'https://cdn.example/no-id.webp'},
-        {'id': 'file-2'},
-      ];
+    test(
+      'fetchListingImageFiles maps entries and drops incomplete ones',
+      () async {
+        dataSource.mediaEntriesResult = [
+          {'id': 'file-1', 'url': 'https://cdn.example/a.webp'},
+          {'url': 'https://cdn.example/no-id.webp'},
+          {'id': 'file-2'},
+        ];
 
-      final files = await repository.fetchListingImageFiles('list-1');
+        final files = await repository.fetchListingImageFiles('list-1');
 
-      expect(files, hasLength(1));
-      expect(files.single.id, 'file-1');
-      expect(files.single.url, 'https://cdn.example/a.webp');
-    });
+        expect(files, hasLength(1));
+        expect(files.single.id, 'file-1');
+        expect(files.single.url, 'https://cdn.example/a.webp');
+      },
+    );
 
     test('photo upload invalidates the media providers', () async {
       dataSource.mediaEntriesResult = [
@@ -703,7 +710,9 @@ void main() {
       await container.read(listingMediaFilesProvider('list-1').future);
       expect(dataSource.mediaEntriesFetchCount, 1);
 
-      await container.read(marketplaceProvider.notifier).uploadListingPhoto(
+      await container
+          .read(marketplaceProvider.notifier)
+          .uploadListingPhoto(
             listingId: 'list-1',
             bytes: Uint8List.fromList([1, 2, 3]),
             fileName: 'listing_image_1.webp',
@@ -728,10 +737,9 @@ void main() {
       await container.read(marketplaceProvider.future);
       await container.read(listingMediaFilesProvider('list-1').future);
 
-      await container.read(marketplaceProvider.notifier).deleteListingPhoto(
-            listingId: 'list-1',
-            fileId: 'file-1',
-          );
+      await container
+          .read(marketplaceProvider.notifier)
+          .deleteListingPhoto(listingId: 'list-1', fileId: 'file-1');
 
       expect(dataSource.deletedFileIds, ['file-1']);
       await container.read(listingMediaFilesProvider('list-1').future);
@@ -817,6 +825,21 @@ void main() {
       final elevated = tester.widget<ElevatedButton>(saveFinder);
       expect(elevated.onPressed, isNull);
       expect(repository.metadataCalls, isEmpty);
+    });
+
+    testWidgets('photos stay addable when existing photos cannot be loaded', (
+      tester,
+    ) async {
+      final repository = _FakeMarketplaceRepository();
+      repository.listing = _listing(id: 'list-1');
+      repository.failImageFiles = true;
+
+      await pumpEditor(tester, repository);
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('Could not load existing photos.'), findsOneWidget);
+      expect(find.text('Add 3 photos'), findsOneWidget);
     });
   });
 }
