@@ -673,6 +673,17 @@ class MarketplaceRemoteDataSource {
 
   /// Retrieve signed URLs for a listing's media via `media_get_by_context`.
   Future<List<String>> fetchListingMediaUrls(String listingId) async {
+    final entries = await fetchListingMediaEntries(listingId);
+    return [
+      for (final entry in entries)
+        if (entry['url'] != null) entry['url']!,
+    ];
+  }
+
+  /// Retrieve a listing's media entries (id + signed URL) via
+  /// `media_get_by_context`.
+  Future<List<Map<String, String>>> fetchListingMediaEntries(
+      String listingId) async {
     try {
       final response = await _client.functions.invoke(
         _mediaGetByContextFunction,
@@ -681,13 +692,7 @@ class MarketplaceRemoteDataSource {
           'context_id': listingId,
         },
       );
-      final entries = MarketplaceRemoteDataSource.mediaFileEntries(
-        response.data,
-      );
-      return [
-        for (final entry in entries)
-          if (entry['url'] != null) entry['url']!,
-      ];
+      return MarketplaceRemoteDataSource.mediaFileEntries(response.data);
     } on FunctionException catch (e) {
       throw Exception(_describeMediaFunctionError(
         'Failed to load listing photos',

@@ -6,6 +6,7 @@ import 'package:famhub_app/features/marketplace/domain/entities/listing.dart';
 import 'package:famhub_app/features/marketplace/domain/enums/listing_status.dart';
 import 'package:famhub_app/features/marketplace/domain/models/listing_edit_changes.dart';
 import 'package:famhub_app/features/marketplace/infrastructure/services/listing_edit_error_mapper.dart';
+import 'package:famhub_app/features/marketplace/presentation/widgets/listing_edit_images_widget.dart';
 import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
 import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
 import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
@@ -368,7 +369,10 @@ class _ListingEditFormState extends ConsumerState<_ListingEditForm> {
               helperText: 'KES only',
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
+
+          ListingEditImagesSection(listingId: listing.id),
+          const SizedBox(height: 16),
 
           Text(
             'Quantity, product, unit and location are managed by your '

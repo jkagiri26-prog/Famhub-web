@@ -4,6 +4,7 @@ import '../entities/listing.dart';
 import '../entities/stock_item.dart';
 import '../enums/listing_status.dart';
 import '../models/listing_edit_changes.dart';
+import '../models/listing_image_file.dart';
 import '../models/listing_publication.dart';
 
 /// Abstract repository contract for marketplace data operations.
@@ -86,6 +87,13 @@ abstract class MarketplaceRepository {
   /// Resolve temporary signed image URLs for a listing via
   /// `media_get_by_context`. Never persisted; display-only.
   Future<List<String>> fetchListingImageUrls(String listingId);
+
+  /// Resolve a listing's photos (file id + temporary signed URL) via
+  /// `media_get_by_context`.
+  ///
+  /// Unlike [fetchListingImageUrls], the file ids are preserved so the seller
+  /// can delete individual photos through `delete_media`.
+  Future<List<ListingImageFile>> fetchListingImageFiles(String listingId);
 
   /// Delete a listing image by `media.files.id` via `delete_media`.
   Future<void> deleteListingImage(String fileId);

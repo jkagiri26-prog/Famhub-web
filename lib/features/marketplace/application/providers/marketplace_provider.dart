@@ -1,9 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/listing.dart';
 import '../../domain/entities/stock_item.dart';
 import '../../domain/enums/listing_status.dart';
 import '../../domain/models/listing_edit_changes.dart';
+import '../../domain/models/listing_image_file.dart';
 import '../../domain/models/listing_publication.dart';
 import '../../domain/repositories/marketplace_repository.dart';
 import '../../infrastructure/data_sources/marketplace_remote_data_source.dart';
@@ -215,6 +218,37 @@ class MarketplaceController extends AsyncNotifier<List<Listing>> {
       ref.invalidate(sellerListingsProvider(entityId));
     }
   }
+
+  /// Upload a prepared (WebP, ≤ 2 MB) photo for an existing listing via the
+  /// hardened `upload_media` flow.
+  ///
+  /// The backend attaches the photo to the listing; the client never writes
+  /// `listing.images`. On success the listing photo providers are refreshed.
+  Future<void> uploadListingPhoto({
+    required String listingId,
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    await _repo.uploadListingImage(
+      bytes: bytes,
+      fileName: fileName,
+      listingId: listingId,
+    );
+
+    ref.invalidate(listingImageUrlsProvider(listingId));
+    ref.invalidate(listingMediaFilesProvider(listingId));
+  }
+
+  /// Delete a listing photo by `media.files.id` via `delete_media`.
+  Future<void> deleteListingPhoto({
+    required String listingId,
+    required String fileId,
+  }) async {
+    await _repo.deleteListingImage(fileId);
+
+    ref.invalidate(listingImageUrlsProvider(listingId));
+    ref.invalidate(listingMediaFilesProvider(listingId));
+  }
 }
 
 /// ============================================================
@@ -278,4 +312,16 @@ final listingImageUrlsProvider =
     FutureProvider.family<List<String>, String>((ref, listingId) async {
   final repo = ref.read(marketplaceRepositoryProvider);
   return repo.fetchListingImageUrls(listingId);
+});
+
+/// Resolves a listing's photos (file id + temporary signed URL) via
+/// `media_get_by_context`.
+///
+/// The file ids power per-photo deletion through `delete_media`; the signed
+/// URLs are display-only and expire. Used by the listing image editor.
+final listingMediaFilesProvider =
+    FutureProvider.family<List<ListingImageFile>, String>(
+        (ref, listingId) async {
+  final repo = ref.read(marketplaceRepositoryProvider);
+  return repo.fetchListingImageFiles(listingId);
 });

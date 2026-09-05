@@ -18,6 +18,7 @@ import 'package:famhub_app/features/marketplace/domain/entities/listing.dart';
 import 'package:famhub_app/features/marketplace/domain/entities/stock_item.dart';
 import 'package:famhub_app/features/marketplace/domain/enums/listing_status.dart';
 import 'package:famhub_app/features/marketplace/domain/models/listing_edit_changes.dart';
+import 'package:famhub_app/features/marketplace/domain/models/listing_image_file.dart';
 import 'package:famhub_app/features/marketplace/domain/models/listing_publication.dart';
 import 'package:famhub_app/features/marketplace/domain/repositories/marketplace_repository.dart';
 
@@ -406,6 +407,12 @@ class DemoMarketplaceRepository implements MarketplaceRepository {
 
   @override
   Future<List<String>> fetchListingImageUrls(String listingId) async {
+    return const [];
+  }
+
+  @override
+  Future<List<ListingImageFile>> fetchListingImageFiles(
+      String listingId) async {
     return const [];
   }
 

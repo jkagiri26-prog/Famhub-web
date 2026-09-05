@@ -13,6 +13,7 @@ import 'package:famhub_app/features/marketplace/domain/entities/listing.dart';
 import 'package:famhub_app/features/marketplace/domain/entities/stock_item.dart';
 import 'package:famhub_app/features/marketplace/domain/enums/listing_status.dart';
 import 'package:famhub_app/features/marketplace/domain/models/listing_edit_changes.dart';
+import 'package:famhub_app/features/marketplace/domain/models/listing_image_file.dart';
 import 'package:famhub_app/features/marketplace/domain/models/listing_publication.dart';
 import 'package:famhub_app/features/marketplace/domain/repositories/marketplace_repository.dart';
 import 'package:famhub_app/features/marketplace/infrastructure/data_sources/marketplace_remote_data_source.dart';
@@ -523,6 +524,17 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
   @override
   Future<List<String>> fetchListingImageUrls(String listingId) async {
     return dataSource.fetchListingMediaUrls(listingId);
+  }
+
+  @override
+  Future<List<ListingImageFile>> fetchListingImageFiles(
+      String listingId) async {
+    final entries = await dataSource.fetchListingMediaEntries(listingId);
+    return [
+      for (final entry in entries)
+        if (entry['id'] != null && entry['url'] != null)
+          ListingImageFile(id: entry['id']!, url: entry['url']!),
+    ];
   }
 
   @override

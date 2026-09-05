@@ -11,6 +11,7 @@ import 'package:famhub_app/features/marketplace/domain/entities/listing.dart';
 import 'package:famhub_app/features/marketplace/domain/entities/stock_item.dart';
 import 'package:famhub_app/features/marketplace/domain/enums/listing_status.dart';
 import 'package:famhub_app/features/marketplace/domain/models/listing_edit_changes.dart';
+import 'package:famhub_app/features/marketplace/domain/models/listing_image_file.dart';
 import 'package:famhub_app/features/marketplace/domain/models/listing_publication.dart';
 import 'package:famhub_app/features/marketplace/domain/repositories/marketplace_repository.dart';
 import 'package:famhub_app/features/marketplace/infrastructure/data_sources/marketplace_remote_data_source.dart';
@@ -124,6 +125,32 @@ class _FakeDataSource extends MarketplaceRemoteDataSource {
   Future<Map<String, dynamic>?> fetchListingById(String id) async {
     fetchListingByIdCount++;
     return row ?? _listingRow(id: id);
+  }
+
+  final List<String> uploadedFileNames = [];
+  final List<String> deletedFileIds = [];
+  int mediaEntriesFetchCount = 0;
+  List<Map<String, String>>? mediaEntriesResult;
+
+  @override
+  Future<void> uploadListingMedia({
+    required Uint8List bytes,
+    required String fileName,
+    required String listingId,
+  }) async {
+    uploadedFileNames.add(fileName);
+  }
+
+  @override
+  Future<void> deleteListingMedia(String fileId) async {
+    deletedFileIds.add(fileId);
+  }
+
+  @override
+  Future<List<Map<String, String>>> fetchListingMediaEntries(
+      String listingId) async {
+    mediaEntriesFetchCount++;
+    return mediaEntriesResult ?? const [];
   }
 
   @override
@@ -299,6 +326,12 @@ class _FakeMarketplaceRepository implements MarketplaceRepository {
   @override
   Future<List<String>> fetchListingImageUrls(String listingId) {
     throw UnimplementedError();
+  }
+
+  @override
+  Future<List<ListingImageFile>> fetchListingImageFiles(
+      String listingId) async {
+    return const [];
   }
 
   @override
@@ -628,6 +661,81 @@ void main() {
       final feed = await container.read(marketplaceProvider.future);
       expect(feed, isEmpty);
       expect(dataSource.fetchListingsCount, 2);
+    });
+  });
+
+  group('Listing photos plumbing', () {
+    late _FakeDataSource dataSource;
+    late MarketplaceRepositoryImpl repository;
+
+    setUp(() {
+      dataSource = _FakeDataSource();
+      repository = MarketplaceRepositoryImpl(dataSource);
+    });
+
+    test('fetchListingImageFiles maps entries and drops incomplete ones',
+        () async {
+      dataSource.mediaEntriesResult = [
+        {'id': 'file-1', 'url': 'https://cdn.example/a.webp'},
+        {'url': 'https://cdn.example/no-id.webp'},
+        {'id': 'file-2'},
+      ];
+
+      final files = await repository.fetchListingImageFiles('list-1');
+
+      expect(files, hasLength(1));
+      expect(files.single.id, 'file-1');
+      expect(files.single.url, 'https://cdn.example/a.webp');
+    });
+
+    test('photo upload invalidates the media providers', () async {
+      dataSource.mediaEntriesResult = [
+        {'id': 'file-1', 'url': 'https://cdn.example/a.webp'},
+      ];
+      final container = ProviderContainer(
+        overrides: [
+          marketplaceRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(marketplaceProvider.future);
+      await container.read(listingMediaFilesProvider('list-1').future);
+      expect(dataSource.mediaEntriesFetchCount, 1);
+
+      await container.read(marketplaceProvider.notifier).uploadListingPhoto(
+            listingId: 'list-1',
+            bytes: Uint8List.fromList([1, 2, 3]),
+            fileName: 'listing_image_1.webp',
+          );
+
+      expect(dataSource.uploadedFileNames, ['listing_image_1.webp']);
+      await container.read(listingMediaFilesProvider('list-1').future);
+      expect(dataSource.mediaEntriesFetchCount, 2);
+    });
+
+    test('photo delete invalidates the media providers', () async {
+      dataSource.mediaEntriesResult = [
+        {'id': 'file-1', 'url': 'https://cdn.example/a.webp'},
+      ];
+      final container = ProviderContainer(
+        overrides: [
+          marketplaceRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(marketplaceProvider.future);
+      await container.read(listingMediaFilesProvider('list-1').future);
+
+      await container.read(marketplaceProvider.notifier).deleteListingPhoto(
+            listingId: 'list-1',
+            fileId: 'file-1',
+          );
+
+      expect(dataSource.deletedFileIds, ['file-1']);
+      await container.read(listingMediaFilesProvider('list-1').future);
+      expect(dataSource.mediaEntriesFetchCount, 2);
     });
   });
 
