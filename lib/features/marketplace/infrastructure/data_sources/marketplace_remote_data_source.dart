@@ -689,6 +689,9 @@ class MarketplaceRemoteDataSource {
       );
       return MarketplaceRemoteDataSource.mediaFileEntries(response.data);
     } on FunctionException catch (e) {
+      // ignore: avoid_print
+      print('[media_get_by_context] status=${e.status} '
+          'details=${e.details} reason=${e.reasonPhrase}');
       // A 404 means this context has no media yet (e.g. a freshly published
       // listing with no photos). Treat it as an empty album so the seller can
       // still add the first photo.
