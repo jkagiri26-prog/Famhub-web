@@ -191,6 +191,12 @@ class _ListingEditImagesSectionState
     );
   }
 
+  String _shortError(Object? error) {
+    final text = error.toString().trim();
+    if (text.length <= 200) return text;
+    return '${text.substring(0, 200)}…';
+  }
+
   String _describePhotoError(Object error) {
     final text = error.toString();
     final lower = text.toLowerCase();
@@ -300,12 +306,15 @@ class _ListingEditImagesSectionState
           if (photosAsync.hasError) ...[
             const SizedBox(height: 8),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(Icons.error_outline, size: 16, color: Colors.red.shade400),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Could not load existing photos.',
+                    // ignore: lines_longer_than_80_chars
+                    'Could not load existing photos. '
+                    '${_shortError(photosAsync.error)}',
                     style: TextStyle(fontSize: 12, color: Colors.red.shade700),
                   ),
                 ),

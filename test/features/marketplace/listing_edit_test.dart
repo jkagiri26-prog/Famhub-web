@@ -838,7 +838,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Could not load existing photos.'), findsOneWidget);
+      expect(
+        find.textContaining('Could not load existing photos.'),
+        findsOneWidget,
+      );
       expect(find.text('Add 3 photos'), findsOneWidget);
     });
   });
