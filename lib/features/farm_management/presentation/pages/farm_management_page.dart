@@ -240,8 +240,12 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
                     onOpenLivestock: () => _tabController.animateTo(3),
                   ),
 
-                  // 6. Reports
-                  const ReportsPage(),
+                  // 6. Reports — reporting workspace
+                  ReportsPage(
+                    onOpenCrops: () => _tabController.animateTo(2),
+                    onOpenLivestock: () => _tabController.animateTo(3),
+                    onOpenActivities: () => _tabController.animateTo(4),
+                  ),
                 ],
               ),
             ),

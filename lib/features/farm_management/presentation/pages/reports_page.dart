@@ -1,20 +1,3 @@
-/// ============================================================
-/// REPORTS PAGE — Drill-Down Hierarchy Reports
-/// ============================================================
-///
-/// 🏗️ OFFICIAL HIERARCHY:
-///   Farm / Entity → Field / Block → Crop or Livestock → Activity → **Report**
-///
-/// Reports must be drill-down capable:
-///   Farm-level → Field-level → Crop/Livestock-level → Activity-level
-///
-/// Reports aggregate data from Activities, grouped by:
-///   - Crop/Livestock
-///   - Field/Block
-///   - Farm/Entity
-/// ============================================================
-library;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -22,680 +5,632 @@ import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
 import 'package:famhub_app/shared/widgets/states/loading_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
-import 'package:famhub_app/features/farm_management/presentation/widgets/workspace_tab_header.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
-import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/farm_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/field_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/utils/display_text.dart';
+import 'package:famhub_app/features/farm_management/presentation/widgets/workspace_tab_header.dart';
 
-/// ============================================================
-/// REPORTS PROVIDER — Hierarchy-Aware Report Data
-/// ============================================================
-///
-/// Aggregates all activities and production data grouped by
-/// hierarchy level. Supports drill-down:
-///   Farm-level → Field-level → Crop/Livestock-level
-/// ============================================================
-final hierarchyReportsProvider =
-    FutureProvider.family<Map<String, dynamic>, String?>(
-  (ref, _) async {
-    final farmId = ref.watch(farmContextProvider).farmId;
-    if (farmId == null) return {};
+// ─────────────────────────────────────────────────────────────
+// HONEST REPORT DATA
+//
+// Every value below is derived from an existing authorized repository
+// call. Missing financial data is NEVER fabricated — sales/expenses/profit
+// are simply omitted until the backend exposes a trustworthy source.
+// ─────────────────────────────────────────────────────────────
 
-    final repository = ref.read(farmRepositoryProvider);
+class FarmReportEntry {
+  final FarmEntity farm;
+  final List<FieldEntity> fields;
+  final List<CropEntity> crops;
+  final List<LivestockEntity> livestock;
 
-    // Fetch activity report — hierarchy filtering is client-side
-    final activityReport = await repository.getActivityReport(
-      farmId: farmId,
+  /// Summed production quantity per asset id (production_records.asset_id).
+  final Map<String, double> productionByAsset;
+
+  /// Activity count per asset id (activities.asset_id).
+  final Map<String, int> activitiesByAsset;
+
+  /// Available stock quantity per asset id (assets.quantity > 0).
+  final Map<String, double> stockByAsset;
+
+  const FarmReportEntry({
+    required this.farm,
+    this.fields = const [],
+    this.crops = const [],
+    this.livestock = const [],
+    this.productionByAsset = const {},
+    this.activitiesByAsset = const {},
+    this.stockByAsset = const {},
+  });
+
+  double get totalProduction => productionByAsset.values.fold(
+      0, (sum, v) => sum + v);
+
+  int get totalActivities =>
+      activitiesByAsset.values.fold(0, (sum, v) => sum + v);
+
+  double get totalStockQty =>
+      stockByAsset.values.fold(0, (sum, v) => sum + v);
+
+  FieldEntity? fieldById(String? id) {
+    if (id == null) return null;
+    for (final f in fields) {
+      if (f.id == id) return f;
+    }
+    return null;
+  }
+}
+
+/// Builds reporting data for ALL of the user's authorized farms. Any farm
+/// that fails to load is skipped so one broken farm never blanks the tab.
+final farmReportsProvider =
+    FutureProvider<Map<String, FarmReportEntry>>((ref) async {
+  final repository = ref.read(farmRepositoryProvider);
+  final farms = await repository.getUserFarms();
+  final out = <String, FarmReportEntry>{};
+
+  for (final farm in farms) {
+    List<FieldEntity> fields = const [];
+    List<CropEntity> crops = const [];
+    List<LivestockEntity> livestock = const [];
+    try {
+      fields = await repository.getFields(farmId: farm.id);
+    } catch (_) {}
+    try {
+      crops = await repository.getCrops(farmId: farm.id);
+    } catch (_) {}
+    try {
+      livestock = await repository.getLivestock(farmId: farm.id);
+    } catch (_) {}
+
+    final productionByAsset = <String, double>{};
+    try {
+      final records = await repository.getProductionRecords(farmId: farm.id);
+      for (final record in records) {
+        final assetId = record.assetId;
+        if (assetId == null) continue;
+        productionByAsset[assetId] =
+            (productionByAsset[assetId] ?? 0) + (record.quantity ?? 0);
+      }
+    } catch (_) {}
+
+    final activitiesByAsset = <String, int>{};
+    try {
+      final activities = await repository.getActivities(farmId: farm.id);
+      for (final activity in activities) {
+        final assetId = activity.assetId ?? activity.cropOrLivestockId;
+        if (assetId == null) continue;
+        activitiesByAsset[assetId] = (activitiesByAsset[assetId] ?? 0) + 1;
+      }
+    } catch (_) {}
+
+    var stockByAsset = <String, double>{};
+    try {
+      stockByAsset = await repository.getAvailableStock(farmId: farm.id);
+    } catch (_) {}
+
+    out[farm.id] = FarmReportEntry(
+      farm: farm,
+      fields: fields,
+      crops: crops,
+      livestock: livestock,
+      productionByAsset: productionByAsset,
+      activitiesByAsset: activitiesByAsset,
+      stockByAsset: stockByAsset,
     );
+  }
 
-    // Fetch production report — hierarchy filtering is client-side
-    final productionReport = await repository.getProductionReport(
-      farmId: farmId,
-    );
+  return out;
+});
 
-    return {
-      'activity_report': activityReport,
-      'production_report': productionReport,
-    };
-  },
-);
+// ─────────────────────────────────────────────────────────────
+// REPORTS WORKSPACE
+// ─────────────────────────────────────────────────────────────
 
-/// ============================================================
-/// REPORTS PAGE
-/// ============================================================
 class ReportsPage extends ConsumerStatefulWidget {
-  const ReportsPage({super.key});
+  /// Switch to the Crops tab.
+  final VoidCallback? onOpenCrops;
+
+  /// Switch to the Livestock tab.
+  final VoidCallback? onOpenLivestock;
+
+  /// Switch to the Activity Logs tab.
+  final VoidCallback? onOpenActivities;
+
+  const ReportsPage({
+    super.key,
+    this.onOpenCrops,
+    this.onOpenLivestock,
+    this.onOpenActivities,
+  });
 
   @override
   ConsumerState<ReportsPage> createState() => _ReportsPageState();
 }
 
 class _ReportsPageState extends ConsumerState<ReportsPage> {
-  /// Current drill-down level: 'farm', 'field', 'crop_livestock', 'activity'
-  String _drillLevel = 'farm';
+  void _resetToGlobal() {
+    ref.read(hierarchyProvider.notifier).reset();
+  }
 
-  /// Selected field for drill-down
-  String? _selectedFieldId;
+  void _openFarm(FarmEntity farm) {
+    ref.read(hierarchyProvider.notifier).selectEntity(farm);
+  }
 
-  /// Selected crop/livestock for drill-down
-  String? _selectedCropOrLivestockId;
+  void _openCrop(FarmReportEntry entry, CropEntity crop) {
+    final notifier = ref.read(hierarchyProvider.notifier);
+    notifier.selectEntity(entry.farm);
+    final field = entry.fieldById(crop.fieldId);
+    if (field != null) notifier.selectField(field);
+    notifier.selectCrop(crop);
+    widget.onOpenCrops?.call();
+  }
+
+  void _openLivestock(FarmReportEntry entry, LivestockEntity animal) {
+    final notifier = ref.read(hierarchyProvider.notifier);
+    notifier.selectEntity(entry.farm);
+    final field = entry.fieldById(animal.fieldId);
+    if (field != null) notifier.selectField(field);
+    notifier.selectLivestock(animal);
+    widget.onOpenLivestock?.call();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final farmId = ref.watch(farmContextProvider).farmId;
     final hierarchy = ref.watch(hierarchyProvider);
+    final reportsAsync = ref.watch(farmReportsProvider);
 
-    if (farmId == null) {
-      return const ResponsiveWrapper(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    if (hierarchy.cropOrLivestock is CropEntity) {
+      return _buildAssetReport(context, reportsAsync, isCrop: true);
+    }
+    if (hierarchy.cropOrLivestock is LivestockEntity) {
+      return _buildAssetReport(context, reportsAsync, isCrop: false);
+    }
+    if (hierarchy.hasEntity) {
+      return _buildFarmReport(context, reportsAsync);
+    }
+    return _buildGlobalReport(context, reportsAsync);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // GLOBAL (ALL FARMS)
+  // ─────────────────────────────────────────────────────────────
+  Widget _buildGlobalReport(
+    BuildContext context,
+    AsyncValue<Map<String, FarmReportEntry>> reportsAsync,
+  ) {
+    return _ReportsScaffold(
+      subtitle: 'How are all your farms performing?',
+      child: reportsAsync.when(
+        loading: () => const LoadingStateWidget(useSkeleton: true),
+        error: (err, _) => ErrorStateWidget(
+          title: 'Unable to load farm performance',
+          message: 'We encountered a problem loading your reports.',
+          retryLabel: 'Retry',
+          onRetry: () => ref.invalidate(farmReportsProvider),
+        ),
+        data: (entries) {
+          if (entries.isEmpty) {
+            return const EmptyStateWidget(
+              icon: Icons.agriculture,
+              title: 'No Farms Registered',
+              subtitle: 'Add a farm to start viewing performance reports.',
+            );
+          }
+          final sorted = entries.values.toList()
+            ..sort((a, b) => a.farm.farmName.compareTo(b.farm.farmName));
+
+          return ListView.separated(
+            physics: const BouncingScrollPhysics(),
+            itemCount: sorted.length + 1,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return const _FinancialUnavailableNote();
+              }
+              final entry = sorted[index - 1];
+              return _FarmSummaryRow(
+                entry: entry,
+                onTap: () => _openFarm(entry.farm),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // FARM REPORT
+  // ─────────────────────────────────────────────────────────────
+  Widget _buildFarmReport(
+    BuildContext context,
+    AsyncValue<Map<String, FarmReportEntry>> reportsAsync,
+  ) {
+    final hierarchy = ref.watch(hierarchyProvider);
+    final farmId = hierarchy.entityId;
+
+    return _ReportsScaffold(
+      subtitle: hierarchy.entity?.farmName ?? 'Farm',
+      leadingBack: TextButton.icon(
+        onPressed: _resetToGlobal,
+        icon: const Icon(Icons.arrow_back, size: 18),
+        label: const Text('All Farms'),
+      ),
+      child: reportsAsync.when(
+        loading: () => const LoadingStateWidget(useSkeleton: true),
+        error: (err, _) => ErrorStateWidget(
+          title: 'Unable to load farm performance',
+          message: 'We encountered a problem loading your reports.',
+          retryLabel: 'Retry',
+          onRetry: () => ref.invalidate(farmReportsProvider),
+        ),
+        data: (entries) {
+          final entry = entries[farmId];
+          if (entry == null) {
+            return const EmptyStateWidget(
+              icon: Icons.description_outlined,
+              title: 'Farm report unavailable',
+              subtitle: 'No reporting data is available for this farm.',
+            );
+          }
+          return _buildFarmBody(context, entry);
+        },
+      ),
+    );
+  }
+
+  Widget _buildFarmBody(BuildContext context, FarmReportEntry entry) {
+    final theme = Theme.of(context);
+    return ListView(
+      physics: const BouncingScrollPhysics(),
+      children: [
+        Row(
           children: [
-            SizedBox(height: 4),
-            WorkspaceTabHeader(
-              title: 'Reports',
-              subtitle: 'Select a farm to view reports',
-              icon: Icons.description,
-              color: Colors.purple,
-            ),
             Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.description_outlined,
-                        size: 48, color: Colors.grey),
-                    SizedBox(height: 16),
-                    Text(
-                      'Select a farm to generate reports',
-                      style: TextStyle(color: Colors.grey, fontSize: 16),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _MetricTile(
+                    label: 'Production',
+                    value: entry.totalProduction > 0
+                        ? _num(entry.totalProduction)
+                        : '—',
+                    icon: Icons.production_quantity_limits,
+                    color: Colors.green,
+                  ),
+                  _MetricTile(
+                    label: 'Activities',
+                    value: '${entry.totalActivities}',
+                    icon: Icons.list_alt,
+                    color: Colors.blue,
+                  ),
+                  _MetricTile(
+                    label: 'Crops',
+                    value: '${entry.crops.length}',
+                    icon: Icons.eco,
+                    color: Colors.teal,
+                  ),
+                  _MetricTile(
+                    label: 'Livestock',
+                    value: '${entry.livestock.length}',
+                    icon: Icons.pets,
+                    color: Colors.orange,
+                  ),
+                  if (entry.stockByAsset.isNotEmpty)
+                    _MetricTile(
+                      label: 'Stocked Items',
+                      value: '${entry.stockByAsset.length}',
+                      icon: Icons.inventory,
+                      color: Colors.indigo,
                     ),
-                  ],
-                ),
+                ],
               ),
             ),
           ],
         ),
-      );
-    }
+        const SizedBox(height: 12),
+        if (widget.onOpenActivities != null)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: widget.onOpenActivities,
+              icon: const Icon(Icons.list_alt, size: 18),
+              label: const Text('Open Activity Logs'),
+            ),
+          ),
+        const SizedBox(height: 20),
 
-    // Determine drill level based on hierarchy
-    final effectiveLevel = hierarchy.hasCropOrLivestock
-        ? 'activity'
-        : hierarchy.hasField
-            ? 'crop_livestock'
-            : hierarchy.hasEntity
-                ? 'field'
-                : 'farm';
+        if (entry.crops.isNotEmpty) ...[
+          Text(
+            'Crops',
+            style: theme.textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          ...entry.crops.map((crop) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _AssetReportRow(
+                  title: assetDisplayTitle(crop.cropName),
+                  activities:
+                      entry.activitiesByAsset[crop.id] ?? 0,
+                  production:
+                      entry.productionByAsset[crop.id] ?? 0,
+                  color: Colors.green,
+                  icon: Icons.eco,
+                  onTap: () => _openCrop(entry, crop),
+                ),
+              )),
+          const SizedBox(height: 12),
+        ],
 
-    if (effectiveLevel != _drillLevel) {
-      // Reset drill selections when hierarchy changes
-      _drillLevel = effectiveLevel;
-    }
+        if (entry.livestock.isNotEmpty) ...[
+          Text(
+            'Livestock',
+            style: theme.textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          ...entry.livestock.map((animal) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _AssetReportRow(
+                  title: assetDisplayTitle(animal.species),
+                  activities:
+                      entry.activitiesByAsset[animal.id] ?? 0,
+                  production:
+                      entry.productionByAsset[animal.id] ?? 0,
+                  color: Colors.orange,
+                  icon: Icons.pets,
+                  onTap: () => _openLivestock(entry, animal),
+                ),
+              )),
+          const SizedBox(height: 12),
+        ],
 
-    return _buildDrillDownReport(context, effectiveLevel, hierarchy);
+        if (entry.crops.isEmpty && entry.livestock.isEmpty)
+          const _NoAssetsYet(),
+
+        const _FinancialUnavailableNote(),
+      ],
+    );
   }
 
-  /// ============================================================
-  /// DRILL-DOWN REPORT BUILDER
-  /// ============================================================
-  ///
-  /// Renders reports at the appropriate hierarchy level:
-  ///   - Farm-level: Overview of all fields, crops, activities
-  ///   - Field-level: Details for a specific field/block
-  ///   - Crop/Livestock-level: Details for a specific production unit
-  ///   - Activity-level: Individual activity records
-  /// ============================================================
-  Widget _buildDrillDownReport(
+  // ─────────────────────────────────────────────────────────────
+  // ASSET REPORT (crop / livestock)
+  // ─────────────────────────────────────────────────────────────
+  Widget _buildAssetReport(
     BuildContext context,
-    String level,
-    HierarchySelectionState hierarchy,
-  ) {
-    final theme = Theme.of(context);
+    AsyncValue<Map<String, FarmReportEntry>> reportsAsync,
+    {required bool isCrop,
+  }) {
+    final hierarchy = ref.watch(hierarchyProvider);
+    final entity = hierarchy.cropOrLivestock;
+    final assetId = hierarchy.cropOrLivestockId;
+    final farmName = hierarchy.entity?.farmName ?? '—';
+    final fieldName = hierarchy.field?.fieldName ?? '—';
 
+    final assetLabel = isCrop
+        ? assetDisplayTitle((entity as CropEntity).cropName)
+        : assetDisplayTitle((entity as LivestockEntity).species);
+
+    return _ReportsScaffold(
+      subtitle: assetLabel,
+      leadingBack: TextButton.icon(
+        onPressed: _resetToGlobal,
+        icon: const Icon(Icons.arrow_back, size: 18),
+        label: const Text('All Farms'),
+      ),
+      contextPath: [farmName, fieldName],
+      child: reportsAsync.when(
+        loading: () => const LoadingStateWidget(useSkeleton: true),
+        error: (err, _) => ErrorStateWidget(
+          title: 'Unable to load asset report',
+          message: 'We encountered a problem loading your reports.',
+          retryLabel: 'Retry',
+          onRetry: () => ref.invalidate(farmReportsProvider),
+        ),
+        data: (entries) {
+          final entry = entries[hierarchy.entityId];
+          if (entry == null) {
+            return const EmptyStateWidget(
+              icon: Icons.description_outlined,
+              title: 'Report unavailable',
+              subtitle: 'No reporting data is available for this asset.',
+            );
+          }
+          final activities = entry.activitiesByAsset[assetId] ?? 0;
+          final production = entry.productionByAsset[assetId] ?? 0;
+          final stockQty = entry.stockByAsset[assetId];
+
+          return ListView(
+            physics: const BouncingScrollPhysics(),
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _MetricTile(
+                    label: isCrop ? 'Crop' : 'Livestock',
+                    value: assetLabel,
+                    icon: isCrop ? Icons.eco : Icons.pets,
+                    color: isCrop ? Colors.green : Colors.orange,
+                  ),
+                  _MetricTile(
+                    label: 'Activities',
+                    value: '$activities',
+                    icon: Icons.list_alt,
+                    color: Colors.blue,
+                  ),
+                  if (production > 0)
+                    _MetricTile(
+                      label: 'Production',
+                      value: _num(production),
+                      icon: Icons.production_quantity_limits,
+                      color: Colors.teal,
+                    ),
+                  if (stockQty != null && stockQty > 0)
+                    _MetricTile(
+                      label: 'Stock',
+                      value: _num(stockQty),
+                      icon: Icons.inventory,
+                      color: Colors.indigo,
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (widget.onOpenActivities != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: widget.onOpenActivities,
+                    icon: const Icon(Icons.list_alt, size: 18),
+                    label: const Text('Open Activity Logs'),
+                  ),
+                ),
+              const SizedBox(height: 20),
+              _InfoCard(
+                rows: [
+                  ('Farm', farmName),
+                  ('Field', fieldName),
+                  ('Asset', assetLabel),
+                  if (production > 0) ('Production', _num(production)),
+                  if (stockQty != null && stockQty > 0)
+                    ('Stock', _num(stockQty)),
+                ],
+              ),
+              const _FinancialUnavailableNote(),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  String _num(double value) {
+    if (value == value.roundToDouble() && value.abs() < 1e15) {
+      return value.toInt().toString();
+    }
+    return value.toStringAsFixed(1);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// SCAFFOLD + SHARED WIDGETS
+// ─────────────────────────────────────────────────────────────
+
+class _ReportsScaffold extends StatelessWidget {
+  final String subtitle;
+  final Widget child;
+  final Widget? leadingBack;
+  final List<String>? contextPath;
+
+  const _ReportsScaffold({
+    required this.subtitle,
+    required this.child,
+    this.leadingBack,
+    this.contextPath,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return ResponsiveWrapper(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 4),
+          if (leadingBack != null) ...[
+            leadingBack!,
+            const Divider(height: 1),
+          ],
+          const SizedBox(height: 4),
           WorkspaceTabHeader(
             title: 'Reports',
-            subtitle: _getReportSubtitle(level, hierarchy),
+            subtitle: subtitle,
             icon: Icons.description,
             color: Colors.purple,
           ),
-          Expanded(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ── Drill Navigation ──
-                  _buildDrillNavigation(theme, level, hierarchy),
-                  const SizedBox(height: 20),
-
-                  // ── Report Content by Level ──
-                  switch (level) {
-                    'farm' => _buildFarmLevelReport(theme, hierarchy),
-                    'field' => _buildFieldLevelReport(theme, hierarchy),
-                    'crop_livestock' =>
-                      _buildCropLivestockLevelReport(theme, hierarchy),
-                    'activity' => _buildActivityLevelReport(theme, hierarchy),
-                    _ => _buildFarmLevelReport(theme, hierarchy),
-                  },
-                ],
-              ),
-            ),
-          ),
+          if (contextPath != null && contextPath!.isNotEmpty) ...[
+            _BreadcrumbLine(segments: contextPath!),
+            const SizedBox(height: 8),
+          ],
+          Expanded(child: child),
         ],
       ),
-    );
-  }
-
-  String _getReportSubtitle(String level, HierarchySelectionState hierarchy) {
-    switch (level) {
-      case 'farm':
-        return 'Overview of all agricultural operations';
-      case 'field':
-        return '${hierarchy.field?.fieldName ?? 'Field'} — Detailed analysis';
-      case 'crop_livestock':
-        final name = hierarchy.cropOrLivestockType == 'crop'
-            ? (hierarchy.cropOrLivestock as dynamic)?.cropName ?? 'Crop'
-            : (hierarchy.cropOrLivestock as dynamic)?.species ?? 'Livestock';
-        return '$name — Production unit report';
-      case 'activity':
-        return 'Individual activity records and metrics';
-      default:
-        return 'Farm management reports';
-    }
-  }
-
-  /// ============================================================
-  /// DRILL NAVIGATION
-  /// ============================================================
-  Widget _buildDrillNavigation(
-    ThemeData theme,
-    String currentLevel,
-    HierarchySelectionState hierarchy,
-  ) {
-    final levels = ['farm', 'field', 'crop_livestock', 'activity'];
-    final labels = ['Farm', 'Field', 'Crop/Livestock', 'Activity'];
-
-    // Determine which levels are accessible
-    final canDrillTo = <String, bool>{
-      'farm': true,
-      'field': hierarchy.hasEntity,
-      'crop_livestock': hierarchy.hasField,
-      'activity': hierarchy.hasCropOrLivestock,
-    };
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: List.generate(levels.length * 2 - 1, (index) {
-          if (index.isOdd) {
-            return Icon(Icons.arrow_forward, size: 14, color: Colors.grey.shade400);
-          }
-          final levelIndex = index ~/ 2;
-          final level = levels[levelIndex];
-          final isActive = currentLevel == level;
-          final canAccess = canDrillTo[level] ?? false;
-
-          return GestureDetector(
-            onTap: canAccess ? () => setState(() => _drillLevel = level) : null,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: isActive
-                    ? theme.colorScheme.primary.withValues(alpha: 0.12)
-                    : canAccess
-                        ? Colors.white
-                        : Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isActive
-                      ? theme.colorScheme.primary
-                      : Colors.grey.shade300,
-                ),
-              ),
-              child: Text(
-                labels[levelIndex],
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                  color: isActive
-                      ? theme.colorScheme.primary
-                      : canAccess
-                          ? Colors.black87
-                          : Colors.grey.shade500,
-                ),
-              ),
-            ),
-          );
-        }),
-      ),
-    );
-  }
-
-  /// ============================================================
-  /// FARM-LEVEL REPORT
-  /// ============================================================
-  Widget _buildFarmLevelReport(ThemeData theme, HierarchySelectionState hierarchy) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Summary Cards
-        _ReportSummaryCard(
-          icon: Icons.agriculture,
-          title: 'Farm Overview',
-          value: hierarchy.entity?.farmName ?? 'Farm',
-          subtitle: '${hierarchy.entity?.size?.toStringAsFixed(1) ?? 'N/A'} ha',
-          color: theme.colorScheme.primary,
-        ),
-        const SizedBox(height: 16),
-
-        // Field Summary
-        Text(
-          'Fields / Blocks Summary',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 8),
-        const _DrillDownHint(
-          message: 'Select a field from the Fields/Blocks tab, '
-              'then return to Reports for field-level drill-down.',
-          icon: Icons.terrain,
-        ),
-
-        const SizedBox(height: 20),
-
-        // Activity Summary
-        Text(
-          'Activity Summary',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 8),
-        const _DrillDownHint(
-          message: 'Navigate to a specific field and crop/livestock '
-              'to see detailed activity reports.',
-          icon: Icons.list_alt,
-        ),
-      ],
-    );
-  }
-
-  /// ============================================================
-  /// FIELD-LEVEL REPORT
-  /// ============================================================
-  Widget _buildFieldLevelReport(ThemeData theme, HierarchySelectionState hierarchy) {
-    final field = hierarchy.field;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _ReportSummaryCard(
-          icon: Icons.terrain,
-          title: 'Field Report',
-          value: field?.fieldName ?? 'Selected Field',
-          subtitle: '${field?.acreage?.toStringAsFixed(1) ?? 'N/A'} ha | ${field?.soilType ?? 'N/A'} soil',
-          color: Colors.brown,
-        ),
-        const SizedBox(height: 16),
-
-        // Field details
-        _ReportDetailRow('Status', field?.statusLabel ?? 'N/A'),
-        _ReportDetailRow('Soil Type', field?.soilType ?? 'N/A'),
-        _ReportDetailRow('Current Crop', field?.currentCrop ?? 'None'),
-        if (field?.acreage != null)
-          _ReportDetailRow('Acreage', '${field!.acreage!.toStringAsFixed(1)} ha'),
-        const SizedBox(height: 16),
-
-        // Crops in this field
-        Text(
-          'Crops in this Field',
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 8),
-        const _DrillDownHint(
-          message: 'Select a crop from the Crops tab, '
-              'then return here for crop-level drill-down.',
-          icon: Icons.eco,
-        ),
-      ],
-    );
-  }
-
-  /// ============================================================
-  /// CROP/LIVESTOCK-LEVEL REPORT
-  /// ============================================================
-  Widget _buildCropLivestockLevelReport(
-    ThemeData theme,
-    HierarchySelectionState hierarchy,
-  ) {
-    final isLivestock = hierarchy.cropOrLivestockType == 'livestock';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _ReportSummaryCard(
-          icon: isLivestock ? Icons.pets : Icons.eco,
-          title: isLivestock ? 'Livestock Report' : 'Crop Report',
-          value: isLivestock
-              ? (hierarchy.cropOrLivestock as dynamic)?.species ?? 'Livestock'
-              : (hierarchy.cropOrLivestock as dynamic)?.cropName ?? 'Crop',
-          subtitle: isLivestock
-              ? '${(hierarchy.cropOrLivestock as dynamic)?.count ?? 0} head'
-              : '${(hierarchy.cropOrLivestock as dynamic)?.statusLabel ?? 'N/A'}',
-          color: isLivestock ? Colors.orange : Colors.green,
-        ),
-        const SizedBox(height: 16),
-
-        if (isLivestock) ...[
-          _ReportDetailRow('Breed', (hierarchy.cropOrLivestock as dynamic)?.breed ?? 'N/A'),
-          _ReportDetailRow('Count', '${(hierarchy.cropOrLivestock as dynamic)?.count ?? 0}'),
-          _ReportDetailRow('Health', (hierarchy.cropOrLivestock as dynamic)?.healthLabel ?? 'N/A'),
-          _ReportDetailRow('Purpose', (hierarchy.cropOrLivestock as dynamic)?.purposeLabel ?? 'N/A'),
-        ] else ...[
-          _ReportDetailRow('Variety', (hierarchy.cropOrLivestock as dynamic)?.variety ?? 'N/A'),
-          _ReportDetailRow('Status', (hierarchy.cropOrLivestock as dynamic)?.statusLabel ?? 'N/A'),
-          _ReportDetailRow('Area Planted',
-              '${(hierarchy.cropOrLivestock as dynamic)?.areaPlanted?.toStringAsFixed(1) ?? 'N/A'} ha'),
-          _ReportDetailRow('Days Since Planting',
-              '${(hierarchy.cropOrLivestock as dynamic)?.daysSincePlanting?.inDays ?? 0} days'),
-        ],
-
-        const SizedBox(height: 20),
-
-        // Activities for this crop/livestock
-        Text(
-          'Related Activities',
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 8),
-        _DrillDownHint(
-          message: isLivestock
-              ? 'View activities for this livestock in the Activities tab.'
-              : 'View activities for this crop in the Activities tab.',
-          icon: Icons.list_alt,
-        ),
-      ],
-    );
-  }
-
-  /// ============================================================
-  /// ACTIVITY-LEVEL REPORT
-  /// ============================================================
-  Widget _buildActivityLevelReport(
-    ThemeData theme,
-    HierarchySelectionState hierarchy,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _ReportSummaryCard(
-          icon: Icons.list_alt,
-          title: 'Activity Report',
-          value: 'Detailed Activity Records',
-          subtitle: 'For the current selection in the hierarchy',
-          color: Colors.blue,
-        ),
-        const SizedBox(height: 16),
-
-        Text(
-          'Hierarchy Path',
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.blue.shade50,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _PathRow('Farm', hierarchy.entity?.farmName ?? 'N/A'),
-              _PathRow('Field', hierarchy.field?.fieldName ?? 'N/A'),
-              _PathRow(
-                hierarchy.cropOrLivestockType == 'livestock'
-                    ? 'Livestock'
-                    : 'Crop',
-                hierarchy.cropOrLivestockType == 'livestock'
-                    ? (hierarchy.cropOrLivestock as dynamic)?.species ?? 'N/A'
-                    : (hierarchy.cropOrLivestock as dynamic)?.cropName ?? 'N/A',
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        Text(
-          'Activity Records',
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 8),
-
-        // Activity records loaded from provider
-        _ActivityReportList(farmId: hierarchy.entityId),
-
-        const SizedBox(height: 20),
-
-        // Navigation hint
-        const _DrillDownHint(
-          message: 'View the full activity timeline in the Activities tab.',
-          icon: Icons.open_in_new,
-        ),
-      ],
     );
   }
 }
 
-/// ============================================================
-/// ACTIVITY REPORT LIST
-/// ============================================================
-class _ActivityReportList extends ConsumerWidget {
-  final String? farmId;
+class _BreadcrumbLine extends StatelessWidget {
+  final List<String> segments;
 
-  const _ActivityReportList({this.farmId});
+  const _BreadcrumbLine({required this.segments});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final farmId = this.farmId ?? ref.watch(farmContextProvider).farmId;
-    if (farmId == null) {
-      return const Text('No farm selected');
-    }
-
-    final activitiesAsync = ref.watch(
-      hierarchyReportsProvider('activity_list'),
-    );
-
-    return activitiesAsync.when(
-      loading: () => const Center(
-        child: Padding(
-          padding: EdgeInsets.all(20),
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.purple.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.purple.withValues(alpha: 0.2)),
       ),
-      error: (err, _) => Padding(
-        padding: const EdgeInsets.all(12),
-        child: Text(
-          'Unable to load activity data.',
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-        ),
+      child: Text(
+        segments.join('  ›  '),
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
       ),
-      data: (report) {
-        final activities = report['activity_report'] as Map<String, dynamic>? ?? {};
-        if (activities.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'No activities recorded yet.',
-              style: TextStyle(color: Colors.grey, fontSize: 13),
-            ),
-          );
-        }
-
-        return Column(
-          children: activities.entries.map((entry) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.circle, size: 8, color: Colors.blue.shade300),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        entry.key,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      '${entry.value}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
-        );
-      },
     );
   }
 }
 
-/// ============================================================
-/// UI COMPONENTS
-/// ============================================================
-
-class _ReportSummaryCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
+class _MetricTile extends StatelessWidget {
+  final String label;
   final String value;
-  final String subtitle;
+  final IconData icon;
   final Color color;
 
-  const _ReportSummaryCard({
-    required this.icon,
-    required this.title,
+  const _MetricTile({
+    required this.label,
     required this.value,
-    required this.subtitle,
+    required this.icon,
     required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      constraints: const BoxConstraints(minWidth: 120),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            color.withValues(alpha: 0.08),
-            color.withValues(alpha: 0.02),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(14),
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(14),
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              '$label: ',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              overflow: TextOverflow.ellipsis,
             ),
-            child: Icon(icon, size: 24, color: color),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ReportDetailRow extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _ReportDetailRow(this.label, this.value);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
           ),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -703,67 +638,242 @@ class _ReportDetailRow extends StatelessWidget {
   }
 }
 
-class _DrillDownHint extends StatelessWidget {
-  final String message;
+class _AssetReportRow extends StatelessWidget {
+  final String title;
+  final int activities;
+  final double production;
+  final Color color;
   final IconData icon;
+  final VoidCallback onTap;
 
-  const _DrillDownHint({
-    required this.message,
+  const _AssetReportRow({
+    required this.title,
+    required this.activities,
+    required this.production,
+    required this.color,
     required this.icon,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: Colors.grey.shade400),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    [
+                      if (activities > 0) '$activities activities',
+                      if (production > 0)
+                        '${production == production.roundToDouble() ? production.toInt().toString() : production.toStringAsFixed(1)} production',
+                    ].join(' · '),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            const Icon(Icons.chevron_right, size: 20, color: Colors.grey),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _PathRow extends StatelessWidget {
-  final String label;
-  final String value;
+class _FarmSummaryRow extends StatelessWidget {
+  final FarmReportEntry entry;
+  final VoidCallback onTap;
 
-  const _PathRow(this.label, this.value);
+  const _FarmSummaryRow({required this.entry, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          Icon(Icons.arrow_right, size: 16, color: Colors.blue.shade300),
-          Text(
-            '$label: ',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.blue.shade700,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.purple.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.agriculture,
+                      size: 20, color: Colors.purple),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    entry.farm.farmName,
+                    style: const TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const Icon(Icons.chevron_right, size: 20, color: Colors.grey),
+              ],
             ),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.blue.shade900,
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 12,
+              runSpacing: 6,
+              children: [
+                _stat('Production', entry.totalProduction > 0
+                    ? (entry.totalProduction == entry.totalProduction
+                            .roundToDouble()
+                        ? entry.totalProduction.toInt().toString()
+                        : entry.totalProduction.toStringAsFixed(1))
+                    : '—'),
+                _stat('Activities', '${entry.totalActivities}'),
+                _stat('Crops', '${entry.crops.length}'),
+                _stat('Livestock', '${entry.livestock.length}'),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _stat(String label, String value) {
+    return Text(
+      '$label: $value',
+      style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+    );
+  }
+}
+
+class _InfoCard extends StatelessWidget {
+  final List<(String, String)> rows;
+
+  const _InfoCard({required this.rows});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: rows
+              .map((r) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 110,
+                          child: Text(
+                            r.$1,
+                            style: TextStyle(
+                                fontSize: 13, color: Colors.grey.shade600),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            r.$2,
+                            style: const TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ))
+              .toList(),
+        ),
+      ),
+    );
+  }
+}
+
+class _NoAssetsYet extends StatelessWidget {
+  const _NoAssetsYet();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Text(
+        'No crops or livestock recorded on this farm yet.',
+        style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+      ),
+    );
+  }
+}
+
+class _FinancialUnavailableNote extends StatelessWidget {
+  const _FinancialUnavailableNote();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.amber.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.amber.withValues(alpha: 0.25)),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, size: 16, color: Colors.amber),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Financial reporting (sales, expenses, profit) is not yet '
+              'available. Other farm metrics shown here come from recorded '
+              'production, activities and stock.',
+              style: TextStyle(fontSize: 12, color: Colors.brown),
             ),
           ),
         ],
