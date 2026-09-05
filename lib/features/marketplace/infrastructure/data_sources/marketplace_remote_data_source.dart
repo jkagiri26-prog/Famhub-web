@@ -692,10 +692,9 @@ class MarketplaceRemoteDataSource {
       // ignore: avoid_print
       print('[media_get_by_context] status=${e.status} '
           'details=${e.details} reason=${e.reasonPhrase}');
-      // A 404 means this context has no media yet (e.g. a freshly published
-      // listing with no photos). Treat it as an empty album so the seller can
-      // still add the first photo.
-      if (e.status == 404) return const [];
+      // Diagnostic: surface the function's error body (see TODO to restore
+      // treating a genuine "no media" 404 as an empty album once the body
+      // wording is known).
       throw Exception(
         _describeMediaFunctionError('Failed to load listing photos', e),
       );
