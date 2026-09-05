@@ -38,6 +38,11 @@ dependencies:
   # Shared Widgets Dependencies
   cached_network_image: ^3.4.1
 
+  # Marketplace listing images
+  image_picker: ^1.2.3
+  flutter_image_compress: ^2.5.1
+  http_parser: ^4.1.2
+
   # Missing dependencies - added to fix import errors
   flutter_local_notifications: ^18.0.1
   http: ^1.2.2

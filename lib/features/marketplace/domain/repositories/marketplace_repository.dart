@@ -1,6 +1,10 @@
+import 'dart:typed_data';
+
 import '../entities/listing.dart';
 import '../entities/stock_item.dart';
 import '../enums/listing_status.dart';
+import '../models/listing_edit_changes.dart';
+import '../models/listing_publication.dart';
 
 /// Abstract repository contract for marketplace data operations.
 ///
@@ -56,5 +60,68 @@ abstract class MarketplaceRepository {
     String? title,
     String? description,
     required List<String> images,
+  });
+
+  /// Publish a listing from managed stock and attach the selected photos.
+  ///
+  /// The listing is published with an empty `images` array; every photo is
+  /// then uploaded through the hardened `upload_media` flow against the
+  /// freshly-created listing id. Partial upload failures are reported in the
+  /// returned report — the successful photos are never rolled back.
+  Future<ListingPublicationReport> publishListingFromStockWithImages({
+    required String stockId,
+    required double pricePerUnit,
+    String? title,
+    String? description,
+    List<SelectedListingImage> images = const [],
+  });
+
+  /// Upload a single prepared (WebP, ≤2 MB) image for an existing listing.
+  Future<void> uploadListingImage({
+    required Uint8List bytes,
+    required String fileName,
+    required String listingId,
+  });
+
+  /// Resolve temporary signed image URLs for a listing via
+  /// `media_get_by_context`. Never persisted; display-only.
+  Future<List<String>> fetchListingImageUrls(String listingId);
+
+  /// Delete a listing image by `media.files.id` via `delete_media`.
+  Future<void> deleteListingImage(String fileId);
+
+  // ──────────────────────────────────────────────────────────
+  // LISTING EDIT (PHASE — CANONICAL MUTATIONS)
+  // ──────────────────────────────────────────────────────────
+  //
+  // Editing an existing listing goes exclusively through the two deployed
+  // canonical RPCs. The client never writes `marketplace.listings` directly
+  // and never submits entity/stock/variant/unit/location/images/status.
+  //
+  //   marketplace.update_listing(uuid, jsonb)   → metadata only
+  //   marketplace.set_listing_status(uuid, text) → active | inactive
+  //
+  // Authorization (auth.uid() + can_manage membership) is performed entirely
+  // by the backend; no user id, entity id or ownership claim is sent here.
+
+  /// Update ONLY the editable listing metadata (title, description,
+  /// price_per_unit, currency) via `marketplace.update_listing`.
+  ///
+  /// [changes] carries only changed editable fields. When [changes.isEmpty]
+  /// the caller must not invoke this method — no mutation is possible.
+  Future<Listing> updateListingDetails({
+    required String listingId,
+    required ListingEditChanges changes,
+  });
+
+  /// Set a listing status to `active` or `inactive` via
+  /// `marketplace.set_listing_status`.
+  ///
+  /// Only [ListingStatus.active] and [ListingStatus.inactive] are accepted;
+  /// any other value is rejected before reaching the backend.
+  /// Activation is stock-validated by the backend (quantity > 0).
+  Future<Listing> setListingStatus({
+    required String listingId,
+    required ListingStatus status,
   });
 }

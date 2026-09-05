@@ -5,6 +5,7 @@ import 'listing_card_widget.dart';
 import 'listing_status_badge.dart';
 import '../../domain/entities/listing.dart';
 import '../../domain/enums/listing_status.dart';
+import '../../application/providers/marketplace_provider.dart';
 import '../pages/product_details_page.dart';
 
 /// Reusable listing tile with navigation, status badge, and card display.
@@ -17,6 +18,9 @@ class ListingTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final showBadge = listing.status != ListingStatus.active;
+
+    final resolvedImages =
+        ref.watch(listingImageUrlsProvider(listing.id)).value ?? const [];
 
     return GestureDetector(
       onTap: () {
@@ -31,7 +35,7 @@ class ListingTile extends ConsumerWidget {
         subtitle: listing.description ?? 'Available from a local seller',
         price: listing.displayPrice,
         location: listing.locationName ?? 'Location unavailable',
-        imageUrl: listing.images.isEmpty ? null : listing.images.first,
+        imageUrl: resolvedImages.isEmpty ? null : resolvedImages.first,
         badge: listing.isPromoted ? 'PROMOTED' : null,
         trailing: showBadge ? ListingStatusBadge(status: listing.status) : null,
       ),

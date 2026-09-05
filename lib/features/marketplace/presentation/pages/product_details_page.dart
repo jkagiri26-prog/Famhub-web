@@ -8,12 +8,14 @@ import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
 import 'package:famhub_app/shared/widgets/cards/info_tile_widget.dart';
 
+import 'package:famhub_app/core/session/session_provider.dart';
 import 'package:famhub_app/features/marketplace/presentation/widgets/listing_card_widget.dart';
 import 'package:famhub_app/features/marketplace/presentation/widgets/listing_status_badge.dart';
 import 'package:famhub_app/features/marketplace/presentation/widgets/marketplace_health_widget.dart';
 import 'package:famhub_app/features/marketplace/domain/entities/listing.dart';
 import 'package:famhub_app/features/marketplace/domain/enums/listing_status.dart';
 import 'package:famhub_app/features/marketplace/application/providers/marketplace_provider.dart';
+import 'package:famhub_app/features/marketplace/presentation/pages/listing_edit_page.dart';
 import 'package:famhub_app/features/marketplace/presentation/pages/seller_profile_page.dart';
 
 class ProductDetailsPage extends ConsumerWidget {
@@ -70,28 +72,33 @@ class ProductDetailsPage extends ConsumerWidget {
   }
 }
 
-class _ProductDetailContent extends StatelessWidget {
+class _ProductDetailContent extends ConsumerWidget {
   final Listing listing;
 
   const _ProductDetailContent({required this.listing});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final statusColor = switch (listing.status) {
       ListingStatus.active => Colors.green,
       ListingStatus.draft => Colors.grey,
       ListingStatus.paused => Colors.orange,
       ListingStatus.soldOut => Colors.red,
       ListingStatus.archived => Colors.grey,
+      ListingStatus.inactive => Colors.grey,
     };
 
-        final availabilityText = switch (listing.status) {
+    final availabilityText = switch (listing.status) {
       ListingStatus.active => '${listing.availableQuantity.toStringAsFixed(0)} ${listing.unitName ?? ''} available',
       ListingStatus.soldOut => 'Sold Out',
       ListingStatus.draft => 'Draft',
       ListingStatus.paused => 'Paused',
       ListingStatus.archived => 'Archived',
+      ListingStatus.inactive => 'Inactive',
     };
+
+    final imageUrls =
+        ref.watch(listingImageUrlsProvider(listing.id)).value ?? const [];
 
     return ResponsiveWrapper(
       child: Column(
@@ -104,13 +111,73 @@ class _ProductDetailContent extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
+          // Seller action: edit listing metadata & availability. Backend
+          // authorization is authoritative — no ownership claim is sent.
+          if (ref.watch(isAuthenticatedProvider) &&
+              listing.status != ListingStatus.archived) ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          ListingEditPage(listingId: listing.id),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                label: const Text('Edit Listing'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.primary,
+                  side: BorderSide(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.4),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
           // Main listing card
-                    ListingCardWidget(
+          ListingCardWidget(
             title: listing.title,
             subtitle: listing.description ?? 'Market ready quality',
             price: listing.displayPrice,
             location: listing.locationName ?? listing.locationId ?? 'Unknown',
+            imageUrl: imageUrls.isEmpty ? null : imageUrls.first,
           ),
+
+          if (imageUrls.length > 1) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 72,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: imageUrls.length - 1,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (_, index) {
+                  final url = imageUrls[index + 1];
+                  return ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.network(
+                      url,
+                      width: 88,
+                      height: 72,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
 
           const SizedBox(height: 16),
 

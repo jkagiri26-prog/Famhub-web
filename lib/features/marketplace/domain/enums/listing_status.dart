@@ -12,7 +12,8 @@ enum ListingStatus {
   active,
   paused,
   soldOut,
-  archived;
+  archived,
+  inactive;
 
   String get value {
     switch (this) {
@@ -26,6 +27,8 @@ enum ListingStatus {
         return 'sold_out';
       case ListingStatus.archived:
         return 'archived';
+      case ListingStatus.inactive:
+        return 'inactive';
     }
   }
 
@@ -41,6 +44,8 @@ enum ListingStatus {
         return ListingStatus.soldOut;
       case 'archived':
         return ListingStatus.archived;
+      case 'inactive':
+        return ListingStatus.inactive;
       default:
         return ListingStatus.draft;
     }

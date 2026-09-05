@@ -8,7 +8,36 @@
 /// ============================================================
 library;
 
+import 'dart:typed_data';
+
+import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../domain/models/listing_edit_changes.dart';
+
+/// Serializes [changes] into the exact whitelisted JSONB payload accepted by
+/// `marketplace.update_listing`.
+///
+/// Only the four editable fields can ever appear:
+///   title, description, price_per_unit, currency
+/// Nothing else (images, status, ids, promotion fields, timestamps) can be
+/// produced, because [ListingEditChanges] cannot even carry them.
+/// A description that was intentionally cleared serializes as `null`.
+Map<String, dynamic> editableListingChangesPayload(
+  ListingEditChanges changes,
+) {
+  final payload = <String, dynamic>{};
+  if (changes.title != null) payload['title'] = changes.title;
+  if (changes.descriptionChanged) {
+    payload['description'] = changes.description;
+  }
+  if (changes.pricePerUnit != null) {
+    payload['price_per_unit'] = changes.pricePerUnit;
+  }
+  if (changes.currency != null) payload['currency'] = changes.currency;
+  return payload;
+}
 
 /// Remote data source for marketplace listings.
 ///
@@ -510,5 +539,268 @@ class MarketplaceRemoteDataSource {
     } catch (e) {
       throw Exception('Failed to fetch seller stats: $e');
     }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // LISTING EDIT — CANONICAL MUTATION RPCS
+  // ════════════════════════════════════════════════════════════════
+  //
+  // Editing existing listings is limited to the two deployed canonical RPCs:
+  //   update_listing   (metadata only — title/description/price/currency)
+  //   set_listing_status (active | inactive)
+  //
+  // PostgrestException is deliberately NOT wrapped so callers can map error
+  // codes/messages (unauthorized, no stock, invalid value) into friendly UI
+  // messages. No auth.uid()/entity_id/ownership claim is ever sent — the
+  // backend authorizes via the authenticated session and can_manage.
+
+  static const String updateListingRpc = 'update_listing';
+  static const String setListingStatusRpc = 'set_listing_status';
+
+  /// Update listing metadata via `marketplace.update_listing(uuid, jsonb)`.
+  ///
+  /// The jsonb payload is produced by [editableListingChangesPayload] so only
+  /// changed editable fields (title / description / price_per_unit / currency)
+  /// are ever transmitted.
+  Future<Map<String, dynamic>?> updateListingDetails({
+    required String listingId,
+    required ListingEditChanges changes,
+  }) async {
+    final response = await _client
+        .schema('marketplace')
+        .rpc(
+          updateListingRpc,
+          params: {
+            'p_listing_id': listingId,
+            'p_changes': editableListingChangesPayload(changes),
+          },
+        );
+    return MarketplaceRemoteDataSource._firstListingRow(response);
+  }
+
+  /// Set a listing's status via `marketplace.set_listing_status(uuid, text)`.
+  ///
+  /// Only `active` and `inactive` are supported by the backend. Activation is
+  /// stock-validated server-side (stock_registry.quantity > 0).
+  Future<Map<String, dynamic>?> setListingStatus({
+    required String listingId,
+    required String status,
+  }) async {
+    final response = await _client
+        .schema('marketplace')
+        .rpc(
+          setListingStatusRpc,
+          params: {
+            'p_listing_id': listingId,
+            'p_status': status,
+          },
+        );
+    return MarketplaceRemoteDataSource._firstListingRow(response);
+  }
+
+  /// Defensively extracts a single listing row from an RPC response that may
+  /// be a bare row map, a `{ data: [...] }` envelope, an empty list, or null.
+  static Map<String, dynamic>? _firstListingRow(dynamic response) {
+    if (response is Map<String, dynamic>) return response;
+    if (response is Map) return Map<String, dynamic>.from(response);
+    if (response is List) {
+      for (final item in response) {
+        if (item is Map<String, dynamic>) return item;
+        if (item is Map) return Map<String, dynamic>.from(item);
+      }
+    }
+    return null;
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // LISTING MEDIA (HARDENED EDGE-FUNCTION CONTRACT)
+  // ════════════════════════════════════════════════════════════════
+  //
+  // Listing images live in the PRIVATE media bucket and are reached only
+  // through the deployed edge functions:
+  //   upload_media        (multipart; context="listings", context_id)
+  //   media_get_by_context(returns signed URLs)
+  //   delete_media        (file_id)
+  //
+  // The client never touches Storage directly, never sends user_id/entity_id
+  // as an authorization mechanism, and never builds storage paths.
+  //
+  // Context contract:
+  //   context_type = "listings"
+  //   context_id   = marketplace.listings.id
+
+  static const String _listingMediaContextType = 'listings';
+  static const String _uploadMediaFunction = 'upload_media';
+  static const String _mediaGetByContextFunction = 'media_get_by_context';
+  static const String _deleteMediaFunction = 'delete_media';
+
+  /// Upload a single WebP listing image to the authenticated user's listing.
+  ///
+  /// The authenticated backend derives the user and attaches the uploaded
+  /// media to the listing's images through the trusted flow — the client
+  /// never writes `listing.images`.
+  Future<void> uploadListingMedia({
+    required Uint8List bytes,
+    required String fileName,
+    required String listingId,
+  }) async {
+    try {
+      final response = await _client.functions.invoke(
+        _uploadMediaFunction,
+        body: {
+          'context': _listingMediaContextType,
+          'context_id': listingId,
+        },
+        files: [
+          http.MultipartFile.fromBytes(
+            'file',
+            bytes,
+            filename: fileName,
+            contentType: MediaType('image', 'webp'),
+          ),
+        ],
+      );
+      final reason = MarketplaceRemoteDataSource.uploadFailureReason(
+        response.data,
+      );
+      if (reason != null) {
+        throw Exception(_describeMediaError('Photo upload failed', reason));
+      }
+    } on FunctionException catch (e) {
+      throw Exception(_describeMediaFunctionError('Photo upload failed', e));
+    }
+  }
+
+  /// Retrieve signed URLs for a listing's media via `media_get_by_context`.
+  Future<List<String>> fetchListingMediaUrls(String listingId) async {
+    try {
+      final response = await _client.functions.invoke(
+        _mediaGetByContextFunction,
+        body: {
+          'context_type': _listingMediaContextType,
+          'context_id': listingId,
+        },
+      );
+      final entries = MarketplaceRemoteDataSource.mediaFileEntries(
+        response.data,
+      );
+      return [
+        for (final entry in entries)
+          if (entry['url'] != null) entry['url']!,
+      ];
+    } on FunctionException catch (e) {
+      throw Exception(_describeMediaFunctionError(
+        'Failed to load listing photos',
+        e,
+      ));
+    }
+  }
+
+  /// Delete a listing image by `media.files.id` via `delete_media`.
+  ///
+  /// The backend handles ownership, detach, soft delete and Storage cleanup.
+  Future<void> deleteListingMedia(String fileId) async {
+    try {
+      final response = await _client.functions.invoke(
+        _deleteMediaFunction,
+        body: {'file_id': fileId},
+      );
+      final reason = MarketplaceRemoteDataSource.deleteFailureReason(
+        response.data,
+      );
+      if (reason != null) {
+        throw Exception(_describeMediaError('Photo removal failed', reason));
+      }
+    } on FunctionException catch (e) {
+      throw Exception(_describeMediaFunctionError('Photo removal failed', e));
+    }
+  }
+
+  /// Returns a non-null reason when an `upload_media` payload did not confirm
+  /// success.
+  static String? uploadFailureReason(dynamic payload) {
+    if (payload is Map) {
+      if (payload['success'] == true) return null;
+      return payload['error']?.toString() ??
+          payload['message']?.toString() ??
+          'The server rejected the photo.';
+    }
+    if (payload == null) return 'No response from the server.';
+    return 'Unexpected response from the server.';
+  }
+
+  /// Returns a non-null reason when a `delete_media` payload did not confirm
+  /// success.
+  static String? deleteFailureReason(dynamic payload) {
+    if (payload is Map) {
+      if (payload['success'] == true) return null;
+      return payload['error']?.toString() ??
+          payload['message']?.toString() ??
+          'The photo could not be removed.';
+    }
+    if (payload == null) return 'No response from the server.';
+    return 'Unexpected response from the server.';
+  }
+
+  /// Normalizes a `media_get_by_context` payload into ordered media entries.
+  ///
+  /// Accepts both a bare list and a `{data|media|files: [...]}` envelope.
+  /// Each entry exposes an `id` (media.files.id) and an http(s) `url`
+  /// (temporary signed URL). Non-http references are dropped — the signed URL
+  /// is the only displayable form.
+  static List<Map<String, String>> mediaFileEntries(dynamic payload) {
+    final List<dynamic> raw;
+    if (payload is List) {
+      raw = payload;
+    } else if (payload is Map) {
+      final inner = payload['data'] ?? payload['media'] ?? payload['files'];
+      raw = inner is List ? inner : const [];
+    } else {
+      raw = const [];
+    }
+
+    final entries = <Map<String, String>>[];
+    for (final item in raw) {
+      if (item is! Map) continue;
+      final url = (item['url'] ??
+              item['signed_url'] ??
+              item['public_url'])
+          ?.toString();
+      final lower = url?.toLowerCase() ?? '';
+      if (lower.isEmpty ||
+          (!lower.startsWith('http://') && !lower.startsWith('https://'))) {
+        continue;
+      }
+      final id = (item['id'] ??
+              item['file_id'] ??
+              item['media_id'])
+          ?.toString();
+      entries.add({
+        'url': url!,
+        if (id != null && id.isNotEmpty) 'id': id,
+      });
+    }
+    return entries;
+  }
+
+  static String _describeMediaError(String action, String reason) {
+    return '$action: $reason';
+  }
+
+  static String _describeMediaFunctionError(
+    String action,
+    FunctionException e,
+  ) {
+    if (e.status == 401) {
+      return '$action: your session has expired. Sign in and try again.';
+    }
+    if (e.status == 403) {
+      return '$action: you do not have permission to do this.';
+    }
+    final details = e.details?.toString();
+    if (details != null && details.isNotEmpty) {
+      return '$action: $details';
+    }
+    return '$action: please try again.';
   }
 }

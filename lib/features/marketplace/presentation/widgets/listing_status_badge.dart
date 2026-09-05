@@ -16,6 +16,7 @@ class ListingStatusBadge extends StatelessWidget {
     ListingStatus.paused => Colors.orange,
     ListingStatus.soldOut => Colors.red,
     ListingStatus.archived => Colors.grey,
+    ListingStatus.inactive => Colors.grey,
   };
 
   @override

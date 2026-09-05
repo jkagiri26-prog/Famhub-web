@@ -7,9 +7,13 @@
 /// ============================================================
 library;
 
+import 'dart:typed_data';
+
 import 'package:famhub_app/features/marketplace/domain/entities/listing.dart';
 import 'package:famhub_app/features/marketplace/domain/entities/stock_item.dart';
 import 'package:famhub_app/features/marketplace/domain/enums/listing_status.dart';
+import 'package:famhub_app/features/marketplace/domain/models/listing_edit_changes.dart';
+import 'package:famhub_app/features/marketplace/domain/models/listing_publication.dart';
 import 'package:famhub_app/features/marketplace/domain/repositories/marketplace_repository.dart';
 import 'package:famhub_app/features/marketplace/infrastructure/data_sources/marketplace_remote_data_source.dart';
 
@@ -206,6 +210,57 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
   }
 
   @override
+  Future<Listing> updateListingDetails({
+    required String listingId,
+    required ListingEditChanges changes,
+  }) async {
+    if (changes.isEmpty) {
+      throw ArgumentError('No editable listing fields changed.');
+    }
+
+    final data = await dataSource.updateListingDetails(
+      listingId: listingId,
+      changes: changes,
+    );
+
+    if (data != null) return ListingMapper.fromJson(data);
+
+    // The RPC succeeded without returning a row; reload the listing so the
+    // caller always gets canonical, freshly-mapped state.
+    final refreshed = await dataSource.fetchListingById(listingId);
+    if (refreshed != null) return _enrichSingleSellerProfile(refreshed);
+    throw Exception('Listing was updated but could not be reloaded.');
+  }
+
+  @override
+  Future<Listing> setListingStatus({
+    required String listingId,
+    required ListingStatus status,
+  }) async {
+    if (status != ListingStatus.active &&
+        status != ListingStatus.inactive) {
+      throw ArgumentError.value(
+        status,
+        'status',
+        'Only active or inactive listing statuses are supported.',
+      );
+    }
+
+    final data = await dataSource.setListingStatus(
+      listingId: listingId,
+      status: status.value,
+    );
+
+    if (data != null) return ListingMapper.fromJson(data);
+
+    // The RPC succeeded without returning a row; reload the listing so the
+    // caller always reflects the resulting backend state.
+    final refreshed = await dataSource.fetchListingById(listingId);
+    if (refreshed != null) return _enrichSingleSellerProfile(refreshed);
+    throw Exception('Listing status was updated but could not be reloaded.');
+  }
+
+  @override
   Future<void> archiveListing(String id) async {
     await dataSource.archiveListing(id);
   }
@@ -380,5 +435,146 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
       );
     }
     return ListingMapper.fromJson(data);
+  }
+
+  @override
+  Future<ListingPublicationReport> publishListingFromStockWithImages({
+    required String stockId,
+    required double pricePerUnit,
+    String? title,
+    String? description,
+    List<SelectedListingImage> images = const [],
+  }) async {
+    // STEP 1 — Publish the listing with an empty images array. The listing is
+    // created first so the hardened media flow can attach to its real id.
+    final listing = await publishListingFromStock(
+      stockId: stockId,
+      pricePerUnit: pricePerUnit,
+      title: title,
+      description: description,
+      images: const <String>[],
+    );
+
+    var listingId = listing.id;
+
+    // STEP 2 — Resolve the newly-created listing id when the RPC returned no
+    // row (best-effort recovery from the refreshed listings feed).
+    if (listingId.isEmpty && images.isNotEmpty) {
+      listingId = await _recoverListingIdByStock(stockId) ?? '';
+    }
+
+    if (listingId.isEmpty && images.isNotEmpty) {
+      return ListingPublicationReport(
+        listing: listing,
+        uploadedCount: 0,
+        failedCount: images.length,
+        failures: const [
+          'Listing was created but its identifier could not be confirmed, '
+              'so no photos were attached.',
+        ],
+      );
+    }
+
+    // STEP 3 — Upload each selected photo against the created listing. The
+    // backend attaches media to listing.images; the client never writes it.
+    final failures = <String>[];
+    var uploadedCount = 0;
+    for (var i = 0; i < images.length; i++) {
+      final image = images[i];
+      try {
+        await dataSource.uploadListingMedia(
+          bytes: image.bytes,
+          fileName: image.fileName,
+          listingId: listingId,
+        );
+        uploadedCount++;
+      } catch (e) {
+        failures.add(
+          'Photo ${i + 1} could not be uploaded: ${_friendlyMediaError(e)}',
+        );
+      }
+    }
+
+    final publishedListing = listingId.isNotEmpty && listing.id != listingId
+        ? listing.copyWith(id: listingId)
+        : listing;
+
+    return ListingPublicationReport(
+      listing: publishedListing,
+      uploadedCount: uploadedCount,
+      failedCount: images.length - uploadedCount,
+      failures: failures,
+    );
+  }
+
+  @override
+  Future<void> uploadListingImage({
+    required Uint8List bytes,
+    required String fileName,
+    required String listingId,
+  }) async {
+    await dataSource.uploadListingMedia(
+      bytes: bytes,
+      fileName: fileName,
+      listingId: listingId,
+    );
+  }
+
+  @override
+  Future<List<String>> fetchListingImageUrls(String listingId) async {
+    return dataSource.fetchListingMediaUrls(listingId);
+  }
+
+  @override
+  Future<void> deleteListingImage(String fileId) async {
+    await dataSource.deleteListingMedia(fileId);
+  }
+
+  /// Best-effort lookup of the listing id published for [stockId] using the
+  /// canonical listings feed (newest first). Only used when the publish RPC
+  /// returns no row.
+  Future<String?> _recoverListingIdByStock(String stockId) async {
+    try {
+      final rows = await dataSource.fetchListings();
+      for (final row in rows) {
+        if (row['stock_id']?.toString() == stockId) {
+          return row['id']?.toString();
+        }
+      }
+    } catch (_) {
+      // Recovery is best-effort; callers surface the report instead.
+    }
+    return null;
+  }
+
+  String _friendlyMediaError(Object e) {
+    final text = e.toString();
+    final lower = text.toLowerCase();
+    if (lower.contains('session has expired') ||
+        lower.contains('sign in') ||
+        lower.contains('authentication')) {
+      return 'your session has expired';
+    }
+    if (lower.contains('too large') ||
+        lower.contains('2 mb') ||
+        lower.contains('exceeds')) {
+      return 'the file is too large';
+    }
+    if (lower.contains('format') ||
+        lower.contains('unsupported') ||
+        lower.contains('webp') ||
+        lower.contains('read')) {
+      return 'the file format is not supported';
+    }
+    if (lower.contains('socket') ||
+        lower.contains('connection') ||
+        lower.contains('network') ||
+        lower.contains('timeout')) {
+      return 'check your connection and try again';
+    }
+    final cleaned = text.startsWith('Exception: ')
+        ? text.substring('Exception: '.length)
+        : text;
+    return cleaned.isEmpty ? 'please try again' : cleaned;
   }
 }

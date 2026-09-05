@@ -20,6 +20,52 @@ class ListingCardWidget extends StatelessWidget {
     this.trailing,
   });
 
+  /// Image area that renders only network-reachable http(s) references.
+  ///
+  /// Marketplace listing images are PRIVATE storage paths returned by the
+  /// backend (e.g. `images/listings/<stock_id>/image1.jpeg`), not public
+  /// URLs. Passing a raw storage path to `Image.network` can never resolve
+  /// and would trigger a doomed network request. Until a private media
+  /// retrieval mechanism resolves those paths into http(s) URLs, any
+  /// non-http(s) / failed reference falls back to the shared placeholder.
+  Widget _buildImageArea(double imageHeight) {
+    final resolvedUrl = _networkSafeUrl(imageUrl);
+    return SizedBox(
+      width: double.infinity,
+      height: imageHeight,
+      child: resolvedUrl == null
+          ? _placeholder()
+          : Image.network(
+              resolvedUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => _placeholder(),
+            ),
+    );
+  }
+
+  /// Returns [imageUrl] only when it is a fetchable network reference,
+  /// otherwise null (private storage paths, relative refs, malformed values).
+  String? _networkSafeUrl(String? url) {
+    final value = url?.trim();
+    if (value == null || value.isEmpty) return null;
+    final lower = value.toLowerCase();
+    if (!lower.startsWith('http://') && !lower.startsWith('https://')) {
+      return null;
+    }
+    return value;
+  }
+
+  Widget _placeholder() {
+    return Container(
+      color: const Color(0xfff1f5f2),
+      child: Icon(
+        Icons.agriculture_outlined,
+        size: 38,
+        color: Colors.green.shade300,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -49,27 +95,7 @@ class ListingCardWidget extends StatelessWidget {
                   return SizedBox(
                     width: double.infinity,
                     height: imageHeight,
-                    child: imageUrl == null
-                        ? Container(
-                            color: const Color(0xfff1f5f2),
-                            child: Icon(
-                              Icons.agriculture_outlined,
-                              size: 38,
-                              color: Colors.green.shade300,
-                            ),
-                          )
-                        : Image.network(
-                            imageUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              color: const Color(0xfff1f5f2),
-                              child: Icon(
-                                Icons.agriculture_outlined,
-                                size: 38,
-                                color: Colors.green.shade300,
-                              ),
-                            ),
-                          ),
+                    child: _buildImageArea(imageHeight),
                   );
                 },
               ),

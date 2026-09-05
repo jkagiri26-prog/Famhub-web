@@ -2,8 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/listing.dart';
 import '../../domain/entities/stock_item.dart';
-import '../../domain/repositories/marketplace_repository.dart';
 import '../../domain/enums/listing_status.dart';
+import '../../domain/models/listing_edit_changes.dart';
+import '../../domain/models/listing_publication.dart';
+import '../../domain/repositories/marketplace_repository.dart';
 import '../../infrastructure/data_sources/marketplace_remote_data_source.dart';
 import '../../infrastructure/repositories/marketplace_repository_impl.dart';
 
@@ -120,6 +122,38 @@ class MarketplaceController extends AsyncNotifier<List<Listing>> {
     return listing;
   }
 
+  /// Publish a listing from managed stock, then attach the selected photos
+  /// through the hardened media flow.
+  ///
+  /// The listing is published with an empty `images` array and every photo is
+  /// uploaded against the returned listing id. Partial upload failures are
+  /// reported — successful photos are preserved and marketplace/media state is
+  /// refreshed from the backend.
+  Future<ListingPublicationReport> publishListingWithImages({
+    required String stockId,
+    required double pricePerUnit,
+    String? title,
+    String? description,
+    List<SelectedListingImage> images = const [],
+  }) async {
+    final report = await _repo.publishListingFromStockWithImages(
+      stockId: stockId,
+      pricePerUnit: pricePerUnit,
+      title: title,
+      description: description,
+      images: images,
+    );
+
+    ref.invalidateSelf();
+    ref.invalidate(eligibleStockProvider);
+    if (report.listing.id.isNotEmpty) {
+      ref.invalidate(listingDetailsProvider(report.listing.id));
+      ref.invalidate(listingImageUrlsProvider(report.listing.id));
+    }
+
+    return report;
+  }
+
     Future<void> updateInventory({
     required String listingId,
     double? availableQuantity,
@@ -133,6 +167,53 @@ class MarketplaceController extends AsyncNotifier<List<Listing>> {
 
     ref.invalidateSelf();
     ref.invalidate(listingDetailsProvider(listingId));
+  }
+
+  /// Update ONLY the editable listing metadata via the canonical
+  /// `marketplace.update_listing` RPC.
+  ///
+  /// [changes] must already be non-empty; the repository refuses to mutate
+  /// when nothing changed, so no RPC is ever attempted for a no-op edit.
+  /// On success the narrowest affected state is refreshed: the listing feed,
+  /// this listing's details and the seller's listing list.
+  Future<Listing> updateListingDetails({
+    required String listingId,
+    required ListingEditChanges changes,
+  }) async {
+    final updated = await _repo.updateListingDetails(
+      listingId: listingId,
+      changes: changes,
+    );
+
+    ref.invalidateSelf();
+    ref.invalidate(listingDetailsProvider(listingId));
+    _invalidateSellerListings(updated.entityId);
+    return updated;
+  }
+
+  /// Activate or deactivate a listing via the canonical
+  /// `marketplace.set_listing_status` RPC (active | inactive only).
+  ///
+  /// Activation stock validation stays backend-authoritative.
+  Future<Listing> setListingStatus({
+    required String listingId,
+    required ListingStatus status,
+  }) async {
+    final updated = await _repo.setListingStatus(
+      listingId: listingId,
+      status: status,
+    );
+
+    ref.invalidateSelf();
+    ref.invalidate(listingDetailsProvider(listingId));
+    _invalidateSellerListings(updated.entityId);
+    return updated;
+  }
+
+  void _invalidateSellerListings(String entityId) {
+    if (entityId.isNotEmpty) {
+      ref.invalidate(sellerListingsProvider(entityId));
+    }
   }
 }
 
@@ -181,4 +262,20 @@ final stockItemDetailsProvider =
     FutureProvider.family<StockItem?, String>((ref, stockId) async {
   final repo = ref.read(marketplaceRepositoryProvider);
   return repo.fetchStockById(stockId);
+});
+
+/// ============================================================
+/// LISTING IMAGE URLS (SIGNED, TEMPORARY)
+/// ============================================================
+
+/// Resolves a listing's media to temporary signed image URLs via
+/// `media_get_by_context`.
+///
+/// Listing.images holds `media.files` IDs — never URLs. This provider is the
+/// presentation/runtime representation of those references. Signed URLs expire
+/// and must never be persisted; invalidate the provider to refresh them.
+final listingImageUrlsProvider =
+    FutureProvider.family<List<String>, String>((ref, listingId) async {
+  final repo = ref.read(marketplaceRepositoryProvider);
+  return repo.fetchListingImageUrls(listingId);
 });

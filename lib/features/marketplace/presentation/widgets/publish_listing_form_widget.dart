@@ -5,8 +5,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:famhub_app/features/marketplace/application/providers/marketplace_provider.dart';
 import 'package:famhub_app/features/marketplace/domain/entities/stock_item.dart';
+import 'package:famhub_app/features/marketplace/domain/models/listing_publication.dart';
 import 'package:famhub_app/shared/widgets/states/loading_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
+
+import 'listing_image_picker_area.dart';
 
 /// ============================================================
 /// PUBLISH LISTING FORM (MANAGED-STOCK, PHASE 1)
@@ -18,7 +21,7 @@ import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
 ///   - price_per_unit (required)
 ///   - title          (optional)
 ///   - description    (optional)
-///   - images         (optional)
+///   - photos         (optional, max 3, WebP ≤ 2 MB each)
 ///
 /// ✅ Read-only display of the selected stock's:
 ///   - product/variant
@@ -26,11 +29,15 @@ import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
 ///   - unit
 ///   - location
 ///
-/// ✅ On submit calls:
-///   marketplace.publish_listing_from_stock(
-///     p_stock_id, p_price_per_unit, p_title, p_description, p_images)
+/// ✅ On submit:
+///   1. Calls marketplace.publish_listing_from_stock(...) with an EMPTY
+///      p_images array.
+///   2. Uploads each selected photo via the upload_media edge function against
+///      the created listing id. The backend attaches them to listing.images.
 ///
 /// ❌ Never inserts into marketplace.listings directly.
+/// ❌ Never sends image IDs/paths in p_images.
+/// ❌ Never writes listing.images from the client.
 /// ❌ Never lets the client submit entity_id / variant_id / unit_id /
 ///    location_id or a listing quantity.
 ///
@@ -61,8 +68,8 @@ class _PublishListingFormWidgetState
   final _priceController = TextEditingController();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _imageUrlsController = TextEditingController();
 
+  List<SelectedListingImage> _selectedImages = [];
   bool _isSubmitting = false;
 
   @override
@@ -78,15 +85,8 @@ class _PublishListingFormWidgetState
     _priceController.dispose();
     _titleController.dispose();
     _descriptionController.dispose();
-    _imageUrlsController.dispose();
     super.dispose();
   }
-
-  List<String> get _images => _imageUrlsController.text
-      .split(',')
-      .map((e) => e.trim())
-      .where((e) => e.isNotEmpty)
-      .toList();
 
   Future<void> _submit(StockItem stock) async {
     if (!_formKey.currentState!.validate()) return;
@@ -106,23 +106,33 @@ class _PublishListingFormWidgetState
       final description = _descriptionController.text.trim();
 
       final notifier = ref.read(marketplaceProvider.notifier);
-      await notifier.publishFromStock(
+      final report = await notifier.publishListingWithImages(
         stockId: widget.stockId,
         pricePerUnit: price,
         title: title.isEmpty ? null : title,
         description: description.isEmpty ? null : description,
-        images: _images,
+        images: _selectedImages,
       );
 
-      if (mounted) {
+      if (!mounted) return;
+
+      if (report.failedCount == 0) {
+        final photoNote = report.uploadedCount > 0
+            ? ' with ${report.uploadedCount} '
+                'photo${report.uploadedCount == 1 ? '' : 's'}'
+            : '';
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Listing published successfully'),
+          SnackBar(
+            content: Text('Listing published successfully$photoNote'),
             backgroundColor: Colors.green,
           ),
         );
         Navigator.of(context).pop(true);
+        return;
       }
+
+      _showPartialUploadFailure(report);
+      Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
         final failure = _describeFailure(e);
@@ -136,6 +146,24 @@ class _PublishListingFormWidgetState
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  void _showPartialUploadFailure(ListingPublicationReport report) {
+    final messenger = ScaffoldMessenger.of(context);
+    final photosWord = report.totalImages == 1 ? 'photo' : 'photos';
+    final detail = report.failures.isEmpty
+        ? 'Some photos could not be uploaded.'
+        : report.failures.first;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          'Listing published, but ${report.failedCount} of '
+          '${report.totalImages} $photosWord failed: $detail',
+        ),
+        backgroundColor: Colors.orange,
+        duration: const Duration(seconds: 6),
+      ),
+    );
   }
 
   @override
@@ -213,12 +241,10 @@ class _PublishListingFormWidgetState
           ),
           const SizedBox(height: 16),
 
-          TextFormField(
-            controller: _imageUrlsController,
-            decoration: const InputDecoration(
-              labelText: 'Image URLs (Optional)',
-              hintText: 'Comma separated URLs',
-            ),
+          ListingImagePickerArea(
+            onImagesChanged: (images) {
+              setState(() => _selectedImages = images);
+            },
           ),
           const SizedBox(height: 24),
 

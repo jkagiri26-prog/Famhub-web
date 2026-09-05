@@ -12,9 +12,13 @@
 /// ============================================================
 library;
 
+import 'dart:typed_data';
+
 import 'package:famhub_app/features/marketplace/domain/entities/listing.dart';
 import 'package:famhub_app/features/marketplace/domain/entities/stock_item.dart';
 import 'package:famhub_app/features/marketplace/domain/enums/listing_status.dart';
+import 'package:famhub_app/features/marketplace/domain/models/listing_edit_changes.dart';
+import 'package:famhub_app/features/marketplace/domain/models/listing_publication.dart';
 import 'package:famhub_app/features/marketplace/domain/repositories/marketplace_repository.dart';
 
 /// Demo implementation of MarketplaceRepository.
@@ -365,6 +369,103 @@ class DemoMarketplaceRepository implements MarketplaceRepository {
       status: ListingStatus.active,
       createdAt: now,
       updatedAt: now,
+    );
+  }
+
+  @override
+  Future<ListingPublicationReport> publishListingFromStockWithImages({
+    required String stockId,
+    required double pricePerUnit,
+    String? title,
+    String? description,
+    List<SelectedListingImage> images = const [],
+  }) async {
+    final listing = await publishListingFromStock(
+      stockId: stockId,
+      pricePerUnit: pricePerUnit,
+      title: title,
+      description: description,
+      images: const [],
+    );
+    return ListingPublicationReport(
+      listing: listing,
+      uploadedCount: images.length,
+      failedCount: 0,
+      failures: const [],
+    );
+  }
+
+  @override
+  Future<void> uploadListingImage({
+    required Uint8List bytes,
+    required String fileName,
+    required String listingId,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 50));
+  }
+
+  @override
+  Future<List<String>> fetchListingImageUrls(String listingId) async {
+    return const [];
+  }
+
+  @override
+  Future<void> deleteListingImage(String fileId) async {
+    await Future.delayed(const Duration(milliseconds: 50));
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // LISTING EDIT (DEMO)
+  // ──────────────────────────────────────────────────────────
+  //
+  // Demo mode never talks to Supabase. Edits are applied to the in-memory
+  // sample entity and returned so the UI behaves consistently in demo mode.
+
+  @override
+  Future<Listing> updateListingDetails({
+    required String listingId,
+    required ListingEditChanges changes,
+  }) async {
+    if (changes.isEmpty) {
+      throw ArgumentError('No editable listing fields changed.');
+    }
+    await Future.delayed(const Duration(milliseconds: 200));
+    final existing = await fetchListingById(listingId);
+    if (existing == null) {
+      throw Exception('Listing no longer available.');
+    }
+    return existing.copyWith(
+      title: changes.title ?? existing.title,
+      description: changes.descriptionChanged
+          ? changes.description
+          : existing.description,
+      pricePerUnit: changes.pricePerUnit ?? existing.pricePerUnit,
+      currency: changes.currency ?? existing.currency,
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  @override
+  Future<Listing> setListingStatus({
+    required String listingId,
+    required ListingStatus status,
+  }) async {
+    if (status != ListingStatus.active &&
+        status != ListingStatus.inactive) {
+      throw ArgumentError.value(
+        status,
+        'status',
+        'Only active or inactive listing statuses are supported.',
+      );
+    }
+    await Future.delayed(const Duration(milliseconds: 200));
+    final existing = await fetchListingById(listingId);
+    if (existing == null) {
+      throw Exception('Listing no longer available.');
+    }
+    return existing.copyWith(
+      status: status,
+      updatedAt: DateTime.now(),
     );
   }
 }
