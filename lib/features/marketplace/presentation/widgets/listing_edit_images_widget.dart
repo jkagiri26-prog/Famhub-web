@@ -202,6 +202,19 @@ class _ListingEditImagesSectionState
         lower.contains('timeout')) {
       return "Couldn't reach the server. Check your connection and try again.";
     }
+    // Browser uploads trigger a CORS preflight against the Supabase Edge
+    // Function. When the function does not allow this site's origin the
+    // browser reports a generic "Failed to fetch" / 405 and the photo is not
+    // uploaded.
+    if (lower.contains('failed to fetch') ||
+        lower.contains('cors') ||
+        lower.contains('preflight') ||
+        lower.contains('405') ||
+        lower.contains('opaque')) {
+      return 'Photo uploads from a browser are blocked until the Marketplace '
+          'upload function allows this site. Try the mobile app, or have the '
+          'function origin allowlisted.';
+    }
     final cleaned = text.startsWith('Exception: ')
         ? text.substring('Exception: '.length)
         : text;
