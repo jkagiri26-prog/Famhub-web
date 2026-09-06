@@ -6,6 +6,7 @@ import '../../domain/entities/listing.dart';
 import '../../domain/entities/stock_item.dart';
 import '../../domain/enums/listing_status.dart';
 import '../../domain/models/listing_edit_changes.dart';
+import '../../domain/models/listing_edit_images_state.dart';
 import '../../domain/models/listing_image_file.dart';
 import '../../domain/models/listing_publication.dart';
 import '../../domain/repositories/marketplace_repository.dart';
@@ -248,6 +249,133 @@ class MarketplaceController extends AsyncNotifier<List<Listing>> {
 
     ref.invalidate(listingImageUrlsProvider(listingId));
     ref.invalidate(listingMediaFilesProvider(listingId));
+  }
+
+  /// Commit a Listing Edit: metadata AND/OR staged image changes.
+  ///
+  /// Save is selective and never performs unnecessary RPCs:
+  ///   - `update_listing` runs ONLY when [changes] is non-empty.
+  ///   - staged additions are uploaded via `upload_media` ONLY when the
+  ///     [images] draft has them.
+  ///   - staged removals are deleted via `delete_media` ONLY when present.
+  ///
+  /// The media flow is authoritative for photos: the client never writes
+  /// `marketplace.listings.images`. Partial image failures are reported in the
+  /// returned [ListingEditSaveReport]; the caller must not pretend a partial
+  /// save fully succeeded.
+  ///
+  /// Throws when the metadata update itself fails (nothing was uploaded for
+  /// that save attempt). Image uploads/deletes that fail are reported, not
+  /// thrown, so partially-applied changes can be surfaced and refreshed.
+  Future<ListingEditSaveReport> saveListingEdit({
+    required String listingId,
+    required ListingEditChanges changes,
+    ListingEditImagesState images = const ListingEditImagesState(),
+  }) async {
+    final metadataChanged = !changes.isEmpty;
+    final imagesChanged = images.hasChanges;
+
+    if (!metadataChanged && !imagesChanged) {
+      throw ArgumentError('No editable fields or images changed.');
+    }
+
+    // STEP 1 — Metadata, only when changed. Throws so the caller can surface
+    // the metadata failure without pretending the save succeeded.
+    Listing? updated;
+    if (metadataChanged) {
+      updated = await _repo.updateListingDetails(
+        listingId: listingId,
+        changes: changes,
+      );
+    }
+
+    // STEP 2 — Staged image changes, only when the draft has them. Failures
+    // are collected per photo so successful uploads/deletes are preserved and
+    // the partial result is reported truthfully.
+    //
+    // Removals are applied BEFORE additions so a replacement photo never makes
+    // the backend transiently exceed the 3-photo ceiling during the swap.
+    final failures = <String>[];
+    var removedCount = 0;
+    var uploadedCount = 0;
+
+    if (imagesChanged) {
+      for (final fileId in images.removedIds) {
+        try {
+          await _repo.deleteListingImage(fileId);
+          removedCount++;
+        } catch (e) {
+          failures.add(_describeImageChangeFailure(e));
+        }
+      }
+
+      for (final image in images.addedImages) {
+        try {
+          await _repo.uploadListingImage(
+            bytes: image.bytes,
+            fileName: image.fileName,
+            listingId: listingId,
+          );
+          uploadedCount++;
+        } catch (e) {
+          failures.add(_describeImageChangeFailure(e));
+        }
+      }
+    }
+
+    // STEP 3 — Refresh narrow state so the updated listing/media are visible.
+    if (metadataChanged) {
+      ref.invalidateSelf();
+      ref.invalidate(listingDetailsProvider(listingId));
+    }
+    if (imagesChanged) {
+      ref.invalidate(listingImageUrlsProvider(listingId));
+      ref.invalidate(listingMediaFilesProvider(listingId));
+      ref.invalidate(listingDetailsProvider(listingId));
+      ref.invalidateSelf();
+    }
+    if (updated != null && updated.entityId.isNotEmpty) {
+      _invalidateSellerListings(updated.entityId);
+    }
+
+    return ListingEditSaveReport(
+      updatedListing: updated,
+      uploadedCount: uploadedCount,
+      removedCount: removedCount,
+      imageFailures: failures,
+    );
+  }
+
+  String _describeImageChangeFailure(Object error) {
+    final text = '$error'.toLowerCase();
+    if (text.contains('session has expired') ||
+        text.contains('sign in') ||
+        text.contains('authentication') ||
+        text.contains('authorization')) {
+      return 'Your session has expired. Please sign in again.';
+    }
+    if (text.contains('permission') ||
+        text.contains('denied') ||
+        text.contains('owner') ||
+        text.contains('row-level')) {
+      return "You don't have permission to change photos on this listing.";
+    }
+    if (text.contains('too large') ||
+        text.contains('2 mb') ||
+        text.contains('exceeds')) {
+      return 'A photo was larger than the 2 MB limit.';
+    }
+    if (text.contains('socket') ||
+        text.contains('connection') ||
+        text.contains('network') ||
+        text.contains('timeout') ||
+        text.contains('failed to fetch')) {
+      return "Couldn't reach the server. Check your connection and retry.";
+    }
+    final cleaned = text.startsWith('exception: ')
+        ? text.substring('exception: '.length)
+        : text;
+    return cleaned.isEmpty ? 'Photo changes could not be applied.' : cleaned;
   }
 }
 

@@ -5,6 +5,7 @@ import 'package:famhub_app/features/marketplace/application/providers/marketplac
 import 'package:famhub_app/features/marketplace/domain/entities/listing.dart';
 import 'package:famhub_app/features/marketplace/domain/enums/listing_status.dart';
 import 'package:famhub_app/features/marketplace/domain/models/listing_edit_changes.dart';
+import 'package:famhub_app/features/marketplace/domain/models/listing_edit_images_state.dart';
 import 'package:famhub_app/features/marketplace/infrastructure/services/listing_edit_error_mapper.dart';
 import 'package:famhub_app/features/marketplace/presentation/widgets/listing_edit_images_widget.dart';
 import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
@@ -113,6 +114,11 @@ class _ListingEditFormState extends ConsumerState<_ListingEditForm> {
   bool _isSaving = false;
   bool _isChangingStatus = false;
 
+  /// Staged photo edits (additions + removals) reported by the photos section.
+  /// This is the single source of truth for image dirty-state; nothing here is
+  /// persisted until Save commits it through the media flow.
+  ListingEditImagesState _imageDraft = const ListingEditImagesState();
+
   @override
   void initState() {
     super.initState();
@@ -127,6 +133,11 @@ class _ListingEditFormState extends ConsumerState<_ListingEditForm> {
 
   void _onFieldChanged() {
     if (mounted) setState(() {});
+  }
+
+  void _onImagesStateChanged(ListingEditImagesState draft) {
+    if (!mounted) return;
+    setState(() => _imageDraft = draft);
   }
 
   static String _formatPrice(double price) {
@@ -155,10 +166,15 @@ class _ListingEditFormState extends ConsumerState<_ListingEditForm> {
     if (oldWidget.listing.id == widget.listing.id &&
         oldWidget.listing.updatedAt != widget.listing.updatedAt) {
       _original = widget.listing;
+      // A fresh listing copy represents a new baseline for staged photo
+      // changes (e.g. media changed elsewhere); drop previously staged edits
+      // rather than saving them against stale state.
+      _imageDraft = const ListingEditImagesState();
     }
   }
 
-  /// Whether the user has actually changed an editable field.
+  /// Whether the user has actually changed an editable field or staged an
+  /// image add/removal.
   ///
   /// An invalid/empty price input also counts as "edited" so the form can
   /// surface validation feedback instead of silently disabling Save.
@@ -178,7 +194,11 @@ class _ListingEditFormState extends ConsumerState<_ListingEditForm> {
             parsedPrice != _original.pricePerUnit);
     final currencyChanged = _original.currency != 'KES';
 
-    return titleChanged || descriptionChanged || priceEdited || currencyChanged;
+    return titleChanged ||
+        descriptionChanged ||
+        priceEdited ||
+        currencyChanged ||
+        _imageDraft.hasChanges;
   }
 
   double? get _parsedPrice {
@@ -203,14 +223,41 @@ class _ListingEditFormState extends ConsumerState<_ListingEditForm> {
       currency: 'KES',
     );
 
-    if (changes.isEmpty) return;
+    final imageDraft = _imageDraft;
+    if (changes.isEmpty && !imageDraft.hasChanges) return;
 
     setState(() => _isSaving = true);
 
     try {
-      await ref
+      final report = await ref
           .read(marketplaceProvider.notifier)
-          .updateListingDetails(listingId: listing.id, changes: changes);
+          .saveListingEdit(
+            listingId: listing.id,
+            changes: changes,
+            images: imageDraft,
+          );
+
+      if (!report.allSaved) {
+        if (report.metadataError != null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(describeListingSaveError(report.metadataError!)),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+
+        // Metadata saved, but some photo changes failed. Match the existing
+        // publish-flow convention: report the partial result truthfully, then
+        // return so the refreshed listing/media state reflects what exists.
+        if (!mounted) return;
+        _showPartialImageFailure(report);
+        Navigator.of(context).pop(true);
+        return;
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -232,6 +279,23 @@ class _ListingEditFormState extends ConsumerState<_ListingEditForm> {
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  void _showPartialImageFailure(ListingEditSaveReport report) {
+    final detail = report.imageFailures.isEmpty
+        ? 'Some photos could not be updated.'
+        : report.imageFailures.first;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Listing saved, but ${report.imageFailures.length} photo '
+          '${report.imageFailures.length == 1 ? 'change' : 'changes'} '
+          'failed: $detail',
+        ),
+        backgroundColor: Colors.orange,
+        duration: const Duration(seconds: 6),
+      ),
+    );
   }
 
   Future<void> _confirmAndChangeStatus({required bool activating}) async {
@@ -371,7 +435,10 @@ class _ListingEditFormState extends ConsumerState<_ListingEditForm> {
           ),
           const SizedBox(height: 16),
 
-          ListingEditImagesSection(listingId: listing.id),
+          ListingEditImagesSection(
+            listingId: listing.id,
+            onStateChanged: _onImagesStateChanged,
+          ),
           const SizedBox(height: 16),
 
           Text(

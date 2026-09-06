@@ -4,29 +4,42 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:famhub_app/features/marketplace/application/providers/marketplace_provider.dart';
+import 'package:famhub_app/features/marketplace/domain/models/listing_edit_images_state.dart';
 import 'package:famhub_app/features/marketplace/domain/models/listing_image_file.dart';
 import 'package:famhub_app/features/marketplace/domain/models/listing_publication.dart';
 import 'package:famhub_app/features/marketplace/infrastructure/services/listing_image_processing.dart';
 
 /// ============================================================
-/// LISTING EDIT — PHOTOS SECTION
+/// LISTING EDIT — PHOTOS SECTION (STAGED EDITOR)
 /// ============================================================
 ///
 /// Lets the seller add photos to an existing listing (including one that has
-/// no image yet) and remove existing ones.
+/// no image yet) and stage removal of existing ones.
 ///
-/// Reuses the hardened media contract only:
-///   - display existing photos  → media_get_by_context (signed URLs)
-///   - add photos               → upload_media
-///   - remove photos            → delete_media
+/// Every change is STAGED in [ListingEditImagesState] and reported up through
+/// [onStateChanged]; nothing is persisted here. The Listing Edit Save flow
+/// commits the staged draft through the hardened media contract only:
+///   - stage add      → prepared `SelectedListingImage` (upload_media on Save)
+///   - stage removal  → `media.files.id` (delete_media on Save)
 ///
 /// The client never writes `marketplace.listings.images`, never generates
 /// public Storage URLs and never sends ownership claims.
+///
+/// Existing photos are displayed via `media_get_by_context` (signed URLs);
+/// the staged draft is compared using `media.files.id` identity only.
 /// ============================================================
 class ListingEditImagesSection extends ConsumerStatefulWidget {
   final String listingId;
 
-  const ListingEditImagesSection({super.key, required this.listingId});
+  /// Called whenever the staged image draft changes (additions / removals).
+  /// A picker that opens and closes without staging anything never fires.
+  final ValueChanged<ListingEditImagesState> onStateChanged;
+
+  const ListingEditImagesSection({
+    super.key,
+    required this.listingId,
+    required this.onStateChanged,
+  });
 
   @override
   ConsumerState<ListingEditImagesSection> createState() =>
@@ -44,19 +57,28 @@ class _ListingEditImagesSectionState
 
   bool _busy = false;
 
-  /// Bytes of photos added in this session, shown immediately as local
-  /// previews so the seller always sees the upload result even when the
-  /// remote album cannot be listed (or its signed URLs cannot be fetched,
-  /// e.g. in a browser).
-  final List<Uint8List> _addedPreviews = [];
+  /// Photos staged for addition this session (not yet uploaded). Bytes power
+  /// the immediate preview; upload happens only when Save commits the draft.
+  final List<SelectedListingImage> _stagedAdditions = [];
 
-  /// When the remote album reaches at least this many photos the local
-  /// previews can be cleared (the server list now shows them).
-  int? _clearPreviewsWhenRemoteAtLeast;
+  /// `media.files.id` values of existing photos staged for removal. These are
+  /// hidden from the active grid and can be restored before Save.
+  final Set<String> _stagedRemovedIds = {};
 
-  Future<void> _addPhotos(int currentCount) async {
+  void _emit() {
+    widget.onStateChanged(
+      ListingEditImagesState(
+        addedImages: List<SelectedListingImage>.from(_stagedAdditions),
+        removedIds: Set<String>.from(_stagedRemovedIds),
+      ),
+    );
+  }
+
+  Future<void> _stageAddPhotos() async {
     if (_busy) return;
-    final remaining = _maxPhotos - currentCount;
+    final remaining = _maxPhotos -
+        _stagedAdditions.length -
+        _existingNotStagedRemovedCount();
     if (remaining <= 0) return;
 
     setState(() => _busy = true);
@@ -84,100 +106,80 @@ class _ListingEditImagesSectionState
 
     if (!mounted) return;
 
-    final prepared = <SelectedListingImage>[];
-    final prepFailures = <String>[];
+    final failures = <String>[];
     for (final file in picked) {
+      if (_stagedAdditions.length + _existingNotStagedRemovedCount() >=
+          _maxPhotos) {
+        break;
+      }
       try {
         final bytes = await file.readAsBytes();
-        prepared.add(
-          await _processor.prepare(bytes: bytes, sourceName: file.name),
+        final prepared = await _processor.prepare(
+          bytes: bytes,
+          sourceName: file.name,
         );
+        setState(() => _stagedAdditions.add(prepared));
       } on ListingImageException catch (e) {
-        prepFailures.add(e.message);
+        failures.add(e.message);
       } catch (_) {
-        prepFailures.add('This photo could not be read. Choose another one.');
+        failures.add('This photo could not be read. Choose another one.');
       }
     }
 
-    var uploaded = 0;
-    final uploadFailures = <String>[];
-    for (final image in prepared) {
-      try {
-        await ref
-            .read(marketplaceProvider.notifier)
-            .uploadListingPhoto(
-              listingId: widget.listingId,
-              bytes: image.bytes,
-              fileName: image.fileName,
-            );
-        uploaded++;
-        // Show the photo immediately from its bytes. The remote album will
-        // take over once it lists the uploaded file (see the ref.listen below).
-        if (mounted) {
-          setState(() => _addedPreviews.add(image.bytes));
-        }
-      } catch (e) {
-        uploadFailures.add(_describePhotoError(e));
-      }
-    }
-    _clearPreviewsWhenRemoteAtLeast = currentCount + _addedPreviews.length;
-
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
     setState(() => _busy = false);
+    _emit();
 
-    final problems = [...prepFailures, ...uploadFailures];
-    if (problems.isNotEmpty) {
+    if (failures.isNotEmpty) {
       _showMessage(
-        problems.length == 1
-            ? problems.first
-            : '${problems.length} photos were not added.',
+        failures.length == 1
+            ? failures.first
+            : '${failures.length} photos were not added.',
         isError: true,
       );
-    } else if (uploaded > 0) {
-      _showMessage(uploaded == 1 ? 'Photo added.' : '$uploaded photos added.');
+    } else if (_stagedAdditions.isNotEmpty) {
+      _showMessage('Photo added. Save to publish it.');
     }
   }
 
-  Future<void> _removePhoto(ListingImageFile image) async {
+  void _unstageAdded(int index) {
     if (_busy) return;
+    setState(() => _stagedAdditions.removeAt(index));
+    _emit();
+  }
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Remove photo?'),
-        content: const Text('This photo will be removed from the listing.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Remove'),
-          ),
-        ],
-      ),
-    );
+  void _stageRemoval(ListingImageFile image) {
+    if (_busy) return;
+    setState(() {
+      _stagedRemovedIds.add(image.id);
+      // The removed photo no longer occupies a slot, so any staged additions
+      // that were waiting for capacity can stay without exceeding the limit.
+    });
+    _emit();
+  }
 
-    if (confirmed != true || !mounted) return;
-
-    setState(() => _busy = true);
-    try {
-      await ref
-          .read(marketplaceProvider.notifier)
-          .deleteListingPhoto(listingId: widget.listingId, fileId: image.id);
-      if (!mounted) return;
-      _showMessage('Photo removed.');
-    } catch (e) {
-      if (mounted) {
-        _showMessage(_describePhotoError(e), isError: true);
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
+  void _restoreAllRemovals() {
+    if (_busy) return;
+    final photosAsync = ref.read(listingMediaFilesProvider(widget.listingId));
+    final existingCount = photosAsync.value?.length ?? 0;
+    final restoredTotal =
+        existingCount + _stagedAdditions.length - _stagedRemovedIds.length;
+    if (restoredTotal > _maxPhotos) {
+      _showMessage(
+        'Cannot restore the photo: the $_maxPhotos-photo limit would be '
+        'exceeded. Remove one of the added photos first.',
+        isError: true,
+      );
+      return;
     }
+    setState(() => _stagedRemovedIds.clear());
+    _emit();
+  }
+
+  int _existingNotStagedRemovedCount() {
+    final photosAsync = ref.read(listingMediaFilesProvider(widget.listingId));
+    final photos = photosAsync.value ?? const <ListingImageFile>[];
+    return photos.where((p) => !_stagedRemovedIds.contains(p.id)).length;
   }
 
   void _showMessage(String message, {bool isError = false}) {
@@ -197,81 +199,20 @@ class _ListingEditImagesSectionState
     return '${text.substring(0, 200)}…';
   }
 
-  String _describePhotoError(Object error) {
-    final text = error.toString();
-    final lower = text.toLowerCase();
-    if (lower.contains('permission') ||
-        lower.contains('denied') ||
-        lower.contains('owner')) {
-      return "You don't have permission to change photos on this listing.";
-    }
-    if (lower.contains('sign in') ||
-        lower.contains('expired') ||
-        lower.contains('session')) {
-      return 'Please sign in to change photos.';
-    }
-    if (lower.contains('too large') || lower.contains('2 mb')) {
-      return 'The photo is larger than 2 MB.';
-    }
-    if (lower.contains('format') ||
-        lower.contains('unsupported') ||
-        lower.contains('webp')) {
-      return 'That photo format is not supported.';
-    }
-    if (lower.contains('socket') ||
-        lower.contains('connection') ||
-        lower.contains('network') ||
-        lower.contains('timeout')) {
-      return "Couldn't reach the server. Check your connection and try again.";
-    }
-    // Browser uploads trigger a CORS preflight against the Supabase Edge
-    // Function. When the function does not allow this site's origin the
-    // browser reports a generic "Failed to fetch" / 405 and the photo is not
-    // uploaded.
-    if (lower.contains('failed to fetch') ||
-        lower.contains('cors') ||
-        lower.contains('preflight') ||
-        lower.contains('405') ||
-        lower.contains('opaque')) {
-      return 'Photo uploads from a browser are blocked until the Marketplace '
-          'upload function allows this site. Try the mobile app, or have the '
-          'function origin allowlisted.';
-    }
-    final cleaned = text.startsWith('Exception: ')
-        ? text.substring('Exception: '.length)
-        : text;
-    return cleaned.isEmpty ? 'Please try again.' : cleaned;
-  }
-
   @override
   Widget build(BuildContext context) {
     final photosAsync = ref.watch(listingMediaFilesProvider(widget.listingId));
-
-    // Once the remote album catches up (lists the photos added this session)
-    // the local byte-preview tiles are no longer needed.
-    ref.listen(listingMediaFilesProvider(widget.listingId), (previous, next) {
-      final threshold = _clearPreviewsWhenRemoteAtLeast;
-      if (threshold == null || _addedPreviews.isEmpty || !next.hasValue) {
-        return;
-      }
-      final remoteCount = next.value?.length ?? 0;
-      if (remoteCount >= threshold) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          setState(() {
-            _addedPreviews.clear();
-            _clearPreviewsWhenRemoteAtLeast = null;
-          });
-        });
-      }
-    });
-
-    // Existing photos (empty while loading or on load failure). The Add tile
-    // stays available so a seller can always add a photo — even to a listing
-    // that has no photos yet, or when listing the existing ones fails.
     final photos = photosAsync.value ?? const <ListingImageFile>[];
     final countKnown = photosAsync.hasValue;
-    final remaining = countKnown ? _maxPhotos - photos.length : _maxPhotos;
+
+    final existingVisible =
+        photos.where((p) => !_stagedRemovedIds.contains(p.id)).toList();
+    final effectiveCount = existingVisible.length + _stagedAdditions.length;
+    final rawRemaining = countKnown
+        ? _maxPhotos - effectiveCount
+        : _maxPhotos - _stagedAdditions.length;
+    final remaining = rawRemaining < 0 ? 0 : rawRemaining;
+    final hasRemovals = _stagedRemovedIds.isNotEmpty;
 
     return _SectionShell(
       child: Column(
@@ -293,7 +234,9 @@ class _ListingEditImagesSectionState
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  countKnown ? '${photos.length}/$_maxPhotos' : '…/$_maxPhotos',
+                  countKnown
+                      ? '${existingVisible.length + _stagedAdditions.length}/$_maxPhotos'
+                      : '…/$_maxPhotos',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -346,7 +289,7 @@ class _ListingEditImagesSectionState
                 ),
               ],
             ),
-          ] else if (photos.isEmpty) ...[
+          ] else if (photos.isEmpty && _stagedAdditions.isEmpty) ...[
             const SizedBox(height: 4),
             Text(
               'No photos yet. Add up to $_maxPhotos photos to show your '
@@ -359,21 +302,65 @@ class _ListingEditImagesSectionState
             spacing: 10,
             runSpacing: 10,
             children: [
-              for (final image in photos)
-                _PhotoTile(
+              for (final image in existingVisible)
+                _ExistingPhotoTile(
                   image: image,
                   busy: _busy,
-                  onRemove: () => _removePhoto(image),
+                  onRemove: () => _stageRemoval(image),
                 ),
-              for (final bytes in _addedPreviews) _AddedPhotoTile(bytes: bytes),
-              if (photos.length + _addedPreviews.length < _maxPhotos)
+              for (var i = 0; i < _stagedAdditions.length; i++)
+                _StagedAdditionTile(
+                  bytes: _stagedAdditions[i].bytes,
+                  busy: _busy,
+                  onRemove: () => _unstageAdded(i),
+                ),
+              if (remaining > 0)
                 _AddTile(
                   busy: _busy,
                   remaining: remaining,
-                  onTap: _busy ? null : () => _addPhotos(photos.length),
+                  onTap: _busy ? null : _stageAddPhotos,
                 ),
             ],
           ),
+          if (hasRemovals) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.red.shade100),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.remove_circle_outline,
+                      size: 16, color: Colors.red.shade400),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${_stagedRemovedIds.length} photo'
+                      '${_stagedRemovedIds.length == 1 ? '' : 's'} will be '
+                      'removed when you save.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.red.shade700,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      foregroundColor: Colors.red.shade700,
+                    ),
+                    onPressed: _busy ? null : _restoreAllRemovals,
+                    child: const Text('Undo'),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -401,13 +388,13 @@ class _SectionShell extends StatelessWidget {
   }
 }
 
-/// Renders one existing photo with a remove action.
-class _PhotoTile extends StatelessWidget {
+/// Renders one existing (remote) photo with a stage-removal action.
+class _ExistingPhotoTile extends StatelessWidget {
   final ListingImageFile image;
   final bool busy;
   final VoidCallback onRemove;
 
-  const _PhotoTile({
+  const _ExistingPhotoTile({
     required this.image,
     required this.busy,
     required this.onRemove,
@@ -458,12 +445,17 @@ class _PhotoTile extends StatelessWidget {
   }
 }
 
-/// Local preview of a photo added in this session, rendered from its bytes so
-/// it is always visible regardless of remote retrieval/network state.
-class _AddedPhotoTile extends StatelessWidget {
+/// Local preview of a photo staged for addition, rendered from its bytes.
+class _StagedAdditionTile extends StatelessWidget {
   final Uint8List bytes;
+  final bool busy;
+  final VoidCallback onRemove;
 
-  const _AddedPhotoTile({required this.bytes});
+  const _StagedAdditionTile({
+    required this.bytes,
+    required this.busy,
+    required this.onRemove,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -493,13 +485,16 @@ class _AddedPhotoTile extends StatelessWidget {
           Positioned(
             top: 4,
             right: 4,
-            child: Container(
-              padding: const EdgeInsets.all(2),
-              decoration: const BoxDecoration(
-                color: Colors.black54,
-                shape: BoxShape.circle,
+            child: GestureDetector(
+              onTap: busy ? null : onRemove,
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: const BoxDecoration(
+                  color: Colors.black54,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, size: 14, color: Colors.white),
               ),
-              child: const Icon(Icons.check, size: 12, color: Colors.white),
             ),
           ),
         ],

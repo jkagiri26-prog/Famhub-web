@@ -11,6 +11,7 @@ import 'package:famhub_app/features/marketplace/domain/entities/listing.dart';
 import 'package:famhub_app/features/marketplace/domain/entities/stock_item.dart';
 import 'package:famhub_app/features/marketplace/domain/enums/listing_status.dart';
 import 'package:famhub_app/features/marketplace/domain/models/listing_edit_changes.dart';
+import 'package:famhub_app/features/marketplace/domain/models/listing_edit_images_state.dart';
 import 'package:famhub_app/features/marketplace/domain/models/listing_image_file.dart';
 import 'package:famhub_app/features/marketplace/domain/models/listing_publication.dart';
 import 'package:famhub_app/features/marketplace/domain/repositories/marketplace_repository.dart';
@@ -131,6 +132,8 @@ class _FakeDataSource extends MarketplaceRemoteDataSource {
   final List<String> deletedFileIds = [];
   int mediaEntriesFetchCount = 0;
   List<Map<String, String>>? mediaEntriesResult;
+  bool throwOnMediaUpload = false;
+  bool throwOnMediaDelete = false;
 
   @override
   Future<void> uploadListingMedia({
@@ -138,11 +141,15 @@ class _FakeDataSource extends MarketplaceRemoteDataSource {
     required String fileName,
     required String listingId,
   }) async {
+    if (throwOnMediaUpload) throw Exception('Photo upload failed: too large');
     uploadedFileNames.add(fileName);
   }
 
   @override
   Future<void> deleteListingMedia(String fileId) async {
+    if (throwOnMediaDelete) {
+      throw Exception('Photo delete failed: permission denied');
+    }
     deletedFileIds.add(fileId);
   }
 
@@ -320,29 +327,39 @@ class _FakeMarketplaceRepository implements MarketplaceRepository {
     required Uint8List bytes,
     required String fileName,
     required String listingId,
-  }) {
-    throw UnimplementedError();
+  }) async {
+    uploadedFileNames.add(fileName);
   }
 
   @override
-  Future<List<String>> fetchListingImageUrls(String listingId) {
-    throw UnimplementedError();
+  Future<List<String>> fetchListingImageUrls(String listingId) async {
+    imageUrlFetchCount++;
+    return imageFiles.map((f) => f.url).toList();
   }
+
+  final List<ListingImageFile> imageFiles = [];
+  int imageUrlFetchCount = 0;
+  int imageFileFetchCount = 0;
 
   @override
   Future<List<ListingImageFile>> fetchListingImageFiles(
     String listingId,
   ) async {
+    imageFileFetchCount++;
     if (failImageFiles) throw Exception('media_get_by_context: 404');
-    return const [];
+    return List<ListingImageFile>.from(imageFiles);
   }
 
   bool failImageFiles = false;
+  final List<String> uploadedFileNames = [];
 
   @override
-  Future<void> deleteListingImage(String fileId) {
-    throw UnimplementedError();
+  Future<void> deleteListingImage(String fileId) async {
+    deletedFileIds.add(fileId);
+    imageFiles.removeWhere((f) => f.id == fileId);
   }
+
+  final List<String> deletedFileIds = [];
 }
 
 void main() {
@@ -747,6 +764,258 @@ void main() {
     });
   });
 
+  group('Listing Edit images dirty-state + save orchestration', () {
+    late _FakeDataSource dataSource;
+    late MarketplaceRepositoryImpl repository;
+
+    setUp(() {
+      dataSource = _FakeDataSource();
+      repository = MarketplaceRepositoryImpl(dataSource);
+    });
+
+    SelectedListingImage image(String name) => SelectedListingImage(
+      bytes: Uint8List.fromList([1, 2, 3]),
+      fileName: name,
+    );
+
+    ListingEditImagesState draft({
+      List<SelectedListingImage> additions = const [],
+      Set<String> removals = const {},
+    }) {
+      return ListingEditImagesState(
+        addedImages: additions,
+        removedIds: removals,
+      );
+    }
+
+    test('add one image marks the draft dirty', () {
+      expect(
+        draft().hasChanges,
+        isFalse,
+        reason: 'unchanged form must not be dirty',
+      );
+      expect(draft(additions: [image('a.webp')]).hasChanges, isTrue);
+    });
+
+    test('removing an existing image marks the draft dirty', () {
+      expect(
+        draft(removals: {'file-1'}).hasChanges,
+        isTrue,
+      );
+    });
+
+    test('add-then-remove of a new image returns to clean', () {
+      final withAdd = draft(additions: [image('a.webp')]);
+      const afterRemove = ListingEditImagesState();
+      expect(afterRemove.hasChanges, isFalse);
+      expect(withAdd.hasChanges, isTrue);
+    });
+
+    test('image-only change never calls update_listing', () async {
+      final container = ProviderContainer(
+        overrides: [
+          marketplaceRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(marketplaceProvider.future);
+
+      final report = await container
+          .read(marketplaceProvider.notifier)
+          .saveListingEdit(
+            listingId: 'list-1',
+            changes: const ListingEditChanges(),
+            images: draft(
+              additions: [image('a.webp'), image('b.webp')],
+              removals: {'file-1'},
+            ),
+          );
+
+      expect(dataSource.metadataCalls, isEmpty,
+          reason: 'update_listing must not fire for image-only changes');
+      expect(dataSource.uploadedFileNames, ['a.webp', 'b.webp']);
+      expect(dataSource.deletedFileIds, ['file-1']);
+      expect(report.uploadedCount, 2);
+      expect(report.removedCount, 1);
+      expect(report.allSaved, isTrue);
+    });
+
+    test('metadata-only change never uploads media', () async {
+      final container = ProviderContainer(
+        overrides: [
+          marketplaceRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(marketplaceProvider.future);
+
+      final report = await container
+          .read(marketplaceProvider.notifier)
+          .saveListingEdit(
+            listingId: 'list-1',
+            changes: ListingEditChanges.diff(
+              original: _listing(),
+              title: 'Renamed',
+              description: _listing().description,
+              pricePerUnit: _listing().pricePerUnit,
+              currency: 'KES',
+            ),
+            images: draft(),
+          );
+
+      expect(dataSource.metadataCalls, hasLength(1));
+      expect(dataSource.uploadedFileNames, isEmpty);
+      expect(dataSource.deletedFileIds, isEmpty);
+      expect(report.allSaved, isTrue);
+    });
+
+    test('metadata + image change performs both operations', () async {
+      final container = ProviderContainer(
+        overrides: [
+          marketplaceRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(marketplaceProvider.future);
+
+      final report = await container
+          .read(marketplaceProvider.notifier)
+          .saveListingEdit(
+            listingId: 'list-1',
+            changes: ListingEditChanges.diff(
+              original: _listing(),
+              title: 'Renamed',
+              description: _listing().description,
+              pricePerUnit: _listing().pricePerUnit,
+              currency: 'KES',
+            ),
+            images: draft(additions: [image('a.webp')]),
+          );
+
+      expect(dataSource.metadataCalls, hasLength(1));
+      expect(dataSource.uploadedFileNames, ['a.webp']);
+      expect(report.allSaved, isTrue);
+    });
+
+    test('removals are applied before uploads (never exceeds the ceiling)', () async {
+      final container = ProviderContainer(
+        overrides: [
+          marketplaceRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(marketplaceProvider.future);
+
+      await container
+          .read(marketplaceProvider.notifier)
+          .saveListingEdit(
+            listingId: 'list-1',
+            changes: const ListingEditChanges(),
+            images: draft(
+              additions: [image('replacement.webp')],
+              removals: {'file-1'},
+            ),
+          );
+
+      // Replace a removed photo: the delete must complete before the upload so
+      // the server never transiently holds more than 3 photos.
+      expect(dataSource.deletedFileIds, ['file-1']);
+      expect(dataSource.uploadedFileNames, ['replacement.webp']);
+    });
+
+    test('image upload failure reports a partial result, not full success', () async {
+      dataSource.throwOnMediaUpload = true;
+      final container = ProviderContainer(
+        overrides: [
+          marketplaceRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(marketplaceProvider.future);
+
+      final report = await container
+          .read(marketplaceProvider.notifier)
+          .saveListingEdit(
+            listingId: 'list-1',
+            changes: ListingEditChanges.diff(
+              original: _listing(),
+              title: 'Renamed',
+              description: _listing().description,
+              pricePerUnit: _listing().pricePerUnit,
+              currency: 'KES',
+            ),
+            images: draft(additions: [image('a.webp')]),
+          );
+
+      expect(dataSource.metadataCalls, hasLength(1),
+          reason: 'metadata should still save');
+      expect(report.metadataSaved, isTrue);
+      expect(report.uploadedCount, 0);
+      expect(report.allImagesSaved, isFalse);
+      expect(report.allSaved, isFalse,
+          reason: 'partial image failure must not report full success');
+    });
+
+    test('metadata failure throws before any upload happens', () async {
+      dataSource.throwOnMetadata = Exception('price check failed');
+      final container = ProviderContainer(
+        overrides: [
+          marketplaceRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(marketplaceProvider.future);
+
+      await expectLater(
+        container.read(marketplaceProvider.notifier).saveListingEdit(
+          listingId: 'list-1',
+          changes: ListingEditChanges.diff(
+            original: _listing(),
+            title: 'Renamed',
+            description: _listing().description,
+            pricePerUnit: _listing().pricePerUnit,
+            currency: 'KES',
+          ),
+          images: draft(additions: [image('a.webp')]),
+        ),
+        throwsA(isA<Exception>()),
+      );
+      expect(dataSource.uploadedFileNames, isEmpty,
+          reason: 'no upload should be attempted after a metadata failure');
+    });
+
+    test('successful image-only save refreshes listing/media state', () async {
+      final container = ProviderContainer(
+        overrides: [
+          marketplaceRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(marketplaceProvider.future);
+      await container.read(listingMediaFilesProvider('list-1').future);
+      expect(dataSource.mediaEntriesFetchCount, 1);
+
+      await container
+          .read(marketplaceProvider.notifier)
+          .saveListingEdit(
+            listingId: 'list-1',
+            changes: const ListingEditChanges(),
+            images: draft(additions: [image('a.webp')]),
+          );
+
+      await container.read(listingMediaFilesProvider('list-1').future);
+      expect(dataSource.mediaEntriesFetchCount, 2,
+          reason: 'image-only save must refresh listing/media providers');
+    });
+  });
+
   group('Listing Edit form (TEST 16)', () {
     Future<void> pumpEditor(
       WidgetTester tester,
@@ -844,5 +1113,68 @@ void main() {
       );
       expect(find.text('Add 3 photos'), findsOneWidget);
     });
+
+    testWidgets('Save enables when an existing image is staged for removal', (
+      tester,
+    ) async {
+      final repository = _FakeMarketplaceRepository();
+      repository.listing = _listing(id: 'list-1');
+      repository.imageFiles.addAll([
+        const ListingImageFile(id: 'file-1', url: 'https://cdn/a.webp'),
+      ]);
+
+      await pumpEditor(tester, repository);
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final saveFinder = find.byKey(const Key('listing_edit_save_button'));
+      var save = tester.widget<ElevatedButton>(saveFinder);
+      expect(save.onPressed, isNull, reason: 'unchanged form not dirty');
+
+      // Stage removal of the only existing photo.
+      await tester.ensureVisible(find.byIcon(Icons.close).first);
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.close).first);
+      await tester.pump();
+
+      save = tester.widget<ElevatedButton>(saveFinder);
+      expect(save.onPressed, isNotNull, reason: 'image removal must dirty form');
+    });
+
+    testWidgets(
+      'removing a photo frees a slot so a replacement can be added '
+      '(never blocked by the 3-photo cap)',
+      (tester) async {
+        final repository = _FakeMarketplaceRepository();
+        repository.listing = _listing(id: 'list-1');
+        repository.imageFiles.addAll([
+          const ListingImageFile(id: 'file-1', url: 'https://cdn/a.webp'),
+          const ListingImageFile(id: 'file-2', url: 'https://cdn/b.webp'),
+          const ListingImageFile(id: 'file-3', url: 'https://cdn/c.webp'),
+        ]);
+
+        await pumpEditor(tester, repository);
+        await tester.pump(const Duration(milliseconds: 100));
+
+        // At the cap the add affordance must be hidden.
+        expect(find.textContaining('Add '), findsNothing);
+        expect(find.text('3/3'), findsOneWidget);
+
+        // Remove one existing photo → cap frees to 2, add tile reappears.
+        await tester.ensureVisible(find.byIcon(Icons.close).first);
+        await tester.pump();
+        await tester.tap(find.byIcon(Icons.close).first);
+        await tester.pump();
+        expect(find.text('2/3'), findsOneWidget);
+        expect(find.text('Add a photo'), findsOneWidget);
+
+        // Undo restores the removal and the cap goes back up.
+        await tester.ensureVisible(find.text('Undo'));
+        await tester.pump();
+        await tester.tap(find.text('Undo'));
+        await tester.pump();
+        expect(find.text('3/3'), findsOneWidget);
+        expect(find.textContaining('Add '), findsNothing);
+      },
+    );
   });
 }
