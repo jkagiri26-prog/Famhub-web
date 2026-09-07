@@ -342,6 +342,8 @@ CREATE TABLE farm_management.assets (
   unit_id uuid,
   metadata jsonb DEFAULT '{}'::jsonb,
   CONSTRAINT assets_pkey PRIMARY KEY (id),
+  CONSTRAINT assets_farm_field_fkey FOREIGN KEY (field_id) REFERENCES farm_management.fields(id),
+  CONSTRAINT assets_farm_field_fkey FOREIGN KEY (farm_id) REFERENCES farm_management.fields(farm_id),
   CONSTRAINT farm.assets_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES core.entities(id),
   CONSTRAINT farm.assets_field_id_fkey FOREIGN KEY (field_id) REFERENCES farm_management.fields(id),
   CONSTRAINT farm.assets_variant_id_fkey FOREIGN KEY (variant_id) REFERENCES core.item_variants(id),
