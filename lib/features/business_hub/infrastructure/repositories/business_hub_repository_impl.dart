@@ -10,6 +10,7 @@
 
 import '../../domain/entities/business_entity.dart';
 import '../../domain/entities/business_listing.dart';
+import '../../domain/entities/business_member.dart';
 import '../../domain/entities/business_profile.dart';
 import '../../domain/entities/business_transaction.dart';
 import '../../domain/entities/inventory_item.dart';
@@ -289,6 +290,54 @@ class BusinessHubRepositoryImpl implements BusinessHubRepository {
         transactionRef: raw['transaction_id']?.toString(),
         transactionDate: _parseDateTime(raw['transaction_date']),
         recordedBy: raw['recorded_by']?.toString(),
+      );
+    }).toList();
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // TEAM & MEMBERS (core.entity_members)
+  // ════════════════════════════════════════════════════════════════
+
+  @override
+  Future<List<BusinessMember>> fetchBusinessMembers(String entityId) async {
+    final rawRows = await _dataSource.fetchEntityMemberRows(entityId);
+    if (rawRows.isEmpty) return const [];
+
+    final profileIds = <String>{};
+    final roleIds = <String>{};
+    for (final raw in rawRows) {
+      final profileId = raw['profile_id']?.toString();
+      final roleId = raw['role_id']?.toString();
+      if (profileId != null && profileId.isNotEmpty) profileIds.add(profileId);
+      if (roleId != null && roleId.isNotEmpty) roleIds.add(roleId);
+    }
+
+    Map<String, String> profileNames = const {};
+    Map<String, String> roleNames = const {};
+    try {
+      profileNames = await _dataSource.fetchUserProfileNamesByIds(profileIds);
+    } catch (_) {}
+    try {
+      roleNames = await _dataSource.fetchUserRoleNamesByIds(roleIds);
+    } catch (_) {}
+
+    return rawRows.map((raw) {
+      final profileId = raw['profile_id']?.toString() ?? '';
+      final roleId = raw['role_id']?.toString();
+      return BusinessMember(
+        profileId: profileId,
+        roleId: roleId,
+        roleName: roleId != null && roleNames.containsKey(roleId)
+            ? roleNames[roleId]
+            : null,
+        displayName: profileNames.containsKey(profileId)
+            ? profileNames[profileId]
+            : null,
+        canSell: raw['can_sell'] == true,
+        canManage: raw['can_manage'] == true,
+        canReceivePayments: raw['can_receive_payments'] == true,
+        membershipStatus:
+            raw['membership_status']?.toString() ?? 'active',
       );
     }).toList();
   }

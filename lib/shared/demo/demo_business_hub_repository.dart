@@ -14,6 +14,7 @@
 
 import 'package:famhub_app/features/business_hub/domain/entities/business_entity.dart';
 import 'package:famhub_app/features/business_hub/domain/entities/business_listing.dart';
+import 'package:famhub_app/features/business_hub/domain/entities/business_member.dart';
 import 'package:famhub_app/features/business_hub/domain/entities/business_profile.dart';
 import 'package:famhub_app/features/business_hub/domain/entities/business_transaction.dart';
 import 'package:famhub_app/features/business_hub/domain/entities/inventory_item.dart';
@@ -302,6 +303,28 @@ class DemoBusinessHubRepository implements BusinessHubRepository {
         transactionRef: 'RFD-44ZQ-77',
         transactionDate: _demoTimeRef(2026, 2, 12, 16, 40),
         recordedBy: 'system',
+      ),
+    ];
+  }
+
+  @override
+  Future<List<BusinessMember>> fetchBusinessMembers(String entityId) async {
+    if (entityId != 'demo-entity-1') return const [];
+    return const [
+      BusinessMember(
+        profileId: 'demo-profile-1',
+        roleId: 'demo-role-1',
+        roleName: 'Owner',
+        displayName: 'Jane Kagiri',
+        canManage: true,
+        canReceivePayments: true,
+      ),
+      BusinessMember(
+        profileId: 'demo-profile-4',
+        roleId: 'demo-role-2',
+        roleName: 'Sales',
+        displayName: 'Peter Maina',
+        canSell: true,
       ),
     ];
   }

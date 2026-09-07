@@ -59,6 +59,7 @@ import '../../domain/entities/business_entity.dart';
 import '../../domain/entities/business_profile.dart';
 import '../widgets/business_hub_inventory_tab.dart';
 import '../widgets/business_hub_listings_tab.dart';
+import '../widgets/business_hub_more_tab.dart';
 import '../widgets/business_hub_operations_widget.dart';
 import '../widgets/business_hub_payments_tab.dart';
 import '../widgets/business_hub_procurement_tab.dart';
@@ -319,6 +320,7 @@ class _BusinessHubPageState extends ConsumerState<BusinessHubPage>
     if (spec.label == 'Sales') return const BusinessHubSalesTab();
     if (spec.label == 'Listings') return const BusinessHubListingsTab();
     if (spec.label == 'Payments') return const BusinessHubPaymentsTab();
+    if (spec.label == 'More') return const BusinessHubMoreTab();
     return _buildBoundaryContent(spec);
   }
 

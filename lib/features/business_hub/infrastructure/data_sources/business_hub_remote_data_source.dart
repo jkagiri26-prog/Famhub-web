@@ -89,6 +89,13 @@ class BusinessHubRemoteDataSource {
     payment_status, transaction_id, transaction_date, recorded_by
   ''';
 
+  /// PostgREST select fragment for `core.entity_members` member rows —
+  /// scalar columns only.
+  static const String _entityMemberSelectQuery = '''
+    profile_id, role_id, can_sell, can_manage, can_receive_payments,
+    membership_status
+  ''';
+
   /// Fetch `core.entities` rows available to the current user.
   ///
   /// RLS scopes results to entities the authenticated user owns or is a
@@ -442,6 +449,58 @@ class BusinessHubRemoteDataSource {
       throw Exception('Failed to fetch buyers: ${e.message}');
     } catch (e) {
       throw Exception('Failed to fetch buyers: $e');
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // TEAM & MEMBERS (core.entity_members)
+  // ════════════════════════════════════════════════════════════════
+
+  /// Fetch active `core.entity_members` rows for an entity. RLS scopes
+  /// rows to what the current user is authorized to see.
+  Future<List<Map<String, dynamic>>> fetchEntityMemberRows(
+    String entityId,
+  ) async {
+    try {
+      final response = await _client
+          .schema('core')
+          .from('entity_members')
+          .select(_entityMemberSelectQuery)
+          .eq('entity_id', entityId)
+          .eq('membership_status', 'active')
+          .eq('is_active', true)
+          .order('assigned_at', ascending: true);
+      return (response as List).cast<Map<String, dynamic>>();
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to fetch members: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to fetch members: $e');
+    }
+  }
+
+  /// Resolve role names for the given `core.user_roles` ids
+  /// (id → name).
+  Future<Map<String, String>> fetchUserRoleNamesByIds(
+    Set<String> roleIds,
+  ) async {
+    final ids = roleIds.where((id) => id.isNotEmpty).toList();
+    if (ids.isEmpty) return const {};
+    try {
+      final response = await _client
+          .schema('core')
+          .from('user_roles')
+          .select('id, name')
+          .inFilter('id', ids);
+      final rows = (response as List).cast<Map<String, dynamic>>();
+      return {
+        for (final row in rows)
+          if (row['id'] != null)
+            row['id'].toString(): row['name']?.toString() ?? '',
+      };
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to fetch roles: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to fetch roles: $e');
     }
   }
 

@@ -23,6 +23,7 @@
 
 import '../entities/business_entity.dart';
 import '../entities/business_listing.dart';
+import '../entities/business_member.dart';
 import '../entities/business_profile.dart';
 import '../entities/business_transaction.dart';
 import '../entities/inventory_item.dart';
@@ -101,4 +102,13 @@ abstract class BusinessHubRepository {
   /// the active business (the business of record). Amounts are shown per
   /// row with their real currency code; no totals are computed here.
   Future<List<BusinessTransaction>> fetchTransactions(String entityId);
+
+  /// Fetch active team members for the given business entity
+  /// (read-only).
+  ///
+  /// Reads the canonical `core.entity_members` (membership_status active)
+  /// for the active business. Member display names are enriched from
+  /// `users.profiles` and role names from `core.user_roles` (best-effort,
+  /// RLS-bound). No invitations or role/permission changes are exposed.
+  Future<List<BusinessMember>> fetchBusinessMembers(String entityId);
 }
