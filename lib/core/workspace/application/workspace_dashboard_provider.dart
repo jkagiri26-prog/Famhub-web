@@ -70,6 +70,7 @@ class WorkspaceDashboardCatalog {
       'opportunities',
     ],
     'trader': [
+      'trader',
       'marketplace',
       'logistics',
       'analytics',

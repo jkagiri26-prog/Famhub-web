@@ -298,12 +298,12 @@ class ModuleRegistry {
     ),
 
     // ─────────────────────────────────────────────
-    // Business Hub Module (backend schema identity: commerce)
+    // Trader Module (backend schema identity stays commerce)
     // ─────────────────────────────────────────────
     ModuleDefinition(
-      moduleId: 'commerce',
-      name: 'Business Hub',
-      description: 'Manage commercial business entities and operations',
+      moduleId: 'trader',
+      name: 'Trader',
+      description: 'Trading workspace for business entities and operations',
       version: '1.0.0',
       entryRoute: '/business-hub',
       iconKey: 'business',

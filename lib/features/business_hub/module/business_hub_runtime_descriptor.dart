@@ -1,5 +1,5 @@
 /// ============================================================
-/// BUSINESS HUB MODULE — RUNTIME DESCRIPTOR
+/// TRADER MODULE — RUNTIME DESCRIPTOR
 /// ============================================================
 ///
 /// 🧠 LOCATION CONTEXT:
@@ -12,21 +12,22 @@
 ///
 /// ✅ ARCHITECTURE COMPLIANCE:
 ///   - Backend (system.modules) is the ONLY source of truth
-///   - Frontend module key is `commerce` (feature folder: business_hub);
-///     the backend schema identity is also `commerce` — never duplicated
+///   - Frontend module key is `trader` (feature folder: business_hub).
+///     The Supabase schema identity `commerce` is NOT renamed — it is
+///     the backend contract, never duplicated on the frontend.
 /// ============================================================
 library;
 
 import 'package:famhub_app/core/composition/domain/models/module_descriptor.dart';
 
 /// ============================================================
-/// BUSINESS HUB MODULE DESCRIPTOR
+/// TRADER MODULE DESCRIPTOR
 /// ============================================================
 ModuleRuntimeDescriptor createBusinessHubDescriptor() {
   return const ModuleRuntimeDescriptor(
-    moduleKey: 'commerce',
-    displayName: 'Business Hub',
-    description: 'Manage commercial business entities and operations',
+    moduleKey: 'trader',
+    displayName: 'Trader',
+    description: 'Trading workspace for business entities and operations',
     iconKey: 'business',
     route: '/business-hub',
     displayOrder: 17,
@@ -34,10 +35,10 @@ ModuleRuntimeDescriptor createBusinessHubDescriptor() {
     // ── Dashboard Widget Contributions ──
     // The workspace composes sections from the business's capabilities,
     // NOT from business type. More widgets are added as operational
-    // sections bind to real commerce contracts.
+    // sections bind to real commerce backend contracts.
     dashboardWidgets: [
       DashboardWidgetDescriptor(
-        moduleKey: 'commerce',
+        moduleKey: 'trader',
         widgetKey: 'business_hub_operations',
         displayName: 'Business Operations',
         sectionKey: 'business_hub',
@@ -53,7 +54,7 @@ ModuleRuntimeDescriptor createBusinessHubDescriptor() {
       HomeWidgetDescriptor(
         widgetKey: 'business_hub_home_card',
         widgetType: 'card',
-        displayName: 'Business Hub',
+        displayName: 'Trader',
         displayOrder: 1,
         iconKey: 'business',
         priority: 6,
@@ -74,7 +75,7 @@ ModuleRuntimeDescriptor createBusinessHubDescriptor() {
     permissions: [
       PermissionDescriptor(
         permissionKey: 'business_hub:view',
-        displayName: 'View Business Hub',
+        displayName: 'View Trader',
         description: 'Ability to view business entities and operations',
       ),
       PermissionDescriptor(

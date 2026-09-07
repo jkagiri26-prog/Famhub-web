@@ -60,7 +60,7 @@ import '../../domain/entities/business_profile.dart';
 import '../widgets/business_hub_inventory_tab.dart';
 import '../widgets/business_hub_listings_tab.dart';
 import '../widgets/business_hub_more_tab.dart';
-import '../widgets/business_hub_operations_widget.dart';
+import '../widgets/business_hub_overview_tab.dart';
 import '../widgets/business_hub_payments_tab.dart';
 import '../widgets/business_hub_procurement_tab.dart';
 import '../widgets/business_hub_sales_tab.dart';
@@ -179,10 +179,10 @@ class _BusinessHubPageState extends ConsumerState<BusinessHubPage>
         children: [
           const SizedBox(height: 12),
           ModuleHeaderWidget(
-            title: 'Business Hub',
+            title: 'Trader',
             subtitle: activeBusiness != null
                 ? activeBusiness.name
-                : 'Manage your commercial business entities',
+                : 'Manage your trading business entities',
           ),
           const SizedBox(height: 12),
           Expanded(
@@ -328,11 +328,21 @@ class _BusinessHubPageState extends ConsumerState<BusinessHubPage>
   /// OVERVIEW TAB
   /// ============================================================
   Widget _buildOverviewContent() {
-    return const SingleChildScrollView(
-      physics: BouncingScrollPhysics(),
-      padding: EdgeInsets.only(top: 12, bottom: 24),
-      child: BusinessHubOperationsWidget(),
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.only(top: 12, bottom: 24),
+      child: BusinessHubOverviewTab(onOpenTab: _openTab),
     );
+  }
+
+  /// Switch to an existing Business Hub tab by label (no new routes).
+  void _openTab(String label) {
+    for (var i = 0; i < _tabSpecs.length; i++) {
+      if (_tabSpecs[i].label == label) {
+        _tabController.animateTo(i);
+        return;
+      }
+    }
   }
 
   /// ============================================================

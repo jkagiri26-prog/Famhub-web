@@ -234,7 +234,7 @@ void bootstrapModulePageBuilders() {
   ModulePageRegistry.register(
       'admin_console', (_) => const AdminDashboardPage());
   ModulePageRegistry.register(
-      'commerce', (_) => const BusinessHubPage());
+      'trader', (_) => const BusinessHubPage());
 
   // ── Enterprise System Pages ──
   ModulePageRegistry.register(

@@ -458,7 +458,7 @@ class _TransactionDetailSheet extends StatelessWidget {
               child: const Text(
                 'Collection, payouts, refunds, invoicing, wallets and '
                 'reconciliation belong to Finance and are not available '
-                'from Business Hub.',
+                'from Trader.',
                 style: TextStyle(fontSize: 11, color: Colors.blueGrey),
               ),
             ),

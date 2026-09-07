@@ -134,7 +134,7 @@ void _bootstrapWidgetRegistrations() {
   // Marketplace — 5 dashboard widgets with live providers
   bootstrapMarketplaceWidgets();
 
-  // Business Hub — capability-aware operations foundation
+  // Trader — capability-aware operations foundation
   bootstrapBusinessHubWidgets();
 
   // Future: Analytics, Knowledge, Extension, Financing widgets
