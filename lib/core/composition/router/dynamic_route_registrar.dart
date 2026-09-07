@@ -15,6 +15,7 @@ import 'package:famhub_app/core/shell/presentation/layouts/common/shell_not_foun
 
 import 'package:famhub_app/core/composition/domain/models/runtime_module.dart';
 import 'package:famhub_app/core/router/route_names.dart';
+import 'package:famhub_app/system/registry/module_registry.dart';
 import 'package:famhub_app/core/shell/presentation/pages/new_unified_app_shell.dart';
 import 'package:famhub_app/core/shell/presentation/regions/unified_dashboard_host.dart';
 import 'package:famhub_app/core/composition/domain/models/composition_metrics.dart';
@@ -103,8 +104,13 @@ class DynamicRouteRegistrar {
             '[DynamicRouteRegistrar] No page builder for "${module.moduleId}"');
         continue;
       }
+      // Route path is resolved from the static ModuleRegistry entry route
+      // (falling back to the backend-provided route) so router paths always
+      // match the routes used by navigation items.
+      final def = ModuleRegistry.byId(module.moduleId);
+      final path = def?.entryRoute ?? module.route;
       moduleRoutes.add(GoRoute(
-        path: module.route,
+        path: path,
         name: module.moduleId,
         builder: (context, state) => builder(context),
       ));
