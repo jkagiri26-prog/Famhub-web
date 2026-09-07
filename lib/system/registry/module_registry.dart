@@ -324,7 +324,15 @@ class ModuleRegistry {
 
   /// Find a module definition by its ID.
   /// Pure lookup — no I/O, no exceptions thrown.
+  ///
+  /// LEGACY BACKEND BRIDGE: before the Trader rename the module row was
+  /// seeded as `commerce`. Until the backend `system.modules` seed is
+  /// updated, such rows resolve to the Trader definition so their nav
+  /// route (`/trader`) matches the registered route.
   static ModuleDefinition? byId(String moduleId) {
+    if (moduleId == 'commerce') {
+      moduleId = 'trader';
+    }
     for (final def in definitions) {
       if (def.moduleId == moduleId) return def;
     }
