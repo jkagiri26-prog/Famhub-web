@@ -38,6 +38,7 @@ import 'package:famhub_app/features/profile/presentation/pages/profile_page.dart
 import 'package:famhub_app/features/profile/presentation/pages/settings_page.dart';
 import 'package:famhub_app/features/admin_console/presentation/pages/admin_dashboard_page.dart';
 import 'package:famhub_app/features/guest/famhub_home_page.dart';
+import 'package:famhub_app/features/business_hub/presentation/pages/business_hub_page.dart';
 
 // ── Enterprise Phase: System Pages ──
 import 'package:famhub_app/features/search/presentation/pages/global_search_page.dart';
@@ -232,6 +233,8 @@ void bootstrapModulePageBuilders() {
       'profile_settings', (_) => const SettingsPage());
   ModulePageRegistry.register(
       'admin_console', (_) => const AdminDashboardPage());
+  ModulePageRegistry.register(
+      'commerce', (_) => const BusinessHubPage());
 
   // ── Enterprise System Pages ──
   ModulePageRegistry.register(

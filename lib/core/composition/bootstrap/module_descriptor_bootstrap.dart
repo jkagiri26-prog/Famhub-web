@@ -38,6 +38,7 @@ import 'package:famhub_app/features/refferal_hub/module/referral_hub_runtime_des
 import 'package:famhub_app/features/analytics/module/analytics_runtime_descriptor.dart';
 import 'package:famhub_app/features/admin_console/module/admin_console_runtime_descriptor.dart';
 import 'package:famhub_app/features/profile/module/profile_runtime_descriptor.dart';
+import 'package:famhub_app/features/business_hub/module/business_hub_runtime_descriptor.dart';
 
 /// ============================================================
 /// BOOTSTRAP ALL MODULE DESCRIPTORS
@@ -66,5 +67,6 @@ void bootstrapModuleDescriptors() {
   ModuleDescriptorRegistry.register(createAnalyticsDescriptor());
   ModuleDescriptorRegistry.register(createAdminConsoleDescriptor());
   ModuleDescriptorRegistry.register(createProfileDescriptor());
+  ModuleDescriptorRegistry.register(createBusinessHubDescriptor());
 }
 

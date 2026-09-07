@@ -124,6 +124,11 @@ class RouteRegistry {
       routeName: 'admin',
     ),
     RouteMapping(
+      moduleId: 'commerce',
+      route: '/business-hub',
+      routeName: 'businessHub',
+    ),
+    RouteMapping(
       moduleId: 'guest',
       route: '/guest',
       routeName: 'guest',

@@ -24,6 +24,7 @@ library;
 // ── Widget Registration ──
 import 'package:famhub_app/features/farm_management/presentation/widgets/farm_widget_registration_bootstrap.dart';
 import 'package:famhub_app/features/marketplace/presentation/widgets/marketplace_widget_registration.dart';
+import 'package:famhub_app/features/business_hub/presentation/widgets/business_hub_widget_registration.dart';
 
 /// ============================================================
 /// BOOTSTRAP PHASE D
@@ -132,6 +133,9 @@ void _bootstrapWidgetRegistrations() {
 
   // Marketplace — 5 dashboard widgets with live providers
   bootstrapMarketplaceWidgets();
+
+  // Business Hub — capability-aware operations foundation
+  bootstrapBusinessHubWidgets();
 
   // Future: Analytics, Knowledge, Extension, Financing widgets
   // bootstrapAnalyticsWidgets();

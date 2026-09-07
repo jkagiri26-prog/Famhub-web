@@ -296,6 +296,22 @@ class ModuleRegistry {
       isVisibleDefault: false,
       maintenanceModeDefault: false,
     ),
+
+    // ─────────────────────────────────────────────
+    // Business Hub Module (backend schema identity: commerce)
+    // ─────────────────────────────────────────────
+    ModuleDefinition(
+      moduleId: 'commerce',
+      name: 'Business Hub',
+      description: 'Manage commercial business entities and operations',
+      version: '1.0.0',
+      entryRoute: '/business-hub',
+      iconKey: 'business',
+      displayOrder: 17,
+      isEnabledDefault: true,
+      isVisibleDefault: true,
+      maintenanceModeDefault: false,
+    ),
   ];
 
   /// ============================================================
