@@ -62,7 +62,8 @@ void main() {
       imageUrl: null,
     )));
 
-    expect(find.text('Fresh Tomatoes'), findsOneWidget);
+    expect(find.textContaining('Fresh Tomatoes'), findsOneWidget);
+    expect(find.textContaining('Test crop'), findsOneWidget);
     expect(find.text('KSh 150/kg'), findsOneWidget);
     expect(find.text('Nairobi, Kenya'), findsOneWidget);
   });

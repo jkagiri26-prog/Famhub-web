@@ -32,7 +32,7 @@ class ListingTile extends ConsumerWidget {
       },
       child: ListingCardWidget(
         title: listing.title,
-        subtitle: listing.description ?? 'Available from a local seller',
+        subtitle: listing.description ?? '',
         price: listing.displayPrice,
         location: listing.locationName ?? 'Location unavailable',
         imageUrl: resolvedImages.isEmpty ? null : resolvedImages.first,

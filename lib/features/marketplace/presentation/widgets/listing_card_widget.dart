@@ -68,17 +68,19 @@ class ListingCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade100),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -91,7 +93,7 @@ class ListingCardWidget extends StatelessWidget {
               LayoutBuilder(
                 builder: (context, constraints) {
                   final imageHeight =
-                      (constraints.maxWidth / 1.5).clamp(104.0, 148.0);
+                      (constraints.maxWidth / 1.35).clamp(108.0, 152.0);
                   return SizedBox(
                     width: double.infinity,
                     height: imageHeight,
@@ -105,10 +107,10 @@ class ListingCardWidget extends StatelessWidget {
                   left: 8,
                   child: Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.65),
-                      borderRadius: BorderRadius.circular(6),
+                      color: Colors.black.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(5),
                     ),
                     child: Text(
                       badge!,
@@ -124,56 +126,77 @@ class ListingCardWidget extends StatelessWidget {
             ],
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+            padding: const EdgeInsets.fromLTRB(10, 7, 10, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Line 1 — title · variant (compact, single line).
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: Text(
-                        title,
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: title,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                                height: 1.15,
+                              ),
+                            ),
+                            if (subtitle.trim().isNotEmpty) ...[
+                              const TextSpan(
+                                text: '  ·  ',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              TextSpan(
+                                text: subtitle.trim(),
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 12,
+                                  height: 1.15,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                          height: 1.2,
-                        ),
                       ),
                     ),
-                    if (trailing != null) trailing!,
+                    if (trailing != null) ...[
+                      const SizedBox(width: 6),
+                      trailing!,
+                    ],
                   ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey.shade600,
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 5),
+                // Line 2 — price + unit.
                 Text(
                   price,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                    height: 1.2,
-                    color: Theme.of(context).colorScheme.primary,
+                    fontSize: 13,
+                    height: 1.15,
+                    color: theme.colorScheme.primary,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
+                // Line 3 — location.
                 Row(
                   children: [
-                    Icon(Icons.location_on_outlined,
-                        size: 13, color: Colors.grey.shade500),
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 12,
+                      color: Colors.grey.shade500,
+                    ),
                     const SizedBox(width: 3),
                     Expanded(
                       child: Text(
@@ -183,7 +206,7 @@ class ListingCardWidget extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11,
                           color: Colors.grey.shade600,
-                          height: 1.2,
+                          height: 1.15,
                         ),
                       ),
                     ),

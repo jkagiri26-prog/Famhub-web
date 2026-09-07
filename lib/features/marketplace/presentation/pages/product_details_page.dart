@@ -148,7 +148,7 @@ class _ProductDetailContent extends ConsumerWidget {
           // Main listing card
           ListingCardWidget(
             title: listing.title,
-            subtitle: listing.description ?? 'Market ready quality',
+            subtitle: listing.description ?? '',
             price: listing.displayPrice,
             location: listing.locationName ?? listing.locationId ?? 'Unknown',
             imageUrl: imageUrls.isEmpty ? null : imageUrls.first,
