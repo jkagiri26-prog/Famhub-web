@@ -55,6 +55,9 @@ import 'package:famhub_app/core/workspace/domain/workspace_catalog_item.dart';
 /// ============================================================
 class WorkspaceDashboardCatalog {
   /// workspace type → ordered module keys (first = primary experience)
+  ///
+  /// Only the retained workspace types get a curated workspace dashboard:
+  ///   farmer, trader/supplier, institution.
   static const Map<String, List<String>> modulePromotions = {
     'farmer': [
       'farm_management',
@@ -84,24 +87,6 @@ class WorkspaceDashboardCatalog {
       'opportunities',
       'marketplace',
     ],
-    'supplier': [
-      'marketplace',
-      'logistics',
-      'analytics',
-      'agri_connect',
-    ],
-    'service_provider': [
-      'extension_services',
-      'analytics',
-      'agri_connect',
-      'agri_tech_lab',
-    ],
-    'knowledge_partner': [
-      'knowledge',
-      'agri_tech_lab',
-      'analytics',
-      'agri_connect',
-    ],
   };
 
   /// Ordered module keys for a workspace type. Unmapped types return [].
@@ -124,15 +109,20 @@ class WorkspaceDashboardCatalog {
     final normalized =
         raw.trim().toLowerCase().replaceAll(RegExp(r'[\s\-/]+'), '_');
     const aliases = <String, String>{
-      'financial_institution': 'institution',
-      'bank': 'institution',
-      'input_supplier': 'supplier',
-      'agrovet': 'supplier',
+      // farmer stays 'farmer'.
+      // trader/supplier family → trader
+      'supplier': 'trader',
+      'input_supplier': 'trader',
+      'agrovet': 'trader',
       'aggregator': 'trader',
       'retailer': 'trader',
-      'extension_service': 'service_provider',
-      'trainer': 'service_provider',
-      'knowledge': 'knowledge_partner',
+      'supplier_trader': 'trader',
+      'trader_supplier': 'trader',
+      'trader_retailer': 'trader',
+      'produce_trader': 'trader',
+      // institution family
+      'financial_institution': 'institution',
+      'bank': 'institution',
     };
     return aliases[normalized] ?? normalized;
   }

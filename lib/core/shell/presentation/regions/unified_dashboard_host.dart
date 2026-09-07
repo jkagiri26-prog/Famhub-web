@@ -14,7 +14,7 @@ import 'package:famhub_app/core/dashboard_engine/presentation/renderer/responsiv
 /// existing module landing page — based on the active workspace type.
 ///
 ///   farmer            → FarmManagementPage      (farm_management)
-///   trader / supplier → MarketplacePage         (marketplace)
+///   trader / supplier → Trader module           (trader)
 ///   institution       → FinancingPage           (finance)
 ///   service_provider  → ExtensionServicesPage   (extension_services)
 ///   knowledge_partner → KnowledgeLinkPage       (knowledge)
