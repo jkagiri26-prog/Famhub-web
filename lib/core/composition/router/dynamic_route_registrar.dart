@@ -110,6 +110,17 @@ class DynamicRouteRegistrar {
       ));
     }
 
+    // First-class module routes that must always resolve even before a
+    // matching `system.modules` row enables them. The Trader module is the
+    // trader/supplier workspace landing, so its route is always present.
+    if (!moduleRoutes.any((r) => r.name == 'trader')) {
+      moduleRoutes.add(GoRoute(
+        path: '/trader',
+        name: 'trader',
+        builder: (context, state) => const BusinessHubPage(),
+      ));
+    }
+
     final router = GoRouter(
       initialLocation: AppRoutes.root,
       routes: [

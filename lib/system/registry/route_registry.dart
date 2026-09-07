@@ -125,8 +125,8 @@ class RouteRegistry {
     ),
     RouteMapping(
       moduleId: 'trader',
-      route: '/business-hub',
-      routeName: 'businessHub',
+      route: '/trader',
+      routeName: 'trader',
     ),
     RouteMapping(
       moduleId: 'guest',

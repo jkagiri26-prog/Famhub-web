@@ -29,7 +29,7 @@ ModuleRuntimeDescriptor createBusinessHubDescriptor() {
     displayName: 'Trader',
     description: 'Trading workspace for business entities and operations',
     iconKey: 'business',
-    route: '/business-hub',
+    route: '/trader',
     displayOrder: 17,
 
     // ── Dashboard Widget Contributions ──
@@ -64,8 +64,8 @@ ModuleRuntimeDescriptor createBusinessHubDescriptor() {
     // ── Routes ──
     routes: [
       RouteDescriptor(
-        path: '/business-hub',
-        name: 'business_hub',
+        path: '/trader',
+        name: 'trader',
         isPrimary: true,
         displayOrder: 1,
       ),

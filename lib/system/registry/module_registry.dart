@@ -305,7 +305,7 @@ class ModuleRegistry {
       name: 'Trader',
       description: 'Trading workspace for business entities and operations',
       version: '1.0.0',
-      entryRoute: '/business-hub',
+      entryRoute: '/trader',
       iconKey: 'business',
       displayOrder: 17,
       isEnabledDefault: true,
