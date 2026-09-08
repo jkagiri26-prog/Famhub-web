@@ -20,6 +20,7 @@ import 'package:go_router/go_router.dart';
 
 import '../providers/module_provider.dart';
 import '../theme/shell_theme.dart';
+import '../workspace/application/workspace_dashboard_provider.dart';
 import 'nav_item.dart';
 import 'nav_config.dart';
 
@@ -52,19 +53,54 @@ class ShellBottomNav extends ConsumerWidget {
             .whenOrNull(data: (m) => m.length) ??
         0;
 
-    // Always include FAMHUB Home as first item, then modules, then Profile.
-    // Home = general platform homepage (/home); the workspace Dashboard
-    // lives at '/' and is entered post-workspace-selection.
-    final allItems = [
+    // ── Fixed workspace-model navigation: 5 positions ──
+    //   1. Home (global)          → /home
+    //   2. Marketplace (global)   → /marketplace
+    //   3. Workspace Dashboard    → '/'  (dynamic, follows active workspace)
+    //   4. Traceability (global)  → /traceability
+    //   5. More (global)          → sheet of remaining modules
+    final wsType = ref.watch(activeWorkspaceTypeProvider);
+    final workspaceItem = _workspaceNavItem(wsType);
+
+    final fixedItems = [
       const NavItem(
-        moduleKey: 'dashboard',
+        moduleKey: 'home',
         displayName: 'Home',
         route: '/home',
         icon: Icons.home_rounded,
         displayOrder: 0,
         bottomNavVisible: true,
       ),
-      ...navItems,
+      const NavItem(
+        moduleKey: 'marketplace',
+        displayName: 'Marketplace',
+        route: '/marketplace',
+        icon: Icons.storefront_outlined,
+        displayOrder: 1,
+        bottomNavVisible: true,
+      ),
+      workspaceItem,
+      const NavItem(
+        moduleKey: 'traceability',
+        displayName: 'Traceability',
+        route: '/traceability',
+        icon: Icons.qr_code,
+        displayOrder: 3,
+        bottomNavVisible: true,
+      ),
+    ];
+
+    // Everything else (modules not pinned globally and not the current
+    // workspace dashboard) lives behind the fixed "More" destination.
+    // Opening a module from More NEVER switches the workspace/context.
+    final excluded = <String>{
+      'marketplace',
+      'traceability',
+      workspaceItem.moduleKey,
+    };
+    final extraItems = <NavItem>[
+      for (final item in navItems)
+        if (!excluded.contains(item.moduleKey)) item,
       if (!navItems.any((i) => i.moduleKey == 'profile'))
         const NavItem(
           moduleKey: 'profile',
@@ -76,21 +112,86 @@ class ShellBottomNav extends ConsumerWidget {
         ),
     ];
 
-    final selectedIndex = _resolveIndex(location, allItems);
+    final selectedIndex = _resolveFixedIndex(location, fixedItems, extraItems);
 
-    if (allItems.length <= maxItems) {
-      return _buildNavBar(context, palette, allItems, selectedIndex,
-          moduleCount: moduleCount);
-    }
-
-    // Overflow: show first (maxItems-1) + "More" button
-    final visibleItems = allItems.take(maxItems - 1).toList();
     return _buildNavBar(
-      context, palette, visibleItems, selectedIndex,
+      context, palette, fixedItems, selectedIndex,
       showMoreButton: true,
-      extraItems: allItems.skip(maxItems - 1).toList(),
+      extraItems: extraItems,
       moduleCount: moduleCount,
     );
+  }
+
+  /// Build the dynamic third destination for the active workspace.
+  ///
+  /// Home is NOT the workspace dashboard. The third position is the
+  /// workspace dashboard ('/'), rendered through the existing dynamic
+  /// dashboard architecture (UnifiedDashboardHost).
+  NavItem _workspaceNavItem(String? wsType) {
+    switch (wsType) {
+      case 'farmer':
+        return const NavItem(
+          moduleKey: 'farm_management',
+          displayName: 'Farm',
+          route: '/',
+          icon: Icons.agriculture_outlined,
+          displayOrder: 2,
+          bottomNavVisible: true,
+        );
+      case 'trader':
+        return const NavItem(
+          moduleKey: 'trader',
+          displayName: 'Trader',
+          route: '/',
+          icon: Icons.business_outlined,
+          displayOrder: 2,
+          bottomNavVisible: true,
+        );
+      case 'institution':
+        return const NavItem(
+          moduleKey: 'finance',
+          displayName: 'Institutions',
+          route: '/',
+          icon: Icons.account_balance_outlined,
+          displayOrder: 2,
+          bottomNavVisible: true,
+        );
+      default:
+        return const NavItem(
+          moduleKey: 'dashboard',
+          displayName: 'Dashboard',
+          route: '/',
+          icon: Icons.dashboard_outlined,
+          displayOrder: 2,
+          bottomNavVisible: true,
+        );
+    }
+  }
+
+  /// Resolve the selected destination. Routes belonging to the More
+  /// sheet select the More destination (index == fixedItems.length).
+  int _resolveFixedIndex(
+    String location,
+    List<NavItem> fixedItems,
+    List<NavItem> extraItems,
+  ) {
+    for (int i = 0; i < fixedItems.length; i++) {
+      final item = fixedItems[i];
+      if (_matchesRoute(location, item.route)) return i;
+    }
+    for (final item in extraItems) {
+      if (_matchesRoute(location, item.route)) {
+        return fixedItems.length; // More
+      }
+    }
+    return 0;
+  }
+
+  bool _matchesRoute(String location, String route) {
+    if (route == '/') {
+      return location == '/' || location.isEmpty;
+    }
+    return location == route || location.startsWith('$route/');
   }
 
   Widget _buildNavBar(
@@ -257,17 +358,6 @@ class ShellBottomNav extends ConsumerWidget {
         );
       },
     );
-  }
-
-  int _resolveIndex(String location, List<NavItem> items) {
-    for (int i = 0; i < items.length; i++) {
-      if (items[i].route == '/') {
-        if (location == '/' || location == '') return i;
-      } else if (location.startsWith(items[i].route)) {
-        return i;
-      }
-    }
-    return 0;
   }
 
   void _onNavigate(BuildContext context, NavItem item) {
