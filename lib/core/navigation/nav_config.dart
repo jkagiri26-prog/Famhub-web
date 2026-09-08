@@ -32,6 +32,49 @@ import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
 import 'package:famhub_app/core/navigation/nav_item.dart';
 import 'package:famhub_app/core/navigation/unified_nav_builder.dart';
 import 'package:famhub_app/core/feature_flags/application/services/runtime_feature_flags.dart';
+import 'package:famhub_app/core/workspace/application/workspace_dashboard_provider.dart';
+
+/// ============================================================
+/// WORKSPACE-AWARE NAVIGATION SCOPE
+/// ============================================================
+///
+/// Navigation is scoped to the ACTIVE workspace: only modules belonging
+/// to the current workspace (plus a small set of workspace-agnostic
+/// global/personal destinations) are exposed anywhere in navigation
+/// (sidebar, bottom "More", dashboard tiles, quick actions, pinned).
+///
+/// A module from another workspace (e.g. the Trader module while in the
+/// Farmer workspace) is NOT accessible from navigation — the workspace
+/// selector is the only way to reach it.
+///
+/// ❌ Navigation never changes the workspace/context; it only filters
+///    which modules the current workspace can open.
+/// ============================================================
+
+/// Destinations that stay available in every workspace (not bound to a
+/// single workspace's module set).
+const Set<String> _workspaceAgnosticModuleKeys = <String>{
+  'marketplace',
+  'traceability',
+  'profile',
+  'search',
+  'notifications',
+  'reports',
+  'settings',
+};
+
+Set<String> _workspaceAllowedModuleKeys(String? workspaceType) {
+  final promoted = WorkspaceDashboardCatalog.moduleKeysFor(workspaceType);
+  return <String>{..._workspaceAgnosticModuleKeys, ...promoted};
+}
+
+List<NavItem> _scopeToWorkspace(List<NavItem> items, String? workspaceType) {
+  final allowed = _workspaceAllowedModuleKeys(workspaceType);
+  return [
+    for (final item in items)
+      if (allowed.contains(item.moduleKey)) item,
+  ];
+}
 
 /// ============================================================
 /// PROVIDER: SIDEBAR NAVIGATION ITEMS
@@ -43,10 +86,12 @@ import 'package:famhub_app/core/feature_flags/application/services/runtime_featu
 final sidebarNavItemsProvider = Provider<List<NavItem>>((ref) {
   final modulesAsync = ref.watch(moduleProvider);
   final context = ref.watch(contextProvider);
+  final workspaceType = ref.watch(activeWorkspaceTypeProvider);
 
   return modulesAsync.when(
-    data: (modules) => _buildNavItems(modules, context,
-        forSidebar: true),
+    data: (modules) => _scopeToWorkspace(
+        _buildNavItems(modules, context, forSidebar: true),
+        workspaceType),
     loading: () => [],
     error: (_, __) => [],
   );
@@ -62,10 +107,12 @@ final sidebarNavItemsProvider = Provider<List<NavItem>>((ref) {
 final bottomNavItemsProvider = Provider<List<NavItem>>((ref) {
   final modulesAsync = ref.watch(moduleProvider);
   final context = ref.watch(contextProvider);
+  final workspaceType = ref.watch(activeWorkspaceTypeProvider);
 
   return modulesAsync.when(
-    data: (modules) => _buildNavItems(modules, context,
-        forSidebar: false),
+    data: (modules) => _scopeToWorkspace(
+        _buildNavItems(modules, context, forSidebar: false),
+        workspaceType),
     loading: () => [],
     error: (_, __) => [],
   );
@@ -81,10 +128,12 @@ final bottomNavItemsProvider = Provider<List<NavItem>>((ref) {
 final dashboardNavItemsProvider = Provider<List<NavItem>>((ref) {
   final modulesAsync = ref.watch(moduleProvider);
   final context = ref.watch(contextProvider);
+  final workspaceType = ref.watch(activeWorkspaceTypeProvider);
 
   return modulesAsync.when(
-    data: (modules) => _buildNavItems(modules, context,
-        forDashboard: true),
+    data: (modules) => _scopeToWorkspace(
+        _buildNavItems(modules, context, forDashboard: true),
+        workspaceType),
     loading: () => [],
     error: (_, __) => [],
   );
@@ -100,10 +149,12 @@ final dashboardNavItemsProvider = Provider<List<NavItem>>((ref) {
 final quickActionItemsProvider = Provider<List<NavItem>>((ref) {
   final modulesAsync = ref.watch(moduleProvider);
   final context = ref.watch(contextProvider);
+  final workspaceType = ref.watch(activeWorkspaceTypeProvider);
 
   return modulesAsync.when(
-    data: (modules) => _buildNavItems(modules, context,
-        forQuickAction: true),
+    data: (modules) => _scopeToWorkspace(
+        _buildNavItems(modules, context, forQuickAction: true),
+        workspaceType),
     loading: () => [],
     error: (_, __) => [],
   );
@@ -118,10 +169,12 @@ final quickActionItemsProvider = Provider<List<NavItem>>((ref) {
 final pinnedNavItemsProvider = Provider<List<NavItem>>((ref) {
   final modulesAsync = ref.watch(moduleProvider);
   final context = ref.watch(contextProvider);
+  final workspaceType = ref.watch(activeWorkspaceTypeProvider);
 
   return modulesAsync.when(
-    data: (modules) => _buildNavItems(modules, context,
-        onlyPinned: true),
+    data: (modules) => _scopeToWorkspace(
+        _buildNavItems(modules, context, onlyPinned: true),
+        workspaceType),
     loading: () => [],
     error: (_, __) => [],
   );
