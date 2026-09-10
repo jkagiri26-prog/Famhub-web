@@ -33,7 +33,7 @@ class LowStockAlerts extends ConsumerWidget {
     }
 
     final assetsState = ref.watch(assetsProvider);
-    final needsAttention = assetsState.needsMaintenance;
+    final needsAttention = assetsState.lowStock;
 
     if (needsAttention.isEmpty) {
       return _buildEmpty('All assets are in good condition');
@@ -126,7 +126,7 @@ class LowStockAlerts extends ConsumerWidget {
                               ),
                             ),
                             Text(
-                              '${asset.daysSinceMaintenance ?? 0} days since maintenance',
+                              'Out of stock — ${asset.typeLabel}',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: Colors.orange.shade600,

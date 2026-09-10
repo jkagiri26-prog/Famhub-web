@@ -514,19 +514,6 @@ class FarmRepositoryImpl implements FarmRepository {
     }
   }
 
-  CropStatus _parseCropStatus(String? status) {
-    switch (status) {
-      case 'growing':
-        return CropStatus.growing;
-      case 'harvested':
-        return CropStatus.harvested;
-      case 'failed':
-        return CropStatus.failed;
-      default:
-        return CropStatus.planted;
-    }
-  }
-
   // ── Livestock (Hierarchy-Aware) ──
   //
   // Livestock are farm INSTANCE records stored in `farm_management.assets`
@@ -655,33 +642,60 @@ class FarmRepositoryImpl implements FarmRepository {
 
   // ── Assets ──
 
+  /// Canonical asset columns (farm_management.assets).
+  static const String _assetColumns =
+      'id, entity_id, farm_id, asset_type, variant_id, field_id, '
+      'status, quantity, unit_id, metadata, acquired_at, created_at';
+
+  /// Maps a farm_management.assets row into the [AssetEntity] UI model.
+  /// Display name resolves from the linked core.item_variants.
+  AssetEntity _assetFromRow(
+    Map<String, dynamic> row,
+    Map<String, String> variantLabels,
+  ) {
+    final variantId = row['variant_id']?.toString();
+    final label = variantId == null ? '' : (variantLabels[variantId] ?? '');
+    final metadata = row['metadata'] is Map
+        ? (row['metadata'] as Map).cast<String, dynamic>()
+        : const <String, dynamic>{};
+    final assetType = row['asset_type']?.toString() ?? '';
+    return AssetEntity(
+      id: row['id'] as String,
+      farmId: row['farm_id'] as String,
+      entityId: row['entity_id'] as String?,
+      assetType: assetType,
+      variantId: variantId,
+      fieldId: row['field_id'] as String?,
+      status: row['status']?.toString() ?? 'active',
+      quantity: (row['quantity'] as num?)?.toDouble() ?? 0,
+      unitId: row['unit_id'] as String?,
+      metadata: metadata,
+      acquiredAt: row['acquired_at'] != null
+          ? DateTime.tryParse(row['acquired_at'].toString())
+          : null,
+      createdAt:
+          DateTime.tryParse(row['created_at']?.toString() ?? '') ??
+              DateTime.now(),
+      assetName: label.isNotEmpty
+          ? label
+          : (metadata['name'] as String? ??
+              (assetType.isEmpty ? 'Asset' : assetType)),
+    );
+  }
+
   @override
   Future<List<AssetEntity>> getAssets({required String farmId}) async {
     try {
       final response = await _client
           .schema('farm_management').from('assets')
-          .select()
+          .select(_assetColumns)
           .eq('farm_id', farmId)
           .order('created_at', ascending: false);
-      return (response as List)
-          .cast<Map<String, dynamic>>()
-          .map((row) => AssetEntity(
-                id: row['id'] as String,
-                farmId: row['farm_id'] as String,
-                assetName: row['asset_name'] as String,
-                assetType: row['asset_type'] as String,
-                manufacturer: row['manufacturer'] as String?,
-                model: row['model'] as String?,
-                yearPurchased: row['year_purchased'] as int?,
-                condition: row['condition'] as String?,
-                lastMaintenanceDate: row['last_maintenance_date'] != null
-                    ? DateTime.parse(row['last_maintenance_date'] as String)
-                    : null,
-                notes: row['notes'] as String?,
-                isActive: row['is_active'] as bool? ?? true,
-                createdAt: DateTime.parse(row['created_at'] as String),
-              ))
-          .toList();
+      final rows = (response as List).cast<Map<String, dynamic>>();
+      final labels = await _fetchVariantLabels(
+        rows.map((r) => r['variant_id']?.toString() ?? '').toSet(),
+      );
+      return rows.map((row) => _assetFromRow(row, labels)).toList();
     } on PostgrestException catch (e) {
       throw Exception('Failed to load assets: ${e.message}');
     } catch (e) {
@@ -695,38 +709,27 @@ class FarmRepositoryImpl implements FarmRepository {
     required AssetEntity asset,
   }) async {
     try {
+      // Canonical contract: assets require a variant_id (core.item_variants).
+      if (asset.variantId == null || asset.variantId!.isEmpty) {
+        throw Exception('Select an asset variant before adding it.');
+      }
       final response = await _client
           .schema('farm_management').from('assets')
           .insert({
             'farm_id': farmId,
-            'asset_name': asset.assetName,
             'asset_type': asset.assetType,
-            'manufacturer': asset.manufacturer,
-            'model': asset.model,
-            'year_purchased': asset.yearPurchased,
-            'condition': asset.condition,
-            'last_maintenance_date': asset.lastMaintenanceDate?.toIso8601String(),
-            'notes': asset.notes,
-            'is_active': asset.isActive,
+            'variant_id': asset.variantId,
+            'field_id': asset.fieldId,
+            'quantity': asset.quantity,
+            if (asset.unitId != null) 'unit_id': asset.unitId,
+            'metadata': asset.metadata,
           })
-          .select()
+          .select(_assetColumns)
           .single();
-      return AssetEntity(
-        id: response['id'] as String,
-        farmId: response['farm_id'] as String,
-        assetName: response['asset_name'] as String,
-        assetType: response['asset_type'] as String,
-        manufacturer: response['manufacturer'] as String?,
-        model: response['model'] as String?,
-        yearPurchased: response['year_purchased'] as int?,
-        condition: response['condition'] as String?,
-        lastMaintenanceDate: response['last_maintenance_date'] != null
-            ? DateTime.parse(response['last_maintenance_date'] as String)
-            : null,
-        notes: response['notes'] as String?,
-        isActive: response['is_active'] as bool? ?? true,
-        createdAt: DateTime.parse(response['created_at'] as String),
+      final labels = await _fetchVariantLabels(
+        {response['variant_id']?.toString() ?? ''},
       );
+      return _assetFromRow(response, labels);
     } on PostgrestException catch (e) {
       throw Exception('Failed to create asset: ${e.message}');
     } catch (e) {
@@ -1278,20 +1281,43 @@ class FarmRepositoryImpl implements FarmRepository {
   @override
   Future<Map<String, dynamic>> getActivityReport({required String farmId}) async {
     try {
-      // Activities don't have a farm_id column; fetch all and filter via asset/plan
+      // Activities have no farm_id column. Resolve the farm's asset/plan ids
+      // first, then filter activities by those ids — no PostgREST embeds
+      // (cross-schema FK embeds depend on the schema cache and fail when it
+      // is stale).
+      final assetRows = await _client
+          .schema('farm_management').from('assets')
+          .select('id')
+          .eq('farm_id', farmId);
+      final planRows = await _client
+          .schema('farm_management').from('plans')
+          .select('id')
+          .eq('farm_id', farmId);
+      final assetIds = (assetRows as List)
+          .cast<Map<String, dynamic>>()
+          .map((r) => r['id'] as String)
+          .toList();
+      final planIds = (planRows as List)
+          .cast<Map<String, dynamic>>()
+          .map((r) => r['id'] as String)
+          .toList();
+
+      if (assetIds.isEmpty && planIds.isEmpty) {
+        return {'total_activities': 0, 'activities': const []};
+      }
+
+      final orConditions = <String>[
+        if (assetIds.isNotEmpty) 'asset_id.in.(${assetIds.join(',')})',
+        if (planIds.isNotEmpty) 'plan_id.in.(${planIds.join(',')})',
+      ];
+
       final response = await _client
           .schema('farm_management').from('activities')
-          .select('''
-            id, activity_type_id, performed_at, notes, asset_id, plan_id,
-            asset:asset_id(farm_id), plan:plan_id(farm_id)
-          ''')
+          .select('id, activity_type_id, performed_at, notes, asset_id, plan_id')
+          .eq('is_deleted', false)
+          .or(orConditions.join(','))
           .order('performed_at', ascending: false);
-      final allActivities = (response as List).cast<Map<String, dynamic>>();
-      final filtered = allActivities.where((row) {
-        final assetFarmId = (row['asset'] as Map<String, dynamic>?)?['farm_id'] as String?;
-        final planFarmId = (row['plan'] as Map<String, dynamic>?)?['farm_id'] as String?;
-        return assetFarmId == farmId || planFarmId == farmId;
-      }).toList();
+      final filtered = (response as List).cast<Map<String, dynamic>>();
       return {
         'total_activities': filtered.length,
         'activities': filtered,
@@ -1362,16 +1388,10 @@ class FarmRepositoryImpl implements FarmRepository {
             'updated_at': DateTime.now().toIso8601String(),
           })
           .eq('id', assetId);
-      if (activityId != null) {
-        await _client.schema('farm_management').from('production_records').insert({
-          'farm_id': farmId,
-          'asset_id': assetId,
-          'activity_id': activityId,
-          'quantity': -quantity,
-          'unit_id': unitId,
-          'source_type': 'consumption',
-        });
-      }
+      // NOTE: consumption is NOT written to production_records — that table's
+      // canonical `quantity` has CHECK (quantity >= 0) and represents
+      // production OUTPUTS, not stock consumption. The asset quantity above
+      // is the authoritative stock balance.
       return {'success': true, 'new_balance': newBalance, 'quantity': -quantity};
     } catch (e) {
       return {'success': false, 'error': e.toString(), 'new_balance': 0};
@@ -1491,18 +1511,11 @@ class FarmRepositoryImpl implements FarmRepository {
 
   @override
   Future<void> syncMarketplaceListing({required String farmId}) async {
-    try {
-      await _client.schema('farm_management').from('farm_reports').insert({
-        'farm_id': farmId,
-        'report_type': 'marketplace_sync',
-        'report_date': DateTime.now().toIso8601String(),
-        'description': 'Marketplace listing sync initiated from app',
-      });
-    } on PostgrestException catch (e) {
-      throw Exception('Failed to sync marketplace listing: ${e.message}');
-    } catch (e) {
-      throw Exception('Failed to sync marketplace listing: $e');
-    }
+    // Canonical farm_management.farm_reports has NO farm_id column
+    // (id, report_type, amount, description, report_date, created_at,
+    // unit_id, asset_id). It is not a farm-scoped sync log, so this
+    // cross-module sync marker is a no-op — matching the demo repository.
+    // Writing a farm_id row previously failed against the canonical schema.
   }
 
   // ════════════════════════════════════════════════════════════

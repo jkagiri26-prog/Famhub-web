@@ -49,12 +49,13 @@ class AssetListState {
   List<String> get assetTypes =>
       assets.map((a) => a.assetType).toSet().toList()..sort();
 
-  /// Assets needing maintenance (90+ days since last)
-  List<AssetEntity> get needsMaintenance =>
-      assets.where((a) {
-        if (a.daysSinceMaintenance == null) return true;
-        return a.daysSinceMaintenance! >= 90;
-      }).toList();
+  /// Assets that are out of stock (canonical `quantity` <= 0).
+  List<AssetEntity> get lowStock =>
+      assets.where((a) => a.quantity <= 0).toList();
+
+  /// Assets that are inactive (canonical `status` != active).
+  List<AssetEntity> get inactive =>
+      assets.where((a) => !a.isActive).toList();
 
   AssetListState copyWith({
     List<AssetEntity>? assets,

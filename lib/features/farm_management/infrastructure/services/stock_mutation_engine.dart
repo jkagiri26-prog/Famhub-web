@@ -78,7 +78,7 @@ class StockMutationEngine {
       // Step 1: Check current stock
       final currentAsset = await _client
           .schema('farm_management').from('assets')
-          .select('id, quantity, asset_name')
+          .select('id, quantity')
           .eq('id', assetId)
           .eq('farm_id', farmId)
           .single();
@@ -109,18 +109,10 @@ class StockMutationEngine {
           .update({'quantity': newBalance, 'updated_at': DateTime.now().toIso8601String()})
           .eq('id', assetId);
 
-      // Step 4: Record consumption as production record (negative quantity = outflow)
-      if (activityId != null) {
-        await _client.schema('farm_management').from('production_records').insert({
-          'farm_id': farmId,
-          'asset_id': assetId,
-          'activity_id': activityId,
-          'quantity': -quantity,
-          'unit_id': unitId,
-          'source_type': 'stock_mutation',
-          'created_at': DateTime.now().toIso8601String(),
-        });
-      }
+      // Step 4: Consumption is NOT written to production_records — that
+      // table's canonical `quantity` has CHECK (quantity >= 0) and represents
+      // production OUTPUTS, not stock consumption. The asset quantity update
+      // above is the authoritative stock balance.
 
       // Step 5: Emit telemetry
       _emitStockEvent(
@@ -178,7 +170,7 @@ class StockMutationEngine {
       // Step 1: Get current stock
       final currentAsset = await _client
           .schema('farm_management').from('assets')
-          .select('id, quantity, asset_name')
+          .select('id, quantity')
           .eq('id', assetId)
           .eq('farm_id', farmId)
           .single();
@@ -272,7 +264,7 @@ class StockMutationEngine {
       // Get all assets with quantity > 0
       final assets = await _client
           .schema('farm_management').from('assets')
-          .select('id, asset_name, quantity')
+          .select('id, quantity')
           .eq('farm_id', farmId)
           .gt('quantity', 0);
 

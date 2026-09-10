@@ -72,7 +72,7 @@ class _AssetsPageState extends ConsumerState<AssetsPage> {
 
     final filtered = assetState.filteredAssets;
     final assetTypes = assetState.assetTypes;
-    final needsMaintenance = assetState.needsMaintenance.length;
+    final lowStock = assetState.lowStock.length;
 
         return ShellPageContent(
       title: 'Assets',
@@ -104,10 +104,10 @@ class _AssetsPageState extends ConsumerState<AssetsPage> {
               iconColor: Colors.teal,
             ),
             KPICard(
-              label: 'Needs Maintenance',
-              value: '$needsMaintenance',
-              icon: Icons.build,
-              iconColor: needsMaintenance > 0 ? Colors.red : Colors.green,
+              label: 'Out of Stock',
+              value: '$lowStock',
+              icon: Icons.inventory_2_outlined,
+              iconColor: lowStock > 0 ? Colors.red : Colors.green,
             ),
           ],
         ),
@@ -183,10 +183,7 @@ class _AssetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final maintColor = asset.daysSinceMaintenance != null &&
-            asset.daysSinceMaintenance! >= 90
-        ? Colors.red
-        : Colors.green;
+    final statusColor = asset.isActive ? Colors.green : Colors.orange;
 
     return Card(
       elevation: 0,
@@ -226,11 +223,9 @@ class _AssetCard extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      if (asset.manufacturer != null || asset.model != null)
+                      if (asset.fieldId != null)
                         Text(
-                          [asset.manufacturer, asset.model]
-                              .where((s) => s != null)
-                              .join(' '),
+                          'In field',
                           style: TextStyle(
                             fontSize: 13,
                             color: Colors.grey.shade600,
@@ -244,29 +239,16 @@ class _AssetCard extends StatelessWidget {
                     horizontal: 10, vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: maintColor.withValues(alpha: 0.1),
+                    color: statusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.build,
-                        size: 12,
-                        color: maintColor,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        asset.daysSinceMaintenance != null
-                            ? '${asset.daysSinceMaintenance}d'
-                            : 'N/A',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: maintColor,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    asset.statusLabel,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: statusColor,
+                    ),
                   ),
                 ),
               ],
@@ -280,22 +262,20 @@ class _AssetCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 _InfoChip(
-                  icon: Icons.check_circle,
-                  label: asset.conditionLabel,
+                  icon: Icons.inventory_2_outlined,
+                  label: 'Qty: ${_formatQty(asset.quantity)}',
                 ),
-                if (asset.yearPurchased != null) ...[
-                  const SizedBox(width: 12),
-                  _InfoChip(
-                    icon: Icons.calendar_today,
-                    label: '${asset.yearPurchased}',
-                  ),
-                ],
               ],
             ),
           ],
         ),
       ),
     );
+  }
+
+  String _formatQty(double value) {
+    if (value == value.roundToDouble()) return value.toInt().toString();
+    return value.toStringAsFixed(1);
   }
 }
 
