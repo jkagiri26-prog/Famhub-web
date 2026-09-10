@@ -17,9 +17,22 @@ import 'package:famhub_app/features/farm_management/application/providers/hierar
 /// values as context.
 /// ============================================================
 class FarmContext {
-  /// Farm / Entity level
+  /// Selected farm id — `farm_management.farms.id`.
   final String? farmId;
   final FarmEntity? farm;
+
+  /// 🔑 Core identity (from the context engine / core.entities):
+  /// users.profiles.id.
+  final String? profileId;
+
+  /// 🔑 Core identity: `core.entities.id` of the active entity.
+  /// Distinct from [farmId] (a farm_management.farms row id).
+  final String? entityId;
+
+  /// 🔑 Core identity: `core.user_roles.id` of the active role.
+  final String? roleId;
+
+  /// Operational role/mode (e.g. 'farmer', 'trader') or null when unknown.
   final String? role;
 
   /// Field / Block level
@@ -33,7 +46,10 @@ class FarmContext {
   const FarmContext({
     required this.farmId,
     required this.farm,
-    required this.role,
+    this.profileId,
+    this.entityId,
+    this.roleId,
+    this.role,
     this.fieldId,
     this.field,
     this.cropOrLivestockId,
@@ -57,7 +73,7 @@ class FarmContext {
 /// NOTE: RLS = data security layer (handled by Supabase)
 /// ============================================================
 final farmContextProvider = Provider<FarmContext>((ref) {
-    final context = ref.watch(contextProvider);
+  final context = ref.watch(contextProvider);
   final hierarchy = ref.watch(hierarchyProvider);
 
   final selectedFarm = hierarchy.entity;
@@ -65,6 +81,11 @@ final farmContextProvider = Provider<FarmContext>((ref) {
   return FarmContext(
     farmId: hierarchy.entityId,
     farm: selectedFarm,
+    // 🔑 Real core identity from the context engine — profile/entity/role
+    // are distinct domains and are carried separately.
+    profileId: context.profileId,
+    entityId: context.entityId,
+    roleId: context.roleId,
     role: context.role,
     // 👇 HIERARCHY PROPAGATION
     fieldId: hierarchy.fieldId,

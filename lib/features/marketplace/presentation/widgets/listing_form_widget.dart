@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
 import 'package:famhub_app/features/marketplace/application/providers/marketplace_provider.dart';
 
 class ListingFormWidget extends ConsumerStatefulWidget {
@@ -23,7 +24,6 @@ class _ListingFormWidgetState extends ConsumerState<ListingFormWidget> {
   final _locationIdController = TextEditingController(); // FK to core.locations
   final _variantIdController = TextEditingController();  // FK to core.item_variants
   final _stockIdController = TextEditingController();    // FK to commerce.stock_registry
-  final _entityIdController = TextEditingController();   // FK to core.entities
   final _imageUrlsController = TextEditingController();
 
   bool _isSubmitting = false;
@@ -41,7 +41,6 @@ class _ListingFormWidgetState extends ConsumerState<ListingFormWidget> {
       _locationIdController.text = data['location_id']?.toString() ?? '';
       _variantIdController.text = data['variant_id']?.toString() ?? '';
       _stockIdController.text = data['stock_id']?.toString() ?? '';
-      _entityIdController.text = data['entity_id']?.toString() ?? '';
     }
   }
 
@@ -54,7 +53,6 @@ class _ListingFormWidgetState extends ConsumerState<ListingFormWidget> {
     _locationIdController.dispose();
     _variantIdController.dispose();
     _stockIdController.dispose();
-    _entityIdController.dispose();
     _imageUrlsController.dispose();
     super.dispose();
   }
@@ -75,6 +73,34 @@ class _ListingFormWidgetState extends ConsumerState<ListingFormWidget> {
               .toList()
           : <String>[];
 
+      // ── ACTIVE ENTITY BINDING ──
+      // The listing's entity_id MUST be the canonical active
+      // `core.entities.id` resolved by the context engine — never the
+      // auth/profile/workspace id and never a manually entered UUID.
+      final isEdit = widget.initialData != null;
+      final activeEntityId = ref.read(contextProvider).entityId;
+      final originalEntityId = widget.initialData?['entity_id']?.toString().trim();
+
+      // Ownership is preserved on edit from the original listing.
+      final String? entityId = (isEdit && (originalEntityId?.isNotEmpty ?? false))
+          ? originalEntityId
+          : activeEntityId;
+
+      if (entityId == null || entityId.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'An active entity/business context is required before listing. '
+              'Select your entity and try again.',
+            ),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 4),
+          ),
+        );
+        return;
+      }
+
             final payload = <String, dynamic>{
         'title': _titleController.text.trim(),
         'description': _descriptionController.text.trim(),
@@ -91,9 +117,7 @@ class _ListingFormWidgetState extends ConsumerState<ListingFormWidget> {
         'stock_id': _stockIdController.text.trim().isEmpty
             ? null
             : _stockIdController.text.trim(),
-        'entity_id': _entityIdController.text.trim().isEmpty
-            ? null
-            : _entityIdController.text.trim(),
+        'entity_id': entityId,
         'images': images,
       };
 
@@ -215,16 +239,6 @@ class _ListingFormWidgetState extends ConsumerState<ListingFormWidget> {
             decoration: const InputDecoration(
               labelText: 'Stock ID',
               hintText: 'UUID of commerce.stock_registry',
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          TextFormField(
-            controller: _entityIdController,
-            decoration: const InputDecoration(
-              labelText: 'Entity ID (Seller)',
-              hintText: 'UUID of core.entities',
             ),
           ),
 

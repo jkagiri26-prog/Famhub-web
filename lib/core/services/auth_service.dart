@@ -72,6 +72,22 @@ class WorkspaceSelectionResult {
   /// function does not echo it; the caller can re-fetch from users.profiles).
   final Map<String, dynamic>? profile;
 
+  // ── Canonical entity context (from users.complete_workspace_selection) ──
+  /// users.profiles.id
+  final String? profileId;
+
+  /// core.entities.id (the personal operating entity ensured by the backend)
+  final String? entityId;
+
+  /// core.user_roles.id
+  final String? roleId;
+
+  /// core.entity_context_sessions.active_mode
+  final String? activeMode;
+
+  /// commerce.business_profiles.id (nullable)
+  final String? businessProfileId;
+
   const WorkspaceSelectionResult({
     required this.success,
     this.error,
@@ -79,6 +95,11 @@ class WorkspaceSelectionResult {
     this.defaultWorkspaceId,
     this.workspaces = const [],
     this.profile,
+    this.profileId,
+    this.entityId,
+    this.roleId,
+    this.activeMode,
+    this.businessProfileId,
   });
 }
 
@@ -350,12 +371,34 @@ class AuthService {
       debugPrint('[selectWorkspaces] Workspaces: $persistedIds');
       debugPrint('[selectWorkspaces] Default: $defaultWorkspaceId');
 
+      // ── SILENT ENTITY BOOTSTRAP ──
+      // After the existing workspace selection succeeds, complete the
+      // selection server-side. The backend ensures/reuses the personal
+      // operating entity, creates the workspace↔entity mapping, and
+      // activates the canonical entity context. For first-time onboarding
+      // the entity/role/business-profile params are null (backend-derived).
+      final targetWorkspaceId = defaultWorkspaceId ??
+          (persistedIds.isNotEmpty
+              ? persistedIds.first
+              : (workspaceIds.isNotEmpty ? workspaceIds.first : null));
+
+      Map<String, dynamic>? entityContext;
+      if (targetWorkspaceId != null && targetWorkspaceId.isNotEmpty) {
+        entityContext =
+            await _completeWorkspaceSelectionEntityContext(targetWorkspaceId);
+      }
+
       return WorkspaceSelectionResult(
         success: true,
         workspaceIds: persistedIds.isNotEmpty ? persistedIds : workspaceIds,
         defaultWorkspaceId: defaultWorkspaceId,
         workspaces: workspaces,
         profile: profile,
+        profileId: entityContext?['profile_id']?.toString(),
+        entityId: entityContext?['entity_id']?.toString(),
+        roleId: entityContext?['role_id']?.toString(),
+        activeMode: entityContext?['active_mode']?.toString(),
+        businessProfileId: entityContext?['business_profile_id']?.toString(),
       );
     } on FunctionException catch (e) {
       debugPrint('[selectWorkspaces] FunctionException: ${e.details}');
@@ -371,6 +414,45 @@ class AuthService {
         success: false,
         error: 'Network error. Please check your connection and try again.',
       );
+    }
+  }
+
+  /// ============================================================
+  /// COMPLETE WORKSPACE SELECTION (Entity Bootstrap RPC)
+  /// ============================================================
+  ///
+  /// Invokes `users.complete_workspace_selection(p_workspace_id,
+  /// p_entity_id, p_role_id, p_business_profile_id)`.
+  ///
+  /// For first-time onboarding only the workspace id is supplied; the
+  /// entity/role/business-profile params are null and resolved/created
+  /// server-side. Returns the single returned row, or null when the RPC
+  /// is unavailable — onboarding is NOT blocked (the existing UX is
+  /// preserved), but the context simply stays unavailable.
+  Future<Map<String, dynamic>?> _completeWorkspaceSelectionEntityContext(
+    String workspaceId,
+  ) async {
+    try {
+      final response = await _supabase.client
+          .schema('users')
+          .rpc('complete_workspace_selection', params: {
+        'p_workspace_id': workspaceId,
+        'p_entity_id': null,
+        'p_role_id': null,
+        'p_business_profile_id': null,
+      });
+
+      // Function returns a single table row: PostgREST yields a List.
+      if (response is List && response.isNotEmpty) {
+        final first = response.first;
+        if (first is Map) return Map<String, dynamic>.from(first);
+      }
+      if (response is Map) return Map<String, dynamic>.from(response);
+      debugPrint('[complete_workspace_selection] Unexpected response: $response');
+      return null;
+    } catch (e) {
+      debugPrint('[complete_workspace_selection] failed: $e');
+      return null;
     }
   }
 

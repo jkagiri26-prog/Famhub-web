@@ -29,6 +29,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famhub_app/core/services/supabase_service.dart';
 import 'package:famhub_app/core/services/auth_service.dart';
+import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
 import 'package:famhub_app/core/session/app_session.dart';
 import 'package:famhub_app/features/auth/infrastructure/services/otp_session_storage.dart';
 import 'package:famhub_app/features/profile/application/providers/profile_location_provider.dart';
@@ -388,6 +389,22 @@ class SessionController extends Notifier<AppSession> {
       defaultWorkspaceId: defaultWorkspaceId,
       hasCompletedOnboarding: persistedIds.isNotEmpty,
     );
+
+    // ── Fold the canonical entity context returned by the backend
+    // (users.complete_workspace_selection) into the EXISTING context
+    // provider. No new provider/identity system is created. Only
+    // non-null backend values are applied.
+    if (result.entityId != null ||
+        result.profileId != null ||
+        result.roleId != null) {
+      await ref.read(contextProvider.notifier).applySelectionContext(
+            profileId: result.profileId,
+            entityId: result.entityId,
+            roleId: result.roleId,
+            role: result.activeMode,
+            businessProfileId: result.businessProfileId,
+          );
+    }
 
     return WorkspaceSelectionResult(
       success: true,

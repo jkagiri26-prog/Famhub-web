@@ -105,12 +105,18 @@ class FarmRepositoryImpl implements FarmRepository {
   }) async {
     // Authoritative flow: the backend creates the farm AND its single Main
     // Field atomically. The frontend NEVER inserts a Main Field itself.
-    final (farmId, _) = await _createFarmViaRpc(farm);
+    final (farmId, rpcEntityId) = await _createFarmViaRpc(farm);
+    final entityId = rpcEntityId.isEmpty ? null : rpcEntityId;
 
     final createdFarm = await getFarm(farmId: farmId);
     if (createdFarm == null) {
       throw Exception('Farm was created but could not be reloaded');
     }
+
+    // Retain the canonical core.entities.id returned by the backend RPC.
+    final farmWithEntity = createdFarm.copyWith(
+      entityId: entityId ?? createdFarm.entityId,
+    );
 
     // Select the auto-created Main Field from the backend result.
     final fields = await getFields(farmId: farmId);
@@ -122,17 +128,20 @@ class FarmRepositoryImpl implements FarmRepository {
       orElse: () => fields.first,
     );
 
-    return (createdFarm, mainField);
+    return (farmWithEntity, mainField);
   }
 
   @override
   Future<FarmEntity> createFarm({required FarmEntity farm}) async {
-    final (farmId, _) = await _createFarmViaRpc(farm);
+    final (farmId, rpcEntityId) = await _createFarmViaRpc(farm);
+    final entityId = rpcEntityId.isEmpty ? null : rpcEntityId;
     final createdFarm = await getFarm(farmId: farmId);
     if (createdFarm == null) {
       throw Exception('Farm was created but could not be reloaded');
     }
-    return createdFarm;
+    return createdFarm.copyWith(
+      entityId: entityId ?? createdFarm.entityId,
+    );
   }
 
   @override
@@ -1503,6 +1512,7 @@ class FarmRepositoryImpl implements FarmRepository {
   FarmEntity _mapFarmRow(Map<String, dynamic> row) {
     return FarmEntity(
       id: row['id'] as String,
+      entityId: row['entity_id'] as String?,
       farmName: row['farm_name'] as String,
       description: row['description'] as String?,
       size: (row['size'] as num?)?.toDouble(),
