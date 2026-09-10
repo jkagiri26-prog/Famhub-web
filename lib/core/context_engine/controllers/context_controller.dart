@@ -84,12 +84,19 @@ class ContextController extends Notifier<EntityContext> {
     String? role,
     String? businessProfileId,
   }) async {
+    // Authoritative replace: values absent from the new context are
+    // CLEARED (never silently retain the previous entity's values).
     state = state.copyWith(
       profileId: profileId,
+      clearProfileId: profileId == null,
       entityId: entityId,
+      clearEntityId: entityId == null,
       roleId: roleId,
+      clearRoleId: roleId == null,
       businessProfileId: businessProfileId,
+      clearBusinessProfileId: businessProfileId == null,
       role: role,
+      clearRole: role == null,
       isGuest: false,
       isLoading: false,
     );

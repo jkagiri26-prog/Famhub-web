@@ -457,6 +457,72 @@ class AuthService {
   }
 
   /// ============================================================
+  /// GET AVAILABLE WORKSPACE CONTEXTS
+  /// ============================================================
+  ///
+  /// Invokes `users.get_available_workspace_contexts()` (no parameters).
+  /// Returns every workspace/entity context available to the
+  /// authenticated user. Each row contains (at least):
+  ///   workspace_id, entity_id, role_id, active_mode, business_profile_id
+  /// plus the backend-provided display-name fields.
+  ///
+  /// Throws on failure so the caller can distinguish an empty result
+  /// from a load error.
+  Future<List<Map<String, dynamic>>> getAvailableWorkspaceContexts() async {
+    final response = await _supabase.client
+        .schema('users')
+        .rpc('get_available_workspace_contexts');
+
+    if (response is List) {
+      return response
+          .whereType<Map>()
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList();
+    }
+    if (response is Map) return [Map<String, dynamic>.from(response)];
+    return const [];
+  }
+
+  /// ============================================================
+  /// ACTIVATE WORKSPACE CONTEXT
+  /// ============================================================
+  ///
+  /// Invokes
+  /// `users.activate_workspace_context(p_workspace_id, p_entity_id,
+  ///  p_role_id, p_business_profile_id)`.
+  ///
+  /// Returns the activated canonical context row, or null on failure.
+  /// The client NEVER writes to core.entity_context_sessions directly.
+  Future<Map<String, dynamic>?> activateWorkspaceContext({
+    required String workspaceId,
+    String? entityId,
+    String? roleId,
+    String? businessProfileId,
+  }) async {
+    try {
+      final response = await _supabase.client
+          .schema('users')
+          .rpc('activate_workspace_context', params: {
+        'p_workspace_id': workspaceId,
+        'p_entity_id': entityId,
+        'p_role_id': roleId,
+        'p_business_profile_id': businessProfileId,
+      });
+
+      if (response is List && response.isNotEmpty) {
+        final first = response.first;
+        if (first is Map) return Map<String, dynamic>.from(first);
+      }
+      if (response is Map) return Map<String, dynamic>.from(response);
+      debugPrint('[activate_workspace_context] Unexpected response: $response');
+      return null;
+    } catch (e) {
+      debugPrint('[activate_workspace_context] failed: $e');
+      return null;
+    }
+  }
+
+  /// ============================================================
   /// SEND OTP (Phone only)
   /// ============================================================
   ///

@@ -30,8 +30,10 @@ import '../../../workspace/application/active_workspace_provider.dart';
 import '../../../workspace/application/workspace_catalog_provider.dart';
 import '../../../workspace/application/workspace_dashboard_provider.dart';
 import '../../../workspace/domain/workspace_catalog_item.dart';
+import '../../../context_engine/providers/context_provider.dart';
 import '../../../../core/session/app_session.dart';
 import '../../../../core/session/session_provider.dart';
+import '../../../../features/workspace_context/application/entity_context_refresh.dart';
 
 /// ============================================================
 /// SHELL APP BAR — Replaces DesktopAppBar
@@ -389,7 +391,198 @@ class _ContextSelector extends ConsumerWidget {
       if (context.mounted) {
         context.go('/');
       }
+      // Resolve + activate the canonical entity context for this workspace.
+      if (context.mounted) {
+        await _resolveAndActivateContext(context, ref, selected);
+      }
     }
+  }
+
+  /// Resolve the available entity/context(s) for [workspaceId] and activate
+  /// the canonical context through the backend.
+  ///
+  ///   workspace → get_available_workspace_contexts (filter by workspace)
+  ///     → 0 contexts : unavailable state (never fabricate)
+  ///     → 1 context  : auto-activate
+  ///     → many       : user selects an entity/role context
+  ///   → activate_workspace_context → update contextProvider → refresh
+  Future<void> _resolveAndActivateContext(
+      BuildContext context, WidgetRef ref, String workspaceId) async {
+    final authService = ref.read(authServiceProvider);
+
+    List<Map<String, dynamic>> contexts;
+    try {
+      contexts = await authService.getAvailableWorkspaceContexts();
+    } catch (_) {
+      if (context.mounted) {
+        _showSnack(context,
+            'Could not load available contexts. Please try again.');
+      }
+      return;
+    }
+
+    // workspace_id = system.workspaces.id (never an entity id).
+    final forWorkspace = contexts
+        .where((c) => c['workspace_id']?.toString() == workspaceId)
+        .toList();
+
+    if (forWorkspace.isEmpty) {
+      // No valid context — do NOT fabricate an entity.
+      if (context.mounted) {
+        _showSnack(context,
+            'No entity context is available for this workspace yet.');
+      }
+      return;
+    }
+
+    Map<String, dynamic> chosen;
+    if (forWorkspace.length == 1) {
+      // Exactly one valid context → auto-select.
+      chosen = forWorkspace.first;
+    } else {
+      // Multiple entities/roles → let the user choose.
+      if (!context.mounted) return;
+      final picked = await _showContextPicker(context, forWorkspace);
+      if (picked == null) return; // dismissed — no activation
+      chosen = picked;
+    }
+
+    final result = await authService.activateWorkspaceContext(
+      workspaceId: workspaceId,
+      entityId: chosen['entity_id']?.toString(),
+      roleId: chosen['role_id']?.toString(),
+      businessProfileId: chosen['business_profile_id']?.toString(),
+    );
+
+    if (result == null) {
+      // Activation failed — never fabricate, never retain a wrong entity.
+      if (context.mounted) {
+        _showSnack(context,
+            'Could not activate this workspace context. Please try again.');
+      }
+      return;
+    }
+
+    // Update the EXISTING canonical context (no second provider).
+    await ref.read(contextProvider.notifier).applySelectionContext(
+          profileId:
+              result['profile_id']?.toString() ?? chosen['profile_id']?.toString(),
+          entityId:
+              result['entity_id']?.toString() ?? chosen['entity_id']?.toString(),
+          roleId:
+              result['role_id']?.toString() ?? chosen['role_id']?.toString(),
+          role: result['active_mode']?.toString() ??
+              chosen['active_mode']?.toString(),
+          businessProfileId: result['business_profile_id']?.toString() ??
+              chosen['business_profile_id']?.toString(),
+        );
+
+    // Refresh entity/business-scoped data (not global discovery).
+    refreshEntityScopedProviders(ref);
+
+    if (context.mounted) {
+      context.go('/');
+    }
+  }
+
+  /// Bottom-sheet picker for multiple available entity/role contexts.
+  Future<Map<String, dynamic>?> _showContextPicker(
+    BuildContext context,
+    List<Map<String, dynamic>> contexts,
+  ) {
+    return showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              alignment: Alignment.center,
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: palette.divider,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 16, bottom: 8),
+              child: Text(
+                'Select entity context',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: palette.primaryText,
+                ),
+              ),
+            ),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: contexts.length,
+                itemBuilder: (context, index) {
+                  final c = contexts[index];
+                  final entityLabel = (c['entity_name'] ??
+                          c['entity_display_name'] ??
+                          c['entity_slug'] ??
+                          c['name'] ??
+                          c['entity_id'] ??
+                          'Entity')
+                      .toString();
+                  final roleLabel = (c['role_name'] ??
+                          c['active_mode'] ??
+                          c['role_id'] ??
+                          '')
+                      .toString();
+                  final businessLabel = (c['business_profile_name'] ??
+                          c['supplier_name'] ??
+                          '')
+                      .toString();
+                  final subtitleParts = <String>[
+                    if (roleLabel.isNotEmpty) roleLabel,
+                    if (businessLabel.isNotEmpty) businessLabel,
+                  ];
+                  return ListTile(
+                    leading: Icon(Icons.business_outlined,
+                        color: palette.primary),
+                    title: Text(
+                      entityLabel,
+                      style: TextStyle(color: palette.primaryText),
+                    ),
+                    subtitle: subtitleParts.isEmpty
+                        ? null
+                        : Text(
+                            subtitleParts.join(' · '),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: palette.secondaryText,
+                            ),
+                          ),
+                    onTap: () => Navigator.pop(sheetContext, c),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSnack(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 }
 
