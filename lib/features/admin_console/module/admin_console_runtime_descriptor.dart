@@ -24,11 +24,11 @@ import 'package:famhub_app/core/composition/domain/models/module_descriptor.dart
 ModuleRuntimeDescriptor createAdminConsoleDescriptor() {
   return const ModuleRuntimeDescriptor(
     moduleKey: 'admin_console',
-    displayName: 'Admin Console',
-    description: 'System administration and configuration',
-    iconKey: 'admin',
+    displayName: 'Administration',
+    description: 'Platform and organisation administration',
+    iconKey: 'settings',
     route: '/admin',
-    displayOrder: 16,
+    displayOrder: 100,
 
     // ── Dashboard Widget Contributions ──
     dashboardWidgets: [

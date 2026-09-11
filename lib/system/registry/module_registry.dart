@@ -286,14 +286,14 @@ class ModuleRegistry {
     // ─────────────────────────────────────────────
     ModuleDefinition(
       moduleId: 'admin_console',
-      name: 'Admin Console',
-      description: 'System administration and configuration',
+      name: 'Administration',
+      description: 'Platform and organisation administration',
       version: '1.0.0',
       entryRoute: '/admin',
-      iconKey: 'admin',
-      displayOrder: 16,
-      isEnabledDefault: false,
-      isVisibleDefault: false,
+      iconKey: 'settings',
+      displayOrder: 100,
+      isEnabledDefault: true,
+      isVisibleDefault: true,
       maintenanceModeDefault: false,
     ),
 

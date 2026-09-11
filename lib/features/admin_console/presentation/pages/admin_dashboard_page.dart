@@ -50,7 +50,7 @@ class AdminDashboardPage extends ConsumerWidget {
           children: [
             const ModuleHeaderWidget(
               title: 'Administration',
-              subtitle: 'Platform and organisation governance',
+              subtitle: 'Platform and organisation administration',
               trailingIcon: Icons.admin_panel_settings_outlined,
             ),
             const SizedBox(height: 20),
