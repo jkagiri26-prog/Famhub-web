@@ -103,6 +103,23 @@ class WorkspaceSelectionResult {
   });
 }
 
+/// Result of adding a workspace membership via the authenticated RPC
+/// `users.add_workspace_membership`.
+class WorkspaceMembershipResult {
+  final bool success;
+  final String? error;
+
+  /// True when the backend reported the membership already existed.
+  /// This is treated as success by callers.
+  final bool alreadyExists;
+
+  const WorkspaceMembershipResult({
+    required this.success,
+    this.error,
+    this.alreadyExists = false,
+  });
+}
+
 /// Unified auth service for FAMHUB.
 /// All auth operations go through this service.
 class AuthService {
@@ -520,6 +537,114 @@ class AuthService {
       debugPrint('[activate_workspace_context] failed: $e');
       return null;
     }
+  }
+
+  /// ============================================================
+  /// ADD WORKSPACE MEMBERSHIP (Authenticated RPC)
+  /// ============================================================
+  ///
+  /// TEMPORARY / TEST PATH.
+  ///
+  /// Invokes `users.add_workspace_membership(p_workspace_id,
+  /// p_make_default)` using the EXISTING authenticated Supabase client.
+  /// The auth user id is derived from the current Supabase session by the
+  /// backend — it is NEVER passed from the client.
+  ///
+  /// This does NOT create an entity, entity membership, entity role, or
+  /// Admin permissions, and it does NOT change the current/default
+  /// workspace when [makeDefault] is false.
+  ///
+  /// Returns a [WorkspaceMembershipResult]. A backend "already exists"
+  /// response is reported as success.
+  Future<WorkspaceMembershipResult> addWorkspaceMembership({
+    required String workspaceId,
+    bool makeDefault = false,
+  }) async {
+    if (!isAuthenticated) {
+      return const WorkspaceMembershipResult(
+        success: false,
+        error: 'authentication required',
+      );
+    }
+
+    try {
+      final response = await _supabase.client.schema('users').rpc(
+        'add_workspace_membership',
+        params: {
+          'p_workspace_id': workspaceId,
+          'p_make_default': makeDefault,
+        },
+      );
+
+      debugPrint('[addWorkspaceMembership] response: $response');
+      return WorkspaceMembershipResult(
+        success: true,
+        alreadyExists: _membershipAlreadyExists(response),
+      );
+    } on PostgrestException catch (e) {
+      debugPrint('[addWorkspaceMembership] PostgrestException: '
+          'code=${e.code} message=${e.message} details=${e.details}');
+      final combined =
+          '${e.message} ${e.details ?? ''}'.toLowerCase();
+      if (combined.contains('authentication required') ||
+          combined.contains('not authenticated')) {
+        return const WorkspaceMembershipResult(
+          success: false,
+          error: 'authentication required',
+        );
+      }
+      if (_membershipAlreadyExists(e) || e.code == '23505') {
+        return const WorkspaceMembershipResult(
+          success: true,
+          alreadyExists: true,
+        );
+      }
+      return WorkspaceMembershipResult(
+        success: false,
+        error: e.message,
+      );
+    } catch (e, st) {
+      debugPrint('[addWorkspaceMembership] exception: $e');
+      debugPrintStack(
+        stackTrace: st,
+        label: '[addWorkspaceMembership]',
+        maxFrames: 6,
+      );
+      return WorkspaceMembershipResult(success: false, error: e.toString());
+    }
+  }
+
+  /// Detect an "already exists" signal from an RPC response or error.
+  bool _membershipAlreadyExists(Object? response) {
+    if (response is Map) {
+      final map = Map<String, dynamic>.from(response);
+      if (map['already_exists'] == true ||
+          map['alreadyExists'] == true) {
+        return true;
+      }
+      final status = (map['status'] ??
+              map['message'] ??
+              map['error'] ??
+              '')
+          .toString()
+          .toLowerCase();
+      if (status.contains('already')) return true;
+    }
+    if (response is List) {
+      for (final item in response) {
+        if (_membershipAlreadyExists(item)) return true;
+      }
+    }
+    if (response is PostgrestException) {
+      final combined =
+          '${response.message} ${response.details ?? ''}'.toLowerCase();
+      if (combined.contains('already') ||
+          combined.contains('duplicate') ||
+          response.code == '23505') {
+        return true;
+      }
+    }
+    return false;
   }
 
   /// ============================================================

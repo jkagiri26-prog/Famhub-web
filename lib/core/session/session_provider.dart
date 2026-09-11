@@ -416,6 +416,36 @@ class SessionController extends Notifier<AppSession> {
   }
 
   /// ============================================================
+  /// ADD WORKSPACE MEMBERSHIP (TEMPORARY TEST PATH)
+  /// ============================================================
+  ///
+  /// Adds a workspace membership for the currently authenticated user via
+  /// the deployed `users.add_workspace_membership` RPC, then refreshes the
+  /// EXISTING workspace membership/selection data (users.user_workspaces)
+  /// so the newly available workspace appears through the normal loading
+  /// mechanism.
+  ///
+  /// The auth user id is derived from the Supabase session by the backend.
+  /// No entity/role/permission/context is created or changed here.
+  Future<WorkspaceMembershipResult> addWorkspaceMembership({
+    required String workspaceId,
+    bool makeDefault = false,
+  }) async {
+    final result = await _authService.addWorkspaceMembership(
+      workspaceId: workspaceId,
+      makeDefault: makeDefault,
+    );
+
+    if (result.success) {
+      // Reload users.user_workspaces (source of truth) and republish the
+      // AuthenticatedSession so the workspace switcher sees the change.
+      await refresh();
+    }
+
+    return result;
+  }
+
+  /// ============================================================
   /// RESTORE HELPERS
   /// ============================================================
 

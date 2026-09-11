@@ -220,6 +220,41 @@ class _ContextSelector extends ConsumerWidget {
 
   const _ContextSelector({required this.palette});
 
+  /// TEMPORARY: sentinel returned by the temporary membership test tile.
+  static const String _addAdminMembershipSentinel = '__add_admin_membership__';
+
+  /// TEMPORARY: the provisioned Administration workspace id.
+  static const String _adminWorkspaceId =
+      '0caff478-6d9a-489c-a442-65a003987d4d';
+
+  /// TEMPORARY: invoke users.add_workspace_membership through the existing
+  /// authenticated session, then refresh workspace membership data.
+  Future<void> _addAdministrationMembership(
+      BuildContext context, WidgetRef ref) async {
+    final result =
+        await ref.read(sessionProvider.notifier).addWorkspaceMembership(
+              workspaceId: _adminWorkspaceId,
+              makeDefault: false,
+            );
+
+    if (!context.mounted) return;
+
+    if (!result.success) {
+      _showSnack(
+        context,
+        'add_workspace_membership failed: ${result.error ?? 'unknown error'}',
+      );
+      return;
+    }
+
+    _showSnack(
+      context,
+      result.alreadyExists
+          ? 'Administration membership already existed. Workspaces refreshed.'
+          : 'Administration membership added. Workspaces refreshed.',
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final workspaceName =
@@ -377,11 +412,40 @@ class _ContextSelector extends ConsumerWidget {
                 },
               ),
             ),
+            // ──────────────────────────────────────────────────────
+            // TEMPORARY / TEST ACTION (remove after verification).
+            // Adds the Administration workspace membership for the
+            // authenticated user via users.add_workspace_membership.
+            // ──────────────────────────────────────────────────────
+            const Divider(height: 1),
+            ListTile(
+              leading: Icon(Icons.build_outlined,
+                  color: palette.secondaryText),
+              title: Text(
+                'Add Administration membership (temporary)',
+                style: TextStyle(color: palette.primaryText),
+              ),
+              subtitle: Text(
+                'users.add_workspace_membership · make_default = false',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: palette.secondaryText,
+                ),
+              ),
+              onTap: () =>
+                  Navigator.pop(sheetContext, _addAdminMembershipSentinel),
+            ),
             const SizedBox(height: 16),
           ],
         ),
       ),
     );
+
+    if (selected == _addAdminMembershipSentinel) {
+      if (!context.mounted) return;
+      await _addAdministrationMembership(context, ref);
+      return;
+    }
 
     if (selected != null && selected != active.workspaceId) {
       await ref
