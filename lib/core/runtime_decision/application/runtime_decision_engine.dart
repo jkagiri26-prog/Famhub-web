@@ -63,6 +63,7 @@ import 'package:famhub_app/core/access/access_decision_engine.dart';
 import 'package:famhub_app/core/access/domain/models/access_decision.dart';
 import 'package:famhub_app/core/feature_flags/application/services/runtime_feature_flags.dart';
 import 'package:famhub_app/core/context_engine/domain/models/entity_context.dart';
+import 'package:famhub_app/core/subscription/domain/models/subscription_tier.dart';
 
 /// ============================================================
 /// RUNTIME DECISION ENGINE
@@ -551,10 +552,16 @@ class RuntimeDecisionEngine {
   }
 
   /// Resolve subscription tier from context
-  dynamic _resolveTier() {
-    // Map tier string to SubscriptionTier enum
-    // Default to guest/free tier if not available
-    return _context.tier ?? 'free';
+  SubscriptionTier _resolveTier() {
+    // Map the context tier string to the SubscriptionTier enum.
+    // Default to free when the tier is missing or unrecognized.
+    final raw = _context.tier;
+    if (raw == null || raw.isEmpty) return SubscriptionTier.free;
+    final normalized = raw.toLowerCase();
+    for (final tier in SubscriptionTier.values) {
+      if (tier.name == normalized) return tier;
+    }
+    return SubscriptionTier.free;
   }
 }
 

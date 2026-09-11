@@ -57,7 +57,12 @@ class WorkspaceDashboardCatalog {
   /// workspace type → ordered module keys (first = primary experience)
   ///
   /// Only the retained workspace types get a curated workspace dashboard:
-  ///   farmer, trader/supplier, institution.
+  ///   farmer, trader/supplier, institution, admin.
+  ///
+  /// The Admin workspace's primary experience is the Admin Console
+  /// (`admin_console`). Whether the console's capabilities are actually
+  /// usable is decided by the existing context/role/permission runtime —
+  /// never by this mapping.
   static const Map<String, List<String>> modulePromotions = {
     'farmer': [
       'farm_management',
@@ -86,6 +91,9 @@ class WorkspaceDashboardCatalog {
       'analytics',
       'opportunities',
       'marketplace',
+    ],
+    'admin': [
+      'admin_console',
     ],
   };
 
@@ -123,6 +131,17 @@ class WorkspaceDashboardCatalog {
       // institution family
       'financial_institution': 'institution',
       'bank': 'institution',
+      // admin family → admin (platform and entity administration share
+      // one Admin workspace; the active role/permissions decide scope)
+      'administrator': 'admin',
+      'platform_admin': 'admin',
+      'platform_administrator': 'admin',
+      'entity_admin': 'admin',
+      'entity_administrator': 'admin',
+      'org_admin': 'admin',
+      'organisation_admin': 'admin',
+      'organization_admin': 'admin',
+      'admin_console': 'admin',
     };
     return aliases[normalized] ?? normalized;
   }
