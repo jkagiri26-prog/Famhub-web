@@ -35,6 +35,11 @@ import '../../../../core/session/app_session.dart';
 import '../../../../core/session/session_provider.dart';
 import '../../../../features/workspace_context/application/entity_context_refresh.dart';
 
+/// TEMPORARY (remove after verification): provisioned Administration
+/// workspace id for the add_workspace_membership test path.
+const String _kTempAdminWorkspaceId =
+    '0caff478-6d9a-489c-a442-65a003987d4d';
+
 /// ============================================================
 /// SHELL APP BAR — Replaces DesktopAppBar
 /// ============================================================
@@ -224,8 +229,7 @@ class _ContextSelector extends ConsumerWidget {
   static const String _addAdminMembershipSentinel = '__add_admin_membership__';
 
   /// TEMPORARY: the provisioned Administration workspace id.
-  static const String _adminWorkspaceId =
-      '0caff478-6d9a-489c-a442-65a003987d4d';
+  static const String _adminWorkspaceId = _kTempAdminWorkspaceId;
 
   /// TEMPORARY: invoke users.add_workspace_membership through the existing
   /// authenticated session, then refresh workspace membership data.
@@ -785,6 +789,25 @@ class _ProfileWidget extends ConsumerWidget {
             context.go('/settings');
           case 'help':
             // Future: help
+          case 'dev_add_admin_membership':
+            final result = await ref
+                .read(sessionProvider.notifier)
+                .addWorkspaceMembership(
+                  workspaceId: _kTempAdminWorkspaceId,
+                  makeDefault: false,
+                );
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  result.success
+                      ? (result.alreadyExists
+                          ? 'Administration membership already existed. Workspaces refreshed.'
+                          : 'Administration membership added. Workspaces refreshed.')
+                      : 'add_workspace_membership failed: ${result.error ?? 'unknown error'}',
+                ),
+              ),
+            );
           case 'logout':
             final confirmed = await showDialog<bool>(
               context: context,
@@ -863,6 +886,21 @@ class _ProfileWidget extends ConsumerWidget {
             leading: Icon(Icons.help_outline, size: 20,
                 color: palette.secondaryText),
             title: Text('Help & Support',
+                style: TextStyle(color: palette.primaryText)),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        // ──────────────────────────────────────────────────────
+        // TEMPORARY / TEST ACTION (remove after verification).
+        // ──────────────────────────────────────────────────────
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'dev_add_admin_membership',
+          child: ListTile(
+            leading: Icon(Icons.build_outlined, size: 20,
+                color: palette.secondaryText),
+            title: Text('Add Administration membership (temporary)',
                 style: TextStyle(color: palette.primaryText)),
             dense: true,
             contentPadding: EdgeInsets.zero,
