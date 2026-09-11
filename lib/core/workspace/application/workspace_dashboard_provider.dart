@@ -133,11 +133,17 @@ class WorkspaceDashboardCatalog {
       'bank': 'institution',
       // admin family → admin (platform and entity administration share
       // one Admin workspace; the active role/permissions decide scope)
+      'administration': 'admin',
       'administrator': 'admin',
+      'admin_workspace': 'admin',
+      'admin_dashboard': 'admin',
+      'administration_console': 'admin',
       'platform_admin': 'admin',
       'platform_administrator': 'admin',
+      'platform_administration': 'admin',
       'entity_admin': 'admin',
       'entity_administrator': 'admin',
+      'entity_administration': 'admin',
       'org_admin': 'admin',
       'organisation_admin': 'admin',
       'organization_admin': 'admin',
