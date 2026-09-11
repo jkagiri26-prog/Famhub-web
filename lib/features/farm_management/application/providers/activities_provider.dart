@@ -21,6 +21,7 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/models/activity_model.dart';
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
@@ -188,6 +189,9 @@ class GlobalActivityEntry {
 /// security boundary.
 final allUserActivitiesProvider = FutureProvider<List<GlobalActivityEntry>>(
   (ref) async {
+  // Re-fetch when the active entity context resolves or changes so the
+  // global activity journal always reflects the current identity.
+  ref.watch(contextProvider.select((c) => c.entityId));
   final repository = ref.read(farmRepositoryProvider);
 
   Map<String, String> typeNames = const {};

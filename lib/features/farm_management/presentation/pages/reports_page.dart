@@ -6,6 +6,7 @@ import 'package:famhub_app/shared/widgets/states/loading_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
 
+import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/farm_entity.dart';
@@ -70,6 +71,9 @@ class FarmReportEntry {
 /// that fails to load is skipped so one broken farm never blanks the tab.
 final farmReportsProvider =
     FutureProvider<Map<String, FarmReportEntry>>((ref) async {
+  // Re-fetch when the active entity context resolves or changes so reports
+  // always reflect the current identity.
+  ref.watch(contextProvider.select((c) => c.entityId));
   final repository = ref.read(farmRepositoryProvider);
   final farms = await repository.getUserFarms();
   final out = <String, FarmReportEntry>{};

@@ -17,6 +17,7 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/farm_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
@@ -65,6 +66,18 @@ class FarmSelectorNotifier extends Notifier<FarmSelectorState> {
 
   @override
   FarmSelectorState build() {
+    // 🔑 IDENTITY-ALIGNED FETCH:
+    // The real entity context resolves asynchronously (auth → profile →
+    // core.entity_context_sessions → core.entities) and changes again on a
+    // workspace/entity switch. Farm visibility is entity-scoped, so the farm
+    // list must be (re)fetched whenever the active entity context changes —
+    // otherwise the selector stays in its initial loading state and every
+    // tab shows no data. The page/bootstrap may still call loadFarms().
+    ref.watch(contextProvider.select((c) => c.entityId));
+    final isResolving = ref.watch(contextProvider.select((c) => c.isLoading));
+    if (!isResolving) {
+      Future.microtask(loadFarms);
+    }
     return FarmSelectorState.initial();
   }
 

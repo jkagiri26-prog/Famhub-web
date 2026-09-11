@@ -17,6 +17,7 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/farm_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/field_entity.dart';
@@ -180,6 +181,9 @@ class GlobalLivestockEntry {
 /// farms and reuse the existing single-farm livestock queries.
 final allUserLivestockProvider =
     FutureProvider<List<GlobalLivestockEntry>>((ref) async {
+  // Re-fetch when the active entity context resolves or changes so the
+  // global livestock workspace always reflects the current identity.
+  ref.watch(contextProvider.select((c) => c.entityId));
   final repository = ref.read(farmRepositoryProvider);
   final farms = await repository.getUserFarms();
   final entries = <GlobalLivestockEntry>[];

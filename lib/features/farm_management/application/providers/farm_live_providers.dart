@@ -16,6 +16,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/models/farm_dashboard_summary.dart';
 import 'package:famhub_app/features/farm_management/domain/models/activity_model.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
@@ -204,6 +205,8 @@ final farmStockValueProvider = FutureProvider<Map<String, double>>((ref) async {
 final farmUserFarmsProvider = FutureProvider<List<FarmEntity>>((ref) async {
   final stopwatch = Stopwatch()..start();
   try {
+    // Re-fetch when the active entity context resolves or changes.
+    ref.watch(contextProvider.select((c) => c.entityId));
     final repository = ref.read(farmRepositoryProvider);
     final farms = await repository.getUserFarms();
 
