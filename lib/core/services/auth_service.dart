@@ -486,10 +486,45 @@ class AuthService {
   /// Throws on failure so the caller can distinguish an empty result
   /// from a load error.
   Future<List<Map<String, dynamic>>> getAvailableWorkspaceContexts() async {
-    final response = await _supabase.client
-        .schema('users')
-        .rpc('get_available_workspace_contexts');
+    Object? response;
+    try {
+      response = await _supabase.client
+          .schema('users')
+          .rpc('get_available_workspace_contexts');
+    } catch (e, st) {
+      // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression):
+      // surface the Supabase error object. No tokens/credentials are logged.
+      debugPrint('[get_available_workspace_contexts] ERROR '
+          'type=${e.runtimeType} error=$e');
+      debugPrintStack(
+        stackTrace: st,
+        label: '[get_available_workspace_contexts]',
+        maxFrames: 6,
+      );
+      rethrow;
+    }
 
+    final rows = _asContextRows(response);
+
+    // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression):
+    // expose exactly what the backend returns so the zero-context case is
+    // identified from data, not guessed. IDs only — no personal data.
+    debugPrint('[get_available_workspace_contexts] rawType=${response.runtimeType} '
+        'count=${rows.length}');
+    for (var i = 0; i < rows.length; i++) {
+      final row = rows[i];
+      debugPrint('[get_available_workspace_contexts] row[$i] '
+          'workspace_id=${row['workspace_id']} '
+          'entity_id=${row['entity_id']} '
+          'role_id=${row['role_id']} '
+          'active_mode=${row['active_mode']} '
+          'business_profile_id=${row['business_profile_id']}');
+    }
+
+    return rows;
+  }
+
+  List<Map<String, dynamic>> _asContextRows(Object? response) {
     if (response is List) {
       return response
           .whereType<Map>()
@@ -516,6 +551,13 @@ class AuthService {
     String? roleId,
     String? businessProfileId,
   }) async {
+    // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression).
+    debugPrint('[activate_workspace_context] REQUEST '
+        'p_workspace_id=$workspaceId '
+        'p_entity_id=$entityId '
+        'p_role_id=$roleId '
+        'p_business_profile_id=$businessProfileId');
+
     try {
       final response = await _supabase.client
           .schema('users')
@@ -526,17 +568,40 @@ class AuthService {
         'p_business_profile_id': businessProfileId,
       });
 
-      if (response is List && response.isNotEmpty) {
-        final first = response.first;
-        if (first is Map) return Map<String, dynamic>.from(first);
+      final row = _firstContextRow(response);
+      if (row != null) {
+        debugPrint('[activate_workspace_context] RESPONSE row '
+            'workspace_id=${row['workspace_id']} '
+            'entity_id=${row['entity_id']} '
+            'role_id=${row['role_id']} '
+            'active_mode=${row['active_mode']} '
+            'business_profile_id=${row['business_profile_id']}');
+        return row;
       }
-      if (response is Map) return Map<String, dynamic>.from(response);
-      debugPrint('[activate_workspace_context] Unexpected response: $response');
+
+      debugPrint('[activate_workspace_context] RESPONSE empty/void: '
+          'rawType=${response.runtimeType} value=$response');
       return null;
-    } catch (e) {
-      debugPrint('[activate_workspace_context] failed: $e');
+    } catch (e, st) {
+      // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression).
+      debugPrint('[activate_workspace_context] ERROR '
+          'type=${e.runtimeType} error=$e');
+      debugPrintStack(
+        stackTrace: st,
+        label: '[activate_workspace_context]',
+        maxFrames: 6,
+      );
       return null;
     }
+  }
+
+  Map<String, dynamic>? _firstContextRow(Object? response) {
+    if (response is List && response.isNotEmpty) {
+      final first = response.first;
+      if (first is Map) return Map<String, dynamic>.from(first);
+    }
+    if (response is Map) return Map<String, dynamic>.from(response);
+    return null;
   }
 
   /// ============================================================

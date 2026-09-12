@@ -452,6 +452,9 @@ class _ContextSelector extends ConsumerWidget {
     }
 
     if (selected != null && selected != active.workspaceId) {
+      // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression).
+      debugPrint('[WorkspaceSwitch] current_workspace=${active.workspaceId} '
+          'requested_workspace=$selected');
       await ref
           .read(activeWorkspaceProvider.notifier)
           .switchWorkspace(selected);
@@ -489,6 +492,13 @@ class _ContextSelector extends ConsumerWidget {
       return;
     }
 
+    // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression is
+    // resolved): compare the requested workspace against what the backend
+    // actually returned. IDs only — no personal data.
+    debugPrint('[WorkspaceSwitch] requested_workspace=$workspaceId '
+        'available_count=${contexts.length} '
+        'available_workspace_ids=${contexts.map((c) => c['workspace_id']).toList()}');
+
     // workspace_id = system.workspaces.id (never an entity id).
     final forWorkspace = contexts
         .where((c) => c['workspace_id']?.toString() == workspaceId)
@@ -515,6 +525,12 @@ class _ContextSelector extends ConsumerWidget {
       chosen = picked;
     }
 
+    // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression).
+    debugPrint('[WorkspaceSwitch] selected_context '
+        'workspace_id=${chosen['workspace_id']} '
+        'entity_id=${chosen['entity_id']} '
+        'role_id=${chosen['role_id']}');
+
     final result = await authService.activateWorkspaceContext(
       workspaceId: workspaceId,
       entityId: chosen['entity_id']?.toString(),
@@ -523,6 +539,9 @@ class _ContextSelector extends ConsumerWidget {
     );
 
     if (result == null) {
+      // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression).
+      debugPrint('[WorkspaceSwitch] activation returned=false '
+          'workspace=$workspaceId');
       // Activation failed — never fabricate, never retain a wrong entity.
       if (context.mounted) {
         _showSnack(context,
@@ -530,6 +549,12 @@ class _ContextSelector extends ConsumerWidget {
       }
       return;
     }
+
+    // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression).
+    debugPrint('[WorkspaceSwitch] activation returned=true '
+        'workspace=$workspaceId '
+        'entity_id=${result['entity_id']} '
+        'role_id=${result['role_id']}');
 
     // Update the EXISTING canonical context (no second provider).
     await ref.read(contextProvider.notifier).applySelectionContext(
