@@ -491,9 +491,19 @@ class AuthService {
       response = await _supabase.client
           .schema('users')
           .rpc('get_available_workspace_contexts');
-    } catch (e, st) {
+    } on PostgrestException catch (e, st) {
       // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression):
       // surface the Supabase error object. No tokens/credentials are logged.
+      debugPrint('[get_available_workspace_contexts] ERROR '
+          'type=${e.runtimeType} code=${e.code} message=${e.message} '
+          'details=${e.details} hint=${e.hint}');
+      debugPrintStack(
+        stackTrace: st,
+        label: '[get_available_workspace_contexts]',
+        maxFrames: 6,
+      );
+      rethrow;
+    } catch (e, st) {
       debugPrint('[get_available_workspace_contexts] ERROR '
           'type=${e.runtimeType} error=$e');
       debugPrintStack(
@@ -511,6 +521,9 @@ class AuthService {
     // identified from data, not guessed. IDs only — no personal data.
     debugPrint('[get_available_workspace_contexts] rawType=${response.runtimeType} '
         'count=${rows.length}');
+    if (rows.isEmpty) {
+      debugPrint('[get_available_workspace_contexts] ZERO CONTEXTS RETURNED');
+    }
     for (var i = 0; i < rows.length; i++) {
       final row = rows[i];
       debugPrint('[get_available_workspace_contexts] row[$i] '
@@ -581,6 +594,17 @@ class AuthService {
 
       debugPrint('[activate_workspace_context] RESPONSE empty/void: '
           'rawType=${response.runtimeType} value=$response');
+      return null;
+    } on PostgrestException catch (e, st) {
+      // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression).
+      debugPrint('[activate_workspace_context] ERROR '
+          'type=${e.runtimeType} code=${e.code} message=${e.message} '
+          'details=${e.details} hint=${e.hint}');
+      debugPrintStack(
+        stackTrace: st,
+        label: '[activate_workspace_context]',
+        maxFrames: 6,
+      );
       return null;
     } catch (e, st) {
       // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression).

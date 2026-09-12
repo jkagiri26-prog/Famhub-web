@@ -453,7 +453,8 @@ class _ContextSelector extends ConsumerWidget {
 
     if (selected != null && selected != active.workspaceId) {
       // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression).
-      debugPrint('[WorkspaceSwitch] current_workspace=${active.workspaceId} '
+      debugPrint('[WorkspaceSwitch] SEQUENCE step=request '
+          'current_workspace=${active.workspaceId} '
           'requested_workspace=$selected');
       await ref
           .read(activeWorkspaceProvider.notifier)
@@ -495,7 +496,10 @@ class _ContextSelector extends ConsumerWidget {
     // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression is
     // resolved): compare the requested workspace against what the backend
     // actually returned. IDs only — no personal data.
-    debugPrint('[WorkspaceSwitch] requested_workspace=$workspaceId '
+    final currentWorkspaceId = ref.read(activeWorkspaceProvider).workspaceId;
+    debugPrint('[WorkspaceSwitch] SEQUENCE step=resolve '
+        'current_workspace=$currentWorkspaceId '
+        'requested_workspace=$workspaceId '
         'available_count=${contexts.length} '
         'available_workspace_ids=${contexts.map((c) => c['workspace_id']).toList()}');
 
@@ -529,7 +533,9 @@ class _ContextSelector extends ConsumerWidget {
     debugPrint('[WorkspaceSwitch] selected_context '
         'workspace_id=${chosen['workspace_id']} '
         'entity_id=${chosen['entity_id']} '
-        'role_id=${chosen['role_id']}');
+        'role_id=${chosen['role_id']} '
+        'active_mode=${chosen['active_mode']} '
+        'business_profile_id=${chosen['business_profile_id']}');
 
     final result = await authService.activateWorkspaceContext(
       workspaceId: workspaceId,
@@ -551,10 +557,14 @@ class _ContextSelector extends ConsumerWidget {
     }
 
     // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression).
-    debugPrint('[WorkspaceSwitch] activation returned=true '
+    debugPrint('[WorkspaceSwitch] SEQUENCE step=activation '
+        'returned=true '
         'workspace=$workspaceId '
         'entity_id=${result['entity_id']} '
-        'role_id=${result['role_id']}');
+        'role_id=${result['role_id']} '
+        'active_mode=${result['active_mode']} '
+        'business_profile_id=${result['business_profile_id']} '
+        'profile_id=${result['profile_id']}');
 
     // Update the EXISTING canonical context (no second provider).
     await ref.read(contextProvider.notifier).applySelectionContext(
@@ -569,6 +579,14 @@ class _ContextSelector extends ConsumerWidget {
           businessProfileId: result['business_profile_id']?.toString() ??
               chosen['business_profile_id']?.toString(),
         );
+
+    // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression):
+    // final applied context after activation.
+    final applied = ref.read(contextProvider);
+    debugPrint('[WorkspaceSwitch] SEQUENCE step=applied '
+        'selected_context_workspace_id=$workspaceId '
+        'selected_context_entity_id=${applied.entityId} '
+        'selected_context_role_id=${applied.roleId}');
 
     // Refresh entity/business-scoped data (not global discovery).
     refreshEntityScopedProviders(ref);
