@@ -329,9 +329,9 @@ class _WelcomeFeatureCard extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 8.0,
-            offset: const Offset(0, 4),
-            spreadRadius: 0.0,
+            blurRadius: 10.0,
+            offset: const Offset(0, 5),
+            spreadRadius: -1.0,
           ),
         ],
       ),
