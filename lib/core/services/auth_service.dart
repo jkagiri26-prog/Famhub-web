@@ -27,7 +27,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:famhub_app/core/services/otp_network_policy.dart';
 import 'package:famhub_app/core/services/supabase_service.dart';
 
 /// Result of an OTP send operation
@@ -764,23 +763,6 @@ class AuthService {
       final normalizedPhone = _normalizePhone(phone);
       if (kDebugMode) debugPrint('OTP Request Started (normalized: $normalizedPhone)');
 
-      // ── TEMPORARY PRE-LAUNCH TESTING RESTRICTION ──
-      // See lib/core/services/otp_network_policy.dart.
-      // Safaricom OTP delivery is temporarily unavailable while the Sender
-      // ID is configured. Block the request BEFORE it reaches Africa's
-      // Talking and show a clean message. Airtel is unaffected.
-      // TODO(pre-launch): remove once the Safaricom Sender ID is ready.
-      if (OtpNetworkPolicy.isTemporarilyBlocked(normalizedPhone)) {
-        if (kDebugMode) {
-          debugPrint('[OTP] Request blocked by temporary Safaricom testing '
-              'restriction (phone number not logged).');
-        }
-        return const OtpSendResult(
-          success: false,
-          error: OtpNetworkPolicy.temporaryUnavailableMessage,
-        );
-      }
-
       // Send OTP via Edge Function
       final response = await _supabase.client.functions.invoke(
         'request-otp',
@@ -795,7 +777,10 @@ class AuthService {
           if (kDebugMode) debugPrint('OTP Request Error (in data): $errorMsg');
           return OtpSendResult(
             success: false,
-            error: _mapEdgeFunctionError(errorMsg),
+            error: _mapEdgeFunctionError(
+              errorMsg,
+              genericFallback: _otpSendGenericError,
+            ),
           );
         }
       }
@@ -810,7 +795,10 @@ class AuthService {
       if (kDebugMode) debugPrint('OTP Request FunctionException: ${e.details}');
       return OtpSendResult(
         success: false,
-        error: _mapEdgeFunctionError(e.details?.toString() ?? e.reasonPhrase ?? 'Unknown error'),
+        error: _mapEdgeFunctionError(
+          e.details?.toString() ?? e.reasonPhrase ?? 'Unknown error',
+          genericFallback: _otpSendGenericError,
+        ),
       );
     } catch (e) {
       if (kDebugMode) debugPrint('OTP Request Exception: $e');
@@ -1009,8 +997,19 @@ class AuthService {
   /// ERROR MAPPING
   /// ============================================================
 
-  /// Map Edge Function error messages to user-friendly text
-  String _mapEdgeFunctionError(String message) {
+  /// Generic, network-neutral failure shown when the OTP provider fails for
+  /// any reason we do not have a specific friendly message for. Provider
+  /// errors (e.g. Africa's Talking `UserInBlackList`) are logged in debug
+  /// output only and never shown to users.
+  static const String _otpSendGenericError =
+      "We couldn't send your verification code. Please try again later.";
+
+  /// Map Edge Function error messages to user-friendly text.
+  ///
+  /// When [genericFallback] is provided (OTP send path), any unrecognised
+  /// provider error is replaced by that generic message; the original error
+  /// is preserved in the debug log for troubleshooting.
+  String _mapEdgeFunctionError(String message, {String? genericFallback}) {
     final lower = message.toLowerCase();
     if (lower.contains('invalid') && lower.contains('otp')) {
       return 'Invalid verification code. Please try again.';
@@ -1028,21 +1027,11 @@ class AuthService {
       return 'Account not found. Please check your phone number.';
     }
 
-    // ── TEMPORARY PRE-LAUNCH TESTING RESTRICTION ──
-    // See lib/core/services/otp_network_policy.dart.
-    // Africa's Talking returns `UserInBlackList` for Safaricom while the
-    // Sender ID is being configured. Never surface that technical error to
-    // users — map it to the same friendly temporary message. The original
-    // provider error is preserved in the debug log.
-    // TODO(pre-launch): remove together with OtpNetworkPolicy.
-    if (lower.contains('userinblacklist') ||
-        lower.contains('blacklist') ||
-        lower.contains('black list') ||
-        lower.contains('black_list')) {
+    if (genericFallback != null) {
       if (kDebugMode) {
         debugPrint('[OTP] Provider error preserved for debugging: $message');
       }
-      return OtpNetworkPolicy.temporaryUnavailableMessage;
+      return genericFallback;
     }
 
     return message;
