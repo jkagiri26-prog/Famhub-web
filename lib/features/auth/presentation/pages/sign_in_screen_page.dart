@@ -430,6 +430,16 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
           fillColor: cs.surfaceContainerLow,
           border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14)),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(
+              color: cs.onSurfaceVariant.withValues(alpha: 0.25),
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: cs.primary, width: 1.5),
+          ),
           contentPadding: const EdgeInsets.symmetric(
               horizontal: 12, vertical: 14),
         ),
@@ -542,14 +552,26 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
                     const SizedBox(height: 8),
 
                     // ── PREMIUM CARD ──
-                    Card(
-                      elevation: 8,
-                      shadowColor: cs.primary
-                          .withValues(alpha: 0.15),
-                      shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(28)),
-                      color: cs.surface,
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: cs.surface,
+                        borderRadius:
+                            BorderRadius.circular(28),
+                        border: Border.all(
+                          color: cs.outlineVariant
+                              .withValues(alpha: 0.5),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black
+                                .withValues(alpha: 0.08),
+                            blurRadius: 12.0,
+                            offset: const Offset(0, 6),
+                            spreadRadius: -1.0,
+                          ),
+                        ],
+                      ),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 28, vertical: 36),
@@ -674,6 +696,26 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
                                         borderRadius:
                                             BorderRadius
                                                 .circular(14),
+                                      ),
+                                      enabledBorder:
+                                          OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius
+                                                .circular(14),
+                                        borderSide: BorderSide(
+                                          color: cs.onSurfaceVariant
+                                              .withValues(
+                                                  alpha: 0.25),
+                                        ),
+                                      ),
+                                      focusedBorder:
+                                          OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius
+                                                .circular(14),
+                                        borderSide: BorderSide(
+                                            color: cs.primary,
+                                            width: 1.5),
                                       ),
                                       contentPadding: const EdgeInsets
                                           .symmetric(
