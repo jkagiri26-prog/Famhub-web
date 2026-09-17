@@ -421,12 +421,14 @@ class _WelcomeFeatureCard extends StatelessWidget {
                       const SizedBox(height: 2.0),
                       Text(
                         feature.description,
-                        maxLines: compact ? 1 : null,
+                        maxLines: compact ? 2 : null,
                         overflow: compact
                             ? TextOverflow.ellipsis
                             : TextOverflow.clip,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
+                          fontSize: compact ? 11.5 : null,
+                          height: compact ? 1.2 : null,
                         ),
                       ),
                     ],
