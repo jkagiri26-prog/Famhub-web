@@ -19,6 +19,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// Available ecosystem features shown on welcome screen
 const List<_EcosystemFeature> _features = [
@@ -63,15 +64,20 @@ class WelcomeScreenPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final baseTheme = Theme.of(context);
+    final theme = baseTheme.copyWith(
+      textTheme: GoogleFonts.interTextTheme(baseTheme.textTheme),
+    );
     final colorScheme = theme.colorScheme;
     final size = MediaQuery.of(context).size;
     final isMobile = size.width < 600;
     final isTablet = size.width >= 600 && size.width < 900;
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      body: SafeArea(
+    return Theme(
+      data: theme,
+      child: Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: SafeArea(
         child: SingleChildScrollView(
           child: ConstrainedBox(
             constraints: BoxConstraints(
@@ -108,13 +114,28 @@ class WelcomeScreenPage extends StatelessWidget {
                           width: isMobile ? 64 : 96,
                           height: isMobile ? 64 : 96,
                           decoration: BoxDecoration(
-                            color: colorScheme.primary.withValues(alpha: 0.1),
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                colorScheme.primary,
+                                colorScheme.primary.withValues(alpha: 0.7),
+                              ],
+                            ),
                             borderRadius: BorderRadius.circular(isMobile ? 18 : 24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: colorScheme.primary
+                                    .withValues(alpha: 0.3),
+                                blurRadius: 16,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
                           ),
                           child: Icon(
                             Icons.agriculture_rounded,
                             size: isMobile ? 32 : 48,
-                            color: colorScheme.primary,
+                            color: Colors.white,
                           ),
                         ),
 
@@ -170,19 +191,23 @@ class WelcomeScreenPage extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'The complete agricultural ecosystem',
-                          style: theme.textTheme.titleSmall?.copyWith(
+                          'THE COMPLETE AGRICULTURAL ECOSYSTEM',
+                          style: theme.textTheme.labelSmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1.0,
                           ),
                         ),
                         SizedBox(height: isMobile ? 12 : 16),
                         if (isMobile)
-                          ..._features.map(
-                            (f) => _WelcomeFeatureCard(
-                              feature: f,
-                              colorScheme: colorScheme,
-                              compact: true,
+                          ..._features.asMap().entries.map(
+                            (entry) => _StaggeredFadeIn(
+                              index: entry.key,
+                              child: _WelcomeFeatureCard(
+                                feature: entry.value,
+                                colorScheme: colorScheme,
+                                compact: true,
+                              ),
                             ),
                           )
                         else
@@ -190,14 +215,19 @@ class WelcomeScreenPage extends StatelessWidget {
                             spacing: 12,
                             runSpacing: 12,
                             children: _features
+                                .asMap()
+                                .entries
                                 .map(
-                                  (f) => SizedBox(
+                                  (entry) => SizedBox(
                                     width: isTablet
                                         ? (size.width - 72) / 2
                                         : (size.width - 72) / 3,
-                                    child: _WelcomeFeatureCard(
-                                      feature: f,
-                                      colorScheme: colorScheme,
+                                    child: _StaggeredFadeIn(
+                                      index: entry.key,
+                                      child: _WelcomeFeatureCard(
+                                        feature: entry.value,
+                                        colorScheme: colorScheme,
+                                      ),
                                     ),
                                   ),
                                 )
@@ -228,6 +258,9 @@ class WelcomeScreenPage extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(14),
                               ),
                               backgroundColor: colorScheme.primary,
+                              elevation: 3,
+                              shadowColor: colorScheme.primary
+                                  .withValues(alpha: 0.35),
                             ),
                             child: const Text(
                               'Sign In',
@@ -252,10 +285,14 @@ class WelcomeScreenPage extends StatelessWidget {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
                               ),
+                              backgroundColor: colorScheme.surface,
                               side: BorderSide(
                                 color: colorScheme.outline,
                                 width: 1.5,
                               ),
+                              elevation: 1,
+                              shadowColor:
+                                  Colors.black.withValues(alpha: 0.08),
                             ),
                             child: Text(
                               'Create Account',
@@ -283,16 +320,15 @@ class WelcomeScreenPage extends StatelessWidget {
                               TextSpan(
                                 text: 'Continue ',
                                 style: TextStyle(
-                                  fontSize: 15,
+                                  fontSize: 14,
                                   color: colorScheme.onSurfaceVariant,
                                 ),
                                 children: [
                                   TextSpan(
                                     text: 'Exploring',
                                     style: TextStyle(
-                                      fontWeight: FontWeight.w600,
+                                      fontWeight: FontWeight.bold,
                                       color: colorScheme.primary,
-                                      decoration: TextDecoration.underline,
                                     ),
                                   ),
                                 ],
@@ -308,6 +344,7 @@ class WelcomeScreenPage extends StatelessWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }
@@ -335,6 +372,9 @@ class _WelcomeFeatureCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(16.0),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.08),
@@ -392,6 +432,12 @@ class _WelcomeFeatureCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                const SizedBox(width: 8.0),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 20.0,
+                  color: colorScheme.onSurfaceVariant,
+                ),
               ],
             ),
           ),
@@ -412,4 +458,63 @@ class _EcosystemFeature {
     required this.title,
     required this.description,
   });
+}
+
+/// Staggered fade/slide entrance used by the feature cards.
+class _StaggeredFadeIn extends StatefulWidget {
+  final Widget child;
+  final int index;
+
+  const _StaggeredFadeIn({
+    required this.child,
+    required this.index,
+  });
+
+  @override
+  State<_StaggeredFadeIn> createState() => _StaggeredFadeInState();
+}
+
+class _StaggeredFadeInState extends State<_StaggeredFadeIn>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _opacity;
+  late final Animation<Offset> _offset;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    final curve = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+    );
+    _opacity = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+    _offset = Tween<Offset>(
+      begin: const Offset(0, 0.06),
+      end: Offset.zero,
+    ).animate(curve);
+    Future.delayed(Duration(milliseconds: 60 * widget.index), () {
+      if (mounted) _controller.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _opacity,
+      child: SlideTransition(
+        position: _offset,
+        child: widget.child,
+      ),
+    );
+  }
 }
