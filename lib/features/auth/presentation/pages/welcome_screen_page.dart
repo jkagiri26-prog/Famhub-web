@@ -87,9 +87,9 @@ class WelcomeScreenPage extends StatelessWidget {
                     width: double.infinity,
                     padding: EdgeInsets.fromLTRB(
                       24,
-                      isMobile ? 40 : 64,
+                      isMobile ? 20 : 64,
                       24,
-                      isMobile ? 32 : 48,
+                      isMobile ? 18 : 48,
                     ),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -105,20 +105,20 @@ class WelcomeScreenPage extends StatelessWidget {
                       children: [
                         // ── Logo ──
                         Container(
-                          width: isMobile ? 80 : 96,
-                          height: isMobile ? 80 : 96,
+                          width: isMobile ? 64 : 96,
+                          height: isMobile ? 64 : 96,
                           decoration: BoxDecoration(
                             color: colorScheme.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(isMobile ? 20 : 24),
+                            borderRadius: BorderRadius.circular(isMobile ? 18 : 24),
                           ),
                           child: Icon(
                             Icons.agriculture_rounded,
-                            size: isMobile ? 40 : 48,
+                            size: isMobile ? 32 : 48,
                             color: colorScheme.primary,
                           ),
                         ),
 
-                        const SizedBox(height: 24),
+                        SizedBox(height: isMobile ? 12 : 24),
 
                         // ── Title ──
                         Text(
@@ -143,7 +143,7 @@ class WelcomeScreenPage extends StatelessWidget {
                           ),
                         ),
 
-                        const SizedBox(height: 8),
+                        SizedBox(height: isMobile ? 4 : 8),
 
                         // ── Tagline ──
                         Text(
@@ -160,8 +160,11 @@ class WelcomeScreenPage extends StatelessWidget {
 
                   // ── Ecosystem Features Grid ──
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      24, 24, 24, 32,
+                    padding: EdgeInsets.fromLTRB(
+                      24,
+                      isMobile ? 12 : 24,
+                      24,
+                      isMobile ? 16 : 32,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -173,12 +176,13 @@ class WelcomeScreenPage extends StatelessWidget {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        SizedBox(height: isMobile ? 12 : 16),
                         if (isMobile)
                           ..._features.map(
                             (f) => _WelcomeFeatureCard(
                               feature: f,
                               colorScheme: colorScheme,
+                              compact: true,
                             ),
                           )
                         else
@@ -208,7 +212,8 @@ class WelcomeScreenPage extends StatelessWidget {
 
                   // ── Action Buttons ──
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                    padding: EdgeInsets.fromLTRB(
+                        24, 0, 24, isMobile ? 16 : 24),
                     child: Column(
                       children: [
                         // ── Sign In Button (Primary) ──
@@ -217,7 +222,8 @@ class WelcomeScreenPage extends StatelessWidget {
                           child: FilledButton(
                             onPressed: onSignIn,
                             style: FilledButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              padding: EdgeInsets.symmetric(
+                                  vertical: isMobile ? 14 : 16),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
                               ),
@@ -233,7 +239,7 @@ class WelcomeScreenPage extends StatelessWidget {
                           ),
                         ),
 
-                        const SizedBox(height: 12),
+                        SizedBox(height: isMobile ? 10 : 12),
 
                         // ── Create Account Button (Secondary) ──
                         SizedBox(
@@ -241,7 +247,8 @@ class WelcomeScreenPage extends StatelessWidget {
                           child: OutlinedButton(
                             onPressed: onCreateAccount,
                             style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              padding: EdgeInsets.symmetric(
+                                  vertical: isMobile ? 14 : 16),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
                               ),
@@ -261,7 +268,7 @@ class WelcomeScreenPage extends StatelessWidget {
                           ),
                         ),
 
-                        const SizedBox(height: 12),
+                        SizedBox(height: isMobile ? 10 : 12),
 
                         // ── Continue Exploring Button ──
                         SizedBox(
@@ -269,7 +276,8 @@ class WelcomeScreenPage extends StatelessWidget {
                           child: TextButton(
                             onPressed: onContinueExploring,
                             style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              padding: EdgeInsets.symmetric(
+                                  vertical: isMobile ? 10 : 12),
                             ),
                             child: Text.rich(
                               TextSpan(
@@ -309,10 +317,12 @@ class WelcomeScreenPage extends StatelessWidget {
 class _WelcomeFeatureCard extends StatelessWidget {
   final _EcosystemFeature feature;
   final ColorScheme colorScheme;
+  final bool compact;
 
   const _WelcomeFeatureCard({
     required this.feature,
     required this.colorScheme,
+    this.compact = false,
   });
 
   @override
@@ -321,8 +331,7 @@ class _WelcomeFeatureCard extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12.0),
-      padding: const EdgeInsets.all(16.0),
+      margin: EdgeInsets.only(bottom: compact ? 8.0 : 12.0),
       decoration: BoxDecoration(
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(16.0),
@@ -335,42 +344,58 @@ class _WelcomeFeatureCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10.0),
-            decoration: BoxDecoration(
-              color: colorScheme.primaryContainer.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(12.0),
-            ),
-            child: Icon(
-              feature.icon,
-              color: colorScheme.primary,
-              size: 24.0,
-            ),
-          ),
-          const SizedBox(width: 16.0),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {},
+          borderRadius: BorderRadius.circular(16.0),
+          splashColor: Colors.black.withValues(alpha: 0.04),
+          highlightColor: Colors.black.withValues(alpha: 0.04),
+          child: Padding(
+            padding: EdgeInsets.all(compact ? 12.0 : 16.0),
+            child: Row(
               children: [
-                Text(
-                  feature.title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                Container(
+                  padding: EdgeInsets.all(compact ? 8.0 : 10.0),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(12.0),
+                  ),
+                  child: Icon(
+                    feature.icon,
+                    color: colorScheme.primary,
+                    size: compact ? 22.0 : 24.0,
                   ),
                 ),
-                const SizedBox(height: 2.0),
-                Text(
-                  feature.description,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+                SizedBox(width: compact ? 12.0 : 16.0),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        feature.title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2.0),
+                      Text(
+                        feature.description,
+                        maxLines: compact ? 1 : null,
+                        overflow: compact
+                            ? TextOverflow.ellipsis
+                            : TextOverflow.clip,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
