@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/router/app_router_provider.dart';
 
@@ -164,6 +165,26 @@ Future<void> _bootstrap() async {
   }
 
   debugPrint('2. Supabase initialized');
+
+  // ╔══════════════════════════════════════════════════════════════╗
+  // ║  ONE-TIME AUTH STORAGE MIGRATION                             ║
+  // ╚══════════════════════════════════════════════════════════════╝
+  // A stale cached session (e.g. an access token with no `sub` claim)
+  // produces `403 bad_jwt: invalid claim: missing sub claim`. Clear the
+  // local session exactly once so affected users sign in again and the
+  // client obtains a fresh, valid Supabase access token.
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    const authStorageMigrationKey = 'auth_storage_cleared_v2';
+    if (!(prefs.getBool(authStorageMigrationKey) ?? false)) {
+      await SupabaseService.instance.client.auth
+          .signOut(scope: SignOutScope.local);
+      await prefs.setBool(authStorageMigrationKey, true);
+      debugPrint('[BOOT] Cleared stale auth storage (one-time migration).');
+    }
+  } catch (e) {
+    debugPrint('[BOOT] Auth storage migration skipped: $e');
+  }
 
   // ╔══════════════════════════════════════════════════════════════╗
   // ║  RUNTIME URL VERIFICATION                                   ║

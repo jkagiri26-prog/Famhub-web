@@ -158,6 +158,41 @@ class SupabaseService {
     return client.auth.refreshSession();
   }
 
+  /// The current Supabase access token, or null when there is no session.
+  ///
+  /// Always sourced from the authenticated Supabase session — never the
+  /// anon key, never a manually constructed JWT.
+  String? get accessToken => currentSession?.accessToken;
+
+  /// Refreshes the current session before retrying an authenticated call.
+  ///
+  /// Returns true when a usable session is available afterwards. If the
+  /// cached session cannot be refreshed (expired/invalid refresh token,
+  /// `bad_jwt`, missing `sub`), the invalid local session is cleared so
+  /// the app returns to the login flow instead of retrying with a stale
+  /// token.
+  Future<bool> refreshSessionSafely() async {
+    if (currentSession == null) return false;
+    try {
+      final response = await client.auth.refreshSession();
+      return response.session != null;
+    } catch (_) {
+      await clearInvalidSession();
+      return false;
+    }
+  }
+
+  /// Clears the local Supabase session (local scope only) without a
+  /// server round-trip failure propagating. Used when the cached token
+  /// is proven invalid.
+  Future<void> clearInvalidSession() async {
+    try {
+      await client.auth.signOut(scope: SignOutScope.local);
+    } catch (_) {
+      // Local cleanup must never throw.
+    }
+  }
+
   /// =======================================================
   /// GENERIC SELECT HELPERS
   /// =======================================================

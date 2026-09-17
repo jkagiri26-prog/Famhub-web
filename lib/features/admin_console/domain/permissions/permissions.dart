@@ -29,9 +29,9 @@ class AdminPermissions {
   AdminPermissions._();
 
   // ── Platform administration ──────────────────────────────
-  static const String platformOverview = 'admin.view';
+  static const String platformOverview = 'admin.overview';
   static const String users = 'admin.users.manage';
-  static const String organisations = 'admin.organisations.manage';
+  static const String organisations = 'admin.entities.manage';
   static const String workspaces = 'admin.workspaces.manage';
   static const String modules = 'admin.modules.manage';
   static const String featureFlags = 'admin.feature_flags.manage';
@@ -41,10 +41,10 @@ class AdminPermissions {
   static const String workflows = 'admin.workflows.manage';
   static const String analytics = 'admin.analytics.view';
   static const String audit = 'admin.audit.view';
-  static const String systemSettings = 'admin.configure';
+  static const String systemSettings = 'admin.settings.manage';
 
   // ── Entity administration ────────────────────────────────
-  static const String entityOverview = 'entity.view';
+  static const String entityOverview = 'entity.overview.view';
   static const String entityMembers = 'entity.members.manage';
   static const String entityRoles = 'entity.roles.manage';
   static const String entityWorkspaceAccess =
@@ -55,5 +55,5 @@ class AdminPermissions {
       'entity.business_profiles.manage';
   static const String entityApprovals = 'entity.approvals.manage';
   static const String entityAuditTrail = 'entity.audit.view';
-  static const String entitySettings = 'entity.configure';
+  static const String entitySettings = 'entity.settings.manage';
 }

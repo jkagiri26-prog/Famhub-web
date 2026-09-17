@@ -9,6 +9,7 @@
 ///   - Business Hub entities + active business selection
 ///   - Marketplace seller/owned listings + eligible stock
 ///   - Farm selection + lifecycle + dashboard
+///   - Access policy (role/entity-scoped authorization result)
 ///
 /// ❌ Intentionally NOT invalidated (global/shared):
 ///   - Marketplace public discovery (`marketplaceProvider`)
@@ -20,6 +21,7 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:famhub_app/core/access/application/providers/access_policy_provider.dart';
 import 'package:famhub_app/features/business_hub/application/providers/active_business_provider.dart';
 import 'package:famhub_app/features/business_hub/application/providers/my_businesses_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_dashboard_provider.dart';
@@ -41,4 +43,14 @@ void refreshEntityScopedProviders(WidgetRef ref) {
   ref.invalidate(farmSelectorProvider);
   ref.invalidate(farmLifecycleProvider);
   ref.invalidate(farmDashboardProvider);
+
+  // ── Authorization (entity/role scoped) ──
+  // `get_access_policy` derives the result from the ACTIVE entity-context
+  // session and is cached in a non-autoDispose FutureProvider. It must be
+  // refetched whenever the active entity/role changes, otherwise the
+  // previous context's permissions (e.g. Admin) remain in effect after
+  // switching back. The runtime decision engine and Admin capability
+  // providers watch this provider, so invalidating it refreshes them
+  // without any new provider or architecture change.
+  ref.invalidate(accessPolicyProvider);
 }

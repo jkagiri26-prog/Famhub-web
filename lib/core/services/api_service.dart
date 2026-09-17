@@ -34,15 +34,32 @@ class ApiService {
       'Accept': 'application/json',
     };
 
-    // Get access token from Supabase session
-    final session = _supabase.currentSession;
-    final token = session?.accessToken;
+    // Always use the current Supabase session access token. Never the anon
+    // key, never a manually constructed JWT.
+    final token = _supabase.accessToken;
 
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';
     }
 
     return headers;
+  }
+
+  /// Sends an authenticated request and retries ONCE after refreshing the
+  /// session when the server answers 401/403 with a stale/invalid token.
+  Future<dynamic> _execute(
+    Future<http.Response> Function(Map<String, String> headers) send,
+  ) async {
+    var response = await send(await _headers());
+
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      final refreshed = await _supabase.refreshSessionSafely();
+      if (refreshed) {
+        response = await send(await _headers());
+      }
+    }
+
+    return _processResponse(response);
   }
 
   /// =========================
@@ -75,17 +92,17 @@ class ApiService {
     Map<String, dynamic>? queryParameters,
   }) async {
     try {
-      final response = await _client
-          .get(
-            _buildUri(
-              endpoint,
-              queryParameters: queryParameters,
-            ),
-            headers: await _headers(),
-          )
-          .timeout(_timeout);
-
-      return _processResponse(response);
+      return await _execute(
+        (headers) => _client
+            .get(
+              _buildUri(
+                endpoint,
+                queryParameters: queryParameters,
+              ),
+              headers: headers,
+            )
+            .timeout(_timeout),
+      );
     } on TimeoutException {
       throw ApiException(
         message: 'Request timeout',
@@ -108,18 +125,18 @@ class ApiService {
     Map<String, dynamic>? queryParameters,
   }) async {
     try {
-      final response = await _client
-          .post(
-            _buildUri(
-              endpoint,
-              queryParameters: queryParameters,
-            ),
-            headers: await _headers(),
-            body: jsonEncode(body ?? {}),
-          )
-          .timeout(_timeout);
-
-      return _processResponse(response);
+      return await _execute(
+        (headers) => _client
+            .post(
+              _buildUri(
+                endpoint,
+                queryParameters: queryParameters,
+              ),
+              headers: headers,
+              body: jsonEncode(body ?? {}),
+            )
+            .timeout(_timeout),
+      );
     } on TimeoutException {
       throw ApiException(
         message: 'Request timeout',
@@ -141,15 +158,15 @@ class ApiService {
     Map<String, dynamic>? body,
   }) async {
     try {
-      final response = await _client
-          .put(
-            _buildUri(endpoint),
-            headers: await _headers(),
-            body: jsonEncode(body ?? {}),
-          )
-          .timeout(_timeout);
-
-      return _processResponse(response);
+      return await _execute(
+        (headers) => _client
+            .put(
+              _buildUri(endpoint),
+              headers: headers,
+              body: jsonEncode(body ?? {}),
+            )
+            .timeout(_timeout),
+      );
     } on TimeoutException {
       throw ApiException(
         message: 'Request timeout',
@@ -170,14 +187,14 @@ class ApiService {
     String endpoint,
   ) async {
     try {
-      final response = await _client
-          .delete(
-            _buildUri(endpoint),
-            headers: await _headers(),
-          )
-          .timeout(_timeout);
-
-      return _processResponse(response);
+      return await _execute(
+        (headers) => _client
+            .delete(
+              _buildUri(endpoint),
+              headers: headers,
+            )
+            .timeout(_timeout),
+      );
     } on TimeoutException {
       throw ApiException(
         message: 'Request timeout',

@@ -7,14 +7,13 @@
 ///
 /// ✅ Responsibilities:
 ///   - Resolve the active entity context (contextProvider) for Admin.
-///   - Resolve each capability descriptor against the EXISTING
-///     permission infrastructure (backend access policy +
-///     RuntimeDecisionEngine).
+///   - Resolve each capability descriptor against the canonical
+///     backend authorization function `core.has_permission(p_permission)`.
 ///   - Expose a safe loading / unavailable / allowed / denied state.
 ///
 /// ✅ ARCHITECTURE COMPLIANCE:
-///   - No permission is granted here. When the backend/runtime does
-///     not explicitly allow a capability, it is NOT rendered.
+///   - No permission is granted here. When the backend does not
+///     explicitly allow a capability, it is NOT rendered.
 ///   - When permission data is unavailable, the state is `unavailable`
 ///     so the UI can show a locked state instead of fabricating access.
 ///   - No new role registry, context provider, or dashboard engine.
@@ -30,9 +29,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/access/application/providers/access_policy_provider.dart';
 import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
-import 'package:famhub_app/core/runtime_decision/application/runtime_decision_provider.dart';
-import 'package:famhub_app/core/runtime_decision/domain/runtime_reason.dart';
-import 'package:famhub_app/core/runtime_decision/domain/runtime_request.dart';
 import 'package:famhub_app/features/admin_console/domain/models/admin_capability.dart';
 
 /// ============================================================
@@ -75,7 +71,9 @@ class AdminCapabilityStatus {
 ///
 /// Whether the active context may open the Admin workspace at all.
 /// This does NOT grant any section — it only verifies that an
-/// authenticated entity context and permission data exist.
+/// authenticated entity context and active role exist. Per-capability
+/// authority is resolved by `adminCapabilityStatusProvider` through the
+/// backend `core.has_permission` function.
 /// ============================================================
 final adminWorkspaceAccessProvider = Provider<AdminCapabilityStatus>((ref) {
   final context = ref.watch(contextProvider);
@@ -96,15 +94,6 @@ final adminWorkspaceAccessProvider = Provider<AdminCapabilityStatus>((ref) {
     );
   }
 
-  final policyAsync = ref.watch(accessPolicyProvider);
-  if (policyAsync.isLoading) return AdminCapabilityStatus.loading;
-  if (policyAsync.hasError) {
-    return const AdminCapabilityStatus(
-      AdminCapabilityState.unavailable,
-      'Administration permissions are not available right now.',
-    );
-  }
-
   return AdminCapabilityStatus.allowed;
 });
 
@@ -112,32 +101,31 @@ final adminWorkspaceAccessProvider = Provider<AdminCapabilityStatus>((ref) {
 /// PROVIDER: SINGLE ADMIN CAPABILITY STATUS
 /// ============================================================
 ///
-/// Evaluates one backend permission key through the existing
-/// RuntimeDecisionEngine. The base gate must pass first.
+/// Resolves one backend permission key through the canonical
+/// `core.has_permission` function. The base gate must pass first.
+/// The backend authorization result is authoritative — no grant is
+/// ever inferred client-side.
 /// ============================================================
 final adminCapabilityStatusProvider =
-    Provider.family<AdminCapabilityStatus, String>((ref, permissionKey) {
+    FutureProvider.family<AdminCapabilityStatus, String>((ref, permissionKey) async {
   final base = ref.watch(adminWorkspaceAccessProvider);
   if (!base.isAllowed) return base;
 
-  final decision = ref.watch(runtimeDecisionProvider(RuntimeRequest(
-    action: 'view',
-    module: 'admin_console',
-    permission: permissionKey,
-  )));
+  final repository = ref.watch(accessPolicyRepositoryProvider);
+  try {
+    final allowed = await repository.hasPermission(permissionKey);
+    if (allowed) return AdminCapabilityStatus.allowed;
 
-  if (decision.allowed) return AdminCapabilityStatus.allowed;
-
-  if (decision.failedChecks.contains(RuntimeCheckCodes.ENGINE_NOT_AVAILABLE) ||
-      decision.failedChecks
-          .contains(RuntimeCheckCodes.ACCESS_POLICY_NOT_LOADED)) {
+    return AdminCapabilityStatus(
+      AdminCapabilityState.denied,
+      'Permission "$permissionKey" is not granted for the active context.',
+    );
+  } catch (_) {
     return const AdminCapabilityStatus(
       AdminCapabilityState.unavailable,
       'Administration permissions are not available right now.',
     );
   }
-
-  return AdminCapabilityStatus(AdminCapabilityState.denied, decision.reason);
 });
 
 /// ============================================================
@@ -171,8 +159,8 @@ class AdminDashboardAccess {
 /// ============================================================
 ///
 /// Filters the capability descriptors down to those the active
-/// context is explicitly allowed. Platform and entity layers are
-/// kept separate — holding one never implies the other.
+/// context is explicitly allowed by the backend. Platform and entity
+/// layers are kept separate — holding one never implies the other.
 /// ============================================================
 final adminDashboardAccessProvider = Provider<AdminDashboardAccess>((ref) {
   final base = ref.watch(adminWorkspaceAccessProvider);
@@ -184,21 +172,42 @@ final adminDashboardAccessProvider = Provider<AdminDashboardAccess>((ref) {
     );
   }
 
-  final platform = <AdminCapability>[
-    for (final capability in AdminCapabilityCatalog.platform)
-      if (ref
-          .watch(adminCapabilityStatusProvider(capability.permissionKey))
-          .isAllowed)
-        capability,
-  ];
+  final platform = <AdminCapability>[];
+  final entity = <AdminCapability>[];
+  var loading = false;
+  String? unavailableReason;
 
-  final entity = <AdminCapability>[
-    for (final capability in AdminCapabilityCatalog.entity)
-      if (ref
-          .watch(adminCapabilityStatusProvider(capability.permissionKey))
-          .isAllowed)
-        capability,
-  ];
+  for (final capability in AdminCapabilityCatalog.platform) {
+    final status = _resolveStatus(ref, capability.permissionKey);
+    if (status.isAllowed) {
+      platform.add(capability);
+    } else if (status.isLoading) {
+      loading = true;
+    } else if (status.isUnavailable) {
+      unavailableReason ??= status.reason;
+    }
+  }
+
+  for (final capability in AdminCapabilityCatalog.entity) {
+    final status = _resolveStatus(ref, capability.permissionKey);
+    if (status.isAllowed) {
+      entity.add(capability);
+    } else if (status.isLoading) {
+      loading = true;
+    } else if (status.isUnavailable) {
+      unavailableReason ??= status.reason;
+    }
+  }
+
+  if (platform.isEmpty && entity.isEmpty) {
+    if (loading) return AdminDashboardAccess.loading;
+    if (unavailableReason != null) {
+      return AdminDashboardAccess(
+        state: AdminCapabilityState.unavailable,
+        reason: unavailableReason,
+      );
+    }
+  }
 
   return AdminDashboardAccess(
     state: AdminCapabilityState.allowed,
@@ -206,3 +215,15 @@ final adminDashboardAccessProvider = Provider<AdminDashboardAccess>((ref) {
     entityCapabilities: entity,
   );
 });
+
+AdminCapabilityStatus _resolveStatus(Ref ref, String permissionKey) {
+  final async = ref.watch(adminCapabilityStatusProvider(permissionKey));
+  return async.when(
+    data: (status) => status,
+    loading: () => AdminCapabilityStatus.loading,
+    error: (_, __) => const AdminCapabilityStatus(
+      AdminCapabilityState.unavailable,
+      'Administration permissions are not available right now.',
+    ),
+  );
+}

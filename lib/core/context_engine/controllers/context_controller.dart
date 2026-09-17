@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:famhub_app/core/context_engine/domain/models/entity_context.dart';
 import 'package:famhub_app/core/context_engine/providers/context_storage_service_provider.dart';
 import 'package:famhub_app/core/context_engine/services/context_storage_service.dart';
 import 'package:famhub_app/core/context_engine/services/context_sync_service.dart';
+import 'package:famhub_app/core/services/supabase_service.dart';
 import 'package:famhub_app/core/session/session_provider.dart';
 
 class ContextController extends Notifier<EntityContext> {
@@ -23,6 +25,26 @@ class ContextController extends Notifier<EntityContext> {
         logout();
       }
     });
+
+    // Reload the active context (and therefore every permission/capability
+    // derived from it) on sign-in and token refresh. Never query permissions
+    // while the session is null/loading.
+    final authSub = SupabaseService.instance.authStateChanges.listen((event) {
+      switch (event.event) {
+        case AuthChangeEvent.initialSession:
+        case AuthChangeEvent.signedIn:
+        case AuthChangeEvent.tokenRefreshed:
+        case AuthChangeEvent.userUpdated:
+          if (event.session != null) Future.microtask(init);
+          break;
+        case AuthChangeEvent.signedOut:
+          Future.microtask(logout);
+          break;
+        default:
+          break;
+      }
+    });
+    ref.onDispose(authSub.cancel);
 
     return const EntityContext();
   }
