@@ -190,7 +190,7 @@ class _SessionGateState extends ConsumerState<SessionGate> {
               colors: [
                 cs.primary.withValues(alpha: 0.06),
                 cs.primary.withValues(alpha: 0.02),
-                cs.surface,
+                Theme.of(context).scaffoldBackgroundColor,
               ],
             ),
           ),

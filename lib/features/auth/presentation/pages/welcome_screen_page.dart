@@ -97,7 +97,7 @@ class WelcomeScreenPage extends StatelessWidget {
                         end: Alignment.bottomRight,
                         colors: [
                           colorScheme.primary.withValues(alpha: 0.06),
-                          colorScheme.surface,
+                          theme.scaffoldBackgroundColor,
                         ],
                       ),
                     ),

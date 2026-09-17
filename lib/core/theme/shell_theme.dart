@@ -34,6 +34,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// ============================================================
 /// SHELL THEME DATA — Complete theme for the shell
@@ -225,6 +226,8 @@ class ShellTheme {
       brightness: isDark ? Brightness.dark : Brightness.light,
       primary: palette.primary,
       onPrimary: palette.surface,
+      primaryContainer: palette.surfaceVariant,
+      onPrimaryContainer: palette.primary,
       secondary: palette.primary,
       onSecondary: palette.surface,
       tertiary: palette.info,
@@ -233,10 +236,25 @@ class ShellTheme {
       onError: palette.surface,
       surface: palette.surface,
       onSurface: palette.primaryText,
+      // Derive the full M3 surface-container ramp from the palette so no
+      // Material baseline (lavender) tints leak into inputs, chips or
+      // disabled controls.
+      surfaceContainerLowest: palette.surface,
+      surfaceContainerLow: Color.alphaBlend(
+        palette.surfaceVariant.withValues(alpha: 0.45),
+        palette.surface,
+      ),
+      surfaceContainer: palette.surfaceVariant,
+      surfaceContainerHigh: Color.alphaBlend(
+        palette.border.withValues(alpha: 0.55),
+        palette.surface,
+      ),
       surfaceContainerHighest: palette.surfaceVariant,
       onSurfaceVariant: palette.secondaryText,
       outline: palette.border,
       outlineVariant: palette.divider,
+      shadow: palette.shadow,
+      scrim: palette.overlay,
     );
 
     return ThemeData(
@@ -250,6 +268,17 @@ class ShellTheme {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0.5,
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness:
+              isDark ? Brightness.light : Brightness.dark,
+          statusBarBrightness:
+              isDark ? Brightness.dark : Brightness.light,
+          systemNavigationBarColor: palette.background,
+          systemNavigationBarIconBrightness:
+              isDark ? Brightness.light : Brightness.dark,
+          systemNavigationBarDividerColor: palette.background,
+        ),
         titleTextStyle: TextStyle(
           color: palette.primaryText,
           fontSize: 16,

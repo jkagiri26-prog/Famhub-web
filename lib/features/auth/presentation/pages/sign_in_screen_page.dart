@@ -511,7 +511,7 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
             colors: [
               cs.primary.withValues(alpha: 0.06),
               cs.primary.withValues(alpha: 0.02),
-              cs.surface,
+              theme.scaffoldBackgroundColor,
             ],
           ),
         ),

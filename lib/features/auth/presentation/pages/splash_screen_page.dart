@@ -188,7 +188,7 @@ class _SplashScreenPageState extends ConsumerState<SplashScreenPage>
                     end: Alignment.bottomCenter,
                     colors: [
                       colorScheme.primary.withValues(alpha: 0.03),
-                      colorScheme.surface,
+                      theme.scaffoldBackgroundColor,
                       colorScheme.primary.withValues(alpha: 0.02),
                     ],
                   ),
