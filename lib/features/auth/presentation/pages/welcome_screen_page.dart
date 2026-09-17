@@ -70,7 +70,7 @@ class WelcomeScreenPage extends StatelessWidget {
     final isTablet = size.width >= 600 && size.width < 900;
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
           child: ConstrainedBox(
@@ -176,12 +176,9 @@ class WelcomeScreenPage extends StatelessWidget {
                         const SizedBox(height: 16),
                         if (isMobile)
                           ..._features.map(
-                            (f) => Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: _WelcomeFeatureCard(
-                                feature: f,
-                                colorScheme: colorScheme,
-                              ),
+                            (f) => _WelcomeFeatureCard(
+                              feature: f,
+                              colorScheme: colorScheme,
                             ),
                           )
                         else
@@ -323,41 +320,50 @@ class _WelcomeFeatureCard extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12.0),
+      padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(16.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            padding: const EdgeInsets.all(10.0),
             decoration: BoxDecoration(
-              color: colorScheme.primary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
+              color: colorScheme.primaryContainer.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(12.0),
             ),
-            child: Icon(feature.icon, color: colorScheme.primary, size: 20),
+            child: Icon(
+              feature.icon,
+              color: colorScheme.primary,
+              size: 24.0,
+            ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16.0),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   feature.title,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSurface,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 2.0),
                 Text(
                   feature.description,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
-                    fontSize: 12,
                   ),
                 ),
               ],
