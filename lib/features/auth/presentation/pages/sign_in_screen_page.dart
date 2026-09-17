@@ -429,19 +429,19 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
           filled: true,
           fillColor: cs.surfaceContainerLow,
           border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14)),
+            borderRadius: BorderRadius.circular(12.0),
+            borderSide: BorderSide(color: cs.outline, width: 1.0),
+          ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide(
-              color: cs.onSurfaceVariant.withValues(alpha: 0.25),
-            ),
+            borderRadius: BorderRadius.circular(12.0),
+            borderSide: BorderSide(color: cs.outline, width: 1.0),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12.0),
             borderSide: BorderSide(color: cs.primary, width: 1.5),
           ),
           contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12, vertical: 14),
+              horizontal: 16.0, vertical: 14.0),
         ),
         items: _countries
             .map((c) => DropdownMenuItem(
@@ -695,32 +695,33 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
                                           OutlineInputBorder(
                                         borderRadius:
                                             BorderRadius
-                                                .circular(14),
+                                                .circular(12.0),
+                                        borderSide: BorderSide(
+                                            color: cs.outline,
+                                            width: 1.0),
                                       ),
                                       enabledBorder:
                                           OutlineInputBorder(
                                         borderRadius:
                                             BorderRadius
-                                                .circular(14),
+                                                .circular(12.0),
                                         borderSide: BorderSide(
-                                          color: cs.onSurfaceVariant
-                                              .withValues(
-                                                  alpha: 0.25),
-                                        ),
+                                            color: cs.outline,
+                                            width: 1.0),
                                       ),
                                       focusedBorder:
                                           OutlineInputBorder(
                                         borderRadius:
                                             BorderRadius
-                                                .circular(14),
+                                                .circular(12.0),
                                         borderSide: BorderSide(
                                             color: cs.primary,
                                             width: 1.5),
                                       ),
                                       contentPadding: const EdgeInsets
                                           .symmetric(
-                                          horizontal: 16,
-                                          vertical: 15),
+                                          horizontal: 16.0,
+                                          vertical: 14.0),
                                     ),
                                   ),
                                 ),
