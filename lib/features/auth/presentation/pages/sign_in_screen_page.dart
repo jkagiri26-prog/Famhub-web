@@ -26,6 +26,7 @@
 /// ============================================================
 library;
 
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show debugPrint;
 
@@ -95,6 +96,14 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
   String? _error;
   String? _success;
 
+  /// Existing OTP session — owns the resend cooldown (`canResend` /
+  /// `secondsUntilResend`). No parallel cooldown state is introduced.
+  OtpSession? _otpSession;
+
+  /// UI-only ticker that rebuilds the countdown label while the existing
+  /// session cooldown is active. It does not define the cooldown itself.
+  Timer? _resendTicker;
+
   List<_CountryCode> _countries = [];
   _CountryCode? _selectedCountry;
 
@@ -106,6 +115,7 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
 
   @override
   void dispose() {
+    _resendTicker?.cancel();
     _phoneController.dispose();
     for (final c in _otpControllers) {
       c.dispose();
@@ -173,7 +183,14 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
   // ACTIONS
   // ════════════════════════════════════════════
 
-  Future<void> _sendOtp() async {
+  Future<void> _sendOtp() => _requestOtp(isResend: false);
+
+  /// Shared OTP request path for initial send and resend.
+  ///
+  /// On success: (re)creates the existing [OtpSession], restarts the existing
+  /// resend cooldown, and (for a resend) clears the OTP fields.
+  /// On failure: the entered OTP is preserved and the mapped error is shown.
+  Future<void> _requestOtp({required bool isResend}) async {
     final phone = _fullPhoneNumber;
     if (_phoneController.text.trim().isEmpty) {
       setState(() => _error = 'Please enter your phone number');
@@ -191,22 +208,32 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
       if (!mounted) return;
 
       if (result.success && result.confirmed) {
-        await OtpSessionStorage.saveSession(OtpSession(
+        final session = OtpSession(
           phoneNumber: phone,
           countryId: _selectedCountry?.id,
           countryName: _selectedCountry?.name,
           countryIsoAlpha2: _selectedCountry?.isoAlpha2,
           dialingCode: _selectedCountry?.dialingCode,
-        ));
+        );
+        await OtpSessionStorage.saveSession(session);
         if (!mounted) return;
         setState(() {
+          _otpSession = session;
           _otpSent = true;
           _isLoading = false;
           _success = 'OTP sent successfully';
+          if (isResend) {
+            // Clear the entered code ONLY after the resend succeeded.
+            for (final c in _otpControllers) {
+              c.clear();
+            }
+          }
         });
+        _startResendTicker();
         Future.delayed(const Duration(milliseconds: 100),
             () => _otpFocusNodes[0].requestFocus());
       } else {
+        // Failed resend: preserve the entered OTP and the existing session.
         setState(() {
           _isLoading = false;
           _error =
@@ -222,6 +249,30 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
       });
     }
   }
+
+  /// Rebuild the countdown label once per second while the existing session
+  /// cooldown is active; stops itself when the cooldown elapses.
+  void _startResendTicker() {
+    _resendTicker?.cancel();
+    _resendTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      final session = _otpSession;
+      if (session == null || session.canResend) {
+        _resendTicker?.cancel();
+        _resendTicker = null;
+      }
+      if (mounted) setState(() {});
+    });
+  }
+
+  String get _resendLabel {
+    final session = _otpSession;
+    if (session != null && !session.canResend) {
+      return 'Resend code in ${session.secondsUntilResend}s';
+    }
+    return 'Resend code';
+  }
+
+  bool get _canResend => !_isLoading && (_otpSession?.canResend ?? true);
 
   Future<void> _verifyOtp() async {
     final otp = _otpControllers.map((c) => c.text).join();
@@ -255,14 +306,13 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
   }
 
   Future<void> _resendOtp() async {
-    setState(() {
-      _error = null;
-      _success = null;
-    });
-    for (final c in _otpControllers) {
-      c.clear();
-    }
-    await _sendOtp();
+    // Existing session cooldown is authoritative for the UI; never trigger a
+    // backend request before it elapses. Backend rate limiting remains
+    // authoritative regardless.
+    if (_isLoading) return;
+    final session = _otpSession;
+    if (session != null && !session.canResend) return;
+    await _requestOtp(isResend: true);
   }
 
   void _handleOtpChanged(int index, String value) {
@@ -861,16 +911,17 @@ class _SignInScreenPageState extends State<SignInScreenPage> {
                               const SizedBox(height: 10),
                               Center(
                                 child: TextButton(
-                                  onPressed: _isLoading
-                                      ? null
-                                      : _resendOtp,
+                                  onPressed:
+                                      _canResend ? _resendOtp : null,
                                   child: Text(
-                                    'Resend code',
+                                    _resendLabel,
                                     style: GoogleFonts.inter(
                                       fontSize: 13,
                                       fontWeight:
                                           FontWeight.w500,
-                                      color: cs.primary,
+                                      color: _canResend
+                                          ? cs.primary
+                                          : cs.onSurfaceVariant,
                                     ),
                                   ),
                                 ),
