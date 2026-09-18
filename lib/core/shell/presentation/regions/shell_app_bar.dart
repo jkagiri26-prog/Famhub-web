@@ -483,8 +483,12 @@ class _ContextSelector extends ConsumerWidget {
   Future<void> _resolveAndActivateContext(
       BuildContext context, WidgetRef ref, String workspaceId) async {
     final authService = ref.read(authServiceProvider);
+    // TEMPORARY DIAGNOSTIC (Phase 5I-W.8 latency — remove after): per-stage
+    // timings. No behavior change, no personal data.
+    final totalSw = Stopwatch()..start();
 
     List<Map<String, dynamic>> contexts;
+    final tGetAvailable = Stopwatch()..start();
     try {
       contexts = await authService.getAvailableWorkspaceContexts();
     } catch (_) {
@@ -494,6 +498,9 @@ class _ContextSelector extends ConsumerWidget {
       }
       return;
     }
+    tGetAvailable.stop();
+    debugPrint('[WorkspaceSwitch] timing get_available='
+        '${tGetAvailable.elapsedMilliseconds}ms');
 
     // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression is
     // resolved): compare the requested workspace against what the backend
@@ -572,6 +579,7 @@ class _ContextSelector extends ConsumerWidget {
 
     // ── Backend activation (authoritative) ──
     Map<String, dynamic>? activated;
+    final tActivate = Stopwatch()..start();
     try {
       activated = await authService.activateWorkspaceContext(
         workspaceId: workspaceId,
@@ -587,10 +595,14 @@ class _ContextSelector extends ConsumerWidget {
       }
       return;
     }
+    tActivate.stop();
+    debugPrint('[WorkspaceSwitch] timing activate='
+        '${tActivate.elapsedMilliseconds}ms');
 
     // Authoritative context: the returned row, or a fresh authoritative
     // re-read when the RPC is void-returning. Never fabricate a context.
     Map<String, dynamic>? authoritative = activated;
+    final tAuthoritative = Stopwatch()..start();
     if (authoritative == null) {
       try {
         authoritative =
@@ -600,6 +612,9 @@ class _ContextSelector extends ConsumerWidget {
         authoritative = null;
       }
     }
+    tAuthoritative.stop();
+    debugPrint('[WorkspaceSwitch] timing authoritative_read='
+        '${tAuthoritative.elapsedMilliseconds}ms reRead=${activated == null}');
 
     if (authoritative == null) {
       if (context.mounted) {
@@ -645,6 +660,7 @@ class _ContextSelector extends ConsumerWidget {
 
     // Apply the authoritative backend context locally (existing owner — no
     // second provider).
+    final tApply = Stopwatch()..start();
     await ref.read(contextProvider.notifier).applySelectionContext(
           profileId: (authoritative['profile_id'] ??
                   authoritative['profileId'])
@@ -655,11 +671,18 @@ class _ContextSelector extends ConsumerWidget {
               ?.toString(),
           businessProfileId: activeBusinessProfileId,
         );
+    tApply.stop();
+    debugPrint('[WorkspaceSwitch] timing apply='
+        '${tApply.elapsedMilliseconds}ms');
 
     // Commit the workspace UI only AFTER successful backend activation.
+    final tSwitch = Stopwatch()..start();
     await ref
         .read(activeWorkspaceProvider.notifier)
         .switchWorkspace(workspaceId);
+    tSwitch.stop();
+    debugPrint('[WorkspaceSwitch] timing switch='
+        '${tSwitch.elapsedMilliseconds}ms');
 
     // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression):
     // final applied context after activation.
@@ -670,11 +693,20 @@ class _ContextSelector extends ConsumerWidget {
         'selected_context_role_id=${applied.roleId}');
 
     // Refresh entity/business-scoped data (not global discovery).
+    final tRefresh = Stopwatch()..start();
     refreshEntityScopedProviders(ref);
+    tRefresh.stop();
+    debugPrint('[WorkspaceSwitch] timing refresh='
+        '${tRefresh.elapsedMilliseconds}ms');
 
+    final tNav = Stopwatch()..start();
     if (context.mounted) {
       context.go('/');
     }
+    tNav.stop();
+    totalSw.stop();
+    debugPrint('[WorkspaceSwitch] timing navigate='
+        '${tNav.elapsedMilliseconds}ms TOTAL=${totalSw.elapsedMilliseconds}ms');
   }
 
   /// Bottom-sheet picker for multiple available entity/role contexts.
