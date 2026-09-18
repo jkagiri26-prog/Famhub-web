@@ -27,6 +27,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:famhub_app/core/services/otp_network_policy.dart';
 import 'package:famhub_app/core/services/supabase_service.dart';
 
 /// Result of an OTP send operation
@@ -802,6 +803,23 @@ class AuthService {
       final normalizedPhone = _normalizePhone(phone);
       if (kDebugMode) debugPrint('OTP Request Started (normalized: $normalizedPhone)');
 
+      // ── TEMPORARY PRE-LAUNCH TESTING RESTRICTION ──
+      // See lib/core/services/otp_network_policy.dart.
+      // Safaricom OTP delivery is temporarily unavailable while the Sender
+      // ID is configured. Block the request BEFORE it reaches Africa's
+      // Talking and show a clean message. Airtel is unaffected.
+      // TODO(pre-launch): remove once the Safaricom Sender ID is ready.
+      if (OtpNetworkPolicy.isTemporarilyBlocked(normalizedPhone)) {
+        if (kDebugMode) {
+          debugPrint('[OTP] Request blocked by temporary Safaricom testing '
+              'restriction (phone number not logged).');
+        }
+        return const OtpSendResult(
+          success: false,
+          error: OtpNetworkPolicy.temporaryUnavailableMessage,
+        );
+      }
+
       // Send OTP via Edge Function
       final response = await _supabase.client.functions.invoke(
         'request-otp',
@@ -1064,6 +1082,23 @@ class AuthService {
     }
     if (lower.contains('not found')) {
       return 'Account not found. Please check your phone number.';
+    }
+
+    // ── TEMPORARY PRE-LAUNCH TESTING RESTRICTION ──
+    // See lib/core/services/otp_network_policy.dart.
+    // Africa's Talking returns `UserInBlackList` for Safaricom while the
+    // Sender ID is being configured. Never surface that technical error to
+    // users — map it to the same friendly temporary message. The original
+    // provider error is preserved in the debug log.
+    // TODO(pre-launch): remove together with OtpNetworkPolicy.
+    if (lower.contains('userinblacklist') ||
+        lower.contains('blacklist') ||
+        lower.contains('black list') ||
+        lower.contains('black_list')) {
+      if (kDebugMode) {
+        debugPrint('[OTP] Provider error preserved for debugging: $message');
+      }
+      return OtpNetworkPolicy.temporaryUnavailableMessage;
     }
 
     if (genericFallback != null) {
