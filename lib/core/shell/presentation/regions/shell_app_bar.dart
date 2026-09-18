@@ -634,6 +634,58 @@ class _ContextSelector extends ConsumerWidget {
         'active_mode=${authoritative['active_mode'] ?? authoritative['role']} '
         'business_profile_id=${authoritative['business_profile_id'] ?? authoritative['businessProfileId']}');
 
+    // ── Persist the selected workspace for this profile ──
+    // The backend context is now active; persist the SAME selection through
+    // the existing workspace-aware RPC so `users.profiles.current_workspace_id`
+    // matches the active context on restart. Explicit entity/role/business are
+    // passed (not the null onboarding path), so no entity/mapping/onboarding
+    // side effects run. On failure the switch is NOT committed.
+    final activeBusinessProfileId = (authoritative['business_profile_id'] ??
+            authoritative['businessProfileId'])
+        ?.toString();
+    // The mismatch guard above guarantees these equal the (non-null) chosen
+    // context, so they are safe to treat as verified non-null here.
+    final verifiedEntityId = activeEntityId!;
+    final verifiedRoleId = activeRoleId!;
+    Map<String, dynamic>? persisted;
+    try {
+      persisted = await authService.persistWorkspaceSelection(
+        workspaceId: workspaceId,
+        entityId: verifiedEntityId,
+        roleId: verifiedRoleId,
+        businessProfileId: activeBusinessProfileId,
+      );
+    } catch (e) {
+      debugPrint('[WorkspaceSwitch] workspace persistence failed: $e');
+      if (context.mounted) {
+        _showSnack(context,
+            'Could not save this workspace selection. Please try again.');
+      }
+      return;
+    }
+
+    // If the persistence RPC echoed a context, it must agree with the
+    // context we activated — otherwise UI and backend would diverge.
+    if (persisted != null) {
+      final persistedEntityId = persisted['entity_id']?.toString();
+      final persistedRoleId = persisted['role_id']?.toString();
+      if (persistedEntityId != null &&
+              persistedEntityId.isNotEmpty &&
+              persistedEntityId != activeEntityId ||
+          persistedRoleId != null &&
+              persistedRoleId.isNotEmpty &&
+              persistedRoleId != activeRoleId) {
+        debugPrint('[WorkspaceSwitch] persisted context mismatch — '
+            'activated entity=$activeEntityId role=$activeRoleId, '
+            'persisted entity=$persistedEntityId role=$persistedRoleId');
+        if (context.mounted) {
+          _showSnack(context,
+              'Could not save this workspace selection. Please try again.');
+        }
+        return;
+      }
+    }
+
     // Apply the authoritative backend context locally (existing owner — no
     // second provider).
     await ref.read(contextProvider.notifier).applySelectionContext(
@@ -644,9 +696,7 @@ class _ContextSelector extends ConsumerWidget {
           roleId: activeRoleId,
           role: (authoritative['active_mode'] ?? authoritative['role'])
               ?.toString(),
-          businessProfileId: (authoritative['business_profile_id'] ??
-                  authoritative['businessProfileId'])
-              ?.toString(),
+          businessProfileId: activeBusinessProfileId,
         );
 
     // Commit the workspace UI only AFTER successful backend activation.

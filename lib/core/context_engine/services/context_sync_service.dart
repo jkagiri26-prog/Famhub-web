@@ -50,8 +50,12 @@ class ContextSyncService {
           .select('entity_id, active_mode, active_role_id, business_profile_id')
           .eq('user_id', profileId)
           .eq('session_status', 'active')
-          .order('is_default', ascending: false)
+          // Prefer the MOST RECENTLY ACTIVATED valid session over an old
+          // default session, so a freshly switched context is not shadowed
+          // by a stale `is_default` row. `nullsFirst` defaults to false, so
+          // rows without a switch timestamp sort last.
           .order('last_switched_at', ascending: false)
+          .order('is_default', ascending: false)
           .limit(1)
           .maybeSingle();
     } catch (_) {

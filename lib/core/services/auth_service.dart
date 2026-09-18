@@ -668,6 +668,92 @@ class AuthService {
   }
 
   /// ============================================================
+  /// PERSIST WORKSPACE SELECTION (ordinary switching)
+  /// ============================================================
+  ///
+  /// Persists the authenticated profile's selected workspace through the
+  /// EXISTING workspace-aware RPC `users.complete_workspace_selection`.
+  ///
+  /// Unlike the onboarding bootstrap (which passes null entity/role and lets
+  /// the backend create the personal entity + workspace↔entity mapping), this
+  /// passes the EXPLICIT, already-validated context for an EXISTING
+  /// workspace/entity. It therefore only records the selection for the
+  /// profile (so `users.profiles.current_workspace_id` matches the active
+  /// context on restart) and re-affirms the canonical context — it does not
+  /// create entities, memberships, roles, business profiles, or mappings,
+  /// and it does not run onboarding logic.
+  ///
+  /// Throws on failure so the caller can refuse to commit the switch.
+  /// Returns the canonical context row when the RPC returns one.
+  Future<Map<String, dynamic>?> persistWorkspaceSelection({
+    required String workspaceId,
+    required String entityId,
+    required String roleId,
+    String? businessProfileId,
+  }) async {
+    debugPrint('[persist_workspace_selection] REQUEST '
+        'p_workspace_id=$workspaceId '
+        'p_entity_id=$entityId '
+        'p_role_id=$roleId '
+        'p_business_profile_id=$businessProfileId');
+
+    try {
+      final response = await _supabase.client
+          .schema('users')
+          .rpc('complete_workspace_selection', params: {
+        'p_workspace_id': workspaceId,
+        'p_entity_id': entityId,
+        'p_role_id': roleId,
+        'p_business_profile_id': businessProfileId,
+      });
+
+      final row = _firstContextRow(response);
+      if (row == null) {
+        debugPrint('[persist_workspace_selection] RESPONSE empty/void: '
+            'rawType=${response.runtimeType} value=$response');
+        return null;
+      }
+
+      final normalized = _normalizeContextRow(row);
+      debugPrint('[persist_workspace_selection] RESPONSE row '
+          'workspace_id=${normalized['workspace_id']} '
+          'entity_id=${normalized['entity_id']} '
+          'role_id=${normalized['role_id']} '
+          'active_mode=${normalized['active_mode']} '
+          'business_profile_id=${normalized['business_profile_id']}');
+      return normalized;
+    } on PostgrestException catch (e, st) {
+      debugPrint('[persist_workspace_selection] ERROR '
+          'type=${e.runtimeType} code=${e.code} message=${e.message} '
+          'details=${e.details} hint=${e.hint}');
+      debugPrintStack(
+        stackTrace: st,
+        label: '[persist_workspace_selection]',
+        maxFrames: 6,
+      );
+      rethrow;
+    } on AuthException catch (e, st) {
+      debugPrint('[persist_workspace_selection] AUTH ERROR '
+          'type=${e.runtimeType} message=${e.message}');
+      debugPrintStack(
+        stackTrace: st,
+        label: '[persist_workspace_selection]',
+        maxFrames: 6,
+      );
+      rethrow;
+    } catch (e, st) {
+      debugPrint('[persist_workspace_selection] ERROR '
+          'type=${e.runtimeType} error=$e');
+      debugPrintStack(
+        stackTrace: st,
+        label: '[persist_workspace_selection]',
+        maxFrames: 6,
+      );
+      rethrow;
+    }
+  }
+
+  /// ============================================================
   /// ADD WORKSPACE MEMBERSHIP (Authenticated RPC)
   /// ============================================================
   ///
