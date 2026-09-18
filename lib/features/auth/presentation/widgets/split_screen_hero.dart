@@ -659,7 +659,7 @@ class _CarouselSlideWidgetState extends State<_CarouselSlideWidget>
     return Positioned(
       left: isCompact ? 20 : 32,
       right: isCompact ? 20 : 32,
-      bottom: isCompact ? 20 : 40,
+      bottom: isCompact ? 20 : 28,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -704,7 +704,7 @@ class _CarouselSlideWidgetState extends State<_CarouselSlideWidget>
               child: Text(
                 slide.headline,
                 style: TextStyle(
-                  fontSize: isCompact ? 18 : 28,
+                  fontSize: isCompact ? 18 : 24,
                   fontWeight: FontWeight.w800,
                   color: Colors.white,
                   height: 1.15,
@@ -724,12 +724,12 @@ class _CarouselSlideWidgetState extends State<_CarouselSlideWidget>
               child: Text(
                 slide.subtext,
                 style: TextStyle(
-                  fontSize: isCompact ? 12 : 14,
+                  fontSize: isCompact ? 12 : 13,
                   color: Colors.white.withValues(alpha: 0.85),
                   height: 1.4,
                   fontWeight: FontWeight.w400,
                 ),
-                maxLines: isCompact ? 1 : 2,
+                maxLines: isCompact ? 2 : 3,
                 overflow: TextOverflow.ellipsis,
               ),
             ),

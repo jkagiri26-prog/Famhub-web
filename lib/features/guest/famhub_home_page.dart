@@ -422,69 +422,74 @@ class FamhubHomePage extends ConsumerWidget {
     bool isTablet,
     Size size,
   ) {
-    final minCardWidth = isMobile ? 140.0 : 170.0;
-
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      color: colorScheme.surface,
-      child: SizedBox(
-        height: 64,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24),
-          itemCount: _impactStats.length,
-          separatorBuilder: (_, __) => Container(
-            width: 1,
-            height: 36,
-            color: colorScheme.outlineVariant.withValues(alpha: 0.3),
-          ),
-          itemBuilder: (context, index) {
-            final stat = _impactStats[index];
-            return SizedBox(
-              width: minCardWidth,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(stat.icon, size: 16, color: stat.color),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          stat.value,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: stat.color,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    stat.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
+      padding: EdgeInsets.symmetric(
+        vertical: 12,
+        horizontal: isMobile ? 12 : 24,
       ),
+      color: colorScheme.surface,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          for (int i = 0; i < _impactStats.length; i++) ...[
+            if (i > 0)
+              SizedBox(
+                height: 32,
+                child: VerticalDivider(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.6),
+                  thickness: 1,
+                  width: 12,
+                ),
+              ),
+            Expanded(
+              child: _buildImpactItem(colorScheme, _impactStats[i]),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImpactItem(ColorScheme colorScheme, _ImpactStat stat) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(stat.icon, size: 16, color: stat.color),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                stat.value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: stat.color,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          stat.label,
+          maxLines: 2,
+          textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 11,
+            height: 1.15,
+            fontWeight: FontWeight.w500,
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 
@@ -506,7 +511,7 @@ class FamhubHomePage extends ConsumerWidget {
 
     // On mobile, if there are few modules, just show a grid
     final cardWidth = isMobile
-        ? size.width * 0.7
+        ? size.width * 0.78
         : isTablet
             ? 280.0
             : 240.0;
@@ -577,7 +582,7 @@ class FamhubHomePage extends ConsumerWidget {
 
           // ── Scrollable horizontal row ──
           SizedBox(
-            height: 120,
+            height: 132,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: EdgeInsets.zero,
