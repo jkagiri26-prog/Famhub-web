@@ -220,25 +220,25 @@ const List<_ModuleCardData> _allModuleCards = [
 const List<_ImpactStat> _impactStats = [
   _ImpactStat(
     value: '15,000+',
-    label: 'Farmers Empowered',
+    label: 'Farmers',
     icon: Icons.people_alt_outlined,
     color: Color(0xFF059669),
   ),
   _ImpactStat(
     value: '120+',
-    label: 'Markets Connected',
+    label: 'Markets',
     icon: Icons.store_mall_directory_outlined,
     color: Color(0xFF0891B2),
   ),
   _ImpactStat(
     value: '2.5B+',
-    label: 'Transactions Processed',
+    label: 'Transactions',
     icon: Icons.account_balance_outlined,
     color: Color.fromARGB(255, 145, 95, 231),
   ),
   _ImpactStat(
-    value: '48+',
-    label: 'Partner Counties',
+    value: '47',
+    label: 'Counties',
     icon: Icons.location_on_outlined,
     color: Color(0xFFD97706),
   ),
@@ -456,36 +456,26 @@ class FamhubHomePage extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(stat.icon, size: 16, color: stat.color),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                stat.value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: stat.color,
-                  letterSpacing: -0.5,
-                ),
-              ),
-            ),
-          ],
+        Icon(stat.icon, size: 18, color: stat.color),
+        const SizedBox(height: 4),
+        Text(
+          stat.value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: stat.color,
+          ),
         ),
-        const SizedBox(height: 2),
         Text(
           stat.label,
           maxLines: 2,
           textAlign: TextAlign.center,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            fontSize: 11,
+            fontSize: 10.5,
             height: 1.15,
-            fontWeight: FontWeight.w500,
             color: colorScheme.onSurfaceVariant,
           ),
         ),
@@ -1430,11 +1420,12 @@ class _ModuleCardWidget extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       card.description,
-                      maxLines: 2,
+                      maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
-                        height: 1.3,
+                        fontSize: 11,
+                        height: 1.2,
                       ),
                     ),
                   ],
