@@ -80,17 +80,15 @@ class _ImpactStat {
 /// Marketplace listing preview data
 class _MarketplacePreviewItem {
   final String title;
-  final String subtitle;
   final String price;
+  final String location;
   final IconData icon;
-  final Color color;
 
   const _MarketplacePreviewItem({
     required this.title,
-    required this.subtitle,
     required this.price,
+    required this.location,
     required this.icon,
-    required this.color,
   });
 }
 
@@ -248,24 +246,21 @@ const List<_ImpactStat> _impactStats = [
 const List<_MarketplacePreviewItem> _marketplacePreviews = [
   _MarketplacePreviewItem(
     title: 'Fresh Maize',
-    subtitle: 'Premium quality, harvested this season',
     price: 'Ksh.3,500/bag',
+    location: 'Nakuru',
     icon: Icons.eco_outlined,
-    color: Color(0xFF059669),
   ),
   _MarketplacePreviewItem(
     title: 'Organic Tomatoes',
-    subtitle: 'Farm-fresh, pesticide-free produce',
-    price: 'ksh.1,500/crate',
+    price: 'Ksh.1,500/crate',
+    location: 'Kisumu',
     icon: Icons.spa_outlined,
-    color: Color(0xFFDC2626),
   ),
   _MarketplacePreviewItem(
     title: 'Watermelon',
-    subtitle: 'Sweet & juicy, direct from farm',
     price: 'Ksh.100/unit',
+    location: 'Machakos',
     icon: Icons.water_drop_outlined,
-    color: Color(0xFF0891B2),
   ),
 ];
 
@@ -364,7 +359,7 @@ class FamhubHomePage extends ConsumerWidget {
                 // SECTION 4: MARKETPLACE LISTINGS PREVIEW
                 // ════════════════════════════════════════════
                 _buildMarketplacePreview(
-                  context, theme, colorScheme, isMobile,
+                  context, colorScheme, isMobile,
                 ),
 
                 // ════════════════════════════════════════════
@@ -600,7 +595,6 @@ class FamhubHomePage extends ConsumerWidget {
   /// ── SECTION 4: MARKETPLACE LISTINGS PREVIEW ──
   Widget _buildMarketplacePreview(
     BuildContext context,
-    ThemeData theme,
     ColorScheme colorScheme,
     bool isMobile,
   ) {
@@ -669,14 +663,20 @@ class FamhubHomePage extends ConsumerWidget {
           SizedBox(height: isMobile ? 16 : 24),
 
           // Preview cards
-          ..._marketplacePreviews.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _MarketplacePreviewCard(
-                item: item,
-                colorScheme: colorScheme,
-                theme: theme,
-              ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            clipBehavior: Clip.none,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (int i = 0; i < _marketplacePreviews.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 12),
+                  _MarketplacePreviewCard(
+                    item: _marketplacePreviews[i],
+                    colorScheme: colorScheme,
+                  ),
+                ],
+              ],
             ),
           ),
         ],
@@ -1587,76 +1587,98 @@ class _ImpactStatCard extends StatelessWidget {
 class _MarketplacePreviewCard extends StatelessWidget {
   final _MarketplacePreviewItem item;
   final ColorScheme colorScheme;
-  final ThemeData theme;
 
   const _MarketplacePreviewCard({
     required this.item,
     required this.colorScheme,
-    required this.theme,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      width: 160,
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          // Product icon
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: item.color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(item.icon, size: 24, color: item.color),
+        borderRadius: BorderRadius.circular(16.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8.0,
+            offset: const Offset(0, 4),
+            spreadRadius: -1.0,
           ),
-          const SizedBox(width: 14),
-
-          // Details
-          Expanded(
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Product image / fallback icon
+          Container(
+            height: 110,
+            width: double.infinity,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHigh,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16.0),
+              ),
+            ),
+            child: Icon(
+              item.icon,
+              color: colorScheme.primary,
+              size: 32,
+            ),
+          ),
+          // Product details
+          Padding(
+            padding: const EdgeInsets.all(12.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.bold,
                     fontSize: 14,
                     color: colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  item.subtitle,
+                  item.price,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 12,
-                    color: colorScheme.onSurfaceVariant,
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
                   ),
                 ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 12,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 2),
+                    Flexible(
+                      child: Text(
+                        item.location.toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
-            ),
-          ),
-
-          // Price
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: colorScheme.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              item.price,
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-                color: colorScheme.primary,
-              ),
             ),
           ),
         ],
