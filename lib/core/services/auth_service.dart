@@ -514,27 +514,52 @@ class AuthService {
       rethrow;
     }
 
-    final rows = _asContextRows(response);
+    final rawRows = _asContextRows(response);
 
     // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression):
     // expose exactly what the backend returns so the zero-context case is
     // identified from data, not guessed. IDs only — no personal data.
+    // `role_id_source` records whether the canonical role id came from the
+    // API-level `role_id` field or the session-table alias `active_role_id`.
     debugPrint('[get_available_workspace_contexts] rawType=${response.runtimeType} '
-        'count=${rows.length}');
-    if (rows.isEmpty) {
+        'count=${rawRows.length}');
+    if (rawRows.isEmpty) {
       debugPrint('[get_available_workspace_contexts] ZERO CONTEXTS RETURNED');
     }
-    for (var i = 0; i < rows.length; i++) {
-      final row = rows[i];
+    for (var i = 0; i < rawRows.length; i++) {
+      final raw = rawRows[i];
+      final roleIdSource = raw['role_id'] != null
+          ? 'role_id'
+          : (raw['active_role_id'] != null ? 'active_role_id' : 'MISSING');
       debugPrint('[get_available_workspace_contexts] row[$i] '
-          'workspace_id=${row['workspace_id']} '
-          'entity_id=${row['entity_id']} '
-          'role_id=${row['role_id']} '
-          'active_mode=${row['active_mode']} '
-          'business_profile_id=${row['business_profile_id']}');
+          'workspace_id=${raw['workspace_id']} '
+          'entity_id=${raw['entity_id']} '
+          'role_id=${raw['role_id']} '
+          'active_role_id=${raw['active_role_id']} '
+          'role_id_source=$roleIdSource '
+          'active_mode=${raw['active_mode']} '
+          'business_profile_id=${raw['business_profile_id']}');
     }
 
-    return rows;
+    // Canonical frontend shape: exactly one role field (`role_id`).
+    return rawRows.map(_normalizeContextRow).toList();
+  }
+
+  /// Map a deployed workspace-context row to the canonical frontend shape.
+  ///
+  /// `role_id` (the API-level field) takes precedence; `active_role_id` is
+  /// accepted only as an alias because `core.entity_context_sessions` names
+  /// the column `active_role_id`. Both are never exposed past this mapper —
+  /// the frontend uses a single canonical `role_id`.
+  Map<String, dynamic> _normalizeContextRow(Map<String, dynamic> row) {
+    return <String, dynamic>{
+      'workspace_id': row['workspace_id'],
+      'entity_id': row['entity_id'],
+      'role_id': row['role_id'] ?? row['active_role_id'],
+      'active_mode': row['active_mode'] ?? row['mode'],
+      'business_profile_id': row['business_profile_id'],
+      'profile_id': row['profile_id'],
+    };
   }
 
   List<Map<String, dynamic>> _asContextRows(Object? response) {
@@ -583,15 +608,19 @@ class AuthService {
 
       final row = _firstContextRow(response);
       if (row != null) {
+        final normalized = _normalizeContextRow(row);
         debugPrint('[activate_workspace_context] RESPONSE row '
-            'workspace_id=${row['workspace_id']} '
-            'entity_id=${row['entity_id']} '
-            'role_id=${row['role_id']} '
-            'active_mode=${row['active_mode']} '
-            'business_profile_id=${row['business_profile_id']}');
-        return row;
+            'workspace_id=${normalized['workspace_id']} '
+            'entity_id=${normalized['entity_id']} '
+            'role_id=${normalized['role_id']} '
+            'active_mode=${normalized['active_mode']} '
+            'business_profile_id=${normalized['business_profile_id']}');
+        return normalized;
       }
 
+      // RPC succeeded but returned no row (void-returning function). This is
+      // NOT a failure: the caller must perform an authoritative context
+      // re-read to confirm the activation.
       debugPrint('[activate_workspace_context] RESPONSE empty/void: '
           'rawType=${response.runtimeType} value=$response');
       return null;
@@ -605,7 +634,17 @@ class AuthService {
         label: '[activate_workspace_context]',
         maxFrames: 6,
       );
-      return null;
+      // Genuine RPC error — never converted into a silent null.
+      rethrow;
+    } on AuthException catch (e, st) {
+      debugPrint('[activate_workspace_context] AUTH ERROR '
+          'type=${e.runtimeType} message=${e.message}');
+      debugPrintStack(
+        stackTrace: st,
+        label: '[activate_workspace_context]',
+        maxFrames: 6,
+      );
+      rethrow;
     } catch (e, st) {
       // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression).
       debugPrint('[activate_workspace_context] ERROR '
@@ -615,7 +654,7 @@ class AuthService {
         label: '[activate_workspace_context]',
         maxFrames: 6,
       );
-      return null;
+      rethrow;
     }
   }
 

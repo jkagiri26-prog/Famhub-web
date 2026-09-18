@@ -31,6 +31,7 @@ import '../../../workspace/application/workspace_catalog_provider.dart';
 import '../../../workspace/application/workspace_dashboard_provider.dart';
 import '../../../workspace/domain/workspace_catalog_item.dart';
 import '../../../context_engine/providers/context_provider.dart';
+import '../../../context_engine/providers/context_storage_service_provider.dart';
 import '../../../../core/session/app_session.dart';
 import '../../../../core/session/session_provider.dart';
 import '../../../../features/workspace_context/application/entity_context_refresh.dart';
@@ -451,19 +452,14 @@ class _ContextSelector extends ConsumerWidget {
       return;
     }
 
-    if (selected != null && selected != active.workspaceId) {
+    if (selected != null) {
       // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression).
       debugPrint('[WorkspaceSwitch] SEQUENCE step=request '
           'current_workspace=${active.workspaceId} '
           'requested_workspace=$selected');
-      await ref
-          .read(activeWorkspaceProvider.notifier)
-          .switchWorkspace(selected);
-      // Surface the newly-selected workspace Dashboard.
-      if (context.mounted) {
-        context.go('/');
-      }
-      // Resolve + activate the canonical entity context for this workspace.
+      // Resolve + activate the canonical entity context for this workspace
+      // BEFORE committing the workspace UI or navigating. The reconcile guard
+      // inside decides whether an activation RPC is actually required.
       if (context.mounted) {
         await _resolveAndActivateContext(context, ref, selected);
       }
@@ -471,13 +467,19 @@ class _ContextSelector extends ConsumerWidget {
   }
 
   /// Resolve the available entity/context(s) for [workspaceId] and activate
-  /// the canonical context through the backend.
+  /// the canonical context through the backend BEFORE committing the
+  /// workspace UI.
   ///
   ///   workspace → get_available_workspace_contexts (filter by workspace)
   ///     → 0 contexts : unavailable state (never fabricate)
-  ///     → 1 context  : auto-activate
+  ///     → 1 context  : auto-select
   ///     → many       : user selects an entity/role context
-  ///   → activate_workspace_context → update contextProvider → refresh
+  ///   → validate entity/role → activate_workspace_context
+  ///   → authoritative context (returned row, or re-read for void)
+  ///   → validate match → apply locally → commit workspace → navigate
+  ///
+  /// On any failure the previous workspace + EntityContext are retained and
+  /// no navigation occurs.
   Future<void> _resolveAndActivateContext(
       BuildContext context, WidgetRef ref, String workspaceId) async {
     final authService = ref.read(authServiceProvider);
@@ -529,26 +531,93 @@ class _ContextSelector extends ConsumerWidget {
       chosen = picked;
     }
 
+    final chosenEntityId = chosen['entity_id']?.toString();
+    final chosenRoleId = chosen['role_id']?.toString();
+
     // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression).
     debugPrint('[WorkspaceSwitch] selected_context '
         'workspace_id=${chosen['workspace_id']} '
-        'entity_id=${chosen['entity_id']} '
-        'role_id=${chosen['role_id']} '
+        'entity_id=$chosenEntityId '
+        'role_id=$chosenRoleId '
         'active_mode=${chosen['active_mode']} '
         'business_profile_id=${chosen['business_profile_id']}');
 
-    final result = await authService.activateWorkspaceContext(
-      workspaceId: workspaceId,
-      entityId: chosen['entity_id']?.toString(),
-      roleId: chosen['role_id']?.toString(),
-      businessProfileId: chosen['business_profile_id']?.toString(),
-    );
+    // The backend context must be complete before activation — never send a
+    // partial entity/role and never fabricate one.
+    if (chosenEntityId == null ||
+        chosenEntityId.isEmpty ||
+        chosenRoleId == null ||
+        chosenRoleId.isEmpty) {
+      if (context.mounted) {
+        _showSnack(context,
+            'This workspace context is incomplete. Please try again later.');
+      }
+      return;
+    }
 
-    if (result == null) {
-      // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression).
-      debugPrint('[WorkspaceSwitch] activation returned=false '
-          'workspace=$workspaceId');
-      // Activation failed — never fabricate, never retain a wrong entity.
+    // Reconcile guard: the workspace is only "already active" when BOTH the
+    // UI workspace AND the backend entity/role match the selected context.
+    // UI workspace alone is not sufficient (UI=Admin + backend=Farmer must
+    // still activate).
+    final currentContext = ref.read(contextProvider);
+    final alreadyCorrect = workspaceId == currentWorkspaceId &&
+        currentContext.entityId == chosenEntityId &&
+        currentContext.roleId == chosenRoleId;
+    if (alreadyCorrect) {
+      debugPrint('[WorkspaceSwitch] already active workspace+context — '
+          'no activation required');
+      if (context.mounted) context.go('/');
+      return;
+    }
+
+    // ── Backend activation (authoritative) ──
+    Map<String, dynamic>? activated;
+    try {
+      activated = await authService.activateWorkspaceContext(
+        workspaceId: workspaceId,
+        entityId: chosenEntityId,
+        roleId: chosenRoleId,
+        businessProfileId: chosen['business_profile_id']?.toString(),
+      );
+    } catch (e) {
+      debugPrint('[WorkspaceSwitch] activation failed: $e');
+      if (context.mounted) {
+        _showSnack(context,
+            'Could not activate this workspace context. Please try again.');
+      }
+      return;
+    }
+
+    // Authoritative context: the returned row, or a fresh authoritative
+    // re-read when the RPC is void-returning. Never fabricate a context.
+    Map<String, dynamic>? authoritative = activated;
+    if (authoritative == null) {
+      try {
+        authoritative =
+            await ref.read(contextSyncServiceProvider).fetchUserContext();
+      } catch (e) {
+        debugPrint('[WorkspaceSwitch] authoritative re-read failed: $e');
+        authoritative = null;
+      }
+    }
+
+    if (authoritative == null) {
+      if (context.mounted) {
+        _showSnack(context,
+            'Could not confirm this workspace context. Please try again.');
+      }
+      return;
+    }
+
+    final activeEntityId = authoritative['entity_id']?.toString() ??
+        authoritative['entityId']?.toString();
+    final activeRoleId = authoritative['role_id']?.toString() ??
+        authoritative['roleId']?.toString();
+
+    if (activeEntityId != chosenEntityId || activeRoleId != chosenRoleId) {
+      debugPrint('[WorkspaceSwitch] activation mismatch — '
+          'expected entity=$chosenEntityId role=$chosenRoleId, '
+          'got entity=$activeEntityId role=$activeRoleId');
       if (context.mounted) {
         _showSnack(context,
             'Could not activate this workspace context. Please try again.');
@@ -560,25 +629,30 @@ class _ContextSelector extends ConsumerWidget {
     debugPrint('[WorkspaceSwitch] SEQUENCE step=activation '
         'returned=true '
         'workspace=$workspaceId '
-        'entity_id=${result['entity_id']} '
-        'role_id=${result['role_id']} '
-        'active_mode=${result['active_mode']} '
-        'business_profile_id=${result['business_profile_id']} '
-        'profile_id=${result['profile_id']}');
+        'entity_id=$activeEntityId '
+        'role_id=$activeRoleId '
+        'active_mode=${authoritative['active_mode'] ?? authoritative['role']} '
+        'business_profile_id=${authoritative['business_profile_id'] ?? authoritative['businessProfileId']}');
 
-    // Update the EXISTING canonical context (no second provider).
+    // Apply the authoritative backend context locally (existing owner — no
+    // second provider).
     await ref.read(contextProvider.notifier).applySelectionContext(
-          profileId:
-              result['profile_id']?.toString() ?? chosen['profile_id']?.toString(),
-          entityId:
-              result['entity_id']?.toString() ?? chosen['entity_id']?.toString(),
-          roleId:
-              result['role_id']?.toString() ?? chosen['role_id']?.toString(),
-          role: result['active_mode']?.toString() ??
-              chosen['active_mode']?.toString(),
-          businessProfileId: result['business_profile_id']?.toString() ??
-              chosen['business_profile_id']?.toString(),
+          profileId: (authoritative['profile_id'] ??
+                  authoritative['profileId'])
+              ?.toString(),
+          entityId: activeEntityId,
+          roleId: activeRoleId,
+          role: (authoritative['active_mode'] ?? authoritative['role'])
+              ?.toString(),
+          businessProfileId: (authoritative['business_profile_id'] ??
+                  authoritative['businessProfileId'])
+              ?.toString(),
         );
+
+    // Commit the workspace UI only AFTER successful backend activation.
+    await ref
+        .read(activeWorkspaceProvider.notifier)
+        .switchWorkspace(workspaceId);
 
     // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression):
     // final applied context after activation.
