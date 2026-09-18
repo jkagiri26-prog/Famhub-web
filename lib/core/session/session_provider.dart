@@ -483,7 +483,12 @@ class SessionController extends Notifier<AppSession> {
     final response = await SupabaseService.instance
         .from('user_workspaces', schema: 'users')
         .select('workspace_id')
-        .eq('auth_user_id', userId);
+        .eq('auth_user_id', userId)
+        // Deterministic order: persisted default first, then oldest-first.
+        // Prevents an arbitrary fallback workspace when `current_workspace_id`
+        // is unavailable (PostgreSQL row order is not stable).
+        .order('is_default', ascending: false)
+        .order('created_at', ascending: true);
     final rows = response as List;
     final ids = <String>[];
     for (final row in rows) {

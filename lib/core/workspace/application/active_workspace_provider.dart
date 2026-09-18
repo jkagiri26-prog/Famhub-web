@@ -35,6 +35,7 @@
 /// ============================================================
 library;
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/workspace/domain/workspace_data.dart';
@@ -156,6 +157,86 @@ class ActiveWorkspaceNotifier extends Notifier<Workspace> {
   Future<void> switchWorkspace(String workspaceId) async {
     final engine = ref.read(workspaceEngineProvider);
     state = await engine.switchWorkspace(state, workspaceId);
+  }
+
+  /// ============================================================
+  /// RECONCILE WITH ACTIVE CONTEXT (STARTUP, READ-ONLY)
+  /// ============================================================
+  ///
+  /// Aligns the DISPLAYED workspace with the already-active backend entity
+  /// context (`core.entity_context_sessions`) resolved by
+  /// `contextProvider.init()`.
+  ///
+  /// ❌ NEVER activates a context. Does not call `activate_workspace_context`,
+  ///    `complete_workspace_selection`, or `save_user_workspaces`, and does
+  ///    not create/expire/reorder any context session.
+  ///
+  /// Matching rules:
+  ///   - exact entity + role match → select that workspace
+  ///   - exactly one entity-only match (role unavailable/ambiguous) → select it
+  ///   - ambiguous or no match → retain the current (safe/default) workspace
+  Future<void> reconcileWithActiveContext({
+    String? entityId,
+    String? roleId,
+  }) async {
+    if (entityId == null || entityId.isEmpty) return;
+
+    final authService = ref.read(authServiceProvider);
+
+    List<Map<String, dynamic>> contexts;
+    try {
+      contexts = await authService.getAvailableWorkspaceContexts();
+    } catch (e) {
+      debugPrint('[WorkspaceReconcile] read failed — retaining workspace: $e');
+      return;
+    }
+
+    final entityMatches = contexts
+        .where((c) => c['entity_id']?.toString() == entityId)
+        .toList();
+
+    if (entityMatches.isEmpty) {
+      debugPrint('[WorkspaceReconcile] no workspace for active entity '
+          'entity_id=$entityId — retaining workspace ${state.workspaceId}');
+      return;
+    }
+
+    Map<String, dynamic>? matched;
+
+    if (roleId != null && roleId.isNotEmpty) {
+      final exactMatches = entityMatches
+          .where((c) => c['role_id']?.toString() == roleId)
+          .toList();
+      if (exactMatches.length == 1) {
+        matched = exactMatches.first;
+      } else if (exactMatches.length > 1) {
+        debugPrint('[WorkspaceReconcile] ambiguous entity+role match '
+            '(count=${exactMatches.length}) — retaining workspace '
+            '${state.workspaceId}');
+        return;
+      }
+    }
+
+    // Role info unavailable/unmatched → only accept an unambiguous entity match.
+    if (matched == null) {
+      if (entityMatches.length == 1) {
+        matched = entityMatches.first;
+      } else {
+        debugPrint('[WorkspaceReconcile] ambiguous entity match '
+            '(count=${entityMatches.length}) — retaining workspace '
+            '${state.workspaceId}');
+        return;
+      }
+    }
+
+    final workspaceId = matched['workspace_id']?.toString();
+    if (workspaceId == null || workspaceId.isEmpty) return;
+
+    if (state.workspaceId != workspaceId) {
+      debugPrint('[WorkspaceReconcile] workspace ${state.workspaceId} → '
+          '$workspaceId for active entity=$entityId role=$roleId');
+      state = state.copyWith(workspaceId: workspaceId);
+    }
   }
 
   /// ============================================================

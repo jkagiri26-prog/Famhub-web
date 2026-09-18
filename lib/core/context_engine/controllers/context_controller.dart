@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -7,6 +8,7 @@ import 'package:famhub_app/core/context_engine/services/context_storage_service.
 import 'package:famhub_app/core/context_engine/services/context_sync_service.dart';
 import 'package:famhub_app/core/services/supabase_service.dart';
 import 'package:famhub_app/core/session/session_provider.dart';
+import 'package:famhub_app/core/workspace/application/active_workspace_provider.dart';
 
 class ContextController extends Notifier<EntityContext> {
   late final ContextStorageService storage;
@@ -77,6 +79,21 @@ class ContextController extends Notifier<EntityContext> {
       // "unavailable", never a fabricated id.
       state = const EntityContext(isGuest: false, isLoading: false);
       return;
+    }
+
+    // Startup reconciliation (READ-ONLY): align the displayed workspace with
+    // the authoritative active entity context BEFORE isLoading flips to false,
+    // so the dashboard never commits a mismatched workspace. This never
+    // activates a context and never mutates entity_context_sessions.
+    try {
+      await ref
+          .read(activeWorkspaceProvider.notifier)
+          .reconcileWithActiveContext(
+            entityId: remote['entityId']?.toString(),
+            roleId: remote['roleId']?.toString(),
+          );
+    } catch (e) {
+      debugPrint('[ContextStartup] workspace reconciliation skipped: $e');
     }
 
     state = EntityContext(

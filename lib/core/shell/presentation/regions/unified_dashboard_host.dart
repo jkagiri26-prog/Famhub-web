@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/composition/router/dynamic_route_registrar.dart';
+import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
 import 'package:famhub_app/core/workspace/application/workspace_dashboard_provider.dart';
 import 'package:famhub_app/core/dashboard_engine/presentation/renderer/responsive_dashboard_renderer.dart';
 
@@ -35,6 +36,15 @@ class UnifiedDashboardHost extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Do not commit a workspace-dependent dashboard until the authoritative
+    // active entity context has resolved (and the workspace has been
+    // reconciled against it). Prevents rendering a workspace that does not
+    // match the active context on startup.
+    final entityContext = ref.watch(contextProvider);
+    if (entityContext.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     // Resolve the active workspace type. Null while the catalog loads;
     // the fallback renderer shows its own loading state meanwhile.
     final type = ref.watch(activeWorkspaceTypeProvider);
