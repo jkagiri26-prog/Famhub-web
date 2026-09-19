@@ -55,7 +55,6 @@ import 'package:famhub_app/shared/widgets/states/loading_state_widget.dart';
 
 import '../../application/providers/active_business_provider.dart';
 import '../../application/providers/my_businesses_provider.dart';
-import '../../domain/entities/business_entity.dart';
 import '../../domain/entities/business_profile.dart';
 import '../widgets/business_hub_inventory_tab.dart';
 import '../widgets/business_hub_listings_tab.dart';
@@ -205,7 +204,7 @@ class _BusinessHubPageState extends ConsumerState<BusinessHubPage>
                     subtitle: 'Create or link a business to get started.',
                   );
                 }
-                return _buildWorkspace(businesses);
+                return _buildWorkspace();
               },
             ),
           ),
@@ -217,7 +216,7 @@ class _BusinessHubPageState extends ConsumerState<BusinessHubPage>
   /// ============================================================
   /// WORKSPACE (data state)
   /// ============================================================
-  Widget _buildWorkspace(List<BusinessEntity> businesses) {
+  Widget _buildWorkspace() {
     final profile = ref.watch(capabilityProfileProvider);
 
     bool capabilityEnabled(Capability? capability) {
@@ -229,7 +228,7 @@ class _BusinessHubPageState extends ConsumerState<BusinessHubPage>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ── Business / context header ──
-        _ActiveBusinessCard(businesses: businesses),
+        const _ActiveBusinessCard(),
         const SizedBox(height: 8),
         const _BusinessProfileLine(),
         const SizedBox(height: 12),
@@ -367,9 +366,7 @@ class _BusinessHubPageState extends ConsumerState<BusinessHubPage>
 /// ACTIVE BUSINESS CONTEXT CARD
 /// ============================================================
 class _ActiveBusinessCard extends ConsumerWidget {
-  final List<BusinessEntity> businesses;
-
-  const _ActiveBusinessCard({required this.businesses});
+  const _ActiveBusinessCard();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
