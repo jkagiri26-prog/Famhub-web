@@ -21,7 +21,8 @@ import 'package:famhub_app/core/shell/presentation/regions/unified_dashboard_hos
 import 'package:famhub_app/core/composition/domain/models/composition_metrics.dart';
 
 // ── Module Page Imports ──
-import 'package:famhub_app/features/farm_management/presentation/pages/farm_management_page.dart' as farm;
+import 'package:famhub_app/features/farm_management/presentation/pages/farm_management_page.dart'
+    as farm;
 import 'package:famhub_app/features/marketplace/presentation/pages/marketplace_page.dart';
 import 'package:famhub_app/features/analytics/presentation/pages/analytics_page.dart';
 import 'package:famhub_app/features/financing/presentation/pages/financing_page.dart';
@@ -39,7 +40,7 @@ import 'package:famhub_app/features/profile/presentation/pages/profile_page.dart
 import 'package:famhub_app/features/profile/presentation/pages/settings_page.dart';
 import 'package:famhub_app/features/admin_console/presentation/pages/admin_dashboard_page.dart';
 import 'package:famhub_app/features/guest/famhub_home_page.dart';
-import 'package:famhub_app/features/business_hub/presentation/pages/business_hub_page.dart';
+import 'package:famhub_app/features/business_hub/presentation/pages/trader_workspace_gate.dart';
 
 // ── Enterprise Phase: System Pages ──
 import 'package:famhub_app/features/search/presentation/pages/global_search_page.dart';
@@ -101,7 +102,8 @@ class DynamicRouteRegistrar {
       final builder = ModulePageRegistry.resolve(module.moduleId);
       if (builder == null) {
         debugPrint(
-            '[DynamicRouteRegistrar] No page builder for "${module.moduleId}"');
+          '[DynamicRouteRegistrar] No page builder for "${module.moduleId}"',
+        );
         continue;
       }
       // Route path is resolved from the static ModuleRegistry entry route
@@ -109,84 +111,78 @@ class DynamicRouteRegistrar {
       // match the routes used by navigation items.
       final def = ModuleRegistry.byId(module.moduleId);
       final path = def?.entryRoute ?? module.route;
-      moduleRoutes.add(GoRoute(
-        path: path,
-        name: module.moduleId,
-        builder: (context, state) => builder(context),
-      ));
+      moduleRoutes.add(
+        GoRoute(
+          path: path,
+          name: module.moduleId,
+          builder: (context, state) => builder(context),
+        ),
+      );
     }
 
     // First-class module routes that must always resolve even before a
     // matching `system.modules` row enables them. The Trader module is the
     // trader/supplier workspace landing, so its route is always present.
     if (!moduleRoutes.any((r) => r.name == 'trader')) {
-      moduleRoutes.add(GoRoute(
-        path: '/trader',
-        name: 'trader',
-        builder: (context, state) => const BusinessHubPage(),
-      ));
+      moduleRoutes.add(
+        GoRoute(
+          path: '/trader',
+          name: 'trader',
+          builder: (context, state) => const TraderWorkspaceGate(),
+        ),
+      );
     }
 
     final router = GoRouter(
       initialLocation: AppRoutes.root,
       routes: [
         ShellRoute(
-          builder: (context, state, child) =>
-              UnifiedAppShellV2(child: child),
+          builder: (context, state, child) => UnifiedAppShellV2(child: child),
           routes: [
             GoRoute(
               path: AppRoutes.root,
               name: AppRoutes.rootName,
-              builder: (context, state) =>
-                  const UnifiedDashboardHost(),
+              builder: (context, state) => const UnifiedDashboardHost(),
             ),
             GoRoute(
               path: AppRoutes.home,
               name: AppRoutes.homeName,
-              builder: (context, state) =>
-                  const FamhubHomePage(inShell: true),
+              builder: (context, state) => const FamhubHomePage(inShell: true),
             ),
             GoRoute(
               path: AppRoutes.search,
               name: AppRoutes.searchName,
-              builder: (context, state) =>
-                  const GlobalSearchPage(),
+              builder: (context, state) => const GlobalSearchPage(),
             ),
             GoRoute(
               path: AppRoutes.notifications,
               name: AppRoutes.notificationsName,
-              builder: (context, state) =>
-                  const NotificationCenterPage(),
+              builder: (context, state) => const NotificationCenterPage(),
             ),
             GoRoute(
               path: AppRoutes.reports,
               name: AppRoutes.reportsName,
-              builder: (context, state) =>
-                  const ReportsCenterPage(),
+              builder: (context, state) => const ReportsCenterPage(),
             ),
             GoRoute(
               path: AppRoutes.runtimeSettings,
               name: AppRoutes.runtimeSettingsName,
-              builder: (context, state) =>
-                  const RuntimeSettingsPage(),
+              builder: (context, state) => const RuntimeSettingsPage(),
             ),
             GoRoute(
               path: AppRoutes.aiAssistant,
               name: AppRoutes.aiAssistantName,
-              builder: (context, state) =>
-                  const AIAssistantPage(),
+              builder: (context, state) => const AIAssistantPage(),
             ),
             GoRoute(
               path: AppRoutes.guest,
               name: AppRoutes.guestName,
-              builder: (context, state) =>
-                  const FamhubHomePage(),
+              builder: (context, state) => const FamhubHomePage(),
             ),
             GoRoute(
               path: AppRoutes.settings,
               name: AppRoutes.settingsName,
-              builder: (context, state) =>
-                  const SettingsPage(),
+              builder: (context, state) => const SettingsPage(),
             ),
             ...moduleRoutes,
           ],
@@ -217,53 +213,47 @@ class DynamicRouteRegistrar {
 void bootstrapModulePageBuilders() {
   // ── Feature Modules ──
   ModulePageRegistry.register(
-      'farm_management', (_) => const farm.FarmManagementPage());
+    'farm_management',
+    (_) => const farm.FarmManagementPage(),
+  );
+  ModulePageRegistry.register('marketplace', (_) => const MarketplacePage());
+  ModulePageRegistry.register('analytics', (_) => const AnalyticsPage());
+  ModulePageRegistry.register('finance', (_) => const FinancingPage());
+  ModulePageRegistry.register('logistics', (_) => const LogisticsPage());
+  ModulePageRegistry.register('traceability', (_) => const TraceabilityPage());
+  ModulePageRegistry.register('carbon_credit', (_) => const CarbonCreditPage());
+  ModulePageRegistry.register('knowledge', (_) => const KnowledgeLinkPage());
+  ModulePageRegistry.register('agribusiness', (_) => const AgribusinessPage());
   ModulePageRegistry.register(
-      'marketplace', (_) => const MarketplacePage());
+    'opportunities',
+    (_) => const OpportunitiesPage(),
+  );
   ModulePageRegistry.register(
-      'analytics', (_) => const AnalyticsPage());
+    'extension_services',
+    (_) => const ExtensionServicesPage(),
+  );
+  ModulePageRegistry.register('agri_connect', (_) => const AgriConnectPage());
+  ModulePageRegistry.register('agri_tech_lab', (_) => const AgriTechLabPage());
+  ModulePageRegistry.register('referral_hub', (_) => const ReferralHubPage());
+  ModulePageRegistry.register('profile', (_) => const ProfilePage());
+  ModulePageRegistry.register('profile_settings', (_) => const SettingsPage());
   ModulePageRegistry.register(
-      'finance', (_) => const FinancingPage());
-  ModulePageRegistry.register(
-      'logistics', (_) => const LogisticsPage());
-  ModulePageRegistry.register(
-      'traceability', (_) => const TraceabilityPage());
-  ModulePageRegistry.register(
-      'carbon_credit', (_) => const CarbonCreditPage());
-  ModulePageRegistry.register(
-      'knowledge', (_) => const KnowledgeLinkPage());
-  ModulePageRegistry.register(
-      'agribusiness', (_) => const AgribusinessPage());
-  ModulePageRegistry.register(
-      'opportunities', (_) => const OpportunitiesPage());
-  ModulePageRegistry.register(
-      'extension_services', (_) => const ExtensionServicesPage());
-  ModulePageRegistry.register(
-      'agri_connect', (_) => const AgriConnectPage());
-  ModulePageRegistry.register(
-      'agri_tech_lab', (_) => const AgriTechLabPage());
-  ModulePageRegistry.register(
-      'referral_hub', (_) => const ReferralHubPage());
-  ModulePageRegistry.register(
-      'profile', (_) => const ProfilePage());
-  ModulePageRegistry.register(
-      'profile_settings', (_) => const SettingsPage());
-  ModulePageRegistry.register(
-      'admin_console', (_) => const AdminDashboardPage());
-  ModulePageRegistry.register(
-      'trader', (_) => const BusinessHubPage());
+    'admin_console',
+    (_) => const AdminDashboardPage(),
+  );
+  ModulePageRegistry.register('trader', (_) => const TraderWorkspaceGate());
 
   // ── Enterprise System Pages ──
   ModulePageRegistry.register(
-      'home', (_) => const FamhubHomePage(inShell: true));
+    'home',
+    (_) => const FamhubHomePage(inShell: true),
+  );
+  ModulePageRegistry.register('search', (_) => const GlobalSearchPage());
   ModulePageRegistry.register(
-      'search', (_) => const GlobalSearchPage());
-  ModulePageRegistry.register(
-      'notifications', (_) => const NotificationCenterPage());
-  ModulePageRegistry.register(
-      'reports', (_) => const ReportsCenterPage());
-  ModulePageRegistry.register(
-      'settings', (_) => const RuntimeSettingsPage());
-  ModulePageRegistry.register(
-      'ai_assistant', (_) => const AIAssistantPage());
+    'notifications',
+    (_) => const NotificationCenterPage(),
+  );
+  ModulePageRegistry.register('reports', (_) => const ReportsCenterPage());
+  ModulePageRegistry.register('settings', (_) => const RuntimeSettingsPage());
+  ModulePageRegistry.register('ai_assistant', (_) => const AIAssistantPage());
 }

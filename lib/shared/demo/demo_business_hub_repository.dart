@@ -22,6 +22,7 @@ import 'package:famhub_app/features/business_hub/domain/entities/purchase_order.
 import 'package:famhub_app/features/business_hub/domain/entities/sales_order.dart';
 import 'package:famhub_app/features/business_hub/domain/entities/sales_order_line.dart';
 import 'package:famhub_app/features/business_hub/domain/enums/business_entity_type.dart';
+import 'package:famhub_app/features/business_hub/domain/models/business_profile_creation_result.dart';
 import 'package:famhub_app/features/business_hub/domain/repositories/business_hub_repository.dart';
 import 'package:famhub_app/features/marketplace/domain/enums/listing_status.dart';
 
@@ -61,6 +62,22 @@ class DemoBusinessHubRepository implements BusinessHubRepository {
       contactPerson: 'Jane Kagiri',
       verificationStatus: 'verified',
       rating: 4.6,
+    );
+  }
+
+  /// Business profile creation requires an authenticated session and the
+  /// canonical `commerce.create_business_profile` RPC. The demo repository
+  /// is only used for guests/unauthenticated preview and never creates
+  /// backend records.
+  @override
+  Future<BusinessProfileCreationResult> createBusinessProfile({
+    required String entityId,
+    required String supplierName,
+    required String entityType,
+    Map<String, dynamic> metadata = const {},
+  }) {
+    throw UnsupportedError(
+      'Business profile creation requires an authenticated session.',
     );
   }
 
@@ -330,8 +347,7 @@ class DemoBusinessHubRepository implements BusinessHubRepository {
   }
 }
 
-DateTime _demoTime(int year, int month, int day) =>
-    DateTime(year, month, day);
+DateTime _demoTime(int year, int month, int day) => DateTime(year, month, day);
 
 DateTime _demoTimeRef(int year, int month, int day, int hour, int minute) =>
     DateTime(year, month, day, hour, minute);

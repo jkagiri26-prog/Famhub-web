@@ -30,6 +30,7 @@ import '../entities/inventory_item.dart';
 import '../entities/purchase_order.dart';
 import '../entities/sales_order.dart';
 import '../entities/sales_order_line.dart';
+import '../models/business_profile_creation_result.dart';
 
 abstract class BusinessHubRepository {
   /// List the business/entity records available to the current user.
@@ -44,6 +45,26 @@ abstract class BusinessHubRepository {
   /// profile yet. `entity_id` is a lookup key for an entity the caller
   /// already can see — not an ownership claim.
   Future<BusinessProfile?> fetchBusinessProfile(String entityId);
+
+  /// Create (or return the existing) `commerce.business_profiles` record
+  /// for the active entity.
+  ///
+  /// Calls the canonical backend RPC
+  /// `commerce.create_business_profile(p_entity_id, p_profile)` through the
+  /// data source. The backend validates the authenticated user, resolves
+  /// the authenticated profile as `primary_contact_id`, validates active
+  /// entity membership/permission, prevents duplicate active profiles, and
+  /// links the user's existing context to the profile. The client sends
+  /// ONLY the entity id and profile data — never a user/owner id.
+  ///
+  /// The RPC is idempotent: an existing active profile is returned as a
+  /// successful [BusinessProfileCreationResult] (`alreadyExists`).
+  Future<BusinessProfileCreationResult> createBusinessProfile({
+    required String entityId,
+    required String supplierName,
+    required String entityType,
+    Map<String, dynamic> metadata,
+  });
 
   /// Fetch inventory rows for the given business entity.
   ///

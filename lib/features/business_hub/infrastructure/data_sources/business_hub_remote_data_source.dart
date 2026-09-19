@@ -32,7 +32,7 @@ class BusinessHubRemoteDataSource {
   final SupabaseClient _client;
 
   BusinessHubRemoteDataSource({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
   /// PostgREST select fragment for `core.entities` — scalar columns only.
   static const String _entitySelectQuery = '''
@@ -118,9 +118,7 @@ class BusinessHubRemoteDataSource {
   }
 
   /// Fetch the `commerce.business_profiles` row for an entity (if any).
-  Future<Map<String, dynamic>?> fetchBusinessProfile(
-    String entityId,
-  ) async {
+  Future<Map<String, dynamic>?> fetchBusinessProfile(String entityId) async {
     try {
       final response = await _client
           .schema('commerce')
@@ -136,14 +134,44 @@ class BusinessHubRemoteDataSource {
     }
   }
 
+  /// Create (or return the existing) `commerce.business_profiles` record
+  /// for an entity.
+  ///
+  /// Invokes the canonical RPC
+  /// `commerce.create_business_profile(p_entity_id, p_profile)`.
+  ///
+  /// The client sends ONLY the entity id and the profile payload. The
+  /// authenticated user/profile, `primary_contact_id`, entity membership
+  /// and permission checks are resolved server-side — never sent from here.
+  ///
+  /// `PostgrestException` is intentionally NOT wrapped: the application
+  /// layer maps permission/authentication failures to friendly messages
+  /// without leaking raw database errors to the user.
+  Future<Map<String, dynamic>> createBusinessProfile({
+    required String entityId,
+    required Map<String, dynamic> profile,
+  }) async {
+    final response = await _client
+        .schema('commerce')
+        .rpc(
+          'create_business_profile',
+          params: {'p_entity_id': entityId, 'p_profile': profile},
+        );
+
+    if (response is List && response.isNotEmpty) {
+      final first = response.first;
+      if (first is Map) return Map<String, dynamic>.from(first);
+    }
+    if (response is Map) return Map<String, dynamic>.from(response);
+    return const <String, dynamic>{};
+  }
+
   /// Fetch `commerce.stock_registry` rows for a business entity.
   ///
   /// Scoped to the ACTIVE business entity id. Ownership stays
   /// server-side under RLS — no `user_id` is ever sent. `entity_id`
   /// merely narrows to the business already selected by the caller.
-  Future<List<Map<String, dynamic>>> fetchInventoryRows(
-    String entityId,
-  ) async {
+  Future<List<Map<String, dynamic>>> fetchInventoryRows(String entityId) async {
     try {
       final response = await _client
           .schema('commerce')
@@ -160,9 +188,7 @@ class BusinessHubRemoteDataSource {
   }
 
   /// Resolve variant names for the given variant IDs (id → name).
-  Future<Map<String, String>> fetchVariantsByIds(
-    Set<String> variantIds,
-  ) async {
+  Future<Map<String, String>> fetchVariantsByIds(Set<String> variantIds) async {
     final ids = variantIds.where((id) => id.isNotEmpty).toList();
     if (ids.isEmpty) return const {};
     try {
@@ -340,8 +366,7 @@ class BusinessHubRemoteDataSource {
       return {
         for (final row in rows)
           if (row['id'] != null)
-            row['id'].toString():
-                row['supplier_name']?.toString() ?? '',
+            row['id'].toString(): row['supplier_name']?.toString() ?? '',
       };
     } on PostgrestException catch (e) {
       throw Exception('Failed to fetch suppliers: ${e.message}');

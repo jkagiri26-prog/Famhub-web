@@ -17,6 +17,7 @@ import '../../domain/entities/inventory_item.dart';
 import '../../domain/entities/purchase_order.dart';
 import '../../domain/entities/sales_order.dart';
 import '../../domain/entities/sales_order_line.dart';
+import '../../domain/models/business_profile_creation_result.dart';
 import '../../domain/repositories/business_hub_repository.dart';
 import 'package:famhub_app/features/marketplace/domain/repositories/marketplace_repository.dart';
 import '../data_sources/business_hub_remote_data_source.dart';
@@ -28,8 +29,8 @@ class BusinessHubRepositoryImpl implements BusinessHubRepository {
   BusinessHubRepositoryImpl({
     BusinessHubRemoteDataSource? dataSource,
     required MarketplaceRepository marketplace,
-  })  : _dataSource = dataSource ?? BusinessHubRemoteDataSource(),
-        _marketplace = marketplace;
+  }) : _dataSource = dataSource ?? BusinessHubRemoteDataSource(),
+       _marketplace = marketplace;
 
   @override
   Future<List<BusinessEntity>> fetchMyBusinesses() async {
@@ -45,6 +46,24 @@ class BusinessHubRepositoryImpl implements BusinessHubRepository {
   }
 
   @override
+  Future<BusinessProfileCreationResult> createBusinessProfile({
+    required String entityId,
+    required String supplierName,
+    required String entityType,
+    Map<String, dynamic> metadata = const {},
+  }) async {
+    final row = await _dataSource.createBusinessProfile(
+      entityId: entityId,
+      profile: {
+        'supplier_name': supplierName,
+        'entity_type': entityType,
+        'metadata': metadata,
+      },
+    );
+    return BusinessProfileCreationResult.fromRow(row);
+  }
+
+  @override
   Future<List<InventoryItem>> fetchInventory(String entityId) async {
     final rawRows = await _dataSource.fetchInventoryRows(entityId);
     return _buildInventoryItems(rawRows);
@@ -56,13 +75,11 @@ class BusinessHubRepositoryImpl implements BusinessHubRepository {
     final creatorIds = <String>{};
     final ownerId = await _dataSource.fetchEntityOwnerId(entityId);
     if (ownerId != null && ownerId.isNotEmpty) creatorIds.add(ownerId);
-    creatorIds
-        .addAll(await _dataSource.fetchEntityMemberProfileIds(entityId));
+    creatorIds.addAll(await _dataSource.fetchEntityMemberProfileIds(entityId));
 
     if (creatorIds.isEmpty) return const [];
 
-    final rawRows =
-        await _dataSource.fetchPurchaseOrdersByCreators(creatorIds);
+    final rawRows = await _dataSource.fetchPurchaseOrdersByCreators(creatorIds);
     return _buildPurchaseOrders(rawRows);
   }
 
@@ -84,8 +101,9 @@ class BusinessHubRepositoryImpl implements BusinessHubRepository {
 
     Map<String, String> supplierNames = const {};
     try {
-      supplierNames =
-          await _dataSource.fetchBusinessProfileNamesByIds(supplierIds);
+      supplierNames = await _dataSource.fetchBusinessProfileNamesByIds(
+        supplierIds,
+      );
     } catch (_) {}
 
     return rawRows.map((raw) {
@@ -93,7 +111,8 @@ class BusinessHubRepositoryImpl implements BusinessHubRepository {
       return PurchaseOrder(
         id: raw['id']?.toString() ?? '',
         supplierId: supplierId,
-        supplierName: supplierId != null && supplierNames.containsKey(supplierId)
+        supplierName:
+            supplierId != null && supplierNames.containsKey(supplierId)
             ? supplierNames[supplierId]
             : null,
         createdBy: raw['created_by']?.toString(),
@@ -153,9 +172,7 @@ class BusinessHubRepositoryImpl implements BusinessHubRepository {
       return SalesOrder(
         id: raw['id']?.toString() ?? '',
         buyerId: buyerId,
-        buyerName: buyerNames.containsKey(buyerId)
-            ? buyerNames[buyerId]
-            : null,
+        buyerName: buyerNames.containsKey(buyerId) ? buyerNames[buyerId] : null,
         listingId: raw['listing_id']?.toString(),
         supplierId: raw['supplier_id']?.toString(),
         quantity: (raw['quantity'] as num?)?.toDouble() ?? 0,
@@ -171,8 +188,7 @@ class BusinessHubRepositoryImpl implements BusinessHubRepository {
 
   @override
   Future<List<SalesOrderLine>> fetchOrderItems(String orderId) async {
-    final rawRows =
-        await _dataSource.fetchOrderItemsByOrderIds({orderId});
+    final rawRows = await _dataSource.fetchOrderItemsByOrderIds({orderId});
     return _buildOrderLines(rawRows);
   }
 
@@ -209,10 +225,9 @@ class BusinessHubRepositoryImpl implements BusinessHubRepository {
         orderId: raw['order_id']?.toString() ?? '',
         listingId: raw['listing_id']?.toString(),
         variantId: variantId,
-        variantName:
-            variantId != null && variants.containsKey(variantId)
-                ? variants[variantId]
-                : null,
+        variantName: variantId != null && variants.containsKey(variantId)
+            ? variants[variantId]
+            : null,
         unitId: unitId,
         unitName: unitId != null && units.containsKey(unitId)
             ? units[unitId]
@@ -253,13 +268,14 @@ class BusinessHubRepositoryImpl implements BusinessHubRepository {
     }
 
     return listings
-        .map((listing) => BusinessListing.fromMarketplace(
-              listing,
-              variantName:
-                  variantNames.containsKey(listing.variantId)
-                      ? variantNames[listing.variantId]
-                      : null,
-            ))
+        .map(
+          (listing) => BusinessListing.fromMarketplace(
+            listing,
+            variantName: variantNames.containsKey(listing.variantId)
+                ? variantNames[listing.variantId]
+                : null,
+          ),
+        )
         .toList();
   }
 
@@ -336,8 +352,7 @@ class BusinessHubRepositoryImpl implements BusinessHubRepository {
         canSell: raw['can_sell'] == true,
         canManage: raw['can_manage'] == true,
         canReceivePayments: raw['can_receive_payments'] == true,
-        membershipStatus:
-            raw['membership_status']?.toString() ?? 'active',
+        membershipStatus: raw['membership_status']?.toString() ?? 'active',
       );
     }).toList();
   }
@@ -396,33 +411,33 @@ class BusinessHubRepositoryImpl implements BusinessHubRepository {
 
       // Prefer the product (item) name and fall back to the variant name
       // when the product reference is not linked.
-      final productName =
-          (productId != null && items.containsKey(productId))
-              ? items[productId]
-              : (variantId != null && variants.containsKey(variantId))
-                  ? variants[variantId]
-                  : null;
+      final productName = (productId != null && items.containsKey(productId))
+          ? items[productId]
+          : (variantId != null && variants.containsKey(variantId))
+          ? variants[variantId]
+          : null;
 
-      result.add(InventoryItem(
-        id: raw['id']?.toString() ?? '',
-        entityId: raw['entity_id']?.toString() ?? '',
-        businessProfileId: raw['business_profile_id']?.toString(),
-        variantId: variantId,
-        productId: productId,
-        displayName: productName,
-        unitId: unitId,
-        unitName: unitId != null && units.containsKey(unitId)
-            ? units[unitId]
-            : null,
-        locationId: locationId,
-        locationName: locationId != null && locations.containsKey(locationId)
-            ? locations[locationId]
-            : null,
-        quantity: (raw['quantity'] as num?)?.toDouble() ?? 0,
-        reservedQuantity:
-            (raw['reserved_quantity'] as num?)?.toDouble() ?? 0,
-        status: raw['status']?.toString() ?? 'active',
-      ));
+      result.add(
+        InventoryItem(
+          id: raw['id']?.toString() ?? '',
+          entityId: raw['entity_id']?.toString() ?? '',
+          businessProfileId: raw['business_profile_id']?.toString(),
+          variantId: variantId,
+          productId: productId,
+          displayName: productName,
+          unitId: unitId,
+          unitName: unitId != null && units.containsKey(unitId)
+              ? units[unitId]
+              : null,
+          locationId: locationId,
+          locationName: locationId != null && locations.containsKey(locationId)
+              ? locations[locationId]
+              : null,
+          quantity: (raw['quantity'] as num?)?.toDouble() ?? 0,
+          reservedQuantity: (raw['reserved_quantity'] as num?)?.toDouble() ?? 0,
+          status: raw['status']?.toString() ?? 'active',
+        ),
+      );
     }
     return result;
   }
