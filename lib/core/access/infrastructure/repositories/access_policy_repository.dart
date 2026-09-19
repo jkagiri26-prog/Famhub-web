@@ -82,12 +82,13 @@ class AccessPolicyRepository {
   bool _isAuthFailure(PostgrestException e) {
     final code = e.code ?? '';
     final message = e.message.toLowerCase();
+    // Only genuine token/auth failures. "permission denied" (SQL 42501) is a
+    // legitimate RLS/authorization denial and must NOT trigger a token
+    // refresh (which could otherwise clear a valid session).
     return code == 'PGRST301' ||
         code == 'PGRST302' ||
         message.contains('jwt') ||
-        message.contains('sub claim') ||
-        message.contains('permission denied') ||
-        message.contains('unauthorized');
+        message.contains('sub claim');
   }
 
   Future<AccessPolicy> fetchPolicy() async {

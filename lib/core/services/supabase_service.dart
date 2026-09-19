@@ -166,18 +166,22 @@ class SupabaseService {
 
   /// Refreshes the current session before retrying an authenticated call.
   ///
-  /// Returns true when a usable session is available afterwards. If the
-  /// cached session cannot be refreshed (expired/invalid refresh token,
-  /// `bad_jwt`, missing `sub`), the invalid local session is cleared so
-  /// the app returns to the login flow instead of retrying with a stale
-  /// token.
+  /// Returns true when a usable session is available afterwards. Only a
+  /// definitive auth failure (invalid/revoked refresh token) clears the
+  /// cached session. Transient failures (network/timeout) leave the session
+  /// intact so the user stays signed in and the refresh can be retried.
   Future<bool> refreshSessionSafely() async {
     if (currentSession == null) return false;
     try {
       final response = await client.auth.refreshSession();
       return response.session != null;
-    } catch (_) {
+    } on AuthException {
+      // The refresh token is invalid/revoked — clear the stale local session
+      // so the app returns to the login flow instead of retrying forever.
       await clearInvalidSession();
+      return false;
+    } catch (_) {
+      // Network/timeout/unknown — do NOT sign the user out.
       return false;
     }
   }

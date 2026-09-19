@@ -52,7 +52,9 @@ class ApiService {
   ) async {
     var response = await send(await _headers());
 
-    if (response.statusCode == 401 || response.statusCode == 403) {
+    // Only a 401 means the access token is missing/stale. A 403 is a
+    // legitimate authorization denial and must NOT trigger a token refresh.
+    if (response.statusCode == 401) {
       final refreshed = await _supabase.refreshSessionSafely();
       if (refreshed) {
         response = await send(await _headers());

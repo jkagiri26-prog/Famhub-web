@@ -45,6 +45,15 @@ class ContextStorageService {
 
   Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    // Remove ONLY the context keys. Never call prefs.clear(): that would
+    // also wipe the persisted Supabase auth session (and unrelated app
+    // state), silently signing the user out on the next launch.
+    await prefs.remove(_userKey);
+    await prefs.remove(_profileKey);
+    await prefs.remove(_roleKey);
+    await prefs.remove(_roleIdKey);
+    await prefs.remove(_entityKey);
+    await prefs.remove(_businessProfileKey);
+    await prefs.remove(_tierKey);
   }
 }

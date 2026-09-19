@@ -177,10 +177,15 @@ Future<void> _bootstrap() async {
     final prefs = await SharedPreferences.getInstance();
     const authStorageMigrationKey = 'auth_storage_cleared_v2';
     if (!(prefs.getBool(authStorageMigrationKey) ?? false)) {
-      await SupabaseService.instance.client.auth
-          .signOut(scope: SignOutScope.local);
+      // Only drop a cached session that is already unusable (a session with
+      // no resolvable user). A valid persisted session is left intact so the
+      // user stays signed in across app updates/restarts.
+      final auth = SupabaseService.instance.client.auth;
+      if (auth.currentSession != null && auth.currentUser == null) {
+        await auth.signOut(scope: SignOutScope.local);
+        debugPrint('[BOOT] Cleared malformed cached auth session.');
+      }
       await prefs.setBool(authStorageMigrationKey, true);
-      debugPrint('[BOOT] Cleared stale auth storage (one-time migration).');
     }
   } catch (e) {
     debugPrint('[BOOT] Auth storage migration skipped: $e');
