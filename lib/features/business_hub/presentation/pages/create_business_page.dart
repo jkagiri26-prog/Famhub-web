@@ -25,6 +25,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
+import 'package:famhub_app/core/session/session_provider.dart';
+import 'package:famhub_app/core/workspace/application/active_workspace_provider.dart';
 import 'package:famhub_app/features/workspace_context/application/entity_context_refresh.dart';
 import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
 
@@ -89,12 +91,81 @@ class _CreateBusinessPageState extends ConsumerState<CreateBusinessPage> {
       return;
     }
 
-    // Refresh the authoritative context through the existing canonical
-    // engine. The Trader gate re-resolves `businessProfileId` and opens
-    // the dashboard — no manual navigation or fabricated context.
-    await ref.read(contextProvider.notifier).init();
+    // Link the newly created Business Profile to the canonical active
+    // context through the EXISTING activation path
+    // (users.activate_workspace_context → authoritative read → apply).
+    // The gate then re-resolves `businessProfileId` and opens the dashboard.
+    await _establishActiveContext(entityId);
     if (!mounted) return;
+    if (!_contextHasBusinessProfile) {
+      _showMessage(
+        'Your business was saved, but we could not open the workspace '
+        'automatically. Please reopen the Trader workspace.',
+      );
+    }
     refreshEntityScopedProviders(ref);
+  }
+
+  /// Whether the authoritative context currently carries a business profile.
+  bool get _contextHasBusinessProfile =>
+      (ref.read(contextProvider).businessProfileId ?? '').isNotEmpty;
+
+  /// Establish the canonical active context for [entityId] after the
+  /// Business Profile is created.
+  ///
+  /// Prefers the backend activation path (the same one the app-bar Entity
+  /// switcher uses). If the authoritative context still has no
+  /// `businessProfileId`, falls back to the canonical context re-read
+  /// (`ContextController.init`). Nothing is fabricated.
+  Future<void> _establishActiveContext(String entityId) async {
+    final workspaceId = ref.read(activeWorkspaceProvider).workspaceId;
+    final roleId = ref.read(contextProvider).roleId;
+
+    var profileId = ref
+        .read(businessProfileSetupControllerProvider)
+        .createdBusinessProfileId;
+    profileId ??= await _resolveContextBusinessProfileId(entityId);
+
+    debugPrint(
+      '[CreateBusiness] establish context '
+      'workspace=$workspaceId entity=$entityId role=$roleId '
+      'profile=$profileId',
+    );
+
+    if (workspaceId.isNotEmpty && roleId != null && roleId.isNotEmpty) {
+      await ref
+          .read(contextProvider.notifier)
+          .activateContextRow(
+            workspaceId: workspaceId,
+            entityId: entityId,
+            roleId: roleId,
+            businessProfileId: profileId,
+          );
+      if ((ref.read(contextProvider).businessProfileId ?? '').isNotEmpty) {
+        return;
+      }
+    }
+
+    await ref.read(contextProvider.notifier).init();
+  }
+
+  /// Resolve the backend-reported `business_profile_id` for the active
+  /// workspace/entity from the canonical available-contexts RPC.
+  Future<String?> _resolveContextBusinessProfileId(String entityId) async {
+    try {
+      final workspaceId = ref.read(activeWorkspaceProvider).workspaceId;
+      final contexts = await ref
+          .read(authServiceProvider)
+          .getAvailableWorkspaceContexts();
+      for (final c in contexts) {
+        if (c['workspace_id']?.toString() == workspaceId &&
+            c['entity_id']?.toString() == entityId) {
+          final id = c['business_profile_id']?.toString();
+          if (id != null && id.isNotEmpty) return id;
+        }
+      }
+    } catch (_) {}
+    return null;
   }
 
   void _showMessage(String message) {

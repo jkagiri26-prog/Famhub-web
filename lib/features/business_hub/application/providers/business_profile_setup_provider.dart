@@ -18,6 +18,7 @@
 /// ============================================================
 library;
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -29,9 +30,14 @@ class BusinessProfileSetupState {
   final bool isSubmitting;
   final String? errorMessage;
 
+  /// `commerce.business_profiles.id` resolved after a successful create.
+  /// Used by the caller to establish the canonical active context.
+  final String? createdBusinessProfileId;
+
   const BusinessProfileSetupState({
     this.isSubmitting = false,
     this.errorMessage,
+    this.createdBusinessProfileId,
   });
 }
 
@@ -62,17 +68,31 @@ class BusinessProfileSetupController
     }
 
     try {
-      await ref
-          .read(businessHubRepositoryProvider)
-          .createBusinessProfile(
-            entityId: entityId,
-            supplierName: supplierName.trim(),
-            entityType: category.dbEntityType,
-            metadata: metadata,
-          );
-      state = const BusinessProfileSetupState();
+      final repo = ref.read(businessHubRepositoryProvider);
+      final result = await repo.createBusinessProfile(
+        entityId: entityId,
+        supplierName: supplierName.trim(),
+        entityType: category.dbEntityType,
+        metadata: metadata,
+      );
+
+      // Resolve the profile id so the caller can link it to the canonical
+      // active context. The RPC normally returns it; fall back to a direct
+      // read when the RPC is void/returns only flags.
+      var profileId = result.businessProfileId;
+      if (profileId == null || profileId.isEmpty) {
+        try {
+          final profile = await repo.fetchBusinessProfile(entityId);
+          profileId = profile?.id;
+        } catch (_) {
+          profileId = null;
+        }
+      }
+
+      state = BusinessProfileSetupState(createdBusinessProfileId: profileId);
       return true;
     } catch (e) {
+      debugPrint('[BusinessProfileSetup] create failed: $e');
       state = BusinessProfileSetupState(errorMessage: _friendlyError(e));
       return false;
     }
