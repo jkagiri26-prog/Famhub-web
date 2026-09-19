@@ -55,7 +55,6 @@ import 'package:famhub_app/shared/widgets/states/loading_state_widget.dart';
 
 import '../../application/providers/active_business_provider.dart';
 import '../../application/providers/my_businesses_provider.dart';
-import '../../domain/entities/business_profile.dart';
 import '../widgets/business_hub_inventory_tab.dart';
 import '../widgets/business_hub_listings_tab.dart';
 import '../widgets/business_hub_more_tab.dart';
@@ -237,10 +236,11 @@ class _BusinessHubPageState extends ConsumerState<BusinessHubPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Business / context header ──
-        const _ActiveBusinessCard(),
-        const SizedBox(height: 8),
-        const _BusinessProfileLine(),
+        // ── Business identity (single, non-interactive) ──
+        // The app-bar Entity selector is the ONLY Entity switcher; this
+        // line merely identifies the Business Profile operating within the
+        // active Entity. It is not a switcher and owns no selection state.
+        const _BusinessIdentityLine(),
         const SizedBox(height: 12),
 
         // ── Top tab navigation (stable) ──
@@ -376,201 +376,47 @@ class _BusinessHubPageState extends ConsumerState<BusinessHubPage>
 }
 
 /// ============================================================
-/// ACTIVE BUSINESS CONTEXT CARD
+/// BUSINESS IDENTITY LINE (single, non-interactive)
 /// ============================================================
-class _ActiveBusinessCard extends ConsumerWidget {
-  const _ActiveBusinessCard();
+///
+/// Identifies the Business Profile (`commerce.business_profiles`) that
+/// operates within the active Entity. Entity/context switching is owned
+/// exclusively by the app-bar Entity selector — this is display-only and
+/// owns no selection state.
+class _BusinessIdentityLine extends ConsumerWidget {
+  const _BusinessIdentityLine();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final active = ref.watch(activeBusinessProvider);
-
     if (active == null) return const SizedBox.shrink();
 
-    // The business profile name is the user-facing business identity.
     final profile = ref.watch(businessProfileProvider(active.id)).value;
-    final displayName = profile?.displayName ?? active.name;
+    final verified = profile?.isVerified ?? false;
+    final status = verified
+        ? 'Verified'
+        : _verificationLabel(profile?.verificationStatus ?? 'pending');
 
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                Icons.business_outlined,
-                color: theme.colorScheme.primary,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          displayName,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      _TypeBadge(
-                        label: active.entityType.label,
-                        color: theme.colorScheme.primary,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    active.isVerified
-                        ? 'Verified business'
-                        : 'Verification: ${_verificationLabel(active.verificationStatus)}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+    return Row(
+      children: [
+        Icon(
+          verified ? Icons.verified_outlined : Icons.hourglass_empty,
+          size: 14,
+          color: verified ? Colors.green : Colors.orange.shade700,
         ),
-      ),
+        const SizedBox(width: 6),
+        Text(
+          'Verification: $status',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: Colors.grey.shade600,
+          ),
+        ),
+      ],
     );
   }
 
   String _verificationLabel(String status) {
-    switch (status) {
-      case 'verified':
-        return 'Verified';
-      case 'rejected':
-        return 'Rejected';
-      case 'suspended':
-        return 'Suspended';
-      default:
-        return 'Pending';
-    }
-  }
-}
-
-class _TypeBadge extends StatelessWidget {
-  final String label;
-  final Color color;
-
-  const _TypeBadge({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
-      ),
-    );
-  }
-}
-
-/// ============================================================
-/// BUSINESS PROFILE LINE (commerce.business_profiles)
-/// ============================================================
-class _BusinessProfileLine extends ConsumerWidget {
-  const _BusinessProfileLine();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final active = ref.watch(activeBusinessProvider);
-    if (active == null) return const SizedBox.shrink();
-
-    final profileAsync = ref.watch(businessProfileProvider(active.id));
-    final theme = Theme.of(context);
-
-    return profileAsync.when(
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
-      data: (BusinessProfile? profile) {
-        final hasProfile = profile != null;
-        final title = hasProfile
-            ? profile.displayName
-            : 'No seller profile yet';
-        final subtitle = !hasProfile
-            ? 'Business profile onboarding lands in a later phase.'
-            : profile.isVerified
-            ? 'Seller profile • Verified'
-            : 'Seller profile • ${_statusLabel(profile.verificationStatus)}';
-
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: hasProfile
-                ? Colors.green.withValues(alpha: 0.05)
-                : Colors.orange.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                hasProfile
-                    ? Icons.verified_outlined
-                    : Icons.storefront_outlined,
-                size: 18,
-                color: hasProfile ? Colors.green : Colors.orange.shade700,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      subtitle,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  String _statusLabel(String status) {
     switch (status) {
       case 'verified':
         return 'Verified';
