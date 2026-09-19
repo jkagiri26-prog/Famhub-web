@@ -99,7 +99,8 @@ const List<BusinessHubTabSpec> _tabSpecs = [
     label: 'Inventory',
     icon: Icons.inventory_2_outlined,
     capability: Capabilities.inventoryStock,
-    blurb: 'Stock levels, movements and adjustments for this business '
+    blurb:
+        'Stock levels, movements and adjustments for this business '
         'will live here (commerce.stock_registry / '
         'commerce.stock_movements).',
   ),
@@ -107,34 +108,39 @@ const List<BusinessHubTabSpec> _tabSpecs = [
     label: 'Procurement',
     icon: Icons.shopping_cart_outlined,
     capability: Capabilities.marketplaceOrders,
-    blurb: 'Purchase orders and supplier sourcing will live here '
+    blurb:
+        'Purchase orders and supplier sourcing will live here '
         '(commerce.purchase_orders / suppliers).',
   ),
   BusinessHubTabSpec(
     label: 'Sales',
     icon: Icons.trending_up,
     capability: Capabilities.marketplaceOrders,
-    blurb: 'Orders, order lines and fulfilment for this business will '
+    blurb:
+        'Orders, order lines and fulfilment for this business will '
         'live here (commerce.orders / commerce.order_items).',
   ),
   BusinessHubTabSpec(
     label: 'Listings',
     icon: Icons.storefront_outlined,
     capability: Capabilities.marketplaceListings,
-    blurb: 'Marketplace catalog and listings for this business will live '
+    blurb:
+        'Marketplace catalog and listings for this business will live '
         'here (marketplace.listings).',
   ),
   BusinessHubTabSpec(
     label: 'Payments',
     icon: Icons.payments_outlined,
     capability: Capabilities.financeRecording,
-    blurb: 'Payment transactions and business payments will live here '
+    blurb:
+        'Payment transactions and business payments will live here '
         '(commerce.transactions / commerce.payments).',
   ),
   BusinessHubTabSpec(
     label: 'More',
     icon: Icons.more_horiz,
-    blurb: 'Reserved for additional business operations: business '
+    blurb:
+        'Reserved for additional business operations: business '
         'profile, facilities/locations, members/team, settings and '
         'other future capabilities.',
   ),
@@ -172,23 +178,27 @@ class _BusinessHubPageState extends ConsumerState<BusinessHubPage>
     final businessesAsync = ref.watch(myBusinessesProvider);
     final activeBusiness = ref.watch(activeBusinessProvider);
 
+    // Prefer the created Business Profile name (supplier_name) over the
+    // generic core.entities name. The profile is the user-facing identity.
+    final activeProfile = activeBusiness == null
+        ? null
+        : ref.watch(businessProfileProvider(activeBusiness.id)).value;
+    final headerSubtitle =
+        activeProfile?.displayName ??
+        activeBusiness?.name ??
+        'Manage your trading business entities';
+
     return ResponsiveWrapper(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 12),
-          ModuleHeaderWidget(
-            title: 'Trader',
-            subtitle: activeBusiness != null
-                ? activeBusiness.name
-                : 'Manage your trading business entities',
-          ),
+          ModuleHeaderWidget(title: 'Trader', subtitle: headerSubtitle),
           const SizedBox(height: 12),
           Expanded(
             child: businessesAsync.when(
-              loading: () => const LoadingStateWidget(
-                message: 'Loading businesses...',
-              ),
+              loading: () =>
+                  const LoadingStateWidget(message: 'Loading businesses...'),
               error: (e, _) => ErrorStateWidget(
                 title: 'Failed to Load',
                 message: 'Could not load your businesses.',
@@ -271,7 +281,10 @@ class _BusinessHubPageState extends ConsumerState<BusinessHubPage>
 
   /// Compact, capability-aware tab label. Unavailable sections stay
   /// visible (stable structure) but are visibly muted.
-  Widget _buildTabLabel(int index, bool Function(Capability?) capabilityEnabled) {
+  Widget _buildTabLabel(
+    int index,
+    bool Function(Capability?) capabilityEnabled,
+  ) {
     final spec = _tabSpecs[index];
     final selected = index == _tabController.index;
     final enabled = capabilityEnabled(spec.capability);
@@ -375,6 +388,10 @@ class _ActiveBusinessCard extends ConsumerWidget {
 
     if (active == null) return const SizedBox.shrink();
 
+    // The business profile name is the user-facing business identity.
+    final profile = ref.watch(businessProfileProvider(active.id)).value;
+    final displayName = profile?.displayName ?? active.name;
+
     return Card(
       elevation: 0,
       color: Colors.white,
@@ -408,9 +425,10 @@ class _ActiveBusinessCard extends ConsumerWidget {
                     children: [
                       Flexible(
                         child: Text(
-                          active.name,
-                          style: theme.textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
+                          displayName,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -427,8 +445,9 @@ class _ActiveBusinessCard extends ConsumerWidget {
                     active.isVerified
                         ? 'Verified business'
                         : 'Verification: ${_verificationLabel(active.verificationStatus)}',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: Colors.grey.shade600),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.grey.shade600,
+                    ),
                   ),
                 ],
               ),
@@ -498,12 +517,14 @@ class _BusinessProfileLine extends ConsumerWidget {
       error: (_, __) => const SizedBox.shrink(),
       data: (BusinessProfile? profile) {
         final hasProfile = profile != null;
-        final title = hasProfile ? profile.displayName : 'No seller profile yet';
+        final title = hasProfile
+            ? profile.displayName
+            : 'No seller profile yet';
         final subtitle = !hasProfile
             ? 'Business profile onboarding lands in a later phase.'
             : profile.isVerified
-                ? 'Seller profile • Verified'
-                : 'Seller profile • ${_statusLabel(profile.verificationStatus)}';
+            ? 'Seller profile • Verified'
+            : 'Seller profile • ${_statusLabel(profile.verificationStatus)}';
 
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -516,7 +537,9 @@ class _BusinessProfileLine extends ConsumerWidget {
           child: Row(
             children: [
               Icon(
-                hasProfile ? Icons.verified_outlined : Icons.storefront_outlined,
+                hasProfile
+                    ? Icons.verified_outlined
+                    : Icons.storefront_outlined,
                 size: 18,
                 color: hasProfile ? Colors.green : Colors.orange.shade700,
               ),
@@ -527,13 +550,15 @@ class _BusinessProfileLine extends ConsumerWidget {
                   children: [
                     Text(
                       title,
-                      style: theme.textTheme.bodyMedium
-                          ?.copyWith(fontWeight: FontWeight.w600),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     Text(
                       subtitle,
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: Colors.grey.shade600),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.grey.shade600,
+                      ),
                     ),
                   ],
                 ),

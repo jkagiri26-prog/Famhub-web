@@ -22,6 +22,7 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/access/application/providers/access_policy_provider.dart';
+import 'package:famhub_app/features/business_hub/application/providers/active_business_provider.dart';
 import 'package:famhub_app/features/business_hub/application/providers/my_businesses_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_dashboard_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_lifecycle_provider.dart';
@@ -32,6 +33,10 @@ import 'package:famhub_app/features/marketplace/application/providers/marketplac
 void refreshEntityScopedProviders(WidgetRef ref) {
   // ── Business Hub (entity/business scoped) ──
   ref.invalidate(myBusinessesProvider);
+  // The business profile (commerce.business_profiles) is entity-scoped and
+  // must be re-read after context changes (e.g. right after first-use
+  // creation), otherwise a previously cached null keeps hiding the name.
+  ref.invalidate(businessProfileProvider);
 
   // ── Marketplace (seller/owned scoped — NOT global discovery) ──
   ref.invalidate(sellerListingsProvider);

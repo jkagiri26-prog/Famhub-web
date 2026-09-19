@@ -118,6 +118,10 @@ class BusinessHubRemoteDataSource {
   }
 
   /// Fetch the `commerce.business_profiles` row for an entity (if any).
+  ///
+  /// Returns the most recent ACTIVE profile. Uses a limited ordered list
+  /// (not `maybeSingle`) so historical/inactive rows for the same entity
+  /// can never make the read throw and hide the business name.
   Future<Map<String, dynamic>?> fetchBusinessProfile(String entityId) async {
     try {
       final response = await _client
@@ -125,8 +129,11 @@ class BusinessHubRemoteDataSource {
           .from('business_profiles')
           .select(_profileSelectQuery)
           .eq('entity_id', entityId)
-          .maybeSingle();
-      return response;
+          .order('is_active', ascending: false)
+          .order('created_at', ascending: false)
+          .limit(1);
+      final rows = (response as List).cast<Map<String, dynamic>>();
+      return rows.isEmpty ? null : rows.first;
     } on PostgrestException catch (e) {
       throw Exception('Failed to fetch business profile: ${e.message}');
     } catch (e) {
