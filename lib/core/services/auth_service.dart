@@ -560,6 +560,15 @@ class AuthService {
       'active_mode': row['active_mode'] ?? row['mode'],
       'business_profile_id': row['business_profile_id'],
       'profile_id': row['profile_id'],
+      // Human-readable labels — preserved when the RPC provides them, so the
+      // UI never falls back to raw entity UUIDs.
+      'entity_name': row['entity_name'] ??
+          row['entity_display_name'] ??
+          row['entity_slug'] ??
+          row['name'],
+      'role_name': row['role_name'],
+      'business_profile_name':
+          row['business_profile_name'] ?? row['supplier_name'],
     };
   }
 
