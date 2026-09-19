@@ -48,7 +48,14 @@ abstract class MarketplaceRepository {
 
   /// Eligible managed stock owned by the authenticated user
   /// (available quantity > 0, scoped by RLS).
-  Future<List<StockItem>> fetchEligibleStock({String? searchQuery});
+  ///
+  /// [entityId] scopes the result to the ACTIVE entity context so a workspace
+  /// switch does not leak another entity's stock (e.g. Farmer stock in the
+  /// Trader workspace). Null keeps the previous RLS-only behaviour.
+  Future<List<StockItem>> fetchEligibleStock({
+    String? searchQuery,
+    String? entityId,
+  });
 
   /// Fetch a single managed stock record by id (scoped by RLS).
   Future<StockItem?> fetchStockById(String stockId);

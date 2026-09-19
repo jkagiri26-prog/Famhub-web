@@ -316,7 +316,10 @@ class DemoMarketplaceRepository implements MarketplaceRepository {
   ];
 
   @override
-  Future<List<StockItem>> fetchEligibleStock({String? searchQuery}) async {
+  Future<List<StockItem>> fetchEligibleStock({
+    String? searchQuery,
+    String? entityId,
+  }) async {
     await Future.delayed(const Duration(milliseconds: 300));
     var stock = _sampleStock.where((s) => s.isEligible).toList();
     if (searchQuery != null && searchQuery.trim().isNotEmpty) {

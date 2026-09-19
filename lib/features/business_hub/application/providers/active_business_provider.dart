@@ -22,6 +22,7 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
 import 'package:famhub_app/features/business_hub/domain/entities/business_entity.dart';
 import 'package:famhub_app/features/business_hub/domain/entities/business_profile.dart';
 import 'business_hub_repository_provider.dart';
@@ -51,19 +52,35 @@ final activeBusinessIdProvider =
 /// RESOLVED ACTIVE BUSINESS
 /// ============================================================
 
-/// The effective active business. Falls back to the first available
-/// business when nothing is explicitly selected.
+/// The effective active business.
+///
+/// Resolution order:
+///   1. explicit in-Hub selection (`activeBusinessIdProvider`; reset on every
+///      workspace switch by `refreshEntityScopedProviders`);
+///   2. the ACTIVE entity context (`core.entity_context_sessions.entity_id`) —
+///      authoritative for the current workspace, so the Business Hub resolves
+///      against the Trader entity while in the Trader workspace;
+///   3. the first available business.
 final activeBusinessProvider = Provider<BusinessEntity?>((ref) {
   final businesses = ref.watch(myBusinessesProvider).value ?? const [];
 
   if (businesses.isEmpty) return null;
 
   final selectedId = ref.watch(activeBusinessIdProvider);
-  if (selectedId == null) return businesses.first;
-
-  for (final business in businesses) {
-    if (business.id == selectedId) return business;
+  if (selectedId != null) {
+    for (final business in businesses) {
+      if (business.id == selectedId) return business;
+    }
   }
+
+  final contextEntityId =
+      ref.watch(contextProvider.select((c) => c.entityId));
+  if (contextEntityId != null && contextEntityId.isNotEmpty) {
+    for (final business in businesses) {
+      if (business.id == contextEntityId) return business;
+    }
+  }
+
   return businesses.first;
 });
 

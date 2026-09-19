@@ -376,8 +376,11 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
   }
 
   @override
-  Future<List<StockItem>> fetchEligibleStock({String? searchQuery}) async {
-    final rows = await dataSource.fetchManagedStock();
+  Future<List<StockItem>> fetchEligibleStock({
+    String? searchQuery,
+    String? entityId,
+  }) async {
+    final rows = await dataSource.fetchManagedStock(entityId: entityId);
     var stock = await _buildStockItems(rows);
 
     if (searchQuery != null && searchQuery.trim().isNotEmpty) {

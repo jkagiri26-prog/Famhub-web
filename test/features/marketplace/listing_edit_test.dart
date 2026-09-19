@@ -291,7 +291,10 @@ class _FakeMarketplaceRepository implements MarketplaceRepository {
   }
 
   @override
-  Future<List<StockItem>> fetchEligibleStock({String? searchQuery}) {
+  Future<List<StockItem>> fetchEligibleStock({
+    String? searchQuery,
+    String? entityId,
+  }) {
     throw UnimplementedError();
   }
 

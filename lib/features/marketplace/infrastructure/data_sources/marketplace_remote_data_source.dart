@@ -233,15 +233,24 @@ class MarketplaceRemoteDataSource {
   /// Only `active` records with positive on-hand quantity are returned.
   /// Availability (`quantity - reserved_quantity > 0`) is enforced
   /// client-side by the repository enrichment layer.
-  Future<List<Map<String, dynamic>>> fetchManagedStock() async {
+  ///
+  /// When [entityId] is provided the result is additionally scoped to that
+  /// entity, so the active workspace's entity is respected.
+  Future<List<Map<String, dynamic>>> fetchManagedStock({
+    String? entityId,
+  }) async {
     try {
-      final response = await _client
+      var query = _client
           .schema('commerce')
           .from('stock_registry')
           .select(_stockSelectQuery)
           .eq('status', 'active')
-          .gt('quantity', 0)
-          .order('updated_at', ascending: false);
+          .gt('quantity', 0);
+      if (entityId != null && entityId.isNotEmpty) {
+        query = query.eq('entity_id', entityId);
+      }
+      final response =
+          await query.order('updated_at', ascending: false);
       return (response as List).cast<Map<String, dynamic>>();
     } on PostgrestException catch (e) {
       throw Exception('Failed to fetch managed stock: ${e.message}');

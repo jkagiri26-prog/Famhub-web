@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
 import '../../domain/entities/listing.dart';
 import '../../domain/entities/stock_item.dart';
 import '../../domain/enums/listing_status.dart';
@@ -412,8 +413,11 @@ final sellerStatsProvider =
 /// Powers the Marketplace → Add Listing stock-selection screen.
 final eligibleStockProvider =
     FutureProvider<List<StockItem>>((ref) async {
+  // Scope to the ACTIVE entity context so a workspace switch cannot leak
+  // another entity's stock (e.g. Farmer stock in the Trader workspace).
+  final entityId = ref.watch(contextProvider.select((c) => c.entityId));
   final repo = ref.read(marketplaceRepositoryProvider);
-  return repo.fetchEligibleStock();
+  return repo.fetchEligibleStock(entityId: entityId);
 });
 
 /// Read-only details for a single managed stock record.
