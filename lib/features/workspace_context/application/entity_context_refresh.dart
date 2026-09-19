@@ -22,7 +22,6 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/access/application/providers/access_policy_provider.dart';
-import 'package:famhub_app/features/business_hub/application/providers/active_business_provider.dart';
 import 'package:famhub_app/features/business_hub/application/providers/my_businesses_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_dashboard_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_lifecycle_provider.dart';
@@ -33,7 +32,6 @@ import 'package:famhub_app/features/marketplace/application/providers/marketplac
 void refreshEntityScopedProviders(WidgetRef ref) {
   // ── Business Hub (entity/business scoped) ──
   ref.invalidate(myBusinessesProvider);
-  ref.invalidate(activeBusinessIdProvider);
 
   // ── Marketplace (seller/owned scoped — NOT global discovery) ──
   ref.invalidate(sellerListingsProvider);

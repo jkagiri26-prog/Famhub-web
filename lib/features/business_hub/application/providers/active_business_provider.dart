@@ -4,19 +4,14 @@
 ///
 /// Establishes the active business/entity context for the Business Hub.
 ///
-///   activeBusinessIdProvider   → explicit user selection (nullable)
-///   activeBusinessProvider     → resolved BusinessEntity (defaults to the
-///                                first available business)
+///   activeBusinessProvider     → resolved BusinessEntity (from the canonical
+///                                active entity context)
 ///   businessProfileProvider    → optional `commerce.business_profiles`
 ///                                row for the active business
 ///
-/// A user may operate multiple entities and an entity may hold multiple
-/// business activities. Selection is by entity id only — no separate
-/// "business type" mode is introduced.
-///
-/// Canonical context note: when the backend `core.entity_context_sessions`
-/// flow is wired on the frontend, this selection should reconcile with it
-/// instead of becoming a parallel context singleton.
+/// The ACTIVE ENTITY is switched centrally from the app-bar Entity switcher
+/// (`ContextController.activateContextRow` → `core.entity_context_sessions`).
+/// The Business Hub no longer owns any local entity-selection state.
 /// ============================================================
 library;
 
@@ -29,26 +24,6 @@ import 'business_hub_repository_provider.dart';
 import 'my_businesses_provider.dart';
 
 /// ============================================================
-/// ACTIVE BUSINESS SELECTION (EXPLICIT USER CHOICE)
-/// ============================================================
-
-class ActiveBusinessController extends Notifier<String?> {
-  @override
-  String? build() => null;
-
-  /// Select a business entity id (null clears to the default business).
-  void select(String? entityId) {
-    state = entityId;
-  }
-}
-
-/// The user's explicitly selected business id (nullable).
-final activeBusinessIdProvider =
-    NotifierProvider<ActiveBusinessController, String?>(
-  ActiveBusinessController.new,
-);
-
-/// ============================================================
 /// RESOLVED ACTIVE BUSINESS
 /// ============================================================
 
@@ -56,11 +31,8 @@ final activeBusinessIdProvider =
 ///
 /// Resolution order:
 ///   1. the ACTIVE entity context (`core.entity_context_sessions.entity_id`) —
-///      canonical; entity switching now activates it, so it can never be
-///      contradicted by local UI state;
-///   2. explicit in-Hub selection (`activeBusinessIdProvider`) — only a
-///      fallback when the context entity is not among the known businesses;
-///   3. the first available business.
+///      canonical; switched only via the app-bar Entity switcher;
+///   2. the first available business.
 final activeBusinessProvider = Provider<BusinessEntity?>((ref) {
   final businesses = ref.watch(myBusinessesProvider).value ?? const [];
 
@@ -71,13 +43,6 @@ final activeBusinessProvider = Provider<BusinessEntity?>((ref) {
   if (contextEntityId != null && contextEntityId.isNotEmpty) {
     for (final business in businesses) {
       if (business.id == contextEntityId) return business;
-    }
-  }
-
-  final selectedId = ref.watch(activeBusinessIdProvider);
-  if (selectedId != null) {
-    for (final business in businesses) {
-      if (business.id == selectedId) return business;
     }
   }
 
