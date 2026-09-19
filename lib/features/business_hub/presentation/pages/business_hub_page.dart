@@ -47,6 +47,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/capabilities/application/capability_profile_provider.dart';
 import 'package:famhub_app/core/capabilities/domain/capability.dart';
+import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
+import 'package:famhub_app/features/workspace_context/application/entity_context_refresh.dart';
 import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
 import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
 import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
@@ -378,7 +380,12 @@ class _ActiveBusinessCard extends ConsumerWidget {
 
     if (active == null) return const SizedBox.shrink();
 
-    final canSwitch = businesses.length > 1;
+    // Only entities AUTHORIZED in the current workspace may be switched to
+    // (from `users.get_available_workspace_contexts()`), never an arbitrary
+    // `core.entities` row.
+    final contexts =
+        ref.watch(currentWorkspaceContextsProvider).value ?? const [];
+    final canSwitch = contexts.length > 1;
 
     return Card(
       elevation: 0,
@@ -439,28 +446,167 @@ class _ActiveBusinessCard extends ConsumerWidget {
               ),
             ),
             if (canSwitch)
-              PopupMenuButton<String>(
+              IconButton(
                 tooltip: 'Switch business',
                 icon: const Icon(Icons.swap_horiz, size: 20),
-                onSelected: (entityId) {
-                  ref.read(activeBusinessIdProvider.notifier).select(entityId);
-                },
-                itemBuilder: (context) => [
-                  for (final business in businesses)
-                    PopupMenuItem<String>(
-                      value: business.id,
-                      child: Text(
-                        business.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                ],
+                onPressed: () =>
+                    _openEntitySwitcher(context, ref, contexts),
               ),
           ],
         ),
       ),
     );
+  }
+
+  /// Canonical same-workspace ENTITY switcher.
+  ///
+  /// Lists only the authorized contexts for the current workspace and
+  /// activates the chosen one through the existing
+  /// `users.activate_workspace_context(...)` path (via
+  /// `ContextController.activateContextRow`). The sheet closes ONLY after a
+  /// successful activation; on failure the previous entity is retained.
+  Future<void> _openEntitySwitcher(
+    BuildContext context,
+    WidgetRef ref,
+    List<Map<String, dynamic>> contexts,
+  ) async {
+    final theme = Theme.of(context);
+    await showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              alignment: Alignment.center,
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 16, bottom: 8),
+              child: Text(
+                'Switch business',
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: contexts.length,
+                itemBuilder: (_, index) {
+                  final c = contexts[index];
+                  final entityId = c['entity_id']?.toString();
+                  final isActive = entityId != null &&
+                      entityId == ref.read(contextProvider).entityId;
+                  final subtitle = _contextSubtitle(c);
+                  return ListTile(
+                    leading: Icon(
+                      isActive
+                          ? Icons.check_circle
+                          : Icons.business_outlined,
+                      color: theme.colorScheme.primary,
+                    ),
+                    title: Text(
+                      _contextLabel(c),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: subtitle == null ? null : Text(subtitle),
+                    onTap: () => _activateContext(sheetContext, ref, c),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _activateContext(
+    BuildContext sheetContext,
+    WidgetRef ref,
+    Map<String, dynamic> c,
+  ) async {
+    final workspaceId = c['workspace_id']?.toString();
+    final entityId = c['entity_id']?.toString();
+    final roleId = c['role_id']?.toString();
+    if (workspaceId == null ||
+        workspaceId.isEmpty ||
+        entityId == null ||
+        entityId.isEmpty ||
+        roleId == null ||
+        roleId.isEmpty) {
+      ScaffoldMessenger.of(sheetContext).showSnackBar(
+        const SnackBar(content: Text('This entity context is incomplete.')),
+      );
+      return;
+    }
+
+    final applied = await ref
+        .read(contextProvider.notifier)
+        .activateContextRow(
+          workspaceId: workspaceId,
+          entityId: entityId,
+          roleId: roleId,
+          businessProfileId: c['business_profile_id']?.toString(),
+        );
+
+    if (applied == null) {
+      if (sheetContext.mounted) {
+        ScaffoldMessenger.of(sheetContext).showSnackBar(
+          const SnackBar(
+            content: Text('Could not switch business. Please try again.'),
+          ),
+        );
+      }
+      return; // keep the sheet open; previous entity retained
+    }
+
+    // Existing entity-scoped refresh mechanism.
+    refreshEntityScopedProviders(ref);
+    if (sheetContext.mounted) Navigator.pop(sheetContext);
+  }
+
+  String _contextLabel(Map<String, dynamic> c) {
+    final named =
+        c['entity_name'] ?? c['entity_display_name'] ?? c['entity_slug'] ?? c['name'];
+    if (named != null && named.toString().trim().isNotEmpty) {
+      return named.toString();
+    }
+    final id = c['entity_id']?.toString();
+    for (final business in businesses) {
+      if (business.id == id) return business.name;
+    }
+    return id ?? 'Entity';
+  }
+
+  String? _contextSubtitle(Map<String, dynamic> c) {
+    final role =
+        (c['role_name'] ?? c['active_mode'] ?? c['role_id'])?.toString();
+    final businessProfile =
+        (c['business_profile_name'] ?? c['supplier_name'])?.toString();
+    final parts = <String>[
+      if (role != null && role.isNotEmpty) role,
+      if (businessProfile != null && businessProfile.isNotEmpty)
+        businessProfile,
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
   }
 
   String _verificationLabel(String status) {

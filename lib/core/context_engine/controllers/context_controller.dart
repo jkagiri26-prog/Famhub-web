@@ -143,6 +143,75 @@ class ContextController extends Notifier<EntityContext> {
     await _persist();
   }
 
+  /// Canonical entity/workspace context activation (existing architecture).
+  ///
+  /// Runs the SAME path as the workspace switcher:
+  ///   users.activate_workspace_context(...)
+  ///   → authoritative context (returned row, or a fresh read)
+  ///   → validate entity/role
+  ///   → applySelectionContext
+  ///
+  /// Used for same-workspace ENTITY switching (Business Hub). Returns the
+  /// applied authoritative context, or null on failure — state is left
+  /// unchanged and nothing is fabricated.
+  Future<Map<String, dynamic>?> activateContextRow({
+    required String workspaceId,
+    required String entityId,
+    required String roleId,
+    String? businessProfileId,
+  }) async {
+    final authService = ref.read(authServiceProvider);
+
+    Map<String, dynamic>? activated;
+    try {
+      activated = await authService.activateWorkspaceContext(
+        workspaceId: workspaceId,
+        entityId: entityId,
+        roleId: roleId,
+        businessProfileId: businessProfileId,
+      );
+    } catch (e) {
+      debugPrint('[ContextActivate] activation failed: $e');
+      return null;
+    }
+
+    Map<String, dynamic>? authoritative = activated;
+    if (authoritative == null) {
+      try {
+        authoritative = await sync.fetchUserContext();
+      } catch (e) {
+        debugPrint('[ContextActivate] authoritative re-read failed: $e');
+        authoritative = null;
+      }
+    }
+    if (authoritative == null) return null;
+
+    final activeEntityId = authoritative['entity_id']?.toString() ??
+        authoritative['entityId']?.toString();
+    final activeRoleId = authoritative['role_id']?.toString() ??
+        authoritative['roleId']?.toString();
+    if (activeEntityId != entityId || activeRoleId != roleId) {
+      debugPrint('[ContextActivate] mismatch — expected entity=$entityId '
+          'role=$roleId, got entity=$activeEntityId role=$activeRoleId');
+      return null;
+    }
+
+    await applySelectionContext(
+      profileId: (authoritative['profile_id'] ??
+              authoritative['profileId'])
+          ?.toString(),
+      entityId: activeEntityId,
+      roleId: activeRoleId,
+      role: (authoritative['active_mode'] ?? authoritative['role'])
+          ?.toString(),
+      businessProfileId: (authoritative['business_profile_id'] ??
+              authoritative['businessProfileId'])
+          ?.toString(),
+    );
+
+    return authoritative;
+  }
+
   Future<void> switchRole(String role) async {
     state = state.copyWith(role: role, isLoading: false);
     await _persist();
