@@ -48,6 +48,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famhub_app/core/capabilities/application/capability_profile_provider.dart';
 import 'package:famhub_app/core/capabilities/domain/capability.dart';
 import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
+import 'package:famhub_app/core/workspace/application/current_workspace_contexts_provider.dart';
 import 'package:famhub_app/features/workspace_context/application/entity_context_refresh.dart';
 import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
 import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';

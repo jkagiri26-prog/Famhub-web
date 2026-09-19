@@ -23,33 +23,10 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
-import 'package:famhub_app/core/session/session_provider.dart';
-import 'package:famhub_app/core/workspace/application/active_workspace_provider.dart';
 import 'package:famhub_app/features/business_hub/domain/entities/business_entity.dart';
 import 'package:famhub_app/features/business_hub/domain/entities/business_profile.dart';
 import 'business_hub_repository_provider.dart';
 import 'my_businesses_provider.dart';
-
-/// ============================================================
-/// AUTHORIZED CONTEXTS FOR THE ACTIVE WORKSPACE (READ-ONLY)
-/// ============================================================
-///
-/// The entity choices the user may switch between are exactly the contexts
-/// returned by the canonical `users.get_available_workspace_contexts()` for
-/// the CURRENT workspace — never an arbitrary `core.entities` row. This keeps
-/// the existing workspace/entity/role authorization model.
-final currentWorkspaceContextsProvider =
-    FutureProvider<List<Map<String, dynamic>>>((ref) async {
-  final workspaceId =
-      ref.watch(activeWorkspaceProvider.select((w) => w.workspaceId));
-  if (workspaceId.isEmpty) return const [];
-
-  final authService = ref.read(authServiceProvider);
-  final all = await authService.getAvailableWorkspaceContexts();
-  return all
-      .where((c) => c['workspace_id']?.toString() == workspaceId)
-      .toList();
-});
 
 /// ============================================================
 /// ACTIVE BUSINESS SELECTION (EXPLICIT USER CHOICE)

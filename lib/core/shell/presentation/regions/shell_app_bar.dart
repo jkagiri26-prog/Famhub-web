@@ -32,6 +32,7 @@ import '../../../workspace/application/workspace_dashboard_provider.dart';
 import '../../../workspace/domain/workspace_catalog_item.dart';
 import '../../../context_engine/providers/context_provider.dart';
 import '../../../context_engine/providers/context_storage_service_provider.dart';
+import '../../../workspace/application/current_workspace_contexts_provider.dart';
 import '../../../../core/session/app_session.dart';
 import '../../../../core/session/session_provider.dart';
 import '../../../../features/workspace_context/application/entity_context_refresh.dart';
@@ -269,6 +270,19 @@ class _ContextSelector extends ConsumerWidget {
         ? session.workspaceIds
         : const <String>[];
 
+    // Active entity name for the current workspace (from the authorized
+    // contexts). Null while loading/unknown — the workspace name still shows.
+    final activeEntityId =
+        ref.watch(contextProvider.select((c) => c.entityId));
+    final contextsAsync = ref.watch(currentWorkspaceContextsProvider);
+    String? entityName;
+    for (final c in contextsAsync.value ?? const []) {
+      if (c['entity_id']?.toString() == activeEntityId) {
+        entityName = _entityLabel(c);
+        break;
+      }
+    }
+
     return InkWell(
       onTap: () => _openWorkspaceSwitcher(context, ref),
       borderRadius: BorderRadius.circular(8),
@@ -304,9 +318,10 @@ class _ContextSelector extends ConsumerWidget {
                   ),
                 ),
                 Text(
-                  workspaceIds.length > 1
-                      ? 'Switch workspace'
-                      : 'Workspace',
+                  entityName ??
+                      (workspaceIds.length > 1
+                          ? 'Switch workspace'
+                          : 'Workspace'),
                   style: TextStyle(
                     fontSize: 10,
                     color: palette.secondaryText,
@@ -348,6 +363,18 @@ class _ContextSelector extends ConsumerWidget {
 
     final active = ref.read(activeWorkspaceProvider);
 
+    // Authorized entity contexts for the CURRENT workspace (read-only).
+    List<Map<String, dynamic>> entityContexts;
+    try {
+      entityContexts =
+          await ref.read(currentWorkspaceContextsProvider.future);
+    } catch (_) {
+      entityContexts = const [];
+    }
+    final showEntities = entityContexts.length > 1;
+    final activeEntityId = ref.read(contextProvider).entityId;
+
+    if (!context.mounted) return;
     final selected = await showModalBottomSheet<String>(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -384,37 +411,67 @@ class _ContextSelector extends ConsumerWidget {
               ),
             ),
             Flexible(
-              child: ListView.builder(
+              child: ListView(
                 shrinkWrap: true,
-                itemCount: items.length,
-                itemBuilder: (context, index) {
-                  final item = items[index];
-                  final isActive = item.id == active.workspaceId;
-                  return ListTile(
-                    leading: Icon(Icons.workspaces_outline,
-                        color: isActive
-                            ? palette.primary
-                            : palette.secondaryText),
-                    title: Text(
-                      item.name,
-                      style: TextStyle(color: palette.primaryText),
+                children: [
+                  // ── Entities in the CURRENT workspace (same-workspace
+                  //    entity switching) ──
+                  if (showEntities) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(
+                          left: 16, bottom: 4, top: 4),
+                      child: Text(
+                        'Entity in this workspace',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: palette.secondaryText,
+                        ),
+                      ),
                     ),
-                    subtitle: item.category != null
-                        ? Text(
-                            item.category!,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: palette.secondaryText,
-                            ),
-                          )
-                        : null,
-                    trailing: isActive
-                        ? Icon(Icons.check, color: palette.primary)
-                        : null,
-                    selected: isActive,
-                    onTap: () => Navigator.pop(sheetContext, item.id),
-                  );
-                },
+                    for (final c in entityContexts)
+                      _entityTile(sheetContext, ref, c, activeEntityId),
+                    const Divider(height: 1),
+                    Padding(
+                      padding: const EdgeInsets.only(
+                          left: 16, bottom: 4, top: 8),
+                      child: Text(
+                        'Switch workspace',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: palette.secondaryText,
+                        ),
+                      ),
+                    ),
+                  ],
+                  // ── Workspaces ──
+                  for (final item in items)
+                    ListTile(
+                      leading: Icon(Icons.workspaces_outline,
+                          color: item.id == active.workspaceId
+                              ? palette.primary
+                              : palette.secondaryText),
+                      title: Text(
+                        item.name,
+                        style: TextStyle(color: palette.primaryText),
+                      ),
+                      subtitle: item.category != null
+                          ? Text(
+                              item.category!,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: palette.secondaryText,
+                              ),
+                            )
+                          : null,
+                      trailing: item.id == active.workspaceId
+                          ? Icon(Icons.check, color: palette.primary)
+                          : null,
+                      selected: item.id == active.workspaceId,
+                      onTap: () => Navigator.pop(sheetContext, item.id),
+                    ),
+                ],
               ),
             ),
             // ──────────────────────────────────────────────────────
@@ -464,6 +521,113 @@ class _ContextSelector extends ConsumerWidget {
         await _resolveAndActivateContext(context, ref, selected);
       }
     }
+  }
+
+  /// One selectable entity row inside the app-bar switcher (same workspace).
+  Widget _entityTile(
+    BuildContext sheetContext,
+    WidgetRef ref,
+    Map<String, dynamic> c,
+    String? activeEntityId,
+  ) {
+    final entityId = c['entity_id']?.toString();
+    final isActive = entityId != null && entityId == activeEntityId;
+    final subtitle = _entitySubtitle(c);
+    return ListTile(
+      leading: Icon(
+        isActive ? Icons.check_circle : Icons.business_outlined,
+        color: isActive ? palette.primary : palette.secondaryText,
+      ),
+      title: Text(
+        _entityLabel(c),
+        style: TextStyle(color: palette.primaryText),
+      ),
+      subtitle: subtitle == null
+          ? null
+          : Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 12,
+                color: palette.secondaryText,
+              ),
+            ),
+      trailing: isActive ? Icon(Icons.check, color: palette.primary) : null,
+      selected: isActive,
+      onTap: () async {
+        final ok = await _activateEntityContext(ref, c);
+        if (!sheetContext.mounted) return;
+        if (ok) {
+          Navigator.pop(sheetContext);
+        } else {
+          ScaffoldMessenger.of(sheetContext).showSnackBar(
+            const SnackBar(
+              content: Text('Could not switch entity. Please try again.'),
+            ),
+          );
+        }
+      },
+    );
+  }
+
+  /// Canonical same-workspace ENTITY activation (existing architecture).
+  ///
+  /// Uses `ContextController.activateContextRow` (which runs
+  /// `users.activate_workspace_context` → authoritative read → validate →
+  /// `applySelectionContext`) and then the existing entity-scoped refresh.
+  /// Never changes the workspace or navigates.
+  Future<bool> _activateEntityContext(
+    WidgetRef ref,
+    Map<String, dynamic> c,
+  ) async {
+    final workspaceId = c['workspace_id']?.toString();
+    final entityId = c['entity_id']?.toString();
+    final roleId = c['role_id']?.toString();
+    if (workspaceId == null ||
+        workspaceId.isEmpty ||
+        entityId == null ||
+        entityId.isEmpty ||
+        roleId == null ||
+        roleId.isEmpty) {
+      return false;
+    }
+
+    final applied = await ref
+        .read(contextProvider.notifier)
+        .activateContextRow(
+          workspaceId: workspaceId,
+          entityId: entityId,
+          roleId: roleId,
+          businessProfileId: c['business_profile_id']?.toString(),
+        );
+    if (applied == null) return false;
+
+    // Same workspace: stay in place and refresh entity-scoped data.
+    refreshEntityScopedProviders(ref);
+    return true;
+  }
+
+  String _entityLabel(Map<String, dynamic> c) {
+    final named = c['entity_name'] ??
+        c['entity_display_name'] ??
+        c['entity_slug'] ??
+        c['name'];
+    if (named != null && named.toString().trim().isNotEmpty) {
+      return named.toString();
+    }
+    return c['entity_id']?.toString() ?? 'Entity';
+  }
+
+  String? _entitySubtitle(Map<String, dynamic> c) {
+    final role =
+        (c['role_name'] ?? c['active_mode'] ?? c['role_id'])?.toString();
+    final businessProfile =
+        (c['business_profile_name'] ?? c['supplier_name'])?.toString();
+    final parts = <String>[
+      if (role != null && role.isNotEmpty) role,
+      if (businessProfile != null && businessProfile.isNotEmpty)
+        businessProfile,
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
   }
 
   /// Resolve the available entity/context(s) for [workspaceId] and activate
