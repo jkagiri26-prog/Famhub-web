@@ -1205,7 +1205,7 @@ class _ProfileWidget extends ConsumerWidget {
           case 'profile':
             context.go('/profile');
           case 'settings':
-            context.go('/settings');
+            context.go('/profile/settings');
           case 'help':
             // Future: help
           case 'dev_add_admin_membership':

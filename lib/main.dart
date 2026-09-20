@@ -69,6 +69,10 @@ import 'core/policies/bootstrap/policy_bootstrap.dart';
 /// 🚪 Session Gate — startup orchestration with splash → welcome → app flow
 import 'core/session/session_gate.dart';
 
+/// ⚙️ Settings — keeps the canonical Settings controller alive so the
+/// persisted theme is restored once the session/profile is available.
+import 'features/settings/application/providers/settings_provider.dart';
+
 /// ─────────────────────────────────────────────────────────────
 /// ENTRY POINT
 ///
@@ -481,6 +485,12 @@ class _MyAppState extends ConsumerState<MyApp> {
     // ==========================================================
     final shellTheme = ref.watch(shellThemeProvider);
     final themeMode = ref.watch(themeModeProvider);
+
+    // Keep the Settings controller alive app-wide so the persisted theme
+    // (users.user_settings.theme) is restored on session/profile load.
+    // Listening (rather than watching) avoids rebuilding the app on every
+    // settings state change.
+    ref.listen(settingsProvider, (_, __) {});
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
