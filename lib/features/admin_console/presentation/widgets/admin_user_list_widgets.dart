@@ -310,7 +310,8 @@ class AdminUserMiniStat extends StatelessWidget {
 }
 
 class AdminUsersPaginationFooter extends StatelessWidget {
-  final AdminUsersPage page;
+  final int totalCount;
+  final int itemCount;
   final int pageIndex;
   final int pageSize;
   final VoidCallback? onPrev;
@@ -318,7 +319,8 @@ class AdminUsersPaginationFooter extends StatelessWidget {
 
   const AdminUsersPaginationFooter({
     super.key,
-    required this.page,
+    required this.totalCount,
+    required this.itemCount,
     required this.pageIndex,
     required this.pageSize,
     this.onPrev,
@@ -328,8 +330,8 @@ class AdminUsersPaginationFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final offset = pageIndex * pageSize;
-    final start = page.totalCount == 0 ? 0 : offset + 1;
-    final end = offset + page.items.length;
+    final start = totalCount == 0 ? 0 : offset + 1;
+    final end = offset + itemCount;
 
     return Padding(
       padding: const EdgeInsets.only(top: 4, bottom: 8),
@@ -337,7 +339,7 @@ class AdminUsersPaginationFooter extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              'Showing $start–$end of ${page.totalCount}',
+              'Showing $start–$end of $totalCount',
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
           ),
@@ -423,7 +425,8 @@ class AdminUsersDirectoryBody extends StatelessWidget {
               ),
             ),
             AdminUsersPaginationFooter(
-              page: page,
+              totalCount: page.totalCount,
+              itemCount: page.items.length,
               pageIndex: pageIndex,
               pageSize: pageSize,
               onPrev: onPrev,

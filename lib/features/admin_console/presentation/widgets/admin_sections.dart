@@ -30,6 +30,7 @@ import 'package:famhub_app/shared/widgets/states/states.dart';
 import 'admin_all_users_view.dart';
 import 'admin_pending_users_view.dart';
 import 'admin_section.dart';
+import 'admin_user_activity_view.dart';
 
 // ============================================================
 // USERS
@@ -53,11 +54,7 @@ class AdminUsersSection extends StatelessWidget {
       children: [
         AdminAllUsersView(),
         AdminPendingUsersView(),
-        AdminPlaceholder(
-          icon: Icons.timeline,
-          title: 'User Activity',
-          message: 'User activity data is not available yet.',
-        ),
+        AdminUserActivityView(),
         _AdminWorkspaceList(),
         AdminPlaceholder(
           icon: Icons.groups_outlined,
