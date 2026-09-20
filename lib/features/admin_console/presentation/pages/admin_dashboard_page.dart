@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famhub_app/features/admin_console/application/providers/admin_capability_provider.dart';
 import 'package:famhub_app/features/admin_console/domain/models/admin_capability.dart';
 import 'package:famhub_app/features/admin_console/presentation/widgets/admin_capability_card_widget.dart';
+import 'package:famhub_app/features/admin_console/presentation/widgets/admin_overview_dashboard.dart';
 import 'package:famhub_app/shared/layouts/adaptive_content_grid.dart';
 import 'package:famhub_app/shared/layouts/dashboard_section_widget.dart';
 import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
@@ -94,6 +95,10 @@ class AdminDashboardPage extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── Admin Overview (platform control center) ──
+        const AdminOverviewDashboard(),
+        const SizedBox(height: 28),
+
         if (hasPlatform)
           _CapabilitySection(
             title: 'Platform administration',
