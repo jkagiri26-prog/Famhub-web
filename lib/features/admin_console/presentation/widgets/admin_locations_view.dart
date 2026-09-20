@@ -10,12 +10,20 @@
 /// `admin_update_location`, `admin_set_location_active`). Search, filters
 /// and pagination are server-side.
 ///
-/// The hierarchy is controlled by cascading selectors:
+/// The screen is a permanent vertical hierarchy of level containers
+/// derived from `core.geography_levels` (ordered by `level_order`):
 ///
-///   Country → Location level → Parent levels (cascading) → filtered list
+///   Country (active-country selector)
+///      ↓
+///   Counties in that country
+///      ↓
+///   Sub-counties in the selected county
+///      ↓
+///   Wards in the selected sub-county
 ///
-/// Every level below the top one is narrowed by its parent, so the
-/// administrator never manages all locations as one flat collection.
+/// Every container is always rendered. Selecting a row in a container
+/// sets the parent context for the container below it; changing a
+/// selection deterministically clears all descendant selections.
 /// ============================================================
 library;
 
@@ -31,11 +39,8 @@ import 'package:famhub_app/features/admin_console/domain/models/admin_location.d
 import 'package:famhub_app/features/admin_console/presentation/widgets/admin_user_list_widgets.dart';
 import 'package:famhub_app/shared/widgets/states/states.dart';
 
-/// One selected ancestor in the current hierarchy chain.
-typedef _ParentRef = ({String levelId, String id, String name});
-
 // ============================================================
-// SHARED LEVEL HELPERS
+// SHARED HELPERS
 // ============================================================
 
 List<AdminGeographyLevel> _sortedLevels(List<AdminGeographyLevel> levels) {
@@ -44,64 +49,29 @@ List<AdminGeographyLevel> _sortedLevels(List<AdminGeographyLevel> levels) {
   return copy;
 }
 
-AdminGeographyLevel? _levelById(
-  List<AdminGeographyLevel> levels,
-  String? id,
-) {
-  if (id == null) return null;
-  for (final level in levels) {
-    if (level.id == id) return level;
-  }
-  return null;
+/// The level that represents the country itself (e.g. "Country "). This
+/// is represented by the active-country selector, so it is not rendered
+/// as a separate management container.
+bool _isCountryLevel(AdminGeographyLevel level) {
+  final name = level.name.trim().toLowerCase();
+  return name == 'country' || name == 'countries';
 }
 
-/// Levels above the selected one, in ascending order. These become the
-/// cascading parent selectors.
-List<AdminGeographyLevel> _ancestorLevels(
-  List<AdminGeographyLevel> levels,
-  AdminGeographyLevel? selected,
-) {
-  if (selected == null) return const [];
-  return _sortedLevels(levels)
-      .where((level) => level.order < selected.order)
-      .toList();
-}
+String _levelName(AdminGeographyLevel level) => level.name.trim();
 
 String _plural(String name) {
-  final lower = name.toLowerCase();
+  final trimmed = name.trim();
+  final lower = trimmed.toLowerCase();
   final endsConsonantY = lower.endsWith('y') &&
       !lower.endsWith('ay') &&
       !lower.endsWith('ey') &&
       !lower.endsWith('oy') &&
       !lower.endsWith('uy');
   if (endsConsonantY) {
-    return '${name.substring(0, name.length - 1)}ies';
+    return '${trimmed.substring(0, trimmed.length - 1)}ies';
   }
-  return '${name}s';
+  return '${trimmed}s';
 }
-
-_ParentRef? _chainEntry(List<_ParentRef> chain, String levelId) {
-  for (final entry in chain) {
-    if (entry.levelId == levelId) return entry;
-  }
-  return null;
-}
-
-InputDecoration _decoration(String label) => InputDecoration(
-      labelText: label,
-      isDense: true,
-      filled: true,
-      fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-    );
 
 InputDecoration _searchDecoration(String hint) => InputDecoration(
       hintText: hint,
@@ -120,6 +90,28 @@ InputDecoration _searchDecoration(String hint) => InputDecoration(
       ),
     );
 
+AdminLocation _withLocationFields(
+  AdminLocation location, {
+  String? name,
+  int? code,
+  bool? isActive,
+}) {
+  return AdminLocation(
+    id: location.id,
+    name: name ?? location.name,
+    levelId: location.levelId,
+    levelName: location.levelName,
+    parentId: location.parentId,
+    parentName: location.parentName,
+    countryId: location.countryId,
+    countryName: location.countryName,
+    code: code ?? location.code,
+    isActive: isActive ?? location.isActive,
+    createdAt: location.createdAt,
+    updatedAt: location.updatedAt,
+  );
+}
+
 // ============================================================
 // LOCATIONS VIEW
 // ============================================================
@@ -132,15 +124,280 @@ class AdminLocationsView extends ConsumerStatefulWidget {
 }
 
 class _AdminLocationsViewState extends ConsumerState<AdminLocationsView> {
+  String? _countryId;
+
+  /// levelId → the location selected in that container.
+  final Map<String, AdminLocation> _selected = {};
+
+  void _onCountrySelected(AdminCountry country) {
+    setState(() {
+      _countryId = country.id;
+      // Changing the active country invalidates the whole hierarchy below.
+      _selected.clear();
+    });
+  }
+
+  void _onLevelSelected(AdminGeographyLevel level, AdminLocation? location) {
+    setState(() {
+      if (location == null) {
+        _selected.remove(level.id);
+      } else {
+        _selected[level.id] = location;
+      }
+      // Deterministically clear every deeper selection.
+      final allLevels =
+          ref.read(adminGeographyLevelsProvider(_countryId)).value ??
+              const <AdminGeographyLevel>[];
+      for (final candidate in allLevels) {
+        if (candidate.order > level.order) _selected.remove(candidate.id);
+      }
+    });
+  }
+
+  AdminCountry? _countryById(List<AdminCountry> countries, String? id) {
+    if (id == null) return null;
+    for (final country in countries) {
+      if (country.id == id) return country;
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Base admin workspace gate only — the location RPCs enforce
+    // authorization server-side (backend authoritative).
+    final access = ref.watch(adminWorkspaceAccessProvider);
+    if (access.isLoading) {
+      return const LoadingStateWidget(message: 'Checking access...');
+    }
+    if (!access.isAllowed) {
+      return PermissionDeniedWidget(
+        title: 'Locations access denied',
+        message: access.reason ??
+            'You do not have permission to manage locations.',
+      );
+    }
+
+    final countries =
+        ref.watch(adminCountriesProvider).value ?? const <AdminCountry>[];
+    final levels =
+        ref.watch(adminGeographyLevelsProvider(_countryId)).value ??
+            const <AdminGeographyLevel>[];
+    final sortedLevels = _sortedLevels(levels);
+    final country = _countryById(countries, _countryId);
+    final hasCountryLevel =
+        sortedLevels.isNotEmpty && _isCountryLevel(sortedLevels.first);
+    final manageLevels =
+        hasCountryLevel ? sortedLevels.sublist(1) : sortedLevels;
+    final countryLevel = hasCountryLevel ? sortedLevels.first : null;
+
+    // Resolve the country-level location (e.g. the KENYA row) which is the
+    // implicit parent of the first management level.
+    final countryLocationAsync =
+        (countryLevel != null && _countryId != null)
+            ? ref.watch(adminParentCandidatesProvider((
+                countryId: _countryId,
+                levelId: countryLevel.id,
+                parentId: null,
+              )))
+            : null;
+    final countryLocation = (countryLocationAsync?.value?.isNotEmpty ?? false)
+        ? countryLocationAsync!.value!.first
+        : null;
+    final countryLocationLoading = countryLocationAsync?.isLoading ?? false;
+
+    return ListView(
+      padding: const EdgeInsets.only(top: 8, bottom: 32),
+      children: [
+        _pageHeader(),
+        const SizedBox(height: 6),
+        _CountryContainer(
+          countries: countries,
+          selectedId: _countryId,
+          onSelect: _onCountrySelected,
+        ),
+        for (var i = 0; i < manageLevels.length; i++)
+          _buildLevelContainer(
+            manageLevels: manageLevels,
+            index: i,
+            country: country,
+            countryLocation: countryLocation,
+            countryLocationLoading: countryLocationLoading,
+            hasCountryLevel: hasCountryLevel,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildLevelContainer({
+    required List<AdminGeographyLevel> manageLevels,
+    required int index,
+    required AdminCountry? country,
+    required AdminLocation? countryLocation,
+    required bool countryLocationLoading,
+    required bool hasCountryLevel,
+  }) {
+    final level = manageLevels[index];
+    final isFirst = index == 0;
+    final previousLevel = isFirst ? null : manageLevels[index - 1];
+    final parent =
+        isFirst ? countryLocation : _selected[previousLevel!.id];
+    final contextLabel = isFirst
+        ? (country != null ? 'Country: ${country.name}' : null)
+        : (parent != null ? 'Parent: ${parent.name}' : null);
+
+    return _LocationLevelContainer(
+      key: ValueKey(level.id),
+      level: level,
+      countryId: _countryId,
+      countryName: country?.name,
+      parent: parent,
+      parentLevelName: previousLevel == null ? null : _levelName(previousLevel),
+      contextLabel: contextLabel,
+      parentLoading: isFirst && countryLocationLoading,
+      isRootLevel: isFirst && !hasCountryLevel,
+      selected: _selected[level.id],
+      onSelect: (location) => _onLevelSelected(level, location),
+    );
+  }
+
+  Widget _pageHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Locations',
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 1),
+        Text(
+          'Manage the geographic hierarchy used across FAMHUB.',
+          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+        ),
+      ],
+    );
+  }
+}
+
+// ============================================================
+// COUNTRY CONTAINER (active-country selector)
+// ============================================================
+
+class _CountryContainer extends StatefulWidget {
+  final List<AdminCountry> countries;
+  final String? selectedId;
+  final ValueChanged<AdminCountry> onSelect;
+
+  const _CountryContainer({
+    required this.countries,
+    required this.selectedId,
+    required this.onSelect,
+  });
+
+  @override
+  State<_CountryContainer> createState() => _CountryContainerState();
+}
+
+class _CountryContainerState extends State<_CountryContainer> {
+  final _searchController = TextEditingController();
+  String _search = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final query = _search.trim().toLowerCase();
+    final visible = query.isEmpty
+        ? widget.countries
+        : widget.countries
+            .where((c) => c.name.toLowerCase().contains(query))
+            .toList();
+
+    return _ContainerShell(
+      title: 'Country',
+      contextLabel: widget.selectedId == null ? null : 'Active country',
+      children: [
+        TextField(
+          controller: _searchController,
+          onChanged: (value) => setState(() => _search = value),
+          decoration: _searchDecoration('Search countries...'),
+        ),
+        const SizedBox(height: 6),
+        if (visible.isEmpty)
+          const _ContainerHint(message: 'No countries match your search.')
+        else
+          for (final country in visible)
+            _SelectableRow(
+              selected: country.id == widget.selectedId,
+              onTap: () => widget.onSelect(country),
+              title: country.name,
+              trailingText: country.isoAlpha2,
+            ),
+      ],
+    );
+  }
+}
+
+// ============================================================
+// LEVEL CONTAINER
+// ============================================================
+
+class _LocationLevelContainer extends ConsumerStatefulWidget {
+  final AdminGeographyLevel level;
+  final String? countryId;
+  final String? countryName;
+  final AdminLocation? parent;
+  final String? parentLevelName;
+  final String? contextLabel;
+  final bool parentLoading;
+  final bool isRootLevel;
+  final AdminLocation? selected;
+  final ValueChanged<AdminLocation?> onSelect;
+
+  const _LocationLevelContainer({
+    super.key,
+    required this.level,
+    required this.countryId,
+    required this.countryName,
+    required this.parent,
+    required this.parentLevelName,
+    required this.contextLabel,
+    required this.parentLoading,
+    required this.isRootLevel,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  @override
+  ConsumerState<_LocationLevelContainer> createState() =>
+      _LocationLevelContainerState();
+}
+
+class _LocationLevelContainerState
+    extends ConsumerState<_LocationLevelContainer> {
   static const int _pageSize = 25;
 
   final _searchController = TextEditingController();
   Timer? _debounce;
-  String? _countryId;
-  String? _levelId;
+  String _search = '';
   bool? _isActive;
-  final List<_ParentRef> _chain = [];
   int _page = 0;
+
+  bool get _canLoad => widget.parent != null || widget.isRootLevel;
+
+  AdminLocationsQuery get _query => AdminLocationsQuery(
+        search: _search,
+        countryId: widget.countryId,
+        levelId: widget.level.id,
+        parentId: widget.parent?.id,
+        isActive: _isActive,
+        page: _page,
+        pageSize: _pageSize,
+      );
 
   @override
   void dispose() {
@@ -153,85 +410,37 @@ class _AdminLocationsViewState extends ConsumerState<AdminLocationsView> {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 400), () {
       if (!mounted) return;
-      setState(() => _page = 0);
-    });
-  }
-
-  void _onCountryChanged(String? value) {
-    setState(() {
-      _countryId = value;
-      _levelId = null;
-      _chain.clear();
-      _page = 0;
-    });
-  }
-
-  void _onLevelChanged(String? value, List<AdminGeographyLevel> levels) {
-    setState(() {
-      _levelId = value;
-      final selected = _levelById(levels, value);
-      _chain.removeWhere((entry) {
-        final level = _levelById(levels, entry.levelId);
-        return level == null || selected == null || level.order >= selected.order;
+      setState(() {
+        _search = _searchController.text.trim();
+        _page = 0;
       });
-      _page = 0;
     });
   }
 
-  void _onParentChanged(
-    AdminGeographyLevel level,
-    AdminLocation? location,
-    List<AdminGeographyLevel> levels,
-  ) {
-    setState(() {
-      _chain.removeWhere((entry) {
-        final entryLevel = _levelById(levels, entry.levelId);
-        return entryLevel == null || entryLevel.order >= level.order;
-      });
-      if (location != null) {
-        _chain.add((levelId: level.id, id: location.id, name: location.name));
-      }
-      _page = 0;
-    });
-  }
-
-  /// The immediate parent used for the list query. Only applied when the
-  /// whole ancestor chain is selected, so a stale/partial parent id is never
-  /// submitted.
-  String? _resolvedParentId(List<AdminGeographyLevel> ancestors) {
-    if (ancestors.isEmpty) return null;
-    for (final ancestor in ancestors) {
-      if (_chainEntry(_chain, ancestor.id) == null) return null;
-    }
-    return _chainEntry(_chain, ancestors.last.id)!.id;
-  }
-
-  AdminLocationsQuery _queryFor(String? parentId) => AdminLocationsQuery(
-        search: _searchController.text,
-        countryId: _countryId,
-        levelId: _levelId,
-        parentId: parentId,
-        isActive: _isActive,
-        page: _page,
-        pageSize: _pageSize,
-      );
-
-  Future<void> _openForm({
-    AdminLocation? location,
-    AdminGeographyLevel? level,
-  }) async {
-    final saved = await showDialog<bool>(
+  Future<void> _openForm({AdminLocation? location}) async {
+    final result = await showDialog<({String name, int? code})>(
       context: context,
       builder: (_) => _LocationFormDialog(
+        level: widget.level,
+        parent: widget.parent,
+        countryId: widget.countryId,
+        countryName: widget.countryName,
         location: location,
-        initialCountryId: _countryId,
-        initialLevelId: level?.id ?? _levelId,
-        initialChain: List.of(_chain),
       ),
     );
-    if (saved == true) {
-      ref.invalidate(adminLocationsProvider);
-      ref.invalidate(adminParentCandidatesProvider);
+    if (result == null) return;
+
+    ref.invalidate(adminLocationsProvider);
+    ref.invalidate(adminParentCandidatesProvider);
+
+    if (location != null && widget.selected?.id == location.id) {
+      widget.onSelect(
+        _withLocationFields(
+          widget.selected!,
+          name: result.name,
+          code: result.code,
+        ),
+      );
     }
   }
 
@@ -269,6 +478,11 @@ class _AdminLocationsViewState extends ConsumerState<AdminLocationsView> {
       _showSnack(
         location.isActive ? 'Location deactivated.' : 'Location activated.',
       );
+      if (widget.selected?.id == location.id) {
+        widget.onSelect(
+          _withLocationFields(widget.selected!, isActive: !location.isActive),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       _showSnack(e.toString());
@@ -283,269 +497,145 @@ class _AdminLocationsViewState extends ConsumerState<AdminLocationsView> {
 
   @override
   Widget build(BuildContext context) {
-    // Base admin workspace gate only — the location RPCs enforce
-    // authorization server-side (backend authoritative).
-    final access = ref.watch(adminWorkspaceAccessProvider);
-    if (access.isLoading) {
-      return const LoadingStateWidget(message: 'Checking access...');
-    }
-    if (!access.isAllowed) {
-      return PermissionDeniedWidget(
-        title: 'Locations access denied',
-        message: access.reason ??
-            'You do not have permission to manage locations.',
-      );
-    }
+    final title = _plural(_levelName(widget.level));
 
-    final countries =
-        ref.watch(adminCountriesProvider).value ?? const <AdminCountry>[];
-    final levels =
-        ref.watch(adminGeographyLevelsProvider(_countryId)).value ??
-            const <AdminGeographyLevel>[];
-
-    final selectedLevel = _levelById(levels, _levelId);
-    final ancestors = _ancestorLevels(levels, selectedLevel);
-    final country = _countryById(countries, _countryId);
-    final canQuery = _countryId != null && selectedLevel != null;
-    final parentId = _resolvedParentId(ancestors);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return _ContainerShell(
+      title: title,
+      contextLabel: widget.contextLabel,
       children: [
-        _pageHeader(),
-        const SizedBox(height: 10),
-        _selectors(countries, levels, selectedLevel),
-        _breadcrumb(country),
-        const SizedBox(height: 8),
-        Expanded(
-          child: canQuery
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _listHeader(selectedLevel, country),
-                    const SizedBox(height: 6),
-                    Expanded(
-                      child: ref
-                          .watch(adminLocationsProvider(_queryFor(parentId)))
-                          .when(
-                            loading: () => const LoadingStateWidget(
-                              message: 'Loading locations...',
-                            ),
-                            error: (e, _) => ErrorStateWidget(
-                              title: 'Failed to load locations',
-                              message:
-                                  'Could not load locations. Please try again.',
-                              retryLabel: 'Retry',
-                              onRetry: () => ref.invalidate(
-                                adminLocationsProvider(_queryFor(parentId)),
-                              ),
-                              detailedError: e.toString(),
-                            ),
-                            data: (page) =>
-                                _buildList(page, selectedLevel, country),
-                          ),
-                    ),
-                  ],
-                )
-              : _guidanceState(),
-        ),
+        _filters(),
+        const SizedBox(height: 4),
+        _body(),
+        _footer(),
       ],
     );
   }
 
-  AdminCountry? _countryById(List<AdminCountry> countries, String? id) {
-    if (id == null) return null;
-    for (final country in countries) {
-      if (country.id == id) return country;
-    }
-    return null;
-  }
-
-  Widget _pageHeader() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Locations',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 1),
-        Text(
-          'Manage the geographic hierarchy used across FAMHUB.',
-          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-        ),
-      ],
-    );
-  }
-
-  Widget _selectors(
-    List<AdminCountry> countries,
-    List<AdminGeographyLevel> levels,
-    AdminGeographyLevel? selectedLevel,
-  ) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxWidth = constraints.maxWidth;
-        final wide = maxWidth >= 720;
-        final twoCol = !wide && maxWidth >= 360;
-        final halfWidth = twoCol ? (maxWidth - 12) / 2 : maxWidth;
-        final fieldWidth = wide ? 200.0 : halfWidth;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _HierarchySelectors(
-              countryId: _countryId,
-              levelId: _levelId,
-              chain: _chain,
-              countries: countries,
-              levels: levels,
-              fieldWidth: fieldWidth,
-              onCountryChanged: _onCountryChanged,
-              onLevelChanged: (value) => _onLevelChanged(value, levels),
-              onParentChanged: (level, location) =>
-                  _onParentChanged(level, location, levels),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 12,
-              runSpacing: 10,
-              children: [
-                SizedBox(
-                  width: wide ? 300 : maxWidth,
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: _onSearchChanged,
-                    textInputAction: TextInputAction.search,
-                    decoration: _searchDecoration(
-                      'Search ${selectedLevel == null ? 'locations' : _plural(selectedLevel.name).toLowerCase()}...',
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: wide ? 160 : (twoCol ? halfWidth : maxWidth),
-                  child: DropdownButtonFormField<bool?>(
-                    value: _isActive,
-                    isExpanded: true,
-                    isDense: true,
-                    decoration: _decoration('Status'),
-                    items: const [
-                      DropdownMenuItem(value: null, child: Text('All')),
-                      DropdownMenuItem(value: true, child: Text('Active')),
-                      DropdownMenuItem(value: false, child: Text('Inactive')),
-                    ],
-                    onChanged: (value) => setState(() {
-                      _isActive = value;
-                      _page = 0;
-                    }),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _breadcrumb(AdminCountry? country) {
-    final parts = <String>[
-      'Locations',
-      if (country != null) country.name,
-      for (final entry in _chain) entry.name,
-    ];
-    return Padding(
-      padding: const EdgeInsets.only(top: 10, bottom: 2),
-      child: Text(
-        parts.join('  /  '),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          color: Colors.grey.shade600,
-        ),
-      ),
-    );
-  }
-
-  Widget _listHeader(AdminGeographyLevel level, AdminCountry? country) {
-    final label = _chain.isNotEmpty ? _chain.last.name : country?.name;
-    final title = label == null
-        ? _plural(level.name)
-        : '${_plural(level.name)} in $label';
+  Widget _filters() {
+    final enabled = _canLoad;
     return Row(
       children: [
         Expanded(
-          child: Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+          child: TextField(
+            controller: _searchController,
+            enabled: enabled,
+            onChanged: _onSearchChanged,
+            textInputAction: TextInputAction.search,
+            decoration: _searchDecoration(
+              'Search ${_plural(_levelName(widget.level)).toLowerCase()}...',
+            ),
           ),
         ),
-        FilledButton.icon(
-          onPressed: () => _openForm(level: level),
-          icon: const Icon(Icons.add, size: 16),
-          label: Text('Add ${level.name}'),
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            minimumSize: const Size(0, 34),
-            textStyle: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 124,
+          child: DropdownButtonFormField<bool?>(
+            value: _isActive,
+            isExpanded: true,
+            isDense: true,
+            decoration: const InputDecoration(
+              isDense: true,
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              border: OutlineInputBorder(),
             ),
+            items: const [
+              DropdownMenuItem(value: null, child: Text('All')),
+              DropdownMenuItem(value: true, child: Text('Active')),
+              DropdownMenuItem(value: false, child: Text('Inactive')),
+            ],
+            onChanged: enabled
+                ? (value) => setState(() {
+                      _isActive = value;
+                      _page = 0;
+                    })
+                : null,
           ),
         ),
       ],
     );
   }
 
-  Widget _guidanceState() {
-    return const EmptyStateWidget(
-      icon: Icons.public_outlined,
-      title: 'Select a country and level',
-      subtitle:
-          'Choose a country and a location level to manage its locations.',
-    );
-  }
-
-  Widget _emptyState(
-    AdminGeographyLevel level,
-    AdminCountry? country,
-  ) {
-    final search = _searchController.text.trim();
-    if (search.isNotEmpty) {
-      return const EmptyStateWidget(
-        icon: Icons.search_off,
-        title: 'No locations found',
-        subtitle: 'No locations match your search.',
+  Widget _body() {
+    if (widget.parentLoading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
       );
     }
 
-    final plural = _plural(level.name).toLowerCase();
-    final label = _chain.isNotEmpty ? _chain.last.name : country?.name;
+    if (!_canLoad) {
+      return _contextHint();
+    }
+
+    return ref.watch(adminLocationsProvider(_query)).when(
+          loading: () => const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          ),
+          error: (e, _) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Could not load ${_plural(_levelName(widget.level)).toLowerCase()}.',
+                  style: TextStyle(fontSize: 12, color: Colors.red.shade700),
+                ),
+                const SizedBox(height: 6),
+                OutlinedButton.icon(
+                  onPressed: () =>
+                      ref.invalidate(adminLocationsProvider(_query)),
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+          data: (page) => _list(page),
+        );
+  }
+
+  Widget _contextHint() {
+    final title = _plural(_levelName(widget.level)).toLowerCase();
+    final message = widget.parentLevelName == null
+        ? 'Select a country above to view its $title.'
+        : 'Select a ${widget.parentLevelName!.toLowerCase()} above to view its $title.';
+    return _ContainerHint(message: message);
+  }
+
+  Widget _emptyState() {
+    final title = _plural(_levelName(widget.level)).toLowerCase();
+    if (_search.isNotEmpty) {
+      return const _ContainerHint(message: 'No locations match your search.');
+    }
+    final label = widget.parent?.name ?? widget.countryName;
     final status = _isActive == null
         ? ''
         : (_isActive! ? 'active ' : 'inactive ');
-
-    return EmptyStateWidget(
-      icon: Icons.place_outlined,
-      title: 'No $plural found',
-      subtitle: label == null
-          ? 'No $status$plural are available.'
-          : 'No $status$plural found in $label.',
+    return _ContainerHint(
+      message: label == null
+          ? 'No $status$title are available.'
+          : 'No $status$title found in $label.',
     );
   }
 
-  Widget _buildList(
-    AdminLocationsPage page,
-    AdminGeographyLevel level,
-    AdminCountry? country,
-  ) {
-    if (page.isEmpty) {
-      return _emptyState(level, country);
-    }
+  Widget _list(AdminLocationsPage page) {
+    if (page.isEmpty) return _emptyState();
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -553,193 +643,209 @@ class _AdminLocationsViewState extends ConsumerState<AdminLocationsView> {
         return Column(
           children: [
             if (wide) const _LocationTableHeader(),
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.only(top: 2, bottom: 24),
-                itemCount: page.items.length,
-                separatorBuilder: (_, __) => Divider(
-                  height: 1,
-                  color: Colors.grey.shade200,
-                ),
-                itemBuilder: (_, index) {
-                  final location = page.items[index];
-                  return wide
-                      ? _LocationTableRow(
-                          location: location,
-                          onEdit: () => _openForm(location: location),
-                          onToggle: () => _toggleActive(location),
-                        )
-                      : _LocationListRow(
-                          location: location,
-                          onEdit: () => _openForm(location: location),
-                          onToggle: () => _toggleActive(location),
-                        );
-                },
-              ),
-            ),
-            AdminUsersPaginationFooter(
-              totalCount: page.totalCount,
-              itemCount: page.items.length,
-              pageIndex: _page,
-              pageSize: _pageSize,
-              onPrev: _page > 0 ? () => setState(() => _page--) : null,
-              onNext: (_page * _pageSize + page.items.length) < page.totalCount
-                  ? () => setState(() => _page++)
-                  : null,
-            ),
+            for (final location in page.items)
+              wide
+                  ? _LocationTableRow(
+                      location: location,
+                      selected: widget.selected?.id == location.id,
+                      onTap: () => widget.onSelect(location),
+                      onEdit: () => _openForm(location: location),
+                      onToggle: () => _toggleActive(location),
+                    )
+                  : _LocationListRow(
+                      location: location,
+                      selected: widget.selected?.id == location.id,
+                      onTap: () => widget.onSelect(location),
+                      onEdit: () => _openForm(location: location),
+                      onToggle: () => _toggleActive(location),
+                    ),
           ],
         );
       },
     );
   }
+
+  Widget _footer() {
+    final showAdd = _canLoad || widget.isRootLevel;
+    final page = _canLoad ? ref.watch(adminLocationsProvider(_query)).value : null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (page != null && page.items.isNotEmpty)
+          AdminUsersPaginationFooter(
+            totalCount: page.totalCount,
+            itemCount: page.items.length,
+            pageIndex: _page,
+            pageSize: _pageSize,
+            onPrev: _page > 0 ? () => setState(() => _page--) : null,
+            onNext: (_page * _pageSize + page.items.length) < page.totalCount
+                ? () => setState(() => _page++)
+                : null,
+          ),
+        if (showAdd)
+          TextButton.icon(
+            onPressed: () => _openForm(),
+            icon: const Icon(Icons.add, size: 18),
+            label: Text('Add ${_levelName(widget.level)}'),
+          ),
+      ],
+    );
+  }
 }
 
 // ============================================================
-// CASCADING HIERARCHY SELECTORS
+// CONTAINER CHROME
 // ============================================================
 
-/// Renders the Country → Location level → cascading parent selectors.
-/// Deeper parent selectors only appear once the level above is chosen, so
-/// parent choices are always narrowed by the current hierarchy.
-class _HierarchySelectors extends ConsumerWidget {
-  final String? countryId;
-  final String? levelId;
-  final List<_ParentRef> chain;
-  final List<AdminCountry> countries;
-  final List<AdminGeographyLevel> levels;
-  final double fieldWidth;
-  final ValueChanged<String?> onCountryChanged;
-  final ValueChanged<String?> onLevelChanged;
-  final void Function(AdminGeographyLevel level, AdminLocation? location)
-      onParentChanged;
+class _ContainerShell extends StatelessWidget {
+  final String title;
+  final String? contextLabel;
+  final List<Widget> children;
 
-  const _HierarchySelectors({
-    required this.countryId,
-    required this.levelId,
-    required this.chain,
-    required this.countries,
-    required this.levels,
-    required this.fieldWidth,
-    required this.onCountryChanged,
-    required this.onLevelChanged,
-    required this.onParentChanged,
+  const _ContainerShell({
+    required this.title,
+    required this.contextLabel,
+    required this.children,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final selected = _levelById(levels, levelId);
-    final ancestors = _ancestorLevels(levels, selected);
-
-    final fields = <Widget>[_countryField(), _levelField()];
-    for (final ancestor in ancestors) {
-      fields.add(_parentField(ref, ancestor));
-      // Progressive disclosure: don't offer a deeper parent until the
-      // current one is chosen.
-      if (_chainEntry(chain, ancestor.id) == null) break;
-    }
-
-    return Wrap(
-      spacing: 12,
-      runSpacing: 10,
-      children: [
-        for (final field in fields)
-          SizedBox(width: fieldWidth, child: field),
-      ],
-    );
-  }
-
-  Widget _countryField() {
-    final value = countries.any((c) => c.id == countryId) ? countryId : null;
-    return DropdownButtonFormField<String>(
-      value: value,
-      isExpanded: true,
-      isDense: true,
-      decoration: _decoration('Country'),
-      hint: const Text('Select country'),
-      items: [
-        for (final country in countries)
-          DropdownMenuItem(
-            value: country.id,
-            child: Text(country.name, overflow: TextOverflow.ellipsis),
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 3,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: primary,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                title.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.4,
+                  color: primary,
+                ),
+              ),
+              if (contextLabel != null) ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    contextLabel!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
-      ],
-      onChanged: onCountryChanged,
+          const SizedBox(height: 10),
+          ...children,
+        ],
+      ),
     );
   }
+}
 
-  Widget _levelField() {
-    final value = _levelById(levels, levelId) != null ? levelId : null;
-    return DropdownButtonFormField<String>(
-      value: value,
-      isExpanded: true,
-      isDense: true,
-      decoration: _decoration('Location level'),
-      hint: const Text('Select level'),
-      items: [
-        for (final level in _sortedLevels(levels))
-          DropdownMenuItem(value: level.id, child: Text(level.name)),
-      ],
-      onChanged: countryId == null ? null : onLevelChanged,
+class _ContainerHint extends StatelessWidget {
+  final String message;
+
+  const _ContainerHint({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 4),
+      child: Text(
+        message,
+        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+      ),
     );
-  }
-
-  Widget _parentField(WidgetRef ref, AdminGeographyLevel level) {
-    final parentFilter = _parentFilterFor(level);
-    final candidates = ref
-            .watch(adminParentCandidatesProvider((
-              countryId: countryId,
-              levelId: level.id,
-              parentId: parentFilter,
-            )))
-            .value ??
-        const <AdminLocation>[];
-    final selectedId = _chainEntry(chain, level.id)?.id;
-    final hasSelected =
-        selectedId != null && candidates.any((c) => c.id == selectedId);
-
-    return DropdownButtonFormField<String?>(
-      value: hasSelected ? selectedId : null,
-      isExpanded: true,
-      isDense: true,
-      decoration: _decoration(level.name),
-      hint: Text('All ${_plural(level.name).toLowerCase()}'),
-      items: [
-        DropdownMenuItem(
-          value: null,
-          child: Text('All ${_plural(level.name).toLowerCase()}'),
-        ),
-        for (final candidate in candidates)
-          DropdownMenuItem(
-            value: candidate.id,
-            child: Text(candidate.name, overflow: TextOverflow.ellipsis),
-          ),
-      ],
-      onChanged: (value) {
-        final location = value == null
-            ? null
-            : candidates.firstWhere((c) => c.id == value);
-        onParentChanged(level, location);
-      },
-    );
-  }
-
-  /// The selected parent of the level immediately above [level], used to
-  /// constrain its candidate list.
-  String? _parentFilterFor(AdminGeographyLevel level) {
-    AdminGeographyLevel? previous;
-    for (final candidate in _sortedLevels(levels)) {
-      if (candidate.order >= level.order) break;
-      previous = candidate;
-    }
-    return previous == null
-        ? null
-        : _chainEntry(chain, previous.id)?.id;
   }
 }
 
 // ============================================================
-// LIST / TABLE
+// ROWS
 // ============================================================
+
+/// Simple selectable row used by the Country container.
+class _SelectableRow extends StatelessWidget {
+  final bool selected;
+  final VoidCallback onTap;
+  final String title;
+  final String? trailingText;
+
+  const _SelectableRow({
+    required this.selected,
+    required this.onTap,
+    required this.title,
+    this.trailingText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Material(
+      color: selected ? primary.withValues(alpha: 0.08) : Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                child: selected
+                    ? Icon(Icons.check_circle, size: 16, color: primary)
+                    : null,
+              ),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ),
+              if (trailingText != null)
+                Text(
+                  trailingText!,
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _LocationTableHeader extends StatelessWidget {
   const _LocationTableHeader();
@@ -753,13 +859,14 @@ class _LocationTableHeader extends StatelessWidget {
       letterSpacing: 0.3,
     );
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
+          const SizedBox(width: 20),
           Expanded(flex: 5, child: Text('NAME', style: style)),
           Expanded(flex: 2, child: Text('CODE', style: style)),
           Expanded(flex: 2, child: Text('STATUS', style: style)),
@@ -772,44 +879,67 @@ class _LocationTableHeader extends StatelessWidget {
 
 class _LocationTableRow extends StatelessWidget {
   final AdminLocation location;
+  final bool selected;
+  final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onToggle;
 
   const _LocationTableRow({
     required this.location,
+    required this.selected,
+    required this.onTap,
     required this.onEdit,
     required this.onToggle,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 5,
-            child: Text(
-              location.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-            ),
+    final primary = Theme.of(context).colorScheme.primary;
+    return Material(
+      color: selected ? primary.withValues(alpha: 0.08) : Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
           ),
-          Expanded(flex: 2, child: _muted(location.code?.toString())),
-          Expanded(
-            flex: 2,
-            child: _ActiveBadge(isActive: location.isActive),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                child: selected
+                    ? Icon(Icons.check_circle, size: 16, color: primary)
+                    : null,
+              ),
+              Expanded(
+                flex: 5,
+                child: Text(
+                  location.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                  ),
+                ),
+              ),
+              Expanded(flex: 2, child: _muted(location.code?.toString())),
+              Expanded(
+                flex: 2,
+                child: _ActiveBadge(isActive: location.isActive),
+              ),
+              SizedBox(
+                width: 44,
+                child: _RowMenu(
+                  location: location,
+                  onEdit: onEdit,
+                  onToggle: onToggle,
+                ),
+              ),
+            ],
           ),
-          SizedBox(
-            width: 44,
-            child: _RowMenu(
-              location: location,
-              onEdit: onEdit,
-              onToggle: onToggle,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -826,51 +956,72 @@ class _LocationTableRow extends StatelessWidget {
 /// per location so many can be scanned quickly.
 class _LocationListRow extends StatelessWidget {
   final AdminLocation location;
+  final bool selected;
+  final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onToggle;
 
   const _LocationListRow({
     required this.location,
+    required this.selected,
+    required this.onTap,
     required this.onEdit,
     required this.onToggle,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  location.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
+    final primary = Theme.of(context).colorScheme.primary;
+    return Material(
+      color: selected ? primary.withValues(alpha: 0.08) : Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                child: selected
+                    ? Icon(Icons.check_circle, size: 16, color: primary)
+                    : null,
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      location.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                      ),
+                    ),
+                    if (location.code != null)
+                      Text(
+                        'Code ${location.code}',
+                        style:
+                            TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                      ),
+                  ],
                 ),
-                if (location.code != null)
-                  Text(
-                    'Code ${location.code}',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                  ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              _ActiveBadge(isActive: location.isActive),
+              _RowMenu(
+                location: location,
+                onEdit: onEdit,
+                onToggle: onToggle,
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          _ActiveBadge(isActive: location.isActive),
-          _RowMenu(
-            location: location,
-            onEdit: onEdit,
-            onToggle: onToggle,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -961,17 +1112,22 @@ class _ActiveBadge extends StatelessWidget {
 // ADD / EDIT FORM
 // ============================================================
 
+/// Context-scoped form. Level and parent are fixed by the container the
+/// action was invoked from; only Name and Code are editable. The backend
+/// remains authoritative for hierarchy validation.
 class _LocationFormDialog extends ConsumerStatefulWidget {
+  final AdminGeographyLevel level;
+  final AdminLocation? parent;
+  final String? countryId;
+  final String? countryName;
   final AdminLocation? location;
-  final String? initialCountryId;
-  final String? initialLevelId;
-  final List<_ParentRef> initialChain;
 
   const _LocationFormDialog({
+    required this.level,
+    required this.parent,
+    required this.countryId,
+    required this.countryName,
     this.location,
-    this.initialCountryId,
-    this.initialLevelId,
-    this.initialChain = const [],
   });
 
   @override
@@ -983,25 +1139,22 @@ class _LocationFormDialogState extends ConsumerState<_LocationFormDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _codeController;
-  String? _countryId;
-  String? _levelId;
-  final List<_ParentRef> _chain = [];
-  bool _chainInitialized = false;
   bool _saving = false;
   String? _error;
 
   bool get _isEdit => widget.location != null;
 
+  String? get _effectiveCountryId =>
+      widget.parent?.countryId ?? widget.countryId;
+
   @override
   void initState() {
     super.initState();
-    final location = widget.location;
-    _nameController = TextEditingController(text: location?.name ?? '');
-    _codeController =
-        TextEditingController(text: location?.code?.toString() ?? '');
-    _countryId = location?.countryId ?? widget.initialCountryId;
-    _levelId = location?.levelId ?? widget.initialLevelId;
-    _chain.addAll(widget.initialChain);
+    _nameController =
+        TextEditingController(text: widget.location?.name ?? '');
+    _codeController = TextEditingController(
+      text: widget.location?.code?.toString() ?? '',
+    );
   }
 
   @override
@@ -1011,61 +1164,15 @@ class _LocationFormDialogState extends ConsumerState<_LocationFormDialog> {
     super.dispose();
   }
 
-  void _onCountryChanged(String? value) {
-    setState(() {
-      _countryId = value;
-      _levelId = null;
-      _chain.clear();
-    });
-  }
-
-  void _onLevelChanged(String? value, List<AdminGeographyLevel> levels) {
-    setState(() {
-      _levelId = value;
-      final selected = _levelById(levels, value);
-      _chain.removeWhere((entry) {
-        final level = _levelById(levels, entry.levelId);
-        return level == null ||
-            selected == null ||
-            level.order >= selected.order;
-      });
-    });
-  }
-
-  void _onParentChanged(
-    AdminGeographyLevel level,
-    AdminLocation? location,
-    List<AdminGeographyLevel> levels,
-  ) {
-    setState(() {
-      _chain.removeWhere((entry) {
-        final entryLevel = _levelById(levels, entry.levelId);
-        return entryLevel == null || entryLevel.order >= level.order;
-      });
-      if (location != null) {
-        _chain.add((levelId: level.id, id: location.id, name: location.name));
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    final countries =
-        ref.watch(adminCountriesProvider).value ?? const <AdminCountry>[];
-    final levels =
-        ref.watch(adminGeographyLevelsProvider(_countryId)).value ??
-            const <AdminGeographyLevel>[];
-    final selectedLevel = _levelById(levels, _levelId);
-    final ancestors = _ancestorLevels(levels, selectedLevel);
-
-    _ensureEditChain(levels, ancestors);
-
-    final levelLabel = selectedLevel?.name ?? 'Location';
+    final levelName = _levelName(widget.level);
+    final parentLabel = widget.parent?.name ?? 'Top-level';
 
     return AlertDialog(
-      title: Text(_isEdit ? 'Edit $levelLabel' : 'Add $levelLabel'),
+      title: Text(_isEdit ? 'Edit $levelName' : 'Add $levelName'),
       content: SizedBox(
-        width: 420,
+        width: 400,
         child: SingleChildScrollView(
           child: Form(
             key: _formKey,
@@ -1083,22 +1190,30 @@ class _LocationFormDialogState extends ConsumerState<_LocationFormDialog> {
                     ),
                     child: Text(
                       _error!,
-                      style: TextStyle(fontSize: 12, color: Colors.red.shade700),
+                      style:
+                          TextStyle(fontSize: 12, color: Colors.red.shade700),
                     ),
                   ),
                   const SizedBox(height: 12),
                 ],
-                _HierarchySelectors(
-                  countryId: _countryId,
-                  levelId: _levelId,
-                  chain: _chain,
-                  countries: countries,
-                  levels: levels,
-                  fieldWidth: 340,
-                  onCountryChanged: _onCountryChanged,
-                  onLevelChanged: (value) => _onLevelChanged(value, levels),
-                  onParentChanged: (level, location) =>
-                      _onParentChanged(level, location, levels),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _contextRow('Country',
+                          widget.parent?.countryName ?? widget.countryName),
+                      const SizedBox(height: 2),
+                      _contextRow('Level', levelName),
+                      const SizedBox(height: 2),
+                      _contextRow('Parent', parentLabel),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 14),
                 TextFormField(
@@ -1123,7 +1238,7 @@ class _LocationFormDialogState extends ConsumerState<_LocationFormDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: _saving ? null : () => Navigator.pop(context, false),
+          onPressed: _saving ? null : () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
         FilledButton(
@@ -1134,82 +1249,74 @@ class _LocationFormDialogState extends ConsumerState<_LocationFormDialog> {
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : Text(_isEdit ? 'Save' : 'Create $levelLabel'),
+              : Text(_isEdit ? 'Save' : 'Create $levelName'),
         ),
       ],
     );
   }
 
-  /// When editing, make sure the immediate parent reflects the location's
-  /// actual parent even if the screen hierarchy did not carry it.
-  void _ensureEditChain(
-    List<AdminGeographyLevel> levels,
-    List<AdminGeographyLevel> ancestors,
-  ) {
-    if (_isEdit == false || _chainInitialized || levels.isEmpty) return;
-    _chainInitialized = true;
-    final location = widget.location!;
-    if (ancestors.isEmpty || location.parentId == null) return;
-    final immediate = ancestors.last;
-    _chain.removeWhere((entry) => entry.levelId == immediate.id);
-    _chain.add((
-      levelId: immediate.id,
-      id: location.parentId!,
-      name: location.parentName ?? '',
-    ));
+  Widget _contextRow(String label, String? value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 64,
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            (value == null || value.isEmpty) ? '—' : value,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _submit() async {
     if (_formKey.currentState?.validate() != true) return;
 
-    final levels =
-        ref.read(adminGeographyLevelsProvider(_countryId)).value ??
-            const <AdminGeographyLevel>[];
-    final selectedLevel = _levelById(levels, _levelId);
-    if (_countryId == null || selectedLevel == null) {
-      setState(() => _error = 'Select a country and geography level.');
+    final name = _nameController.text.trim();
+    final codeText = _codeController.text.trim();
+    final code = codeText.isEmpty ? null : int.tryParse(codeText);
+    final actions = ref.read(adminLocationsActionsProvider);
+
+    final countryId =
+        widget.location?.countryId ?? _effectiveCountryId;
+    if (countryId == null || countryId.isEmpty) {
+      setState(() => _error = 'A country is required.');
       return;
     }
-
-    final ancestors = _ancestorLevels(levels, selectedLevel);
-    for (final ancestor in ancestors) {
-      if (_chainEntry(_chain, ancestor.id) == null) {
-        setState(() => _error = 'Select ${ancestor.name}.');
-        return;
-      }
-    }
-    final parentId = _chain.isEmpty ? null : _chain.last.id;
 
     setState(() {
       _saving = true;
       _error = null;
     });
 
-    final codeText = _codeController.text.trim();
-    final code = codeText.isEmpty ? null : int.tryParse(codeText);
-    final actions = ref.read(adminLocationsActionsProvider);
-
     try {
       if (_isEdit) {
         await actions.update(
           locationId: widget.location!.id,
-          name: _nameController.text.trim(),
-          levelId: selectedLevel.id,
-          parentId: parentId,
-          countryId: _countryId!,
+          name: name,
+          levelId: widget.location!.levelId ?? widget.level.id,
+          parentId: widget.location!.parentId,
+          countryId: countryId,
           code: code,
         );
       } else {
         await actions.create(
-          name: _nameController.text.trim(),
-          levelId: selectedLevel.id,
-          countryId: _countryId!,
-          parentId: parentId,
+          name: name,
+          levelId: widget.level.id,
+          countryId: countryId,
+          parentId: widget.parent?.id,
           code: code,
         );
       }
       if (!mounted) return;
-      Navigator.pop(context, true);
+      Navigator.pop(context, (name: name, code: code));
     } catch (e) {
       if (!mounted) return;
       setState(() {
