@@ -104,14 +104,16 @@ final adminGeographyLevelsProvider =
   },
 );
 
-/// Bounded candidate parents for the Add/Edit form (same country + parent
-/// level, max 100 = backend maximum). Never downloads the whole population.
+/// Bounded candidate parents for the cascading hierarchy selectors and the
+/// Add/Edit form (same country + level + immediate parent, max 100 = backend
+/// maximum). Never downloads the whole population.
 final adminParentCandidatesProvider = FutureProvider.family<List<AdminLocation>,
-    ({String? countryId, String? levelId})>((ref, args) async {
+    ({String? countryId, String? levelId, String? parentId})>((ref, args) async {
   final service = ref.watch(adminLocationsServiceProvider);
   final page = await service.listLocations(
     countryId: args.countryId,
     levelId: args.levelId,
+    parentId: args.parentId,
     limit: 100,
     offset: 0,
   );
