@@ -30,6 +30,7 @@ class AdminPermissions {
 
   // ── Platform administration ──────────────────────────────
   static const String platformOverview = 'admin.overview';
+  static const String usersView = 'admin.users.view';
   static const String users = 'admin.users.manage';
   static const String organisations = 'admin.entities.manage';
   static const String workspaces = 'admin.workspaces.manage';

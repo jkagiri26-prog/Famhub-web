@@ -27,6 +27,7 @@ import 'package:famhub_app/core/workspace/domain/workspace_catalog_item.dart';
 import 'package:famhub_app/shared/layouts/dashboard_section_widget.dart';
 import 'package:famhub_app/shared/widgets/states/states.dart';
 
+import 'admin_all_users_view.dart';
 import 'admin_section.dart';
 
 // ============================================================
@@ -49,13 +50,7 @@ class AdminUsersSection extends StatelessWidget {
         'Memberships',
       ],
       children: [
-        AdminPlaceholder(
-          icon: Icons.people_outline,
-          title: 'All Users',
-          message:
-              'Platform-wide user listing is not available yet. It will '
-              'appear once the admin user directory backend is confirmed.',
-        ),
+        AdminAllUsersView(),
         AdminPlaceholder(
           icon: Icons.hourglass_empty,
           title: 'Pending / Onboarding',
