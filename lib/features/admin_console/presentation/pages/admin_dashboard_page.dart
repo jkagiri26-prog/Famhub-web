@@ -64,7 +64,7 @@ class AdminDashboardPage extends ConsumerWidget {
               subtitle: 'Platform and organisation administration',
               trailingIcon: Icons.admin_panel_settings_outlined,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             const AdminSubTabBar(tabs: _topTabs),
             const Divider(height: 1),
             Expanded(

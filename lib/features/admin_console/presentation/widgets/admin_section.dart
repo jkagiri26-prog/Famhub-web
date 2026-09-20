@@ -35,18 +35,21 @@ class AdminSubTabBar extends StatelessWidget {
     return TabBar(
       isScrollable: true,
       tabAlignment: TabAlignment.start,
+      indicatorSize: TabBarIndicatorSize.label,
+      dividerColor: Colors.transparent,
       indicatorColor: primary,
       labelColor: primary,
       unselectedLabelColor: Colors.grey.shade600,
+      labelPadding: const EdgeInsets.symmetric(horizontal: 12),
       labelStyle: const TextStyle(
-        fontSize: 12.5,
+        fontSize: 12,
         fontWeight: FontWeight.w600,
       ),
       unselectedLabelStyle: const TextStyle(
-        fontSize: 12.5,
+        fontSize: 12,
         fontWeight: FontWeight.w500,
       ),
-      tabs: [for (final tab in tabs) Tab(text: tab)],
+      tabs: [for (final tab in tabs) Tab(height: 34, text: tab)],
     );
   }
 }
@@ -80,22 +83,22 @@ class AdminSectionScaffold extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(top: 16, bottom: 8),
+            padding: const EdgeInsets.only(top: 10, bottom: 2),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
                   style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
                 Text(
                   subtitle,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 11,
                     color: Colors.grey.shade600,
                   ),
                 ),

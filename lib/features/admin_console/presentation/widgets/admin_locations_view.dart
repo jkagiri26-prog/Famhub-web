@@ -45,6 +45,7 @@ class _AdminLocationsViewState extends ConsumerState<AdminLocationsView> {
   String? _parentId;
   final List<({String id, String name})> _parentChain = [];
   int _page = 0;
+  bool _showFilters = false;
 
   AdminLocationsQuery get _query => AdminLocationsQuery(
         search: _searchController.text,
@@ -197,29 +198,30 @@ class _AdminLocationsViewState extends ConsumerState<AdminLocationsView> {
     return Row(
       children: [
         const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Locations',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-              ),
-              SizedBox(height: 2),
-              Text(
-                'Manage the canonical geographic hierarchy used across FAMHUB.',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ],
+          child: Text(
+            'Locations',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
           ),
         ),
         FilledButton.icon(
           onPressed: () => _openForm(),
-          icon: const Icon(Icons.add, size: 18),
+          icon: const Icon(Icons.add, size: 16),
           label: const Text('Add Location'),
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            minimumSize: const Size(0, 34),
+            textStyle: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
       ],
     );
   }
+
+  bool get _hasActiveFilters =>
+      _countryId != null || _levelId != null || _isActive != null;
 
   Widget _breadcrumb() {
     final segments = <Widget>[
@@ -275,82 +277,103 @@ class _AdminLocationsViewState extends ConsumerState<AdminLocationsView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TextField(
-          controller: _searchController,
-          onChanged: _onSearchChanged,
-          textInputAction: TextInputAction.search,
-          decoration: InputDecoration(
-            hintText: 'Search locations by name',
-            prefixIcon: const Icon(Icons.search, size: 20),
-            isDense: true,
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
+        Row(
           children: [
-            _dropdown<String?>(
-              value: _countryId,
-              hint: 'All countries',
-              items: [
-                const DropdownMenuItem(value: null, child: Text('All countries')),
-                for (final country in countries)
-                  DropdownMenuItem(
-                    value: country.id,
-                    child: Text(country.name),
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                onChanged: _onSearchChanged,
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  hintText: 'Search locations by name',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  isDense: true,
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
                   ),
-              ],
-              onChanged: (value) => setState(() {
-                _countryId = value;
-                _levelId = null;
-                _parentChain.clear();
-                _parentId = null;
-                _page = 0;
-              }),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                ),
+              ),
             ),
-            _dropdown<String?>(
-              value: _levelId,
-              hint: 'All levels',
-              enabled: _countryId != null && levels.isNotEmpty,
-              items: [
-                const DropdownMenuItem(value: null, child: Text('All levels')),
-                for (final level in levels)
-                  DropdownMenuItem(value: level.id, child: Text(level.name)),
-              ],
-              onChanged: (value) => setState(() {
-                _levelId = value;
-                _parentChain.clear();
-                _parentId = null;
-                _page = 0;
-              }),
+            const SizedBox(width: 6),
+            IconButton(
+              tooltip: 'Filters',
+              visualDensity: VisualDensity.compact,
+              onPressed: () => setState(() => _showFilters = !_showFilters),
+              icon: Badge(
+                isLabelVisible: _hasActiveFilters,
+                child: const Icon(Icons.tune, size: 20),
+              ),
             ),
-            for (final option in <(String, bool?)>[
-              ('All', null),
-              ('Active', true),
-              ('Inactive', false),
-            ])
-              ChoiceChip(
-                label: Text(option.$1),
-                selected: _isActive == option.$2,
-                onSelected: (_) => setState(() {
-                  _isActive = option.$2;
+          ],
+        ),
+        if (_showFilters) ...[
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _dropdown<String?>(
+                value: _countryId,
+                hint: 'All countries',
+                items: [
+                  const DropdownMenuItem(
+                    value: null,
+                    child: Text('All countries'),
+                  ),
+                  for (final country in countries)
+                    DropdownMenuItem(
+                      value: country.id,
+                      child: Text(country.name),
+                    ),
+                ],
+                onChanged: (value) => setState(() {
+                  _countryId = value;
+                  _levelId = null;
+                  _parentChain.clear();
+                  _parentId = null;
                   _page = 0;
                 }),
               ),
-          ],
-        ),
+              _dropdown<String?>(
+                value: _levelId,
+                hint: 'All levels',
+                enabled: _countryId != null && levels.isNotEmpty,
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('All levels')),
+                  for (final level in levels)
+                    DropdownMenuItem(value: level.id, child: Text(level.name)),
+                ],
+                onChanged: (value) => setState(() {
+                  _levelId = value;
+                  _parentChain.clear();
+                  _parentId = null;
+                  _page = 0;
+                }),
+              ),
+              for (final option in <(String, bool?)>[
+                ('All', null),
+                ('Active', true),
+                ('Inactive', false),
+              ])
+                ChoiceChip(
+                  label: Text(option.$1),
+                  selected: _isActive == option.$2,
+                  onSelected: (_) => setState(() {
+                    _isActive = option.$2;
+                    _page = 0;
+                  }),
+                ),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -412,7 +435,7 @@ class _AdminLocationsViewState extends ConsumerState<AdminLocationsView> {
             if (wide) const _LocationTableHeader(),
             Expanded(
               child: ListView.builder(
-                padding: const EdgeInsets.only(top: 4, bottom: 8),
+                padding: const EdgeInsets.only(top: 4, bottom: 24),
                 itemCount: page.items.length,
                 itemBuilder: (_, index) {
                   final location = page.items[index];
