@@ -1,15 +1,17 @@
 /// ============================================================
-/// ADMIN → USERS → ALL USERS
+/// ADMIN → USERS → PENDING / ONBOARDING
 /// ============================================================
 ///
 /// 🧠 LOCATION CONTEXT:
 ///   features/admin_console/presentation/widgets/ = presentation
 ///
-/// Platform-wide user directory. Data comes ONLY from the admin-safe RPC
-/// `users.admin_list_users` (via `adminUsersProvider` → `AdminUsersService`).
-/// Search, status filtering and pagination are server-side.
+/// Users who are not fully onboarded / otherwise pending, according to the
+/// deployed status fields. Uses the SAME admin-safe RPC
+/// (`users.admin_list_users`) with `p_status = 'pending'` — no new backend
+/// source, no client-side filtering of the whole population.
 ///
-/// ❌ Never queries auth.users / users.profiles / users.otp / entity_members.
+/// Search and pagination remain server-side. Reuses the shared admin
+/// user-list presentation and the existing permission gating.
 /// ============================================================
 library;
 
@@ -24,31 +26,24 @@ import 'package:famhub_app/features/admin_console/domain/permissions/permissions
 import 'package:famhub_app/features/admin_console/presentation/widgets/admin_user_list_widgets.dart';
 import 'package:famhub_app/shared/widgets/states/states.dart';
 
-class AdminAllUsersView extends ConsumerStatefulWidget {
-  const AdminAllUsersView({super.key});
+class AdminPendingUsersView extends ConsumerStatefulWidget {
+  const AdminPendingUsersView({super.key});
 
   @override
-  ConsumerState<AdminAllUsersView> createState() => _AdminAllUsersViewState();
+  ConsumerState<AdminPendingUsersView> createState() =>
+      _AdminPendingUsersViewState();
 }
 
-class _AdminAllUsersViewState extends ConsumerState<AdminAllUsersView> {
+class _AdminPendingUsersViewState extends ConsumerState<AdminPendingUsersView> {
   static const int _pageSize = 25;
-
-  static const List<(String, String?)> _statusOptions = [
-    ('All', null),
-    ('Active', 'active'),
-    ('Inactive', 'inactive'),
-    ('Pending', 'pending'),
-  ];
 
   final _searchController = TextEditingController();
   Timer? _debounce;
-  String? _status;
   int _page = 0;
 
   AdminUsersQuery get _query => AdminUsersQuery(
         search: _searchController.text,
-        status: _status,
+        status: 'pending',
         page: _page,
         pageSize: _pageSize,
       );
@@ -65,14 +60,6 @@ class _AdminAllUsersViewState extends ConsumerState<AdminAllUsersView> {
     _debounce = Timer(const Duration(milliseconds: 400), () {
       if (!mounted) return;
       setState(() => _page = 0);
-    });
-  }
-
-  void _setStatus(String? status) {
-    if (_status == status) return;
-    setState(() {
-      _status = status;
-      _page = 0;
     });
   }
 
@@ -101,16 +88,35 @@ class _AdminAllUsersViewState extends ConsumerState<AdminAllUsersView> {
       children: [
         Padding(
           padding: const EdgeInsets.only(top: 16, bottom: 8),
-          child: _toolbar(),
+          child: TextField(
+            controller: _searchController,
+            onChanged: _onSearchChanged,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: 'Search pending users by name, email or phone',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              isDense: true,
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+            ),
+          ),
         ),
         Expanded(
           child: pageAsync.when(
-            loading: () =>
-                const LoadingStateWidget(message: 'Loading users...'),
+            loading: () => const LoadingStateWidget(
+              message: 'Loading pending users...',
+            ),
             error: (e, _) => ErrorStateWidget(
-              title: 'Failed to load users',
-              message:
-                  'Could not load the user directory. Please try again.',
+              title: 'Failed to load pending users',
+              message: 'Could not load pending users. Please try again.',
               retryLabel: 'Retry',
               onRetry: () => ref.invalidate(adminUsersProvider(_query)),
               detailedError: e.toString(),
@@ -119,58 +125,16 @@ class _AdminAllUsersViewState extends ConsumerState<AdminAllUsersView> {
               page: page,
               pageIndex: _page,
               pageSize: _pageSize,
-              emptyTitle: 'No users',
+              emptyTitle: 'No pending users',
               emptySubtitle:
-                  'No users are available in the directory yet.',
-              filtering: _searchController.text.trim().isNotEmpty ||
-                  _status != null,
+                  'There are no users pending onboarding right now.',
+              filtering: _searchController.text.trim().isNotEmpty,
               onPrev: _page > 0 ? () => setState(() => _page--) : null,
               onNext: (_page * _pageSize + page.items.length) < page.totalCount
                   ? () => setState(() => _page++)
                   : null,
             ),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _toolbar() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextField(
-          controller: _searchController,
-          onChanged: _onSearchChanged,
-          textInputAction: TextInputAction.search,
-          decoration: InputDecoration(
-            hintText: 'Search users by name, email or phone',
-            prefixIcon: const Icon(Icons.search, size: 20),
-            isDense: true,
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final option in _statusOptions)
-              ChoiceChip(
-                label: Text(option.$1),
-                selected: _status == option.$2,
-                onSelected: (_) => _setStatus(option.$2),
-              ),
-          ],
         ),
       ],
     );

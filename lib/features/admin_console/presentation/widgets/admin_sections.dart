@@ -28,6 +28,7 @@ import 'package:famhub_app/shared/layouts/dashboard_section_widget.dart';
 import 'package:famhub_app/shared/widgets/states/states.dart';
 
 import 'admin_all_users_view.dart';
+import 'admin_pending_users_view.dart';
 import 'admin_section.dart';
 
 // ============================================================
@@ -51,12 +52,7 @@ class AdminUsersSection extends StatelessWidget {
       ],
       children: [
         AdminAllUsersView(),
-        AdminPlaceholder(
-          icon: Icons.hourglass_empty,
-          title: 'Pending / Onboarding',
-          message:
-              'Onboarding and pending-user views are not available yet.',
-        ),
+        AdminPendingUsersView(),
         AdminPlaceholder(
           icon: Icons.timeline,
           title: 'User Activity',
