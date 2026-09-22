@@ -217,7 +217,7 @@ const List<_ModuleCardData> _allModuleCards = [
 /// Impact statistics shown in the numbers section
 const List<_ImpactStat> _impactStats = [
   _ImpactStat(
-    value: '15,000+',
+    value: '11,542+',
     label: 'Farmers',
     icon: Icons.people_alt_outlined,
     color: Color(0xFF059669),
@@ -229,7 +229,7 @@ const List<_ImpactStat> _impactStats = [
     color: Color(0xFF0891B2),
   ),
   _ImpactStat(
-    value: '2.5B+',
+    value: '2.5M+',
     label: 'Transactions',
     icon: Icons.account_balance_outlined,
     color: Color.fromARGB(255, 145, 95, 231),
@@ -267,7 +267,7 @@ const List<_MarketplacePreviewItem> _marketplacePreviews = [
 /// Success stories / testimonials
 const List<_Testimonial> _testimonials = [
   _Testimonial(
-    quote: 'FAMHUB transformed how I sell my produce. I now reach buyers across three states without leaving my farm.',
+    quote: 'FAMHUB transformed how I sell my produce. I now reach buyers across three Counties without leaving my farm.',
     name: 'Henry Ochieng',
     role: 'Tomatoes Farmer',
     location: 'Kisumu county',
@@ -420,7 +420,7 @@ class FamhubHomePage extends ConsumerWidget {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.symmetric(
-        vertical: 12,
+        vertical: 10,
         horizontal: isMobile ? 12 : 24,
       ),
       color: colorScheme.surface,
