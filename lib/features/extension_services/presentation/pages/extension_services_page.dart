@@ -72,7 +72,7 @@ class ExtensionServicesPage extends StatelessWidget {
             SizedBox(height: 12),
 
             ExpertCardWidget(
-              name: "Officer Samuel Onier",
+              name: "Officer Samuel Owen",
               specialty: "Livestock Management",
               status: "In Field",
               imageUrl:
