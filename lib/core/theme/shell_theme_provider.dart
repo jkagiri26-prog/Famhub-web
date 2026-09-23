@@ -41,8 +41,17 @@ class FamhubBrandTokens {
   /// Primary brand green — deep natural agriculture green.
   static const Color green = Color(0xFF256D3A);
 
+  /// Supporting fresh green for subtle green details.
+  static const Color freshGreen = Color(0xFF4CAF50);
+
+  /// Agricultural orange — the secondary brand accent.
+  static const Color orange = Color(0xFFF28C28);
+
   /// Light-mode page background — very light warm green/neutral.
   static const Color greenBackground = Color(0xFFF3F7F0);
+
+  /// Warm neutral/cream surface for warm content areas where appropriate.
+  static const Color cream = Color(0xFFFAF8F2);
 
   /// Light-mode subtle green surface (inputs, chips, hovers).
   static const Color greenSurface = Color(0xFFEAF2E6);
@@ -58,6 +67,9 @@ class FamhubBrandTokens {
 
   /// Dark-mode primary — accessible lighter tint of the brand green.
   static const Color greenDark = Color(0xFF7CCB97);
+
+  /// Dark-mode accent — lighter orange for accessible contrast on dark surfaces.
+  static const Color orangeDark = Color(0xFFF7A54B);
 
   /// Dark-mode page background — warm, green-tinted near-black.
   static const Color greenBackgroundDark = Color(0xFF0F1512);
@@ -84,6 +96,7 @@ final shellThemeProvider = Provider<ShellTheme>((ref) {
   final light = ShellTheme.defaultLight.copyWith(
     name: 'FAMHUB Light',
     primary: FamhubBrandTokens.green,
+    accent: FamhubBrandTokens.orange,
     borderFocused: FamhubBrandTokens.green,
     background: FamhubBrandTokens.greenBackground,
     surfaceVariant: FamhubBrandTokens.greenSurface,
@@ -101,6 +114,7 @@ final shellThemeProvider = Provider<ShellTheme>((ref) {
   final dark = ShellTheme.defaultDark.copyWith(
     name: 'FAMHUB Dark',
     primary: FamhubBrandTokens.greenDark,
+    accent: FamhubBrandTokens.orangeDark,
     borderFocused: FamhubBrandTokens.greenDark,
     background: FamhubBrandTokens.greenBackgroundDark,
     surface: FamhubBrandTokens.greenSurfaceDark,

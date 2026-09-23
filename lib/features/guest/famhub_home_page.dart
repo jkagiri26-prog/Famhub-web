@@ -30,6 +30,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/session/session_provider.dart';
+import 'package:famhub_app/core/theme/shell_theme_provider.dart';
 import 'package:famhub_app/shared/demo/demo_banner_widget.dart';
 import 'package:famhub_app/features/auth/presentation/widgets/split_screen_hero.dart';
 
@@ -154,7 +155,7 @@ const List<_ModuleCardData> _allModuleCards = [
     title: 'Market Prices',
     description: 'Real-time and historical price data for crops, livestock, and inputs. Essential intelligence for traders, farmers, and investors.',
     icon: Icons.trending_up_outlined,
-    color: Color(0xFFD97706),
+    color: FamhubBrandTokens.orange,
   ),
   _ModuleCardData(
     id: 'knowledge',
@@ -203,7 +204,7 @@ const List<_ModuleCardData> _allModuleCards = [
     title: 'Weather',
     description: 'Local forecasts, historical climate data, and agricultural alerts to support planning across all operations.',
     icon: Icons.wb_sunny_outlined,
-    color: Color(0xFFD97706),
+    color: FamhubBrandTokens.orange,
   ),
   _ModuleCardData(
     id: 'reports',
@@ -238,7 +239,7 @@ const List<_ImpactStat> _impactStats = [
     value: '47',
     label: 'Counties',
     icon: Icons.location_on_outlined,
-    color: Color(0xFFD97706),
+    color: FamhubBrandTokens.orange,
   ),
 ];
 
@@ -292,7 +293,7 @@ const List<_Testimonial> _testimonials = [
     name: 'Grace Mwangi',
     role: 'Cooperative Leader',
     location: 'Nakuru, Kenya',
-    avatarColor: Color(0xFFD97706),
+    avatarColor: FamhubBrandTokens.orange,
   ),
 ];
 
@@ -715,7 +716,7 @@ class FamhubHomePage extends ConsumerWidget {
         icon: Icons.people_outline,
         title: 'For Everyone',
         description: 'Designed for farmers, traders, cooperatives, and agribusinesses of all sizes.',
-        color: Color(0xFFD97706),
+        color: FamhubBrandTokens.orange,
       ),
       _WhyChooseItem(
         icon: Icons.security_outlined,

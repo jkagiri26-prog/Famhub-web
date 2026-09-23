@@ -20,6 +20,7 @@ library famhub_app.features.auth.presentation.widgets.split_screen_hero;
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:famhub_app/core/theme/shell_theme_provider.dart';
 
 /// ─────────────────────────────────────────────────────────────
 /// DATA MODELS
@@ -58,7 +59,7 @@ const List<_CarouselSlide> _slides = [
         'Buy and sell agricultural products faster through FAMHUB\'s trusted marketplace.',
     ctaText: 'Visit Marketplace',
     imagePath: 'assets/images/farm2.png',
-    accentColor: Color(0xFFF59E0B),
+    accentColor: FamhubBrandTokens.orange,
   ),
   _CarouselSlide(
     headline: 'Reach Thousands of Farmers',

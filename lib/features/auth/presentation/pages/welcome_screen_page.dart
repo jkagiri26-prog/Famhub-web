@@ -109,25 +109,18 @@ class WelcomeScreenPage extends StatelessWidget {
                     ),
                     child: Column(
                       children: [
-                        // ── Logo ──
+                        // ── Logo (tractor on pale green tile) ──
                         Container(
                           width: isMobile ? 64 : 96,
                           height: isMobile ? 64 : 96,
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                colorScheme.primary,
-                                colorScheme.primary.withValues(alpha: 0.7),
-                              ],
-                            ),
+                            color: colorScheme.primaryContainer,
                             borderRadius: BorderRadius.circular(isMobile ? 18 : 24),
                             boxShadow: [
                               BoxShadow(
                                 color: colorScheme.primary
-                                    .withValues(alpha: 0.3),
-                                blurRadius: 16,
+                                    .withValues(alpha: 0.18),
+                                blurRadius: 14,
                                 offset: const Offset(0, 6),
                               ),
                             ],
@@ -135,7 +128,7 @@ class WelcomeScreenPage extends StatelessWidget {
                           child: Icon(
                             Icons.agriculture_rounded,
                             size: isMobile ? 32 : 48,
-                            color: Colors.white,
+                            color: colorScheme.tertiary,
                           ),
                         ),
 

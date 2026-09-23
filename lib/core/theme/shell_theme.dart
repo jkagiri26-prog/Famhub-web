@@ -88,6 +88,7 @@ class ShellTheme {
     border: Color(0xFFE5E7EB),
     borderFocused: Color(0xFF6366F1),
     primary: Color(0xFF6366F1),
+    accent: Color(0xFFF59E0B),
     primaryText: Color(0xFF111827),
     secondaryText: Color(0xFF6B7280),
     tertiaryText: Color(0xFF9CA3AF),
@@ -132,6 +133,7 @@ class ShellTheme {
     border: Color(0xFF334155),
     borderFocused: Color(0xFF818CF8),
     primary: Color(0xFF818CF8),
+    accent: Color(0xFFFBBF24),
     primaryText: Color(0xFFF8FAFC),
     secondaryText: Color(0xFFCBD5E1),
     tertiaryText: Color(0xFF64748B),
@@ -230,7 +232,7 @@ class ShellTheme {
       onPrimaryContainer: palette.primary,
       secondary: palette.primary,
       onSecondary: palette.surface,
-      tertiary: palette.info,
+      tertiary: palette.accent,
       onTertiary: palette.surface,
       error: palette.error,
       onError: palette.surface,
@@ -438,6 +440,9 @@ class ShellColorPalette {
   // ── Brand ──
   final Color primary;
 
+  /// Secondary brand accent (e.g. agricultural orange).
+  final Color accent;
+
   // ── Text ──
   final Color primaryText;
   final Color secondaryText;
@@ -482,6 +487,7 @@ class ShellColorPalette {
     required this.border,
     required this.borderFocused,
     required this.primary,
+    required this.accent,
     required this.primaryText,
     required this.secondaryText,
     required this.tertiaryText,
@@ -514,6 +520,7 @@ class ShellColorPalette {
     Color? border,
     Color? borderFocused,
     Color? primary,
+    Color? accent,
     Color? primaryText,
     Color? secondaryText,
     Color? tertiaryText,
@@ -545,6 +552,7 @@ class ShellColorPalette {
       border: border ?? this.border,
       borderFocused: borderFocused ?? this.borderFocused,
       primary: primary ?? this.primary,
+      accent: accent ?? this.accent,
       primaryText: primaryText ?? this.primaryText,
       secondaryText: secondaryText ?? this.secondaryText,
       tertiaryText: tertiaryText ?? this.tertiaryText,
@@ -650,6 +658,7 @@ class ShellThemeColors extends ThemeExtension<ShellThemeColors> {
   Color get border => palette.border;
   Color get borderFocused => palette.borderFocused;
   Color get primary => palette.primary;
+  Color get accent => palette.accent;
   Color get primaryText => palette.primaryText;
   Color get secondaryText => palette.secondaryText;
   Color get tertiaryText => palette.tertiaryText;
