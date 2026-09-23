@@ -39,7 +39,7 @@ CREATE TABLE core.entity_roles (
   profile_id uuid NOT NULL,
   entity_id uuid NOT NULL,
   role_id uuid NOT NULL,
-  assigned_by uuid DEFAULT core.auth_user_id(),
+  assigned_by uuid DEFAULT core.current_profile_id(),
   assigned_at timestamp with time zone DEFAULT now(),
   is_active boolean DEFAULT true,
   updated_at timestamp with time zone,
@@ -95,6 +95,7 @@ CREATE TABLE core.locations (
   updated_at timestamp with time zone DEFAULT '2026-02-24 21:08:55.588526+00'::timestamp with time zone,
   country_id uuid NOT NULL,
   admin_type text,
+  is_active boolean NOT NULL DEFAULT true,
   CONSTRAINT locations_pkey PRIMARY KEY (id),
   CONSTRAINT locations_level_id_fkey FOREIGN KEY (level_id) REFERENCES core.geography_levels(id),
   CONSTRAINT locations_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES core.locations(id),
@@ -165,7 +166,10 @@ CREATE TABLE core.commodities (
   hs_code text,
   shelf_life_days bigint,
   is_perishable boolean,
-  CONSTRAINT commodities_pkey PRIMARY KEY (id)
+  item_id uuid,
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT commodities_pkey PRIMARY KEY (id),
+  CONSTRAINT commodities_item_id_fkey FOREIGN KEY (item_id) REFERENCES core.items(id)
 );
 CREATE TABLE core.infrastructure_commodities (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -183,21 +187,27 @@ CREATE TABLE core.domains (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   name text NOT NULL UNIQUE,
   created_at timestamp with time zone DEFAULT now(),
+  is_active boolean NOT NULL DEFAULT true,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT domains_pkey PRIMARY KEY (id)
 );
 CREATE TABLE core.categories (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   domain_id uuid,
-  name text NOT NULL UNIQUE,
+  name text NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
+  is_active boolean NOT NULL DEFAULT true,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT categories_pkey PRIMARY KEY (id),
   CONSTRAINT categories_domain_id_fkey FOREIGN KEY (domain_id) REFERENCES core.domains(id)
 );
 CREATE TABLE core.items (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   category_id uuid,
-  name text NOT NULL UNIQUE,
+  name text NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
+  is_active boolean NOT NULL DEFAULT true,
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT items_pkey PRIMARY KEY (id),
   CONSTRAINT items_category_id_fkey FOREIGN KEY (category_id) REFERENCES core.categories(id)
 );
@@ -270,8 +280,14 @@ CREATE TABLE core.item_variants (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   item_id uuid NOT NULL,
   name text NOT NULL,
+  normalized_name text DEFAULT core.normalize_item_variant_name(name),
+  is_active boolean NOT NULL DEFAULT true,
+  created_by_profile_id uuid DEFAULT core.current_profile_id(),
+  source text CHECK (source IS NULL OR (source = ANY (ARRAY['admin'::text, 'user'::text]))),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT item_variants_pkey PRIMARY KEY (id),
-  CONSTRAINT item_variants_item_id_fkey FOREIGN KEY (item_id) REFERENCES core.items(id)
+  CONSTRAINT item_variants_item_id_fkey FOREIGN KEY (item_id) REFERENCES core.items(id),
+  CONSTRAINT item_variants_created_by_profile_id_fkey FOREIGN KEY (created_by_profile_id) REFERENCES users.profiles(id)
 );
 CREATE TABLE core.variant_attributes (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -300,7 +316,7 @@ CREATE TABLE core.records (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   activity_type_id uuid,
   entity_id uuid NOT NULL,
-  created_by uuid DEFAULT core.auth_user_id(),
+  created_by uuid DEFAULT core.current_profile_id(),
   CONSTRAINT records_pkey PRIMARY KEY (id),
   CONSTRAINT fk_records_entity FOREIGN KEY (entity_id) REFERENCES core.entities(id),
   CONSTRAINT records_activity_type_id_fkey FOREIGN KEY (activity_type_id) REFERENCES farm_management.activity_types(id),
@@ -347,7 +363,7 @@ CREATE TABLE core.entities (
   name text NOT NULL,
   slug text UNIQUE,
   entity_type text NOT NULL CHECK (entity_type = ANY (ARRAY['farm'::text, 'trading_company'::text, 'service_provider'::text, 'cooperative'::text, 'individual_pro'::text, 'agrovet'::text])),
-  owner_id uuid NOT NULL DEFAULT core.auth_user_id(),
+  owner_id uuid NOT NULL DEFAULT core.current_profile_id(),
   is_active boolean DEFAULT true,
   metadata jsonb DEFAULT '{}'::jsonb,
   created_at timestamp with time zone DEFAULT now(),
@@ -399,6 +415,7 @@ CREATE TABLE core.permissions (
   description text,
   module text,
   created_at timestamp with time zone DEFAULT now(),
+  scope_type text NOT NULL CHECK (scope_type = ANY (ARRAY['global'::text, 'entity'::text, 'module'::text])),
   CONSTRAINT permissions_pkey PRIMARY KEY (id)
 );
 CREATE TABLE core.role_permissions (
@@ -413,10 +430,10 @@ CREATE TABLE core.role_permissions (
 );
 CREATE TABLE core.entity_role_scopes (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  entity_id uuid NOT NULL,
+  entity_id uuid,
   profile_id uuid NOT NULL,
   role_id uuid NOT NULL,
-  scope_type text DEFAULT 'entity'::text CHECK (scope_type = ANY (ARRAY['entity'::text, 'global'::text, 'module'::text])),
+  scope_type text NOT NULL DEFAULT 'entity'::text CHECK (scope_type = ANY (ARRAY['entity'::text, 'global'::text, 'module'::text])),
   module text,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT entity_role_scopes_pkey PRIMARY KEY (id),
