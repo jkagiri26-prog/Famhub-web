@@ -43,6 +43,8 @@ class AdminPermissions {
   static const String analytics = 'admin.analytics.view';
   static const String audit = 'admin.audit.view';
   static const String systemSettings = 'admin.settings.manage';
+  static const String taxonomyView = 'admin.taxonomy.view';
+  static const String taxonomyManage = 'admin.taxonomy.manage';
 
   // ── Entity administration ────────────────────────────────
   static const String entityOverview = 'entity.overview.view';

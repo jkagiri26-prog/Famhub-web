@@ -31,6 +31,7 @@ import 'admin_all_users_view.dart';
 import 'admin_locations_view.dart';
 import 'admin_pending_users_view.dart';
 import 'admin_section.dart';
+import 'admin_taxonomy_view.dart';
 import 'admin_user_activity_view.dart';
 
 // ============================================================
@@ -474,13 +475,7 @@ class AdminSystemSection extends StatelessWidget {
               'maintenance status is visible under Modules → Maintenance.',
         ),
         AdminLocationsView(),
-        AdminPlaceholder(
-          icon: Icons.category_outlined,
-          title: 'Taxonomy',
-          message:
-              'Platform taxonomy (categories, commodities, units) is not '
-              'available yet.',
-        ),
+        AdminTaxonomyView(),
         AdminPlaceholder(
           icon: Icons.account_tree_outlined,
           title: 'Workflows',
