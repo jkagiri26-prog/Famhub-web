@@ -7,11 +7,13 @@ import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/livestock_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/farm_knowledge_context_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/production_page.dart';
 import 'package:famhub_app/features/farm_management/presentation/widgets/workspace_tab_header.dart';
 import 'package:famhub_app/features/marketplace/presentation/pages/stock_selection_page.dart';
+import 'package:famhub_app/features/knowledge_link/presentation/widgets/contextual_knowledge_widget.dart';
 
 /// Livestock tab — the user's GLOBAL livestock workspace.
 ///
@@ -271,6 +273,17 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
                     label: const Text('Sell on Marketplace'),
                   ),
                 ],
+                const SizedBox(height: 24),
+
+                // ── Contextual Knowledge (Knowledge Link) ──
+                ContextualKnowledgeWidget(
+                  context: ref.watch(farmKnowledgeContextProvider),
+                  contextLabel: [
+                    animal.species,
+                    if (animal.breed != null && animal.breed!.isNotEmpty)
+                      animal.breed!,
+                  ].join(' / '),
+                ),
               ],
             ),
           ),

@@ -7,9 +7,11 @@ import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/crops_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/farm_knowledge_context_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
 import 'package:famhub_app/features/farm_management/presentation/widgets/workspace_tab_header.dart';
+import 'package:famhub_app/features/knowledge_link/presentation/widgets/contextual_knowledge_widget.dart';
 
 /// Crops tab — the user's GLOBAL crop workspace.
 ///
@@ -239,6 +241,17 @@ class _CropsPageState extends ConsumerState<CropsPage> {
                   onPressed: _openActivities,
                   icon: const Icon(Icons.event_note),
                   label: const Text('Record Activity'),
+                ),
+                const SizedBox(height: 24),
+
+                // ── Contextual Knowledge (Knowledge Link) ──
+                ContextualKnowledgeWidget(
+                  context: ref.watch(farmKnowledgeContextProvider),
+                  contextLabel: [
+                    crop.cropName,
+                    if (crop.variety != null && crop.variety!.isNotEmpty)
+                      crop.variety!,
+                  ].join(' / '),
                 ),
               ],
             ),
