@@ -5,8 +5,7 @@ import 'package:famhub_app/shared/widgets/headers/section_header_widget.dart';
 import 'package:famhub_app/shared/widgets/cards/empty_state_card_widget.dart';
 
 import '../widgets/knowledge_category_chips_widget.dart';
-import '../widgets/featured_guide_card_widget.dart';
-import '../widgets/knowledge_article_tile_widget.dart';
+import '../widgets/knowledge_browse_guides_widget.dart';
 import '../widgets/knowledge_quick_access_widget.dart';
 
 class KnowledgeLinkPage extends StatefulWidget {
@@ -70,35 +69,8 @@ class _KnowledgeLinkPageState extends State<KnowledgeLinkPage>
 
           const SizedBox(height: 24),
 
-          /// FEATURED GUIDE
-          const FeaturedGuideCardWidget(),
-
-          const SizedBox(height: 24),
-
-          /// READING LIST
-          const SectionHeaderWidget(
-            title: "Reading List",
-          ),
-
-          const SizedBox(height: 12),
-
-          const KnowledgeArticleTileWidget(
-            title: "Irrigation Timing for Maize",
-            subtitle: "5 min read",
-            icon: Icons.water_drop_outlined,
-          ),
-
-          const KnowledgeArticleTileWidget(
-            title: "Post-Harvest Storage Tips",
-            subtitle: "8 min read",
-            icon: Icons.inventory_2_outlined,
-          ),
-
-          const KnowledgeArticleTileWidget(
-            title: "Organic Fertilizer Mixing",
-            subtitle: "12 min read",
-            icon: Icons.eco_outlined,
-          ),
+          /// GUIDES (resolved from the backend)
+          const KnowledgeBrowseGuidesWidget(),
 
           const SizedBox(height: 24),
 

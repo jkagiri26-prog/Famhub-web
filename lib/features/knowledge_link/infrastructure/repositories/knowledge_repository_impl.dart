@@ -36,8 +36,6 @@ class KnowledgeRepositoryImpl implements KnowledgeRepository {
     KnowledgeContext context, {
     int limit = 10,
   }) async {
-    if (context.isEmpty) return const [];
-
     // Param names follow the Postgres/snake_case convention used by the
     // `knowledge` schema columns (item_id, variant_id, …). The resolver is
     // `public.resolve_knowledge_resources` — verify these names match the

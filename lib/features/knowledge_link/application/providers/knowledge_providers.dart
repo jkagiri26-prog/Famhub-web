@@ -38,6 +38,15 @@ final contextualKnowledgeProvider = FutureProvider.family<
   return ContextualKnowledgeData(guides: guides);
 });
 
+/// General guide browse for the Knowledge Link landing page (no module
+/// context). Resolves recent curated guides via the backend resolver with an
+/// empty canonical context.
+final knowledgeBrowseGuidesProvider =
+    FutureProvider<List<KnowledgeResourceMatch>>((ref) async {
+  final repository = ref.watch(knowledgeRepositoryProvider);
+  return repository.resolveResources(const KnowledgeContext(), limit: 20);
+});
+
 /// Loads the published resource/version detail for the guide screen.
 final knowledgeResourceDetailProvider = FutureProvider.family<
     KnowledgeResourceDetail?,
