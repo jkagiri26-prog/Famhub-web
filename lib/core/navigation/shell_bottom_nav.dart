@@ -96,9 +96,20 @@ class ShellBottomNav extends ConsumerWidget {
     final excluded = <String>{
       'marketplace',
       'traceability',
+      // Shared platform capability — never replaced by a module entry.
+      'weather',
       workspaceItem.moduleKey,
     };
     final extraItems = <NavItem>[
+      // Shared platform capability (not a workspace module).
+      const NavItem(
+        moduleKey: 'weather',
+        displayName: 'Weather',
+        route: '/weather',
+        icon: Icons.wb_sunny_outlined,
+        displayOrder: 990,
+        bottomNavVisible: false,
+      ),
       for (final item in navItems)
         if (!excluded.contains(item.moduleKey)) item,
       if (!navItems.any((i) => i.moduleKey == 'profile'))

@@ -19,11 +19,16 @@ library farm_widget_registration_bootstrap;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:famhub_app/core/dashboard_engine/presentation/builders/widget_registry.dart';
+import 'package:famhub_app/core/router/route_names.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_live_providers.dart';
 import 'package:famhub_app/features/farm_management/domain/models/farm_dashboard_summary.dart';
 import 'package:famhub_app/features/farm_management/domain/models/activity_model.dart';
+import 'package:famhub_app/features/weather/application/providers/weather_location_provider.dart';
+import 'package:famhub_app/features/weather/presentation/widgets/weather_card.dart';
+import 'package:famhub_app/features/weather/presentation/widgets/weather_ui.dart';
 import 'package:famhub_app/shared/widgets/module_error_boundary.dart';
 import 'package:famhub_app/features/farm_management/presentation/widgets/farm_selector_widget.dart';
 import 'package:famhub_app/features/farm_management/presentation/widgets/quick_actions_widget.dart';
@@ -572,12 +577,21 @@ class _FarmLivestockWidget extends ConsumerWidget {
 // ════════════════════════════════════════════════════════════════
 // FARM WEATHER WIDGET
 // ════════════════════════════════════════════════════════════════
-class _FarmWeatherWidget extends StatelessWidget {
+///
+/// Live current conditions for the canonical location in use (the
+/// selected farm first, falling back to the user's profile location).
+/// Never renders fabricated readings — loading, error and unavailable
+/// states are shown instead.
+class _FarmWeatherWidget extends ConsumerWidget {
   const _FarmWeatherWidget();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final resolving = ref.watch(weatherLocationResolvingProvider);
+    final candidate = ref.watch(weatherLocationProvider);
+    final label = ref.watch(weatherLocationLabelProvider);
+
     return ModuleErrorBoundary(
       moduleKey: 'farm_weather',
       displayName: 'Weather',
@@ -586,21 +600,34 @@ class _FarmWeatherWidget extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Weather', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 12),
             Row(
               children: [
-                Icon(Icons.wb_sunny, size: 32, color: Colors.amber.shade600),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Sunny', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                    Text('25°C | Good farming conditions', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-                  ],
+                Text(
+                  'Weather',
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w600),
                 ),
+                const Spacer(),
+                if (!resolving && candidate != null)
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    onPressed: () => context.go(AppRoutes.weather),
+                    child: const Text('View'),
+                  ),
               ],
             ),
+            const SizedBox(height: 4),
+            if (resolving)
+              const WeatherSkeleton()
+            else
+              WeatherCard(
+                target: candidate?.target,
+                locationLabel: label,
+                onTap: () => context.go(AppRoutes.weather),
+              ),
           ],
         ),
       ),

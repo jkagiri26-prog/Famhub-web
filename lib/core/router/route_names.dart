@@ -141,6 +141,10 @@ class AppRoutes {
   static const aiAssistant = '/ai-assistant';
   static const aiAssistantName = 'aiAssistant';
 
+  /// Weather (shared platform capability, not a workspace module)
+  static const weather = '/weather';
+  static const weatherName = 'weather';
+
   /// 404 fallback
   static const notFound = '/404';
 }

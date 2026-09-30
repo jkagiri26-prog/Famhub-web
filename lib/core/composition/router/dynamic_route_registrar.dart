@@ -48,6 +48,7 @@ import 'package:famhub_app/features/notifications/presentation/pages/notificatio
 import 'package:famhub_app/features/settings/presentation/pages/runtime_settings_page.dart';
 import 'package:famhub_app/features/reports/presentation/pages/reports_center_page.dart';
 import 'package:famhub_app/features/ai_assistant/presentation/pages/ai_assistant_page.dart';
+import 'package:famhub_app/features/weather/presentation/pages/weather_page.dart';
 
 /// Page builder type for module page registration
 typedef ModulePageBuilder = Widget Function(BuildContext context);
@@ -173,6 +174,11 @@ class DynamicRouteRegistrar {
               path: AppRoutes.aiAssistant,
               name: AppRoutes.aiAssistantName,
               builder: (context, state) => const AIAssistantPage(),
+            ),
+            GoRoute(
+              path: AppRoutes.weather,
+              name: AppRoutes.weatherName,
+              builder: (context, state) => const WeatherPage(),
             ),
             GoRoute(
               path: AppRoutes.guest,

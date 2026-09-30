@@ -28,11 +28,15 @@ library famhub_app.features.guest.famhub_home_page;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import 'package:famhub_app/core/router/route_names.dart';
 import 'package:famhub_app/core/session/session_provider.dart';
 import 'package:famhub_app/core/theme/shell_theme_provider.dart';
 import 'package:famhub_app/shared/demo/demo_banner_widget.dart';
 import 'package:famhub_app/features/auth/presentation/widgets/split_screen_hero.dart';
+import 'package:famhub_app/features/weather/application/providers/weather_location_provider.dart';
+import 'package:famhub_app/features/weather/presentation/widgets/weather_card.dart';
 
 // Module page imports for direct navigation from FAMHUB Home
 import 'package:famhub_app/features/farm_management/presentation/pages/farm_management_page.dart';
@@ -345,6 +349,16 @@ class FamhubHomePage extends ConsumerWidget {
                     context, theme, colorScheme, isMobile, isAuthenticated),
 
                 // ════════════════════════════════════════════
+                // WEATHER BAND (authenticated only)
+                // Compact current-conditions summary; tapping opens
+                // the dedicated Weather page.
+                // ════════════════════════════════════════════
+                if (isAuthenticated)
+                  _buildWeatherSection(
+                    context, ref, theme, isMobile,
+                  ),
+
+                // ════════════════════════════════════════════
                 // SECTION 2: IMPACT NUMBERS (Count-up style)
                 // ════════════════════════════════════════════
                 _buildImpactSection(theme, colorScheme, isMobile, isTablet, size),
@@ -407,6 +421,61 @@ class FamhubHomePage extends ConsumerWidget {
     return Scaffold(
       backgroundColor: colorScheme.surface,
       body: SafeArea(child: body),
+    );
+  }
+
+  /// ── WEATHER BAND (authenticated only) ──
+  ///
+  /// Compact current conditions for the signed-in user's best canonical
+  /// location. Renders nothing while the session/profile is still
+  /// resolving or when no location can be derived.
+  Widget _buildWeatherSection(
+    BuildContext context,
+    WidgetRef ref,
+    ThemeData theme,
+    bool isMobile,
+  ) {
+    if (ref.watch(weatherLocationResolvingProvider)) {
+      return const SizedBox.shrink();
+    }
+
+    final candidate = ref.watch(weatherLocationProvider);
+    if (candidate == null) return const SizedBox.shrink();
+
+    final label = ref.watch(weatherLocationLabelProvider);
+    final horizontal = isMobile ? 16.0 : 24.0;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(horizontal, 16, horizontal, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'Weather',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              TextButton(
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+                onPressed: () => context.go(AppRoutes.weather),
+                child: const Text('View all'),
+              ),
+            ],
+          ),
+          WeatherCard(
+            target: candidate.target,
+            locationLabel: label,
+            onTap: () => context.go(AppRoutes.weather),
+          ),
+        ],
+      ),
     );
   }
 
