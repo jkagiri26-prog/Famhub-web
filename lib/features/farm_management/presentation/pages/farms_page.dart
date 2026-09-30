@@ -19,6 +19,8 @@ import 'package:famhub_app/features/farm_management/application/providers/livest
 
 import 'package:famhub_app/features/farm_management/presentation/pages/add_farm_page.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/add_field_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/add_crop_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/add_livestock_page.dart';
 import 'package:famhub_app/features/farm_management/presentation/widgets/workspace_tab_header.dart';
 
 /// My Farms tab — the Farm → Field → Crop/Livestock hierarchy workspace.
@@ -562,6 +564,50 @@ class _FieldAssetsSection extends ConsumerWidget {
                           onOpen: () => onOpenLivestock(l),
                         ))
                     .toList(),
+              ),
+              const SizedBox(height: 12),
+              // ── Add actions: the selected field is already in hierarchy,
+              // so Add Crop / Add Livestock read farm+field context ──
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const AddCropPage()),
+                      ),
+                      icon: const Icon(Icons.eco, size: 16),
+                      label: const Text('Add Crop'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.green.shade600,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const AddLivestockPage(),
+                        ),
+                      ),
+                      icon: const Icon(Icons.pets, size: 16),
+                      label: const Text('Add Livestock'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.orange.shade600,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ],
