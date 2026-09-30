@@ -115,7 +115,17 @@ class CommunityController extends Notifier<void> {
     if (profileId == null) {
       throw Exception('You must be signed in to join a community.');
     }
-    await _repo.joinCommunity(communityId: communityId, profileId: profileId);
+    // A previously-left membership may exist but be hidden from SELECT
+    // (the RLS read policy can omit non-active rows). Prefer updating that
+    // row back to `pending` via UPDATE; only insert a fresh active membership
+    // when no `left` row exists.
+    final rejoined = await _repo.rejoinCommunity(
+      communityId: communityId,
+      profileId: profileId,
+    );
+    if (!rejoined) {
+      await _repo.joinCommunity(communityId: communityId, profileId: profileId);
+    }
     _invalidate(communityId);
   }
 
@@ -126,13 +136,17 @@ class CommunityController extends Notifier<void> {
     _invalidate(communityId);
   }
 
-  Future<void> rejoinCommunity(String communityId) async {
+  Future<bool> rejoinCommunity(String communityId) async {
     final profileId = ref.read(agriConnectProfileIdProvider);
     if (profileId == null) {
       throw Exception('You must be signed in to rejoin a community.');
     }
-    await _repo.rejoinCommunity(communityId: communityId, profileId: profileId);
+    final rejoined = await _repo.rejoinCommunity(
+      communityId: communityId,
+      profileId: profileId,
+    );
     _invalidate(communityId);
+    return rejoined;
   }
 
   Future<void> requestToJoin(String communityId, {String? message}) async {

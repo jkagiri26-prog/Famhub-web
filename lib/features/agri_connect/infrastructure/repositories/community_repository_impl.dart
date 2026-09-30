@@ -121,7 +121,7 @@ class CommunityRepositoryImpl implements CommunityRepository {
   }
 
   @override
-  Future<void> rejoinCommunity({
+  Future<bool> rejoinCommunity({
     required String communityId,
     required String profileId,
   }) async {
@@ -129,9 +129,7 @@ class CommunityRepositoryImpl implements CommunityRepository {
       communityId: communityId,
       profileId: profileId,
     );
-    if (row == null) {
-      throw Exception('Could not rejoin: no matching left membership found.');
-    }
+    return row != null;
   }
 
   @override

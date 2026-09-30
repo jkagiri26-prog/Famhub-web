@@ -65,7 +65,8 @@ abstract class CommunityRepository {
   ///
   /// Updates the existing membership row (`left` → `pending`) by profile id.
   /// Never inserts or upserts — the backend policy only permits this UPDATE.
-  Future<void> rejoinCommunity({
+  /// Returns true when a `left` row was updated, false when none matched.
+  Future<bool> rejoinCommunity({
     required String communityId,
     required String profileId,
   });
