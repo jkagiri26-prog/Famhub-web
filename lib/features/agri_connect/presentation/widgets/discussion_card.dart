@@ -58,7 +58,7 @@ class DiscussionCard extends StatelessWidget {
                       Padding(
                         padding: const EdgeInsets.only(right: 8, top: 2),
                         child: Icon(
-                          Icons.push_pin,
+                          Icons.push_pin_rounded,
                           size: 16,
                           color: colorScheme.primary,
                         ),
@@ -66,25 +66,27 @@ class DiscussionCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         discussion.title,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          height: 1.35,
-                          letterSpacing: -0.2,
-                          color: colorScheme.onSurface,
-                        ) ?? TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          height: 1.35,
-                          color: colorScheme.onSurface,
-                        ),
+                        style:
+                            theme.textTheme.titleMedium?.copyWith(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              height: 1.35,
+                              letterSpacing: -0.2,
+                              color: colorScheme.onSurface,
+                            ) ??
+                            TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              height: 1.35,
+                              color: colorScheme.onSurface,
+                            ),
                       ),
                     ),
                     if (discussion.isLocked)
                       Padding(
                         padding: const EdgeInsets.only(left: 8, top: 2),
                         child: Icon(
-                          Icons.lock_outline,
+                          Icons.lock_outline_rounded,
                           size: 16,
                           color: colorScheme.outline,
                         ),
@@ -149,10 +151,7 @@ class DiscussionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: color.withValues(alpha: 0.20),
-          width: 0.8,
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.20), width: 0.8),
       ),
       child: Text(
         text,
@@ -178,11 +177,7 @@ class DiscussionCard extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 14,
-            color: colorScheme.onSurfaceVariant,
-          ),
+          Icon(icon, size: 14, color: colorScheme.onSurfaceVariant),
           const SizedBox(width: 5),
           Text(
             text,
