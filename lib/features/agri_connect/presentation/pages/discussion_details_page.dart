@@ -12,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/discussion.dart';
 import '../../domain/entities/post.dart';
+import '../../domain/enums/discussion_enums.dart';
 import '../../domain/enums/safety_enums.dart';
 import '../../application/providers/discussion_provider.dart';
 import '../../application/providers/agri_connect_providers.dart';
@@ -116,6 +117,7 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
       postsProvider((discussionId: discussion.id, parentId: null)),
     );
     final canModerate = _canModerate(discussion);
+    final cs = Theme.of(context).colorScheme;
 
     return Column(
       children: [
@@ -124,45 +126,105 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
             physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.all(16),
             children: [
-              _header(context, discussion, canModerate),
-              const SizedBox(height: 16),
-              postsAsync.when(
-                loading: () => const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: CircularProgressIndicator(),
+              // ── ONE CONTAINER: post + comments + replies ──
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: cs.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: cs.outlineVariant.withValues(alpha: 0.5),
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                error: (e, _) => Center(
-                  child: Text(
-                    'Could not load posts.',
-                    style: TextStyle(color: Colors.grey.shade600),
-                  ),
-                ),
-                data: (posts) {
-                  if (posts.isEmpty) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 24),
-                      child: Center(
-                        child: Text(
-                          discussion.isLocked
-                              ? 'This discussion is locked.'
-                              : 'No replies yet. Be the first to reply.',
-                          style: TextStyle(color: Colors.grey.shade600),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── The post ──
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: _header(context, discussion, canModerate),
+                    ),
+                    Divider(
+                      height: 1,
+                      indent: 16,
+                      endIndent: 16,
+                      color: cs.outlineVariant.withValues(alpha: 0.6),
+                    ),
+                    // ── Comments + replies ──
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+                      child: postsAsync.when(
+                        loading: () => const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(24),
+                            child: CircularProgressIndicator(),
+                          ),
                         ),
+                        error: (e, _) => Center(
+                          child: Text(
+                            'Could not load posts.',
+                            style: TextStyle(color: cs.outline),
+                          ),
+                        ),
+                        data: (posts) {
+                          if (posts.isEmpty) {
+                            return _noComments(discussion, cs);
+                          }
+                          final children = <Widget>[
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.mode_comment_outlined,
+                                    size: 14,
+                                    color: cs.tertiary,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Comments',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                      color: cs.onSurfaceVariant,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ];
+                          for (var i = 0; i < posts.length; i++) {
+                            if (i > 0) {
+                              children.add(
+                                Divider(
+                                  height: 14,
+                                  indent: 26,
+                                  endIndent: 4,
+                                  color: cs.outlineVariant.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                              );
+                            }
+                            children.add(_post(context, discussion, posts[i]));
+                          }
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: children,
+                          );
+                        },
                       ),
-                    );
-                  }
-                  return Column(
-                    children: [
-                      for (final post in posts)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _post(context, discussion, post),
-                        ),
-                    ],
-                  );
-                },
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -172,91 +234,105 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
     );
   }
 
+  Widget _noComments(Discussion discussion, ColorScheme cs) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Icon(
+            Icons.chat_bubble_outline,
+            size: 16,
+            color: cs.tertiary.withValues(alpha: 0.7),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              discussion.isLocked
+                  ? 'This discussion is locked.'
+                  : 'No comments yet. Be the first to reply.',
+              style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _header(
     BuildContext context,
     Discussion discussion,
     bool canModerate,
   ) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  discussion.title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.black87,
-                  ),
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                discussion.title,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: cs.onSurface,
+                  height: 1.3,
                 ),
               ),
-              if (discussion.isPinned)
-                Icon(Icons.push_pin, size: 18, color: Colors.grey.shade500),
-              if (discussion.isLocked)
-                Padding(
-                  padding: const EdgeInsets.only(left: 6),
-                  child: Icon(
-                    Icons.lock_outline,
-                    size: 18,
-                    color: Colors.grey.shade500,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 10,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              _tag(discussion.type.label),
-              _tag('${discussion.replyCount} replies'),
-              _tag('${discussion.viewCount} views'),
-              Text(
-                '${discussion.type.label} · ${agriTimeAgo(discussion.createdAt)}',
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+            ),
+            if (discussion.isPinned)
+              Icon(Icons.push_pin, size: 16, color: cs.primary),
+            if (discussion.isLocked)
+              Padding(
+                padding: const EdgeInsets.only(left: 6),
+                child: Icon(Icons.lock_outline, size: 16, color: cs.tertiary),
               ),
-            ],
-          ),
-          if (canModerate) ...[
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                TextButton.icon(
-                  onPressed: () => _togglePinned(discussion),
-                  icon: Icon(
-                    discussion.isPinned
-                        ? Icons.push_pin
-                        : Icons.push_pin_outlined,
-                    size: 16,
-                  ),
-                  label: Text(discussion.isPinned ? 'Unpin' : 'Pin'),
-                ),
-                const SizedBox(width: 8),
-                TextButton.icon(
-                  onPressed: () => _toggleLocked(discussion),
-                  icon: Icon(
-                    discussion.isLocked
-                        ? Icons.lock_open_outlined
-                        : Icons.lock_outline,
-                    size: 16,
-                  ),
-                  label: Text(discussion.isLocked ? 'Unlock' : 'Lock'),
-                ),
-              ],
+          ],
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _tag(discussion.type.label, _typeColor(discussion.type)),
+            _tag('${discussion.replyCount} replies', cs.primary),
+            _tag('${discussion.viewCount} views', cs.tertiary),
+            Text(
+              agriTimeAgo(discussion.createdAt),
+              style: TextStyle(fontSize: 11, color: cs.outline),
             ),
           ],
+        ),
+        if (canModerate) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              TextButton.icon(
+                onPressed: () => _togglePinned(discussion),
+                icon: Icon(
+                  discussion.isPinned
+                      ? Icons.push_pin
+                      : Icons.push_pin_outlined,
+                  size: 16,
+                ),
+                label: Text(discussion.isPinned ? 'Unpin' : 'Pin'),
+              ),
+              const SizedBox(width: 8),
+              TextButton.icon(
+                onPressed: () => _toggleLocked(discussion),
+                icon: Icon(
+                  discussion.isLocked
+                      ? Icons.lock_open_outlined
+                      : Icons.lock_outline,
+                  size: 16,
+                ),
+                label: Text(discussion.isLocked ? 'Unlock' : 'Lock'),
+              ),
+            ],
+          ),
         ],
-      ),
+      ],
     );
   }
 
@@ -293,19 +369,32 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
     }
   }
 
-  Widget _tag(String text) {
+  Color _typeColor(DiscussionType type) {
+    switch (type) {
+      case DiscussionType.question:
+        return const Color(0xFF1D61E7);
+      case DiscussionType.announcement:
+        return const Color(0xFFD97706);
+      case DiscussionType.poll:
+        return const Color(0xFF7C3AED);
+      default:
+        return const Color(0xFF15803D);
+    }
+  }
+
+  Widget _tag(String text, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         text,
         style: TextStyle(
           fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: Colors.grey.shade700,
+          fontWeight: FontWeight.w700,
+          color: color,
         ),
       ),
     );
@@ -315,12 +404,16 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
     final repliesAsync = ref.watch(
       postsProvider((discussionId: discussion.id, parentId: post.id)),
     );
+    final cs = Theme.of(context).colorScheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Comment — green accent.
         PostTile(
           post: post,
+          accent: cs.primary,
+          bodyColor: cs.onSurface,
           canReply: !discussion.isLocked,
           onReply: () => setState(() => _replyingTo = post.id),
           onReport: () => showAgriReportSheet(
@@ -335,34 +428,36 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
           error: (_, __) => const SizedBox.shrink(),
           data: (replies) {
             if (replies.isEmpty) return const SizedBox.shrink();
-            return Padding(
-              padding: const EdgeInsets.only(left: 20, top: 4),
-              child: Column(
-                children: [
-                  for (final reply in replies)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: PostTile(
-                        post: reply,
-                        canReply: false,
-                        onReport: () => showAgriReportSheet(
-                          context,
-                          ref,
-                          targetType: ReportTargetType.post,
-                          targetId: reply.id,
-                        ),
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Reply — indented under the comment, orange accent.
+                for (final reply in replies)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 34, top: 10),
+                    child: PostTile(
+                      post: reply,
+                      nested: true,
+                      accent: cs.tertiary,
+                      bodyColor: cs.onSurfaceVariant,
+                      onReport: () => showAgriReportSheet(
+                        context,
+                        ref,
+                        targetType: ReportTargetType.post,
+                        targetId: reply.id,
                       ),
                     ),
-                ],
-              ),
+                  ),
+              ],
             );
           },
         ),
         if (_replyingTo == post.id)
           Padding(
-            padding: const EdgeInsets.only(left: 20, top: 8),
+            padding: const EdgeInsets.only(left: 34, top: 8),
             child: _replyComposer(context, discussion, post.id),
           ),
+        const SizedBox(height: 6),
       ],
     );
   }
