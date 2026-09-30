@@ -10,8 +10,10 @@ import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
 import '../widgets/marketplace_filter_tabs_widget.dart';
 import '../widgets/listing_tile.dart';
 import '../../application/providers/marketplace_provider.dart';
+import '../../application/providers/market_prices_provider.dart';
 import '../../domain/entities/listing.dart';
 import 'stock_selection_page.dart';
+import 'market_prices_page.dart';
 
 class MarketplacePage extends ConsumerStatefulWidget {
   const MarketplacePage({super.key});
@@ -62,6 +64,11 @@ class _MarketplacePageState extends ConsumerState<MarketplacePage> {
               );
             },
           ),
+
+          const SizedBox(height: 12),
+
+          // ── Market Prices entry (gated by marketplace.market_prices) ──
+          _MarketPricesEntry(),
 
           const SizedBox(height: 12),
 
@@ -256,6 +263,72 @@ class _MarketplacePageState extends ConsumerState<MarketplacePage> {
           ...rows,
         ],
       ),
+    );
+  }
+}
+
+/// ============================================================
+/// MARKET PRICES ENTRY (gate + navigation)
+/// ============================================================
+///
+/// A compact entry point into Market Prices, rendered only when the
+/// `marketplace.market_prices` feature flag is enabled.
+/// ============================================================
+class _MarketPricesEntry extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final featureAsync = ref.watch(marketPricesFeatureEnabledProvider);
+
+    return featureAsync.maybeWhen(
+      data: (enabled) {
+        if (!enabled) return const SizedBox.shrink();
+        final theme = Theme.of(context);
+        return Material(
+          color: theme.colorScheme.primary.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const MarketPricesPage()),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  Icon(Icons.insights_outlined, color: theme.colorScheme.primary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Market Prices',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Verified market intelligence by county, ward and market',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.chevron_right, color: Colors.grey.shade500),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+      orElse: () => const SizedBox.shrink(),
     );
   }
 }
