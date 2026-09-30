@@ -43,7 +43,7 @@ jobs:
 
       # ── Production Build (skips pub if already fetched) ──
       - name: Build Web (WASM)
-        run: flutter build web --release --wasm --base-href / --source-maps=false --no-pub \
+        run: flutter build web --release --wasm --base-href / --source-maps=false --no-pub --no-tree-shake-icons \
           --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
           --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
       # ── Deploy to Cloudflare Pages ──

@@ -556,10 +556,9 @@ class _MembershipActionCardState extends ConsumerState<_MembershipActionCard>
         children: [
           MembershipBadge(role: membership.role, status: membership.status),
           const Spacer(),
-          if (membership.status == MemberStatus.left ||
-              membership.status == MemberStatus.rejected)
+          if (membership.status == MemberStatus.left)
             TextButton(
-              onPressed: _busy ? null : () => _join(context, false),
+              onPressed: _busy ? null : () => _rejoin(context),
               child: const Text('Join again'),
             ),
         ],
@@ -642,6 +641,22 @@ class _MembershipActionCardState extends ConsumerState<_MembershipActionCard>
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Could not leave community: $e')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _rejoin(BuildContext context) async {
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(communityControllerProvider.notifier)
+          .rejoinCommunity(widget.community.id);
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not rejoin community: $e')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

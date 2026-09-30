@@ -121,6 +121,20 @@ class CommunityRepositoryImpl implements CommunityRepository {
   }
 
   @override
+  Future<void> rejoinCommunity({
+    required String communityId,
+    required String profileId,
+  }) async {
+    final row = await _dataSource.rejoinCommunity(
+      communityId: communityId,
+      profileId: profileId,
+    );
+    if (row == null) {
+      throw Exception('Could not rejoin: no matching left membership found.');
+    }
+  }
+
+  @override
   Future<void> requestToJoin({
     required String communityId,
     required String profileId,

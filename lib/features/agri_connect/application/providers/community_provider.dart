@@ -126,6 +126,15 @@ class CommunityController extends Notifier<void> {
     _invalidate(communityId);
   }
 
+  Future<void> rejoinCommunity(String communityId) async {
+    final profileId = ref.read(agriConnectProfileIdProvider);
+    if (profileId == null) {
+      throw Exception('You must be signed in to rejoin a community.');
+    }
+    await _repo.rejoinCommunity(communityId: communityId, profileId: profileId);
+    _invalidate(communityId);
+  }
+
   Future<void> requestToJoin(String communityId, {String? message}) async {
     final profileId = ref.read(agriConnectProfileIdProvider);
     if (profileId == null) {

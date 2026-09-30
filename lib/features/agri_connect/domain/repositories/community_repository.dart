@@ -61,6 +61,15 @@ abstract class CommunityRepository {
     required String profileId,
   });
 
+  /// Rejoin a community the caller previously left.
+  ///
+  /// Updates the existing membership row (`left` → `pending`) by profile id.
+  /// Never inserts or upserts — the backend policy only permits this UPDATE.
+  Future<void> rejoinCommunity({
+    required String communityId,
+    required String profileId,
+  });
+
   // ── Join requests ──────────────────────────────────────────
   Future<void> requestToJoin({
     required String communityId,

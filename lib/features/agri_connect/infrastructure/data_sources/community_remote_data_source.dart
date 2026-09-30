@@ -217,6 +217,40 @@ class CommunityRemoteDataSource {
     }
   }
 
+  /// Rejoin a community the caller previously left.
+  ///
+  /// Updates the existing membership row (`left` → `pending`) by profile id —
+  /// never an INSERT/upsert. Returns the updated row, or null when no matching
+  /// `left` membership exists.
+  Future<Map<String, dynamic>?> rejoinCommunity({
+    required String communityId,
+    required String profileId,
+  }) async {
+    try {
+      return await _client
+          .schema(_schema)
+          .from('community_members')
+          .update({
+            'status': 'pending',
+            'role': 'member',
+            'joined_at': null,
+            'invited_by': null,
+            'approved_by': null,
+            'approved_at': null,
+            'requested_at': DateTime.now().toIso8601String(),
+          })
+          .eq('community_id', communityId)
+          .eq('profile_id', profileId)
+          .eq('status', 'left')
+          .select()
+          .maybeSingle();
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to rejoin community: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to rejoin community: $e');
+    }
+  }
+
   // ── Join requests ──────────────────────────────────────────
 
   Future<void> requestToJoin({
