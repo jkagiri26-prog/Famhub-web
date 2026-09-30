@@ -24,8 +24,13 @@ import '../widgets/membership_badge.dart';
 
 class CommunityMembersPage extends ConsumerStatefulWidget {
   final String communityId;
+  final bool embedded;
 
-  const CommunityMembersPage({super.key, required this.communityId});
+  const CommunityMembersPage({
+    super.key,
+    required this.communityId,
+    this.embedded = false,
+  });
 
   @override
   ConsumerState<CommunityMembersPage> createState() =>
@@ -53,13 +58,9 @@ class _CommunityMembersPageState extends ConsumerState<CommunityMembersPage> {
 
   @override
   Widget build(BuildContext context) {
-    final membersAsync = ref.watch(
-      communityMembersProvider(widget.communityId),
-    );
-    final myMembershipAsync = ref.watch(
-      myMembershipProvider(widget.communityId),
-    );
-    final canModerate = myMembershipAsync.value?.role.canModerate ?? false;
+    final content = _content(context);
+
+    if (widget.embedded) return content;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
@@ -69,38 +70,50 @@ class _CommunityMembersPageState extends ConsumerState<CommunityMembersPage> {
         foregroundColor: Colors.black87,
         elevation: 0,
       ),
-      body: membersAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => _retryView(),
-        data: (members) {
-          final items = <Widget>[];
-          if (canModerate) {
-            items.add(_joinRequestsSection());
-            if (members.isNotEmpty) items.add(const SizedBox(height: 20));
-          }
-          if (members.isEmpty) {
-            items.add(
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text('No members yet.'),
-                ),
-              ),
-            );
-          } else {
-            for (final member in members) {
-              items.add(_memberTile(context, member, canModerate));
-              items.add(const SizedBox(height: 8));
-            }
-          }
+      body: content,
+    );
+  }
 
-          return ListView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.all(16),
-            children: items,
+  Widget _content(BuildContext context) {
+    final membersAsync = ref.watch(
+      communityMembersProvider(widget.communityId),
+    );
+    final myMembershipAsync = ref.watch(
+      myMembershipProvider(widget.communityId),
+    );
+    final canModerate = myMembershipAsync.value?.role.canModerate ?? false;
+
+    return membersAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => _retryView(),
+      data: (members) {
+        final items = <Widget>[];
+        if (canModerate) {
+          items.add(_joinRequestsSection());
+          if (members.isNotEmpty) items.add(const SizedBox(height: 20));
+        }
+        if (members.isEmpty) {
+          items.add(
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('No members yet.'),
+              ),
+            ),
           );
-        },
-      ),
+        } else {
+          for (final member in members) {
+            items.add(_memberTile(context, member, canModerate));
+            items.add(const SizedBox(height: 8));
+          }
+        }
+
+        return ListView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          children: items,
+        );
+      },
     );
   }
 

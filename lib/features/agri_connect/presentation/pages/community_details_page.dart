@@ -1,5 +1,11 @@
 /// ============================================================
-/// AGRI CONNECT — COMMUNITY DETAILS PAGE
+/// AGRI CONNECT — COMMUNITY DETAILS PAGE (GROUP SHELL)
+/// ============================================================
+///
+/// Tabbed community shell: Home | Discussions | Chat | Members.
+/// Home is the group overview (about, announcements, discussions, rules,
+/// membership). Backend/RLS remains authoritative for membership and
+/// moderation — the UI only reflects backend state.
 /// ============================================================
 library;
 
@@ -8,6 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/community.dart';
 import '../../domain/entities/community_member.dart';
+import '../../domain/entities/conversation.dart';
 import '../../domain/enums/community_enums.dart';
 import '../../domain/enums/messaging_enums.dart';
 import '../../application/providers/community_provider.dart';
@@ -16,243 +23,262 @@ import '../../application/providers/announcement_provider.dart';
 import '../../application/providers/agri_connect_providers.dart';
 import '../../application/providers/messaging_provider.dart';
 import '../format.dart';
-import '../widgets/community_card.dart';
 import '../widgets/membership_badge.dart';
 import '../widgets/announcement_card.dart';
 import '../widgets/discussion_card.dart';
-import 'community_members_page.dart';
+import '../widgets/conversation_view.dart';
 import 'discussions_page.dart';
+import 'community_members_page.dart';
+import 'create_discussion_page.dart';
 import 'discussion_details_page.dart';
-import 'conversation_page.dart';
 
-class CommunityDetailsPage extends ConsumerStatefulWidget {
+class CommunityDetailsPage extends ConsumerWidget {
   final String communityId;
 
   const CommunityDetailsPage({super.key, required this.communityId});
 
   @override
-  ConsumerState<CommunityDetailsPage> createState() =>
-      _CommunityDetailsPageState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final communityAsync = ref.watch(communityDetailsProvider(communityId));
 
-class _CommunityDetailsPageState extends ConsumerState<CommunityDetailsPage> {
-  bool _busy = false;
-  bool _requested = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final communityAsync = ref.watch(
-      communityDetailsProvider(widget.communityId),
-    );
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        title: Text(communityAsync.value?.name ?? 'Community'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0,
-      ),
-      body: communityAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => _ErrorView(
-          onRetry: () =>
-              ref.invalidate(communityDetailsProvider(widget.communityId)),
+    return DefaultTabController(
+      length: 4,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8F9FA),
+        appBar: AppBar(
+          title: Text(communityAsync.value?.name ?? 'Community'),
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black87,
+          elevation: 0,
+          bottom: TabBar(
+            labelColor: Theme.of(context).colorScheme.primary,
+            unselectedLabelColor: Colors.grey.shade600,
+            indicatorColor: Theme.of(context).colorScheme.primary,
+            tabs: const [
+              Tab(text: 'Home'),
+              Tab(text: 'Discussions'),
+              Tab(text: 'Chat'),
+              Tab(text: 'Members'),
+            ],
+          ),
         ),
-        data: (community) {
-          if (community == null) {
-            return const Center(child: Text('Community not found.'));
-          }
-          return _content(context, community);
-        },
+        body: communityAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => _errorView(ref),
+          data: (community) {
+            if (community == null) {
+              return const Center(child: Text('Community not found.'));
+            }
+            return TabBarView(
+              children: [
+                _HomeTab(community: community),
+                DiscussionsPage(communityId: community.id, embedded: true),
+                _CommunityChatTab(community: community),
+                CommunityMembersPage(communityId: community.id, embedded: true),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _content(BuildContext context, Community community) {
-    final membershipAsync = ref.watch(myMembershipProvider(widget.communityId));
-    final rulesAsync = ref.watch(communityRulesProvider(widget.communityId));
-    final announcementsAsync = ref.watch(
-      announcementsProvider(widget.communityId),
+  Widget _errorView(WidgetRef ref) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Could not load community.'),
+          const SizedBox(height: 12),
+          OutlinedButton(
+            onPressed: () =>
+                ref.invalidate(communityDetailsProvider(communityId)),
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
     );
-    final discussionsAsync = ref.watch(discussionsProvider(widget.communityId));
+  }
+}
 
-    final membership = membershipAsync.value;
+/// ─────────────────────────────────────────────────────────────
+/// HOME TAB — community overview
+/// ─────────────────────────────────────────────────────────────
+class _HomeTab extends ConsumerWidget {
+  final Community community;
 
+  const _HomeTab({required this.community});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     return ListView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
-        CommunityCard(
-          community: community,
-          isMember: membership?.isActive ?? false,
-        ),
+        _headerCard(context, community),
+        const SizedBox(height: 12),
+        _MembershipActionCard(community: community),
         const SizedBox(height: 16),
-        _membershipActions(context, community, membership),
-        const SizedBox(height: 16),
-        _quickActions(context, community, membership),
+        _primaryActions(context),
         const SizedBox(height: 20),
         _sectionTitle('Announcements'),
         const SizedBox(height: 8),
-        _announcements(announcementsAsync),
+        _announcements(context, ref),
         const SizedBox(height: 20),
-        _sectionTitle('Rules'),
+        _sectionTitle('Recent discussions'),
         const SizedBox(height: 8),
-        _rules(rulesAsync, membership),
+        _discussions(context, ref),
         const SizedBox(height: 20),
-        _sectionTitle('Discussions'),
+        _sectionTitle('Community rules'),
         const SizedBox(height: 8),
-        _discussions(discussionsAsync, membership),
+        _rules(context, ref),
         const SizedBox(height: 24),
       ],
     );
   }
 
-  Widget _membershipActions(
-    BuildContext context,
-    Community community,
-    CommunityMember? membership,
-  ) {
-    final primary = Theme.of(context).colorScheme.primary;
-
-    if (membership == null) {
-      if (_requested) {
-        return _banner(
-          Icons.hourglass_top,
-          'Join request sent',
-          'Your request to join is pending review.',
-        );
-      }
-      final restricted = community.requiresMembership;
-      return SizedBox(
-        width: double.infinity,
-        height: 48,
-        child: FilledButton.icon(
-          onPressed: _busy ? null : () => _join(context, community, restricted),
-          style: FilledButton.styleFrom(
-            backgroundColor: primary,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+  Widget _headerCard(BuildContext context, Community community) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            community.name,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: Colors.black87,
             ),
           ),
-          icon: _busy
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
+          if (community.isVerified) ...[
+            const SizedBox(height: 2),
+            Row(
+              children: [
+                Icon(Icons.verified, size: 15, color: Colors.blue.shade600),
+                const SizedBox(width: 4),
+                Text(
+                  'Verified community',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.blue.shade600,
+                    fontWeight: FontWeight.w600,
                   ),
-                )
-              : Icon(
-                  restricted ? Icons.pending_outlined : Icons.group_add,
-                  size: 20,
                 ),
-          label: Text(restricted ? 'Request to Join' : 'Join Community'),
-        ),
-      );
-    }
-
-    if (!membership.isActive) {
-      return Row(
-        children: [
-          MembershipBadge(role: membership.role, status: membership.status),
-          const Spacer(),
-          if (membership.status == MemberStatus.left ||
-              membership.status == MemberStatus.rejected)
-            TextButton(
-              onPressed: _busy ? null : () => _join(context, community, false),
-              child: const Text('Join again'),
-            ),
-        ],
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            MembershipBadge(role: membership.role, status: membership.status),
-            const Spacer(),
-            OutlinedButton.icon(
-              onPressed: _busy ? null : () => _leave(context),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.red.shade600,
-                side: BorderSide(color: Colors.red.shade200),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              icon: const Icon(Icons.logout, size: 18),
-              label: const Text('Leave'),
+              ],
             ),
           ],
-        ),
-      ],
+          const SizedBox(height: 8),
+          Text(
+            community.description?.isNotEmpty == true
+                ? community.description!
+                : 'This community has no description yet.',
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.4,
+              color: community.description?.isNotEmpty == true
+                  ? Colors.grey.shade700
+                  : Colors.grey.shade500,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _chip(context, community.type.label),
+              _chip(context, community.visibility.label),
+              _chip(
+                context,
+                '${community.memberCount} '
+                '${community.memberCount == 1 ? 'member' : 'members'}',
+                icon: Icons.people_outline,
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _quickActions(
-    BuildContext context,
-    Community community,
-    CommunityMember? membership,
-  ) {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
+  Widget _primaryActions(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    final tabs = DefaultTabController.of(context);
+
+    return Row(
       children: [
-        _quickTile(
-          context,
-          Icons.forum_outlined,
-          'Discussions',
-          () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => DiscussionsPage(communityId: community.id),
+        Expanded(
+          child: _actionButton(
+            context,
+            primary,
+            Icons.add_comment_outlined,
+            'Start a discussion',
+            () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => CreateDiscussionPage(communityId: community.id),
+              ),
             ),
           ),
         ),
-        _quickTile(
-          context,
-          Icons.people_outline,
-          'Members',
-          () => _openMembers(context),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _actionButton(
+            context,
+            primary,
+            Icons.chat_bubble_outline,
+            'Community chat',
+            () => tabs.animateTo(2),
+          ),
         ),
-        _quickTile(
-          context,
-          Icons.chat_bubble_outline,
-          'Community Chat',
-          () => _openCommunityChat(context, community),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _actionButton(
+            context,
+            primary,
+            Icons.people_outline,
+            'Members',
+            () => tabs.animateTo(3),
+          ),
         ),
       ],
     );
   }
 
-  Widget _quickTile(
+  Widget _actionButton(
     BuildContext context,
+    Color color,
     IconData icon,
     String label,
     VoidCallback onTap,
   ) {
-    final primary = Theme.of(context).colorScheme.primary;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        width: 150,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.grey.shade200),
         ),
-        child: Row(
+        child: Column(
           children: [
-            Icon(icon, size: 20, color: primary),
-            const SizedBox(width: 8),
+            Icon(icon, color: color, size: 22),
+            const SizedBox(height: 6),
             Text(
               label,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
             ),
           ],
         ),
@@ -260,107 +286,17 @@ class _CommunityDetailsPageState extends ConsumerState<CommunityDetailsPage> {
     );
   }
 
-  Future<void> _openCommunityChat(
-    BuildContext context,
-    Community community,
-  ) async {
-    setState(() => _busy = true);
-    try {
-      final conversation = await ref
-          .read(messagingControllerProvider.notifier)
-          .createConversation(
-            type: ConversationType.community,
-            title: community.name,
-            communityId: community.id,
-          );
-      if (!context.mounted) return;
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => ConversationPage(conversationId: conversation.id),
-        ),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Could not open chat: $e')));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  void _openMembers(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => CommunityMembersPage(communityId: widget.communityId),
-      ),
-    );
-  }
-
-  Future<void> _join(
-    BuildContext context,
-    Community community,
-    bool restricted,
-  ) async {
-    setState(() => _busy = true);
-    try {
-      final controller = ref.read(communityControllerProvider.notifier);
-      if (restricted) {
-        await controller.requestToJoin(community.id);
-        setState(() => _requested = true);
-      } else {
-        await controller.joinCommunity(community.id);
-      }
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Could not join community: $e')));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _leave(BuildContext context) async {
-    setState(() => _busy = true);
-    try {
-      await ref
-          .read(communityControllerProvider.notifier)
-          .leaveCommunity(widget.communityId);
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Could not leave community: $e')));
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Widget _sectionTitle(String title) {
-    return Text(
-      title,
-      style: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w800,
-        color: Colors.grey.shade800,
-      ),
-    );
-  }
-
-  Widget _announcements(announcementsAsync) {
-    return announcementsAsync.when(
+  Widget _announcements(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(announcementsProvider(community.id));
+    return async.when(
       loading: () => const SizedBox(
         height: 40,
         child: Center(child: CircularProgressIndicator()),
       ),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (_, __) => _inlineError('Could not load announcements.'),
       data: (list) {
         if (list.isEmpty) {
-          return Text(
-            'No announcements.',
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
-          );
+          return _emptyHint('No announcements yet.');
         }
         return Column(
           children: [
@@ -375,19 +311,57 @@ class _CommunityDetailsPageState extends ConsumerState<CommunityDetailsPage> {
     );
   }
 
-  Widget _rules(rulesAsync, CommunityMember? membership) {
-    return rulesAsync.when(
+  Widget _discussions(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(discussionsProvider(community.id));
+    return async.when(
       loading: () => const SizedBox(
         height: 40,
         child: Center(child: CircularProgressIndicator()),
       ),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (_, __) => _inlineError('Could not load discussions.'),
+      data: (list) {
+        if (list.isEmpty) {
+          return _emptyHint(
+            'No discussions yet',
+            actionLabel: 'Start a discussion',
+            onAction: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => CreateDiscussionPage(communityId: community.id),
+              ),
+            ),
+          );
+        }
+        return Column(
+          children: [
+            for (final d in list.take(3))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: DiscussionCard(
+                  discussion: d,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => DiscussionDetailsPage(discussionId: d.id),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _rules(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(communityRulesProvider(community.id));
+    return async.when(
+      loading: () => const SizedBox(
+        height: 40,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, __) => _inlineError('Could not load rules.'),
       data: (rules) {
         if (rules.isEmpty) {
-          return Text(
-            'No rules yet.',
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
-          );
+          return _emptyHint('No community rules yet.');
         }
         return Column(
           children: [
@@ -422,38 +396,255 @@ class _CommunityDetailsPageState extends ConsumerState<CommunityDetailsPage> {
     );
   }
 
-  Widget _discussions(discussionsAsync, CommunityMember? membership) {
-    return discussionsAsync.when(
-      loading: () => const SizedBox(
-        height: 40,
-        child: Center(child: CircularProgressIndicator()),
+  Widget _chip(BuildContext context, String text, {IconData? icon}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(8),
       ),
-      error: (_, __) => const SizedBox.shrink(),
-      data: (discussions) {
-        if (discussions.isEmpty) {
-          return Text(
-            'No discussions in this community.',
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
-          );
-        }
-        return Column(
-          children: [
-            for (final d in discussions.take(3))
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: DiscussionCard(
-                  discussion: d,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => DiscussionDetailsPage(discussionId: d.id),
-                    ),
-                  ),
-                ),
-              ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 12, color: Colors.grey.shade600),
+            const SizedBox(width: 4),
           ],
-        );
-      },
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade700,
+            ),
+          ),
+        ],
+      ),
     );
+  }
+
+  Widget _sectionTitle(String title) {
+    return Text(
+      title,
+      style: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w800,
+        color: Colors.grey.shade800,
+      ),
+    );
+  }
+
+  Widget _emptyHint(
+    String text, {
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            text,
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+          ),
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: onAction,
+              icon: const Icon(Icons.add, size: 16),
+              label: Text(actionLabel),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _inlineError(String message) {
+    return Text(
+      message,
+      style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+    );
+  }
+}
+
+/// ─────────────────────────────────────────────────────────────
+/// MEMBERSHIP ACTION CARD
+/// ─────────────────────────────────────────────────────────────
+class _MembershipActionCard extends ConsumerStatefulWidget {
+  final Community community;
+
+  const _MembershipActionCard({required this.community});
+
+  @override
+  ConsumerState<_MembershipActionCard> createState() =>
+      _MembershipActionCardState();
+}
+
+class _MembershipActionCardState extends ConsumerState<_MembershipActionCard>
+    with AutomaticKeepAliveClientMixin {
+  bool _busy = false;
+  bool _requested = false;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final membershipAsync = ref.watch(
+      myMembershipProvider(widget.community.id),
+    );
+    final membership = membershipAsync.value;
+
+    if (membershipAsync.isLoading) {
+      return const SizedBox(
+        height: 48,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final primary = Theme.of(context).colorScheme.primary;
+
+    if (membership == null) {
+      if (_requested) {
+        return _banner(
+          Icons.hourglass_top,
+          'Join request sent',
+          'Your request to join is pending review.',
+        );
+      }
+      final restricted = widget.community.requiresMembership;
+      return SizedBox(
+        width: double.infinity,
+        height: 48,
+        child: FilledButton.icon(
+          onPressed: _busy ? null : () => _join(context, restricted),
+          style: FilledButton.styleFrom(
+            backgroundColor: primary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          icon: _busy
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Icon(
+                  restricted ? Icons.pending_outlined : Icons.group_add,
+                  size: 20,
+                ),
+          label: Text(restricted ? 'Request to Join' : 'Join Community'),
+        ),
+      );
+    }
+
+    if (!membership.isActive) {
+      return Row(
+        children: [
+          MembershipBadge(role: membership.role, status: membership.status),
+          const Spacer(),
+          if (membership.status == MemberStatus.left ||
+              membership.status == MemberStatus.rejected)
+            TextButton(
+              onPressed: _busy ? null : () => _join(context, false),
+              child: const Text('Join again'),
+            ),
+        ],
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle, color: Colors.green.shade600, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'You are a member',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.green.shade700,
+              ),
+            ),
+          ),
+          MembershipBadge(
+            role: membership.role,
+            status: membership.status,
+            compact: true,
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton(
+            onPressed: _busy ? null : () => _leave(context),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.red.shade600,
+              side: BorderSide(color: Colors.red.shade200),
+              visualDensity: VisualDensity.compact,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text('Leave'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _join(BuildContext context, bool restricted) async {
+    setState(() => _busy = true);
+    try {
+      final controller = ref.read(communityControllerProvider.notifier);
+      if (restricted) {
+        await controller.requestToJoin(widget.community.id);
+        setState(() => _requested = true);
+      } else {
+        await controller.joinCommunity(widget.community.id);
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not join community: $e')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _leave(BuildContext context) async {
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(communityControllerProvider.notifier)
+          .leaveCommunity(widget.community.id);
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not leave community: $e')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Widget _banner(IconData icon, String title, String subtitle) {
@@ -493,20 +684,133 @@ class _CommunityDetailsPageState extends ConsumerState<CommunityDetailsPage> {
   }
 }
 
-class _ErrorView extends StatelessWidget {
-  final VoidCallback onRetry;
-  const _ErrorView({required this.onRetry});
+/// ─────────────────────────────────────────────────────────────
+/// CHAT TAB — community conversation
+/// ─────────────────────────────────────────────────────────────
+class _CommunityChatTab extends ConsumerStatefulWidget {
+  final Community community;
+
+  const _CommunityChatTab({required this.community});
+
+  @override
+  ConsumerState<_CommunityChatTab> createState() => _CommunityChatTabState();
+}
+
+class _CommunityChatTabState extends ConsumerState<_CommunityChatTab>
+    with AutomaticKeepAliveClientMixin {
+  bool _starting = false;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+
+    final membership = ref
+        .watch(myMembershipProvider(widget.community.id))
+        .value;
+
+    // Community chat requires an active membership — enforced by the backend.
+    if (membership == null || !membership.isActive) {
+      return _chatEmpty(
+        'Join this community to chat with members.',
+        icon: Icons.lock_outline,
+        showStart: false,
+      );
+    }
+
+    final conversationsAsync = ref.watch(conversationsProvider);
+    final conversations = conversationsAsync.value ?? const [];
+
+    Conversation? communityConversation;
+    for (final c in conversations) {
+      if (c.type == ConversationType.community &&
+          c.communityId == widget.community.id) {
+        communityConversation = c;
+        break;
+      }
+    }
+
+    if (conversationsAsync.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (communityConversation == null) {
+      return _chatEmpty(
+        'Quick conversations with members of this community.',
+        icon: Icons.forum_outlined,
+        showStart: true,
+      );
+    }
+
+    return ConversationView(conversationId: communityConversation.id);
+  }
+
+  Future<void> _startChat() async {
+    setState(() => _starting = true);
+    try {
+      await ref
+          .read(messagingControllerProvider.notifier)
+          .createConversation(
+            type: ConversationType.community,
+            title: widget.community.name,
+            communityId: widget.community.id,
+          );
+      // conversationsProvider is invalidated by the controller; the tab will
+      // rebuild and render the new conversation.
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not start chat: $e')));
+    } finally {
+      if (mounted) setState(() => _starting = false);
+    }
+  }
+
+  Widget _chatEmpty(
+    String subtitle, {
+    required IconData icon,
+    required bool showStart,
+  }) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('Could not load community.'),
-          const SizedBox(height: 12),
-          OutlinedButton(onPressed: onRetry, child: const Text('Retry')),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 44, color: Colors.grey.shade400),
+            const SizedBox(height: 12),
+            const Text(
+              'Community Chat',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            if (showStart) ...[
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: _starting ? null : _startChat,
+                icon: _starting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.chat_bubble_outline, size: 18),
+                label: const Text('Start community chat'),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
