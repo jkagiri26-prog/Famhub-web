@@ -88,7 +88,7 @@ class DiscussionCard extends StatelessWidget {
                         child: Icon(
                           Icons.lock_outline_rounded,
                           size: 16,
-                          color: colorScheme.outline,
+                          color: colorScheme.tertiary,
                         ),
                       ),
                   ],
@@ -112,15 +112,15 @@ class DiscussionCard extends StatelessWidget {
                 Row(
                   children: [
                     _metric(
-                      context,
                       Icons.chat_bubble_outline_rounded,
                       '${discussion.replyCount}',
+                      colorScheme.primary,
                     ),
                     const SizedBox(width: 12),
                     _metric(
-                      context,
                       Icons.remove_red_eye_outlined,
                       '${discussion.viewCount}',
+                      colorScheme.tertiary,
                     ),
                   ],
                 ),
@@ -165,26 +165,24 @@ class DiscussionCard extends StatelessWidget {
     );
   }
 
-  Widget _metric(BuildContext context, IconData icon, String text) {
-    final colorScheme = Theme.of(context).colorScheme;
-
+  Widget _metric(IconData icon, String text, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow.withValues(alpha: 0.6),
+        color: color.withValues(alpha: 0.09),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: colorScheme.onSurfaceVariant),
+          Icon(icon, size: 14, color: color),
           const SizedBox(width: 5),
           Text(
             text,
             style: TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+              color: color,
             ),
           ),
         ],

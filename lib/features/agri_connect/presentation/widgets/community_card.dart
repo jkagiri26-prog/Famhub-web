@@ -47,12 +47,16 @@ class CommunityCard extends StatelessWidget {
                     width: 46,
                     height: 46,
                     decoration: BoxDecoration(
-                      color: primary.withValues(alpha: 0.10),
+                      gradient: LinearGradient(
+                        colors: [primary, primary.withValues(alpha: 0.7)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.groups_outlined,
-                      color: primary,
+                      color: Colors.white,
                       size: 24,
                     ),
                   ),
@@ -127,12 +131,23 @@ class CommunityCard extends StatelessWidget {
                 spacing: 6,
                 runSpacing: 6,
                 children: [
-                  _chip(context, community.type.label),
-                  _chip(context, community.visibility.label),
+                  _chip(
+                    context,
+                    community.type.label,
+                    color: theme.colorScheme.primary,
+                    icon: Icons.category_outlined,
+                  ),
+                  _chip(
+                    context,
+                    community.visibility.label,
+                    color: theme.colorScheme.tertiary,
+                    icon: Icons.visibility_outlined,
+                  ),
                   _chip(
                     context,
                     '${community.memberCount} '
                     '${community.memberCount == 1 ? 'member' : 'members'}',
+                    color: theme.colorScheme.primary,
                     icon: Icons.people_outline,
                   ),
                 ],
@@ -144,26 +159,31 @@ class CommunityCard extends StatelessWidget {
     );
   }
 
-  Widget _chip(BuildContext context, String text, {IconData? icon}) {
+  Widget _chip(
+    BuildContext context,
+    String text, {
+    IconData? icon,
+    required Color color,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 12, color: Colors.grey.shade600),
+            Icon(icon, size: 12, color: color),
             const SizedBox(width: 4),
           ],
           Text(
             text,
             style: TextStyle(
               fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey.shade700,
+              fontWeight: FontWeight.w700,
+              color: color,
             ),
           ),
         ],

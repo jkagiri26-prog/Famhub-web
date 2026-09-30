@@ -111,6 +111,7 @@ class _HomeTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
     return ListView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(16),
@@ -121,15 +122,19 @@ class _HomeTab extends ConsumerWidget {
         const SizedBox(height: 16),
         _primaryActions(context),
         const SizedBox(height: 20),
-        _sectionTitle('Announcements'),
+        _sectionTitle(Icons.campaign_outlined, cs.tertiary, 'Announcements'),
         const SizedBox(height: 8),
         _announcements(context, ref),
         const SizedBox(height: 20),
-        _sectionTitle('Recent discussions'),
+        _sectionTitle(Icons.forum_outlined, cs.primary, 'Recent discussions'),
         const SizedBox(height: 8),
         _discussions(context, ref),
         const SizedBox(height: 20),
-        _sectionTitle('Community rules'),
+        _sectionTitle(
+          Icons.gavel_outlined,
+          Colors.blue.shade600,
+          'Community rules',
+        ),
         const SizedBox(height: 8),
         _rules(context, ref),
         const SizedBox(height: 24),
@@ -138,43 +143,74 @@ class _HomeTab extends ConsumerWidget {
   }
 
   Widget _headerCard(BuildContext context, Community community) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.6)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            community.name,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: Colors.black87,
-            ),
-          ),
-          if (community.isVerified) ...[
-            const SizedBox(height: 2),
-            Row(
-              children: [
-                Icon(Icons.verified, size: 15, color: Colors.blue.shade600),
-                const SizedBox(width: 4),
-                Text(
-                  'Verified community',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.blue.shade600,
-                    fontWeight: FontWeight.w600,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [cs.primary, cs.primary.withValues(alpha: 0.75)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-              ],
-            ),
-          ],
-          const SizedBox(height: 8),
+                child: Icon(Icons.groups, color: cs.onPrimary, size: 26),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      community.name,
+                      style: TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                    if (community.isVerified) ...[
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.verified,
+                            size: 15,
+                            color: Colors.blue.shade600,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Verified community',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.blue.shade600,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           Text(
             community.description?.isNotEmpty == true
                 ? community.description!
@@ -183,8 +219,8 @@ class _HomeTab extends ConsumerWidget {
               fontSize: 13,
               height: 1.4,
               color: community.description?.isNotEmpty == true
-                  ? Colors.grey.shade700
-                  : Colors.grey.shade500,
+                  ? cs.onSurfaceVariant
+                  : cs.outline,
             ),
           ),
           const SizedBox(height: 12),
@@ -192,12 +228,23 @@ class _HomeTab extends ConsumerWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _chip(context, community.type.label),
-              _chip(context, community.visibility.label),
+              _chip(
+                context,
+                community.type.label,
+                color: cs.primary,
+                icon: Icons.category_outlined,
+              ),
+              _chip(
+                context,
+                community.visibility.label,
+                color: cs.tertiary,
+                icon: Icons.visibility_outlined,
+              ),
               _chip(
                 context,
                 '${community.memberCount} '
                 '${community.memberCount == 1 ? 'member' : 'members'}',
+                color: cs.primary,
                 icon: Icons.people_outline,
               ),
             ],
@@ -208,7 +255,7 @@ class _HomeTab extends ConsumerWidget {
   }
 
   Widget _primaryActions(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
+    final cs = Theme.of(context).colorScheme;
     final tabs = DefaultTabController.of(context);
 
     return Row(
@@ -216,7 +263,7 @@ class _HomeTab extends ConsumerWidget {
         Expanded(
           child: _actionButton(
             context,
-            primary,
+            cs.primary,
             Icons.add_comment_outlined,
             'Start a discussion',
             () => Navigator.of(context).push(
@@ -230,7 +277,7 @@ class _HomeTab extends ConsumerWidget {
         Expanded(
           child: _actionButton(
             context,
-            primary,
+            cs.tertiary,
             Icons.chat_bubble_outline,
             'Community chat',
             () => tabs.animateTo(2),
@@ -240,7 +287,7 @@ class _HomeTab extends ConsumerWidget {
         Expanded(
           child: _actionButton(
             context,
-            primary,
+            Colors.blue.shade600,
             Icons.people_outline,
             'Members',
             () => tabs.animateTo(3),
@@ -263,9 +310,9 @@ class _HomeTab extends ConsumerWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200),
+          border: Border.all(color: color.withValues(alpha: 0.22)),
         ),
         child: Column(
           children: [
@@ -296,7 +343,7 @@ class _HomeTab extends ConsumerWidget {
       error: (_, __) => _inlineError('Could not load announcements.'),
       data: (list) {
         if (list.isEmpty) {
-          return _emptyHint('No announcements yet.');
+          return _emptyHint(context, 'No announcements yet.');
         }
         return Column(
           children: [
@@ -322,6 +369,7 @@ class _HomeTab extends ConsumerWidget {
       data: (list) {
         if (list.isEmpty) {
           return _emptyHint(
+            context,
             'No discussions yet',
             actionLabel: 'Start a discussion',
             onAction: () => Navigator.of(context).push(
@@ -361,7 +409,7 @@ class _HomeTab extends ConsumerWidget {
       error: (_, __) => _inlineError('Could not load rules.'),
       data: (rules) {
         if (rules.isEmpty) {
-          return _emptyHint('No community rules yet.');
+          return _emptyHint(context, 'No community rules yet.');
         }
         return Column(
           children: [
@@ -396,26 +444,31 @@ class _HomeTab extends ConsumerWidget {
     );
   }
 
-  Widget _chip(BuildContext context, String text, {IconData? icon}) {
+  Widget _chip(
+    BuildContext context,
+    String text, {
+    IconData? icon,
+    required Color color,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 12, color: Colors.grey.shade600),
+            Icon(icon, size: 12, color: color),
             const SizedBox(width: 4),
           ],
           Text(
             text,
             style: TextStyle(
               fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey.shade700,
+              fontWeight: FontWeight.w700,
+              color: color,
             ),
           ),
         ],
@@ -423,45 +476,62 @@ class _HomeTab extends ConsumerWidget {
     );
   }
 
-  Widget _sectionTitle(String title) {
-    return Text(
-      title,
-      style: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w800,
-        color: Colors.grey.shade800,
-      ),
+  Widget _sectionTitle(IconData icon, Color color, String title) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 6),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: Colors.grey.shade800,
+          ),
+        ),
+      ],
     );
   }
 
   Widget _emptyHint(
+    BuildContext context,
     String text, {
     String? actionLabel,
     VoidCallback? onAction,
   }) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: cs.primary.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.18)),
       ),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            text,
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-          ),
-          if (actionLabel != null && onAction != null) ...[
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: onAction,
-              icon: const Icon(Icons.add, size: 16),
-              label: Text(actionLabel),
+          Icon(Icons.lightbulb_outline, size: 16, color: cs.tertiary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  text,
+                  style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                ),
+                if (actionLabel != null && onAction != null) ...[
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: onAction,
+                    icon: const Icon(Icons.add, size: 16),
+                    label: Text(actionLabel),
+                  ),
+                ],
+              ],
             ),
-          ],
+          ),
         ],
       ),
     );
@@ -557,9 +627,17 @@ class _MembershipActionCardState extends ConsumerState<_MembershipActionCard>
           MembershipBadge(role: membership.role, status: membership.status),
           const Spacer(),
           if (membership.status == MemberStatus.left)
-            TextButton(
+            TextButton.icon(
               onPressed: _busy ? null : () => _rejoin(context),
-              child: const Text('Join again'),
+              style: TextButton.styleFrom(
+                foregroundColor: primary,
+                backgroundColor: primary.withValues(alpha: 0.10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              icon: const Icon(Icons.group_add_outlined, size: 18),
+              label: const Text('Join again'),
             ),
         ],
       );
@@ -569,9 +647,9 @@ class _MembershipActionCardState extends ConsumerState<_MembershipActionCard>
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: primary.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: primary.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
@@ -800,7 +878,13 @@ class _CommunityChatTabState extends ConsumerState<_CommunityChatTab>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 44, color: Colors.grey.shade400),
+            Icon(
+              icon,
+              size: 44,
+              color: Theme.of(
+                context,
+              ).colorScheme.tertiary.withValues(alpha: 0.7),
+            ),
             const SizedBox(height: 12),
             const Text(
               'Community Chat',
