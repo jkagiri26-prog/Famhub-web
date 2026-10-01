@@ -17,9 +17,12 @@
 /// ============================================================
 library;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import 'package:famhub_app/core/router/route_names.dart';
 import 'package:famhub_app/shared/layouts/shell_page_content.dart';
 import 'package:famhub_app/core/composition/contributions/contribution_models.dart';
 import 'package:famhub_app/core/composition/contributions/runtime_contribution_engine.dart';
@@ -52,6 +55,13 @@ class AIAssistantPage extends ConsumerWidget {
           onPressed: () {},
           tooltip: 'History',
         ),
+        // Phase 2D — temporary developer-only gateway connectivity probe.
+        if (kDebugMode)
+          IconButton(
+            icon: Icon(Icons.bolt_outlined, color: Colors.grey.shade600),
+            onPressed: () => context.push(AppRoutes.devAiGatewayTest),
+            tooltip: 'AI Gateway Test (dev)',
+          ),
       ],
       child: providersAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),

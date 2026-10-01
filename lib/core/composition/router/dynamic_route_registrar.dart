@@ -8,6 +8,7 @@
 /// ============================================================
 library;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -49,6 +50,7 @@ import 'package:famhub_app/features/settings/presentation/pages/runtime_settings
 import 'package:famhub_app/features/reports/presentation/pages/reports_center_page.dart';
 import 'package:famhub_app/features/ai_assistant/presentation/pages/ai_assistant_page.dart';
 import 'package:famhub_app/features/weather/presentation/pages/weather_page.dart';
+import 'package:famhub_app/features/ai_assistant/presentation/pages/dev_ai_gateway_test_page.dart';
 
 /// Page builder type for module page registration
 typedef ModulePageBuilder = Widget Function(BuildContext context);
@@ -180,6 +182,13 @@ class DynamicRouteRegistrar {
               name: AppRoutes.weatherName,
               builder: (context, state) => const WeatherPage(),
             ),
+            // ── Developer-only (debug builds) ──
+            if (kDebugMode)
+              GoRoute(
+                path: AppRoutes.devAiGatewayTest,
+                name: AppRoutes.devAiGatewayTestName,
+                builder: (context, state) => const DevAiGatewayTestPage(),
+              ),
             GoRoute(
               path: AppRoutes.guest,
               name: AppRoutes.guestName,
