@@ -15,6 +15,8 @@ import '../widgets/logistics_actions_section_widget.dart';
 import '../widgets/logistics_shipments_section_widget.dart';
 import '../widgets/logistics_tracking_section_widget.dart';
 import '../widgets/logistics_transport_section_widget.dart';
+import 'logistics_shipments_page.dart';
+import 'logistics_tracking_page.dart';
 
 /// ============================================================
 /// LOGISTICS PAGE — module entry / dashboard
@@ -30,7 +32,9 @@ import '../widgets/logistics_transport_section_widget.dart';
 /// - Loading / empty / error / permission states are always rendered
 ///
 /// GPS is NOT collected here. The Tracking section only surfaces
-/// backend tracking-session metadata; capture arrives in a later piece.
+/// backend tracking-session metadata and links into the tracking
+/// experience; device capture lives in the shipment detail page and is
+/// only started by an explicit driver action.
 /// ============================================================
 class LogisticsPage extends ConsumerStatefulWidget {
   const LogisticsPage({super.key});
@@ -42,28 +46,16 @@ class LogisticsPage extends ConsumerStatefulWidget {
 class _LogisticsPageState extends ConsumerState<LogisticsPage> {
   final GlobalKey _trackingKey = GlobalKey();
 
+  void _openShipments() {
+    Navigator.of(context).push(LogisticsShipmentsPage.route());
+  }
+
+  void _openTracking() {
+    Navigator.of(context).push(LogisticsTrackingPage.route());
+  }
+
   void _refresh() {
     ref.invalidate(logisticsDashboardProvider);
-  }
-
-  void _trackShipment() {
-    final context = _trackingKey.currentContext;
-    if (context == null) return;
-    Scrollable.ensureVisible(
-      context,
-      duration: const Duration(milliseconds: 350),
-      curve: Curves.easeOut,
-    );
-  }
-
-  void _bookTransport() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Transport booking opens in a later release.'),
-        behavior: SnackBarBehavior.floating,
-        duration: Duration(seconds: 2),
-      ),
-    );
   }
 
   @override
@@ -165,8 +157,9 @@ class _LogisticsPageState extends ConsumerState<LogisticsPage> {
 
             /// ACTIONS (permission-gated)
             LogisticsActionsSectionWidget(
-              onBookTransport: _bookTransport,
-              onTrackShipment: _trackShipment,
+              onViewShipments: _openShipments,
+              onAssignTransport: _openShipments,
+              onViewTracking: _openTracking,
             ),
           ],
         ),

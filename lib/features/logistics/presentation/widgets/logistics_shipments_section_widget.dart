@@ -7,6 +7,8 @@ import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
 
 import '../../domain/models/logistics_dashboard_models.dart';
 import '../logistics_display_utils.dart';
+import '../pages/logistics_shipment_detail_page.dart';
+import '../pages/logistics_shipments_page.dart';
 import 'logistics_active_shipment_card_widget.dart';
 
 /// Shipments section: active + recent, both already bounded by the
@@ -50,8 +52,20 @@ class LogisticsShipmentsSectionWidget extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeaderWidget(title: 'Shipments'),
-        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const SectionHeaderWidget(title: 'Shipments'),
+            TextButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                LogisticsShipmentsPage.route(),
+              ),
+              icon: const Icon(Icons.list_alt_outlined, size: 16),
+              label: const Text('View all'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
 
         if (active.isNotEmpty) ...[
           Text(
@@ -62,7 +76,7 @@ class LogisticsShipmentsSectionWidget extends StatelessWidget {
           AdaptiveContentGrid(
             items: [
               for (final shipment in active)
-                LogisticsActiveShipmentCardWidget(shipment: shipment),
+                _ActiveShipmentTile(shipment: shipment),
             ],
             mobileColumns: 1,
             tabletColumns: 2,
@@ -81,6 +95,9 @@ class LogisticsShipmentsSectionWidget extends StatelessWidget {
               value: shipment.trackingNumber?.isNotEmpty == true
                   ? shipment.trackingNumber!
                   : '#${logisticsShortId(shipment.id)}',
+              onTap: () => Navigator.of(context).push(
+                LogisticsShipmentDetailPage.route(shipmentId: shipment.id),
+              ),
             ),
         ],
 
@@ -106,5 +123,23 @@ class LogisticsShipmentsSectionWidget extends StatelessWidget {
     return counts.entries
         .map((entry) => '${entry.value} ${entry.key.toLowerCase()}')
         .join('  ·  ');
+  }
+}
+
+/// Tappable wrapper so a dashboard shipment opens its detail experience.
+class _ActiveShipmentTile extends StatelessWidget {
+  final LogisticsShipment shipment;
+
+  const _ActiveShipmentTile({required this.shipment});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => Navigator.of(context).push(
+        LogisticsShipmentDetailPage.route(shipmentId: shipment.id),
+      ),
+      borderRadius: BorderRadius.circular(12),
+      child: LogisticsActiveShipmentCardWidget(shipment: shipment),
+    );
   }
 }

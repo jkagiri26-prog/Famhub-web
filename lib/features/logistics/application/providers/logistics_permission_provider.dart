@@ -66,10 +66,27 @@ class LogisticsPermissionStatus {
 /// PROVIDER: SINGLE LOGISTICS PERMISSION STATUS
 /// ============================================================
 ///
-/// Resolves one backend permission key. The active entity context is
-/// derived by the existing FAMHUB context mechanism — nothing is
-/// supplied by the caller.
+/// Resolves a single backend permission key. The active entity context is
+/// derived by the existing FAMHUB context mechanism — nothing is supplied
+/// by the caller.
+///
+/// [logisticsPermissionCheckerProvider] is a separate indirection so tests
+/// (and only tests) can substitute the backend check; the default value is
+/// always the real `core.has_permission` call.
 /// ============================================================
+
+/// Single backend permission check — `core.has_permission(p_permission)`.
+typedef LogisticsPermissionChecker = Future<bool> Function(
+  String permissionKey,
+);
+
+final logisticsPermissionCheckerProvider = Provider<LogisticsPermissionChecker>((
+  ref,
+) {
+  final repository = ref.watch(accessPolicyRepositoryProvider);
+  return repository.hasPermission;
+});
+
 final logisticsPermissionProvider =
     FutureProvider.family<LogisticsPermissionStatus, String>((
   ref,
@@ -86,9 +103,9 @@ final logisticsPermissionProvider =
     );
   }
 
-  final repository = ref.watch(accessPolicyRepositoryProvider);
+  final checkPermission = ref.watch(logisticsPermissionCheckerProvider);
   try {
-    final allowed = await repository.hasPermission(permissionKey);
+    final allowed = await checkPermission(permissionKey);
     if (allowed) return LogisticsPermissionStatus.allowed;
 
     return LogisticsPermissionStatus(

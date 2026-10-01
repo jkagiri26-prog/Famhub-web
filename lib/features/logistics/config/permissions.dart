@@ -19,20 +19,32 @@ library;
 class LogisticsPermissions {
   const LogisticsPermissions._();
 
-  // ── Existing logistics permissions ─────────────────────────
-  static const String view = 'logistics.view';
-  static const String book = 'logistics.book';
-  static const String track = 'logistics.track';
+  // ── Shipment administration ────────────────────────────────
+  static const String viewShipments = 'logistics.view_shipments';
+  static const String createShipments = 'logistics.create_shipments';
+  static const String manageShipments = 'logistics.manage_shipments';
+  static const String confirmDelivery = 'logistics.confirm_delivery';
 
-  // ── Existing GPS permissions (backend Phase 1B) ────────────
+  // ── Transport administration ───────────────────────────────
+  static const String assignTransport = 'logistics.assign_transport';
+  static const String manageVehicles = 'logistics.manage_vehicles';
+  static const String manageDrivers = 'logistics.manage_drivers';
+
+  // ── Tracking ───────────────────────────────────────────────
+  static const String updateTracking = 'logistics.update_tracking';
   static const String viewLiveTracking = 'logistics.view_live_tracking';
   static const String recordLocation = 'logistics.record_location';
 
   /// Full registry — used for validation / seeding / policy sync.
   static const List<String> all = [
-    view,
-    book,
-    track,
+    viewShipments,
+    createShipments,
+    manageShipments,
+    confirmDelivery,
+    assignTransport,
+    manageVehicles,
+    manageDrivers,
+    updateTracking,
     viewLiveTracking,
     recordLocation,
   ];

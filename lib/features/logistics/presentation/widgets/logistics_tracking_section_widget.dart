@@ -10,6 +10,7 @@ import '../../application/providers/logistics_permission_provider.dart';
 import '../../config/permissions.dart';
 import '../../domain/models/logistics_dashboard_models.dart';
 import '../logistics_display_utils.dart';
+import '../pages/logistics_tracking_page.dart';
 
 /// Tracking section — the future home of GPS capture.
 ///
@@ -115,8 +116,23 @@ class LogisticsTrackingSectionWidget extends ConsumerWidget {
                   : 'Last ping '
                       '${logisticsTimestamp(session.lastLocationCapturedAt)}',
               value: 'Shipment #${logisticsShortId(session.shipmentId)}',
+              onTap: () => Navigator.of(context).push(
+                LogisticsTrackingPage.route(trackingSessionId: session.id),
+              ),
             ),
         ],
+
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              LogisticsTrackingPage.route(),
+            ),
+            icon: const Icon(Icons.pin_drop_outlined, size: 18),
+            label: const Text('Open live tracking'),
+          ),
+        ),
       ],
     );
   }

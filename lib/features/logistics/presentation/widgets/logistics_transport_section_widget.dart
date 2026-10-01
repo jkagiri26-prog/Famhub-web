@@ -6,6 +6,7 @@ import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
 
 import '../../domain/models/logistics_dashboard_models.dart';
 import '../logistics_display_utils.dart';
+import '../pages/logistics_shipment_detail_page.dart';
 
 /// Transport section: assigned transport + pending assignments.
 /// Reads are already bounded by the repository.
@@ -58,6 +59,7 @@ class LogisticsTransportSectionWidget extends StatelessWidget {
             label:
                 'Awaiting acceptance · ${logisticsTimestamp(assignment.assignedAt)}',
             value: 'Shipment #${logisticsShortId(assignment.shipmentId)}',
+            onTap: () => _openShipment(context, assignment),
           ),
 
         for (final assignment in inProgress)
@@ -66,6 +68,7 @@ class LogisticsTransportSectionWidget extends StatelessWidget {
             label:
                 '${_assignmentLabel(assignment)} · ${logisticsTimestamp(assignment.assignedAt)}',
             value: 'Shipment #${logisticsShortId(assignment.shipmentId)}',
+            onTap: () => _openShipment(context, assignment),
           ),
 
         if (snapshot.isTruncated)
@@ -77,6 +80,12 @@ class LogisticsTransportSectionWidget extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+
+  void _openShipment(BuildContext context, LogisticsAssignment assignment) {
+    Navigator.of(context).push(
+      LogisticsShipmentDetailPage.route(shipmentId: assignment.shipmentId),
     );
   }
 

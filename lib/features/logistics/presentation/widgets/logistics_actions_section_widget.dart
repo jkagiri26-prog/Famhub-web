@@ -9,28 +9,34 @@ import '../../application/providers/logistics_permission_provider.dart';
 import '../../config/permissions.dart';
 
 /// Actions section — every entry point is shown only when the backend
-/// grants the matching existing permission. Nothing is granted here.
+/// grants the matching permission. Nothing is granted here.
 class LogisticsActionsSectionWidget extends ConsumerWidget {
-  /// Piece 1 wiring: the page decides what each action does.
-  final VoidCallback? onBookTransport;
-  final VoidCallback? onTrackShipment;
+  final VoidCallback? onViewShipments;
+  final VoidCallback? onAssignTransport;
+  final VoidCallback? onViewTracking;
 
   const LogisticsActionsSectionWidget({
     super.key,
-    this.onBookTransport,
-    this.onTrackShipment,
+    this.onViewShipments,
+    this.onAssignTransport,
+    this.onViewTracking,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final book = ref.watch(
-      logisticsPermissionStatusProvider(LogisticsPermissions.book),
+    final viewShipments = ref.watch(
+      logisticsPermissionStatusProvider(LogisticsPermissions.viewShipments),
     );
-    final track = ref.watch(
-      logisticsPermissionStatusProvider(LogisticsPermissions.track),
+    final assignTransport = ref.watch(
+      logisticsPermissionStatusProvider(LogisticsPermissions.assignTransport),
+    );
+    final viewTracking = ref.watch(
+      logisticsPermissionStatusProvider(LogisticsPermissions.viewLiveTracking),
     );
 
-    if (book.isLoading || track.isLoading) {
+    if (viewShipments.isLoading ||
+        assignTransport.isLoading ||
+        viewTracking.isLoading) {
       return const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -45,18 +51,25 @@ class LogisticsActionsSectionWidget extends ConsumerWidget {
     }
 
     final actions = <ActionButtonItem>[
-      if (book.isAllowed && onBookTransport != null)
+      if (viewShipments.isAllowed && onViewShipments != null)
         ActionButtonItem(
-          label: 'Book Transport',
-          icon: Icons.add_circle_outline_rounded,
-          onPressed: onBookTransport,
+          label: 'Shipments',
+          icon: Icons.local_shipping_outlined,
+          onPressed: onViewShipments,
           variant: ActionButtonVariant.primary,
         ),
-      if (track.isAllowed && onTrackShipment != null)
+      if (assignTransport.isAllowed && onAssignTransport != null)
         ActionButtonItem(
-          label: 'Track Shipment',
+          label: 'Assign transport',
+          icon: Icons.person_add_alt_1_outlined,
+          onPressed: onAssignTransport,
+          variant: ActionButtonVariant.secondary,
+        ),
+      if (viewTracking.isAllowed && onViewTracking != null)
+        ActionButtonItem(
+          label: 'Live tracking',
           icon: Icons.pin_drop_outlined,
-          onPressed: onTrackShipment,
+          onPressed: onViewTracking,
           variant: ActionButtonVariant.secondary,
         ),
     ];
