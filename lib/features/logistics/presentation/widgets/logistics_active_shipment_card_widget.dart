@@ -1,11 +1,33 @@
 import 'package:flutter/material.dart';
 
+import '../../domain/models/logistics_dashboard_models.dart';
+import '../logistics_display_utils.dart';
+
+/// Single active shipment card for the Logistics dashboard.
+///
+/// Reads only the bounded shipment fields exposed by the repository —
+/// no cargo history, no images, no maps (low-data requirement).
 class LogisticsActiveShipmentCardWidget extends StatelessWidget {
-  const LogisticsActiveShipmentCardWidget({super.key});
+  final LogisticsShipment shipment;
+
+  const LogisticsActiveShipmentCardWidget({
+    super.key,
+    required this.shipment,
+  });
+
+  /// Stage progression across the backend lifecycle — presentation only.
+  double get _stageProgress {
+    final index =
+        LogisticsShipmentStatus.active.indexOf(shipment.status);
+    if (index < 0) return 0;
+    return (index + 1) / LogisticsShipmentStatus.active.length;
+  }
 
   @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
+    final reference =
+        shipment.trackingNumber ?? '#${logisticsShortId(shipment.id)}';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -19,20 +41,23 @@ class LogisticsActiveShipmentCardWidget extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.local_shipping_rounded,
-                  color: primary, size: 20),
+              Icon(Icons.local_shipping_rounded, color: primary, size: 20),
               const SizedBox(width: 8),
-              const Text(
-                "IN TRANSIT",
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 12,
+              Expanded(
+                child: Text(
+                  shipment.statusLabel.toUpperCase(),
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
+                  ),
                 ),
               ),
-              const Spacer(),
-              const Text(
-                "#SHP-9920",
-                style: TextStyle(
+              const SizedBox(width: 8),
+              Text(
+                reference,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
                   color: Colors.grey,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -43,17 +68,19 @@ class LogisticsActiveShipmentCardWidget extends StatelessWidget {
 
           const Divider(height: 24),
 
-          const Text(
-            "Maize - 50 Bags",
-            style: TextStyle(
+          Text(
+            shipment.carrier == null || shipment.carrier!.isEmpty
+                ? 'Carrier not assigned'
+                : shipment.carrier!,
+            style: const TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 15,
             ),
           ),
 
-          const Text(
-            "Destination: Nairobi Millers",
-            style: TextStyle(
+          Text(
+            'Updated ${logisticsTimestamp(shipment.updatedAt)}',
+            style: const TextStyle(
               color: Colors.grey,
               fontSize: 13,
             ),
@@ -62,7 +89,7 @@ class LogisticsActiveShipmentCardWidget extends StatelessWidget {
           const SizedBox(height: 16),
 
           LinearProgressIndicator(
-            value: 0.7,
+            value: _stageProgress,
             color: primary,
             backgroundColor: Colors.grey.shade100,
             minHeight: 6,
