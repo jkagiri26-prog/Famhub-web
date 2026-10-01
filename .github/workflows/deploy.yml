@@ -42,10 +42,15 @@ jobs:
         run: flutter pub get
 
       # ── Production Build (skips pub if already fetched) ──
+      # ⚠️ TEMPORARY (Phase 2D) — the trailing AI_GATEWAY_DEV_PROBE line
+      #    below was added ONLY for the Phase 2D live test.
+      #    REVERT IT after testing: delete the last --dart-define line and
+      #    this comment. Nothing else in this workflow changed.
       - name: Build Web (WASM)
         run: flutter build web --release --wasm --base-href / --source-maps=false --no-pub --no-tree-shake-icons \
           --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
-          --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
+          --dart-define=SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}" \
+          --dart-define=AI_GATEWAY_DEV_PROBE=true
       # ── Deploy to Cloudflare Pages ──
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3

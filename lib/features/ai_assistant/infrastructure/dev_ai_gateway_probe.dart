@@ -32,6 +32,23 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// ============================================================
+/// PHASE 2D VISIBILITY FLAG
+/// ============================================================
+///
+/// Compile-time switch for the temporary Phase 2D AI Gateway probe.
+///
+///   default build          -> false (route + button unavailable)
+///   --dart-define=AI_GATEWAY_DEV_PROBE=true -> true
+///
+/// This is a *visibility* gate only. Authentication, the request
+/// contract and the gateway itself are unchanged — the probe still
+/// requires an authenticated Supabase session before it calls
+/// `/functions/v1/ai-gateway`.
+/// ============================================================
+const bool aiGatewayDevProbe =
+    bool.fromEnvironment('AI_GATEWAY_DEV_PROBE', defaultValue: false);
+
+/// ============================================================
 /// PROBE TARGET
 /// ============================================================
 ///

@@ -5,7 +5,8 @@
 /// 🧠 LOCATION CONTEXT:
 ///   features/ai_assistant/presentation/pages/ = AI screens
 ///
-/// ⚠️ DEVELOPER-ONLY, DEBUG BUILDS ONLY (kDebugMode).
+/// ⚠️ DEVELOPER-ONLY — VISIBLE ONLY WHEN BUILT WITH
+///   --dart-define=AI_GATEWAY_DEV_PROBE=true  (see [aiGatewayDevProbe]).
 ///   Phase 2D proves the deployed `ai-gateway` Edge Function end to
 ///   end from the real authenticated app:
 ///
@@ -21,11 +22,10 @@
 ///   - Hold provider API keys
 ///   - Implement provider selection, routing or fallback
 ///   - Persist chats, usage or billing
-///   - Exist at all in release builds
+///   - Exist at all unless built with AI_GATEWAY_DEV_PROBE=true
 /// ============================================================
 library;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:famhub_app/core/services/supabase_service.dart';
@@ -108,11 +108,13 @@ class _DevAiGatewayTestPageState extends State<DevAiGatewayTestPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (!kDebugMode) {
+    if (!aiGatewayDevProbe) {
       return const ShellPageContent(
         title: 'AI Gateway Test',
         child: Center(
-          child: Text('This developer screen is unavailable in release builds.'),
+          child: Text(
+            'This developer screen is unavailable in this build.',
+          ),
         ),
       );
     }
