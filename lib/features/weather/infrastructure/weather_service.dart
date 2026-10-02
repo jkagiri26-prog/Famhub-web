@@ -20,6 +20,7 @@
 /// ============================================================
 library;
 
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:famhub_app/features/weather/domain/models/weather_models.dart';
@@ -56,18 +57,32 @@ class WeatherService {
 
     final dynamic payload;
     try {
+      // TEMPORARY diagnostic logging (safe: locator + scope + status only —
+      // never tokens, Authorization headers or API keys). Remove with the
+      // Kisumu override when the diagnostic run is done.
+      debugPrint(
+        '[weather] → $functionName scope=${scope.name} '
+        'locator=${target.hasLocationId ? 'location_id=${target.locationId}' : 'coordinates'}',
+      );
       // `invoke` attaches the current session access token automatically.
       final response = await _client.functions.invoke(
         functionName,
         body: body,
       );
       payload = response.data;
+      debugPrint('[weather] ← HTTP ${response.status} ok scope=${scope.name}');
     } on FunctionException catch (error) {
-      throw WeatherException.fromFunction(error);
+      final safe = WeatherException.fromFunction(error);
+      debugPrint(
+        '[weather] ← HTTP ${error.status} code=${safe.code ?? 'unknown'} '
+        'message=${safe.message}',
+      );
+      throw safe;
     } on WeatherException {
       rethrow;
-    } catch (_) {
+    } catch (error) {
       // Network/DNS/timeouts — never surfaced as a raw exception.
+      debugPrint('[weather] ← transport error (${error.runtimeType})');
       throw WeatherException.unavailable;
     }
 
