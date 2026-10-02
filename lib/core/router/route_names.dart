@@ -147,13 +147,4 @@ class AppRoutes {
 
   /// 404 fallback
   static const notFound = '/404';
-
-  // =========================
-  // DEVELOPER (DEBUG BUILDS ONLY)
-  // =========================
-
-  /// Phase 2D AI Gateway connectivity probe. The route is only
-  /// registered when `kDebugMode` is true.
-  static const devAiGatewayTest = '/dev/ai-gateway-test';
-  static const devAiGatewayTestName = 'devAiGatewayTest';
 }
