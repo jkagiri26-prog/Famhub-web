@@ -37,22 +37,6 @@ const List<String> profileLocationColumns = <String>[
   'level_2_location_id',
 ];
 
-// ⚠️ TEMPORARY DIAGNOSTIC OVERRIDE — REMOVE AFTER THE KISUMU RUNTIME TEST ⚠️
-//
-// Forces every Weather request (both `scope=current` and `scope=forecast`)
-// onto one known-good canonical location so the deployed `app-weather`
-// geometry fix can be exercised deterministically.
-//
-// It bypasses `weatherSelectedLocationProvider`, the profile location and
-// the farm hierarchy on purpose — that is the whole point of the test.
-//
-// TO REVERT: delete this two-line block AND the `if (kWeatherDiagnostic...)`
-// branch at the top of `weatherLocationProvider` below.
-const bool kWeatherDiagnosticOverrideEnabled = true;
-const String kWeatherDiagnosticOverrideLocationId =
-    '067f88d7-0f4c-43e8-8e7f-d4c46733810e'; // core.locations → KISUMU
-
-
 /// A selectable weather place: a canonical `core.locations` id plus a label.
 ///
 /// Lightweight UI model only — the canonical hierarchy stays in
@@ -169,17 +153,6 @@ final weatherSelectedLocationProvider =
 ///
 /// An explicit selection wins; otherwise the best derived candidate.
 final weatherLocationProvider = Provider<WeatherLocationCandidate?>((ref) {
-  // ⚠️ TEMPORARY DIAGNOSTIC OVERRIDE — see kWeatherDiagnosticOverrideEnabled.
-  if (kWeatherDiagnosticOverrideEnabled) {
-    return const WeatherLocationCandidate(
-      target: WeatherRequestTarget.fromLocationId(
-        kWeatherDiagnosticOverrideLocationId,
-      ),
-      label: 'KISUMU',
-      source: 'profile',
-    );
-  }
-
   final selected = ref.watch(weatherSelectedLocationProvider);
   if (selected != null) return selected;
   final candidates = ref.watch(weatherLocationCandidatesProvider);
