@@ -94,35 +94,40 @@ Map<String, dynamic> _payload({required bool cached, required bool forecast}) {
 void main() {
   group('cache MISS → HIT round-trip through WeatherService', () {
     late HttpServer server;
-    late List<int> statusesServed;
-    late List<String> bodiesServed;
+    late List<int> modesServed;
 
-    const missBody = 0;
-    const hitBody = 1;
-    const doubleEncodedHitBody = 2;
+    const miss = 0;
+    const hit = 1;
+    const hitDoubleEncoded = 2;
+    const hitPlainText = 3;
+    const notJson = 4;
 
-    int next = missBody;
+    int next = miss;
 
     setUpAll(() async {
       HttpOverrides.global = null;
-      statusesServed = <int>[];
-      bodiesServed = <String>[];
+      modesServed = <int>[];
       server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       server.listen((HttpRequest request) async {
         await utf8.decoder.bind(request).join();
         final mode = next;
-        statusesServed.add(mode);
+        modesServed.add(mode);
         request.response.statusCode = 200;
-        request.response.headers.contentType = ContentType.json;
-        final body = _payload(cached: mode != missBody, forecast: true);
-        if (mode == doubleEncodedHitBody) {
-          // What the client would receive if the cached object were
-          // stringified twice (i.e. the body arrives as a JSON string).
-          bodiesServed.add(jsonEncode(jsonEncode(body)));
-          request.response.write(jsonEncode(jsonEncode(body)));
-        } else {
-          bodiesServed.add(jsonEncode(body));
+
+        final body = jsonEncode(_payload(cached: mode != miss, forecast: true));
+
+        if (mode == notJson) {
+          request.response.headers.contentType = ContentType.text;
+          request.response.write('<html>bad gateway</html>');
+        } else if (mode == hitPlainText) {
+          request.response.headers.contentType = ContentType.text;
+          request.response.write(body);
+        } else if (mode == hitDoubleEncoded) {
+          request.response.headers.contentType = ContentType.json;
           request.response.write(jsonEncode(body));
+        } else {
+          request.response.headers.contentType = ContentType.json;
+          request.response.write(body);
         }
         await request.response.close();
       });
@@ -133,9 +138,8 @@ void main() {
     });
 
     setUp(() {
-      next = missBody;
-      statusesServed.clear();
-      bodiesServed.clear();
+      next = miss;
+      modesServed.clear();
     });
 
     WeatherService service() => WeatherService(
@@ -150,7 +154,7 @@ void main() {
       expect(first.current?.temperatureC, 27.5);
       expect(first.meta.cached, isFalse);
 
-      next = hitBody;
+      next = hit;
       final second =
           await service().fetch(target: target, scope: WeatherScope.current);
       expect(second.current?.temperatureC, 27.5);
@@ -159,7 +163,7 @@ void main() {
       expect(second.meta.stale, isFalse);
       expect(second.fetchedAt, isNotNull);
       expect(second.stale, isFalse);
-      expect(statusesServed, <int>[missBody, hitBody]);
+      expect(modesServed, <int>[miss, hit]);
     });
 
     test('forecast HIT keeps hourly/daily arrays intact', () async {
@@ -168,7 +172,7 @@ void main() {
       expect(first.hourly, hasLength(1));
       expect(first.daily, hasLength(1));
 
-      next = hitBody;
+      next = hit;
       final second =
           await service().fetch(target: target, scope: WeatherScope.forecast);
       expect(second.hourly, hasLength(1));
@@ -177,8 +181,27 @@ void main() {
       expect(second.meta.cached, isTrue);
     });
 
-    test('a double-encoded HIT body is reported as unavailable', () async {
-      next = doubleEncodedHitBody;
+    test('a HIT served as text/plain still resolves', () async {
+      // `functions.invoke` only jsonDecodes an `application/json` body —
+      // anything else reaches the decoder as a raw String.
+      next = hitPlainText;
+      final bundle =
+          await service().fetch(target: target, scope: WeatherScope.current);
+      expect(bundle.current?.temperatureC, 27.5);
+      expect(bundle.meta.cached, isTrue);
+      expect(bundle.hourly, hasLength(1));
+    });
+
+    test('a double-encoded HIT body still resolves', () async {
+      next = hitDoubleEncoded;
+      final bundle =
+          await service().fetch(target: target, scope: WeatherScope.current);
+      expect(bundle.current?.temperatureC, 27.5);
+      expect(bundle.meta.cached, isTrue);
+    });
+
+    test('a non-JSON body is reported as unavailable', () async {
+      next = notJson;
       await expectLater(
         service().fetch(target: target, scope: WeatherScope.current),
         throwsA(isA<WeatherException>().having(

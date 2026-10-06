@@ -15,6 +15,8 @@
 /// ============================================================
 library;
 
+import 'dart:convert';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class WeatherException implements Exception {
@@ -56,7 +58,7 @@ class WeatherException implements Exception {
 
   /// Build from a `functions.invoke` failure.
   factory WeatherException.fromFunction(FunctionException error) {
-    final code = _payloadCode(error.details);
+    final code = _payloadCode(_decode(error.details));
     return WeatherException(
       _messageFor(status: error.status, code: code),
       code: code,
@@ -67,15 +69,32 @@ class WeatherException implements Exception {
   /// Build from an `{"error": {"code", "message"}}` payload returned with a
   /// success status (defensive — some functions report failures this way).
   factory WeatherException.fromPayload(dynamic payload) {
-    final code = _payloadCode(payload);
-    final status = payload is Map && payload['status'] is num
-        ? (payload['status'] as num).toInt()
+    final decoded = _decode(payload);
+    final code = _payloadCode(decoded);
+    final status = decoded is Map && decoded['status'] is num
+        ? (decoded['status'] as num).toInt()
         : null;
     return WeatherException(
       _messageFor(status: status, code: code),
       code: code,
       status: status,
     );
+  }
+
+  /// Error bodies can arrive as a raw String when the content type is not
+  /// `application/json`; decode them before reading `code` / `status`.
+  static dynamic _decode(dynamic payload) {
+    var value = payload;
+    for (var i = 0; i < 3 && value is String; i++) {
+      final text = value.trim();
+      if (text.isEmpty) return null;
+      try {
+        value = jsonDecode(text);
+      } on FormatException {
+        return null;
+      }
+    }
+    return value;
   }
 
   static String? _payloadCode(dynamic payload) {

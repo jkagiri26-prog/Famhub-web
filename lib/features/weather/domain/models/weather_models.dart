@@ -23,6 +23,8 @@
 /// ============================================================
 library;
 
+import 'dart:convert';
+
 import 'package:famhub_app/features/weather/domain/weather_exception.dart';
 
 // ════════════════════════════════════════════════════════════
@@ -392,7 +394,7 @@ class WeatherBundle {
   ///
   /// Throws [WeatherException] when the payload carries an error envelope.
   factory WeatherBundle.fromResponse(dynamic payload, {WeatherScope? requestedScope}) {
-    final root = _Json.asMap(payload);
+    final root = _Json.asMap(_Json.coerce(payload));
     if (root == null) {
       throw WeatherException.unavailable;
     }
@@ -476,6 +478,28 @@ class WeatherBundle {
 
 class _Json {
   const _Json._();
+
+  /// Turn an `app-weather` payload into a value the decoder understands.
+  ///
+  /// `functions.invoke` only `jsonDecode`s an `application/json` body, so a
+  /// response served with any other content type (a cache HIT returned as
+  /// `text/plain`, for example) arrives here as a raw String. A body that was
+  /// stringified twice arrives as a JSON-encoded String too. Decode until the
+  /// value stops being a String; anything undecodable becomes `null`, which
+  /// the caller reports as "unavailable".
+  static dynamic coerce(dynamic payload) {
+    var value = payload;
+    for (var i = 0; i < 3 && value is String; i++) {
+      final text = value.trim();
+      if (text.isEmpty) return null;
+      try {
+        value = jsonDecode(text);
+      } on FormatException {
+        return null;
+      }
+    }
+    return value;
+  }
 
   static Map<String, dynamic>? asMap(dynamic value) {
     if (value is Map<String, dynamic>) return value;
