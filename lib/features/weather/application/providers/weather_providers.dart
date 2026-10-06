@@ -11,8 +11,10 @@
 ///   - Support explicit invalidation for user-triggered refresh only
 ///
 /// ❌ Does NOT:
-///   - Poll on a timer (the backend owns the cache TTL:
+///   - Poll on a timer (the backend cache TTL owns refresh policy:
 ///     current ≈ 15 min, forecast ≈ 60 min)
+///   - Retry failed requests on their own — a failure surfaces immediately so
+///     the user's manual refresh completes and the error state's Retry works
 ///   - Re-implement caching or provider failover
 /// ============================================================
 library;
@@ -22,6 +24,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famhub_app/core/services/supabase_service.dart';
 import 'package:famhub_app/features/weather/domain/models/weather_models.dart';
 import 'package:famhub_app/features/weather/infrastructure/weather_service.dart';
+
+/// No automatic retry.
+///
+/// Riverpod's `ProviderContainer.defaultRetry` would otherwise re-invoke the
+/// Edge Function up to 10 times with exponential backoff (≈ 44 s) on every
+/// failure: the UI stays in `AsyncLoading` instead of showing the error, the
+/// pull-to-refresh future never settles, and each retry issues another request.
+Duration? _noRetry(int retryCount, Object error) => null;
 
 /// Weather service bound to the authenticated Supabase client.
 final weatherServiceProvider = Provider<WeatherService>(
@@ -45,6 +55,7 @@ final weatherCurrentProvider =
         .read(weatherServiceProvider)
         .fetch(target: target, scope: WeatherScope.current);
   },
+  retry: _noRetry,
 );
 
 /// Hourly + daily forecast for a target (larger payload → weather page).
@@ -56,4 +67,5 @@ final weatherForecastProvider =
         .read(weatherServiceProvider)
         .fetch(target: target, scope: WeatherScope.forecast);
   },
+  retry: _noRetry,
 );
