@@ -33,6 +33,7 @@ class WeatherPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     final resolving = ref.watch(weatherLocationResolvingProvider);
     final candidate = ref.watch(weatherLocationProvider);
     final label = ref.watch(weatherLocationLabelProvider);
@@ -53,14 +54,28 @@ class WeatherPage extends ConsumerWidget {
       actions: [
         IconButton(
           tooltip: 'Change location',
-          icon: const Icon(Icons.place_outlined),
+          icon: const Icon(Icons.place_outlined, size: 20),
+          style: IconButton.styleFrom(
+            backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.10),
+            foregroundColor: theme.colorScheme.primary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
           onPressed: resolving
               ? null
               : () => _showLocationSheet(context, ref),
         ),
         IconButton(
           tooltip: 'Refresh',
-          icon: const Icon(Icons.refresh),
+          icon: const Icon(Icons.refresh_rounded, size: 20),
+          style: IconButton.styleFrom(
+            backgroundColor: theme.colorScheme.primary,
+            foregroundColor: theme.colorScheme.onPrimary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
           onPressed: () => _refresh(ref, target),
         ),
       ],
@@ -94,14 +109,14 @@ class WeatherPage extends ConsumerWidget {
     required AsyncValue<WeatherBundle?> forecast,
     required bool targetUsable,
   }) {
-    final theme = Theme.of(context);
-
     if (!targetUsable) {
       return const Padding(
         padding: EdgeInsets.only(top: 24),
-        child: WeatherUnavailable(
-          message:
-              'Set your profile location or select a farm to see the weather.',
+        child: WeatherCardFrame(
+          child: WeatherUnavailable(
+            message:
+                'Set your profile location or select a farm to see the weather.',
+          ),
         ),
       );
     }
@@ -111,91 +126,68 @@ class WeatherPage extends ConsumerWidget {
       children: [
         const SizedBox(height: 4),
 
-        // ── 1 + 2: Current conditions ──
+        // ── Current conditions (gradient hero) ──
         current.when(
-          loading: () => const WeatherSkeleton(),
-          error: (error, _) => Container(
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: theme.colorScheme.outlineVariant
-                    .withValues(alpha: 0.8),
-              ),
-            ),
+          loading: () => const WeatherCardFrame(
+            child: WeatherSkeleton(compact: false),
+          ),
+          error: (error, _) => WeatherCardFrame(
             child: WeatherErrorState(
               onRetry: () => ref.invalidate(weatherCurrentProvider),
             ),
           ),
           data: (bundle) {
             if (bundle == null || bundle.current == null) {
-              return const WeatherUnavailable();
+              return const WeatherCardFrame(child: WeatherUnavailable());
             }
             return WeatherCurrentPanel(
               current: bundle.current!,
               meta: bundle.meta,
               locationLabel: ref.read(weatherLocationLabelProvider),
+              refreshing: current.isLoading,
             );
           },
         ),
 
-        const SizedBox(height: 20),
+        const SizedBox(height: 24),
 
-        // ── 3a: Hourly forecast ──
-        _sectionTitle(context, 'Hourly forecast'),
-        const SizedBox(height: 8),
+        // ── Hourly forecast ──
+        const WeatherSectionHeader(title: 'Hourly forecast'),
+        const SizedBox(height: 10),
         forecast.when(
-          loading: () => const _ForecastSkeleton(),
-          error: (error, _) => WeatherErrorState(
-            onRetry: () => ref.invalidate(weatherForecastProvider),
+          loading: () => const WeatherCardFrame(
+            child: _ForecastSkeleton(daily: false),
+          ),
+          error: (error, _) => WeatherCardFrame(
+            child: WeatherErrorState(
+              onRetry: () => ref.invalidate(weatherForecastProvider),
+            ),
           ),
           data: (bundle) =>
               WeatherHourlyStrip(hours: bundle?.hourly ?? const []),
         ),
 
-        const SizedBox(height: 20),
+        const SizedBox(height: 24),
 
-        // ── 3b: Daily forecast ──
-        _sectionTitle(context, 'Daily forecast'),
-        const SizedBox(height: 8),
+        // ── Daily forecast ──
+        const WeatherSectionHeader(title: 'Daily forecast'),
+        const SizedBox(height: 10),
         forecast.when(
-          loading: () => const _ForecastSkeleton(),
-          error: (error, _) => WeatherErrorState(
-            onRetry: () => ref.invalidate(weatherForecastProvider),
+          loading: () => const WeatherCardFrame(
+            child: _ForecastSkeleton(daily: true),
+          ),
+          error: (error, _) => WeatherCardFrame(
+            child: WeatherErrorState(
+              onRetry: () => ref.invalidate(weatherForecastProvider),
+            ),
           ),
           data: (bundle) =>
               WeatherDailyList(days: bundle?.daily ?? const []),
         ),
 
-        const SizedBox(height: 12),
-        _freshnessFooter(forecast, current),
         const SizedBox(height: 32),
       ],
     );
-  }
-
-  Widget _sectionTitle(BuildContext context, String title) {
-    final theme = Theme.of(context);
-    return Text(
-      title,
-      style: theme.textTheme.titleSmall?.copyWith(
-        fontWeight: FontWeight.w700,
-      ),
-    );
-  }
-
-  Widget _freshnessFooter(
-    AsyncValue<WeatherBundle?> forecast,
-    AsyncValue<WeatherBundle?> current,
-  ) {
-    final bundle = forecast.value ?? current.value;
-    if (bundle == null) return const SizedBox.shrink();
-    final label = formatUpdatedLabel(
-      fetchedAt: bundle.fetchedAt,
-      stale: bundle.stale,
-    );
-    if (label.isEmpty) return const SizedBox.shrink();
-    return Center(child: WeatherFreshnessLabel(label: label));
   }
 
   // ─────────────────────────────────────────────────────────
@@ -320,23 +312,64 @@ class WeatherPage extends ConsumerWidget {
 // ════════════════════════════════════════════════════════════
 
 class _ForecastSkeleton extends StatelessWidget {
-  const _ForecastSkeleton();
+  /// `false` → horizontal hourly cells, `true` → daily rows.
+  final bool daily;
+
+  const _ForecastSkeleton({this.daily = false});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final block = BoxDecoration(
-      color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
-      borderRadius: BorderRadius.circular(12),
+      color: theme.colorScheme.onSurface.withValues(alpha: 0.07),
+      borderRadius: BorderRadius.circular(daily ? 12 : 18),
     );
 
-    return Row(
-      children: [
-        for (var i = 0; i < 5; i++) ...[
-          Container(width: 64, height: 96, decoration: block),
-          if (i < 4) const SizedBox(width: 6),
+    if (daily) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var row = 0; row < 5; row++) ...[
+              if (row > 0)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Divider(
+                    height: 1,
+                    color: theme.colorScheme.outlineVariant
+                        .withValues(alpha: 0.6),
+                  ),
+                ),
+              Row(
+                children: [
+                  Container(width: 56, height: 30, decoration: block),
+                  const SizedBox(width: 10),
+                  Container(width: 34, height: 34, decoration: block),
+                  const SizedBox(width: 12),
+                  Expanded(child: Container(height: 12, decoration: block)),
+                  const SizedBox(width: 12),
+                  Container(width: 76, height: 6, decoration: block),
+                  const SizedBox(width: 8),
+                  Container(width: 28, height: 14, decoration: block),
+                ],
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      child: Row(
+        children: [
+          for (var i = 0; i < 5; i++) ...[
+            Container(width: 74, height: 108, decoration: block),
+            if (i < 4) const SizedBox(width: 8),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

@@ -144,6 +144,126 @@ String formatForecastHour(DateTime time) {
 // SHARED PIECES
 // ════════════════════════════════════════════════════════════
 
+/// Card chrome used by the Weather page so loading / error / unavailable
+/// states keep the same footprint and elevation as the data panels.
+class WeatherCardFrame extends StatelessWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+
+  const WeatherCardFrame({super.key, required this.child, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.8),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: InkWell(onTap: onTap, child: child),
+    );
+  }
+}
+
+/// Editorial section heading: gradient rule + tracked uppercase label.
+class WeatherSectionHeader extends StatelessWidget {
+  final String title;
+  final Widget? trailing;
+
+  const WeatherSectionHeader({super.key, required this.title, this.trailing});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      children: [
+        Container(
+          width: 4,
+          height: 15,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(2),
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [FamhubBrandTokens.orange, FamhubBrandTokens.green],
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            title.toUpperCase(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12,
+              letterSpacing: 1.2,
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        if (trailing != null) trailing!,
+      ],
+    );
+  }
+}
+
+/// Frosted pill for labels sitting on top of the gradient hero.
+class WeatherGlassChip extends StatelessWidget {
+  final IconData? icon;
+  final String label;
+
+  const WeatherGlassChip({super.key, this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 13, color: Colors.white.withValues(alpha: 0.9)),
+            const SizedBox(width: 5),
+          ],
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: Colors.white.withValues(alpha: 0.92),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Rounded tinted tile holding the weather glyph.
 class WeatherIconTile extends StatelessWidget {
   final IconData icon;
@@ -268,51 +388,117 @@ class WeatherFreshnessLabel extends StatelessWidget {
   }
 }
 
-/// Compact skeleton that mirrors the card layout (no full-page loader).
+/// Skeleton matching the panel it stands in for — compact inside dashboard
+/// cards, hero-sized when it replaces the Weather page's gradient panel.
 class WeatherSkeleton extends StatelessWidget {
-  const WeatherSkeleton({super.key});
+  /// Compact variant used inside the Home / Farm Management cards.
+  final bool compact;
+
+  const WeatherSkeleton({super.key, this.compact = true});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final block = BoxDecoration(
-      color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
-      borderRadius: BorderRadius.circular(8),
+      color: theme.colorScheme.onSurface.withValues(alpha: 0.07),
+      borderRadius: BorderRadius.circular(compact ? 10 : 14),
+    );
+    final chip = BoxDecoration(
+      color: theme.colorScheme.onSurface.withValues(alpha: 0.07),
+      borderRadius: BorderRadius.circular(999),
     );
 
-    return Container(
-      padding: const EdgeInsets.all(14),
+    if (compact) {
+      return Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Container(width: 44, height: 44, decoration: block),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(width: 96, height: 22, decoration: block),
+                      const SizedBox(height: 6),
+                      Container(width: 140, height: 12, decoration: block),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                for (var i = 0; i < 4; i++) ...[
+                  Expanded(
+                    child: Container(height: 28, decoration: block),
+                  ),
+                  if (i < 3) const SizedBox(width: 10),
+                ],
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              Container(width: 44, height: 44, decoration: block),
-              const SizedBox(width: 12),
+              Container(width: 108, height: 26, decoration: chip),
+              const Spacer(),
+              Container(width: 116, height: 26, decoration: chip),
+            ],
+          ),
+          const SizedBox(height: 22),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(width: 96, height: 22, decoration: block),
-                    const SizedBox(height: 6),
-                    Container(width: 140, height: 12, decoration: block),
+                    Container(width: 132, height: 54, decoration: block),
+                    const SizedBox(height: 10),
+                    Container(width: 92, height: 16, decoration: block),
                   ],
+                ),
+              ),
+              const SizedBox(width: 14),
+              Container(
+                width: 92,
+                height: 92,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.07),
+                  shape: BoxShape.circle,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              for (var i = 0; i < 4; i++) ...[
-                Expanded(
-                  child: Container(height: 28, decoration: block),
-                ),
-                if (i < 3) const SizedBox(width: 10),
+          const SizedBox(height: 22),
+          for (var row = 0; row < 2; row++) ...[
+            if (row > 0) const SizedBox(height: 10),
+            Row(
+              children: [
+                for (var i = 0; i < 3; i++) ...[
+                  Expanded(
+                    child: Container(height: 74, decoration: block),
+                  ),
+                  if (i < 2) const SizedBox(width: 10),
+                ],
               ],
-            ],
-          ),
+            ),
+          ],
         ],
       ),
     );
@@ -334,26 +520,41 @@ class WeatherUnavailable extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      padding: const EdgeInsets.all(14),
+    return Padding(
+      padding: const EdgeInsets.all(18),
       child: Row(
         children: [
-          Icon(Icons.cloud_off_outlined, size: 26, color: Colors.grey.shade400),
-          const SizedBox(width: 12),
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.cloud_off_outlined,
+              size: 22,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(width: 14),
           Expanded(
             child: Text(
               message,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
-                height: 1.35,
+                height: 1.4,
               ),
             ),
           ),
-          if (onOpenWeather != null)
-            TextButton(
+          if (onOpenWeather != null) ...[
+            const SizedBox(width: 8),
+            IconButton.filledTonal(
+              tooltip: 'Open weather',
               onPressed: onOpenWeather,
-              child: const Text('Open'),
+              icon: const Icon(Icons.open_in_new_rounded, size: 18),
             ),
+          ],
         ],
       ),
     );
@@ -370,24 +571,37 @@ class WeatherErrorState extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      padding: const EdgeInsets.all(14),
+    return Padding(
+      padding: const EdgeInsets.all(18),
       child: Row(
         children: [
-          Icon(Icons.wifi_off_rounded, size: 26, color: Colors.orange.shade400),
-          const SizedBox(width: 12),
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: FamhubBrandTokens.orange.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.cloud_off_outlined,
+              size: 22,
+              color: FamhubBrandTokens.orange,
+            ),
+          ),
+          const SizedBox(width: 14),
           Expanded(
             child: Text(
               'Weather is temporarily unavailable.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
-                height: 1.35,
+                height: 1.4,
               ),
             ),
           ),
-          TextButton.icon(
+          const SizedBox(width: 8),
+          FilledButton.tonalIcon(
             onPressed: onRetry,
-            icon: const Icon(Icons.refresh, size: 16),
+            icon: const Icon(Icons.refresh_rounded, size: 17),
             label: const Text('Retry'),
           ),
         ],
