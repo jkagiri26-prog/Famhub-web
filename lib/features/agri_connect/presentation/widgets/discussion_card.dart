@@ -4,12 +4,14 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/providers/discussion_provider.dart';
 import '../../domain/entities/discussion.dart';
 import '../../domain/enums/discussion_enums.dart';
 import '../format.dart';
 
-class DiscussionCard extends StatelessWidget {
+class DiscussionCard extends ConsumerWidget {
   final Discussion discussion;
   final String? authorName;
   final String? communityName;
@@ -24,7 +26,7 @@ class DiscussionCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final typeColor = _typeColor(discussion.type);
@@ -129,6 +131,10 @@ class DiscussionCard extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (discussion.mediaFileIds.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  _attachmentStrip(context, ref),
+                ],
                 const SizedBox(height: 10),
                 Row(
                   children: [
@@ -150,6 +156,73 @@ class DiscussionCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  /// Lightweight thumbnails for attached images (max 2). Only rendered when
+  /// the discussion's metadata references media, and the signed URLs are
+  /// decoded at thumbnail size (`cacheWidth`) so feeds never load or decode
+  /// original-size images.
+  Widget _attachmentStrip(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final urlsAsync = ref.watch(discussionMediaUrlsProvider(discussion.id));
+    final urls = (urlsAsync.value ?? const <String>[]).take(2).toList();
+    final twoUp = urls.length > 1;
+    final height = twoUp ? 96.0 : 132.0;
+    if (urls.isEmpty) {
+      if (urlsAsync.isLoading) {
+        return _stripPlaceholder(cs, height, showSpinner: true);
+      }
+      return const SizedBox.shrink();
+    }
+    return Row(
+      children: [
+        for (var i = 0; i < urls.length; i++)
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(left: i == 0 ? 0 : 6),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.network(
+                  urls[i],
+                  height: height,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  cacheWidth: (twoUp ? 480 : 720),
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return _stripPlaceholder(cs, height, showSpinner: true);
+                  },
+                  errorBuilder: (_, __, ___) =>
+                      _stripPlaceholder(cs, height, showSpinner: false),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _stripPlaceholder(
+    ColorScheme cs,
+    double height, {
+    required bool showSpinner,
+  }) {
+    return Container(
+      height: height,
+      width: double.infinity,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: showSpinner
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Icon(Icons.broken_image_outlined, size: 22, color: cs.outline),
     );
   }
 

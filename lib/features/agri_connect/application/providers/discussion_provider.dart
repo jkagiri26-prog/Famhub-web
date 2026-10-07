@@ -3,6 +3,8 @@
 /// ============================================================
 library;
 
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/discussion.dart';
@@ -10,6 +12,7 @@ import '../../domain/entities/post.dart';
 import '../../domain/entities/reaction_summary.dart';
 import '../../domain/enums/discussion_enums.dart';
 import '../../domain/repositories/discussion_repository.dart';
+import '../../infrastructure/data_sources/agri_connect_media.dart';
 import 'agri_connect_providers.dart';
 
 /// `communityId == null` → general public forum discussions only
@@ -56,6 +59,26 @@ final postReactionsProvider = FutureProvider.family<ReactionSummary, String>((
       .fetchPostReactions(postId: postId, profileId: profileId);
 });
 
+/// Short-lived signed URLs for a discussion's attached images (max 2).
+///
+/// Only watch this for discussions whose metadata references media — it
+/// issues one `media_get_by_context` call per discussion (same pattern as
+/// Marketplace's `listingImageUrlsProvider`). URLs are never persisted.
+final discussionMediaUrlsProvider = FutureProvider.family<List<String>, String>(
+  (ref, discussionId) async {
+    final entries = await ref
+        .watch(agriConnectMediaProvider)
+        .fetchMediaEntries(
+          context: AgriConnectMediaDataSource.discussionsContext,
+          contextId: discussionId,
+        );
+    return [
+      for (final e in entries)
+        if (e['url'] != null && e['url']!.isNotEmpty) e['url']!,
+    ];
+  },
+);
+
 /// Display names for the authors of a discussion list, resolved in one
 /// batched request with the existing profile-name resolver.
 final discussionAuthorNamesProvider =
@@ -81,10 +104,22 @@ class DiscussionController extends Notifier<void> {
   @override
   void build() {}
 
+  /// Create a discussion, then (optionally) attach up to 2 images through
+  /// the existing media edge functions.
+  ///
+  /// Creation semantics are unchanged: `community_id` is only sent when
+  /// [communityId] is non-empty (public forum → `community_id = null`).
+  /// Images are uploaded against context `discussions` / the new discussion
+  /// id, then their `media.files` ids are persisted in the existing
+  /// `metadata` JSONB column as `media_file_ids`.
+  ///
+  /// Throws [DiscussionAttachException] when the discussion was created but
+  /// the images could not be attached (uploaded media is rolled back).
   Future<Discussion> createDiscussion({
     String? communityId,
     required String title,
     DiscussionType type = DiscussionType.discussion,
+    List<Uint8List> images = const [],
   }) async {
     final discussion = await _repo.createDiscussion(
       communityId: communityId,
@@ -93,7 +128,68 @@ class DiscussionController extends Notifier<void> {
     );
     ref.invalidate(discussionsProvider(communityId));
     ref.invalidate(discussionAuthorNamesProvider(communityId));
+    if (images.isNotEmpty) {
+      await _attachDiscussionImages(discussion, images);
+    }
     return discussion;
+  }
+
+  /// Upload each image to the existing media system and persist their file
+  /// ids on the discussion. On any failure the just-uploaded media is
+  /// deleted again (best effort) so no orphaned private files remain.
+  Future<void> _attachDiscussionImages(
+    Discussion discussion,
+    List<Uint8List> images,
+  ) async {
+    final media = ref.read(agriConnectMediaProvider);
+    final uploadedIds = <String>[];
+    try {
+      for (final bytes in images) {
+        await media.uploadDiscussionImage(
+          bytes: bytes,
+          fileName:
+              'discussion_image_'
+              '${DateTime.now().microsecondsSinceEpoch}'
+              '_${bytes.lengthInBytes}.webp',
+          discussionId: discussion.id,
+        );
+      }
+      final entries = await media.fetchMediaEntries(
+        context: AgriConnectMediaDataSource.discussionsContext,
+        contextId: discussion.id,
+      );
+      uploadedIds.addAll(entries.map((e) => e['id']).whereType<String>());
+      if (uploadedIds.isEmpty) {
+        throw Exception('The uploaded images could not be linked.');
+      }
+      await _repo.updateDiscussionMetadata(
+        discussionId: discussion.id,
+        metadata: {...discussion.metadata, 'media_file_ids': uploadedIds},
+      );
+      ref.invalidate(discussionMediaUrlsProvider(discussion.id));
+    } catch (e) {
+      var orphans = uploadedIds;
+      if (orphans.isEmpty) {
+        // Upload failed midway — collect whatever did land for cleanup.
+        try {
+          final entries = await media.fetchMediaEntries(
+            context: AgriConnectMediaDataSource.discussionsContext,
+            contextId: discussion.id,
+          );
+          orphans = entries.map((x) => x['id']).whereType<String>().toList();
+        } catch (_) {
+          // Best effort only.
+        }
+      }
+      for (final id in orphans) {
+        try {
+          await media.deleteMedia(id);
+        } catch (_) {
+          // Best effort only.
+        }
+      }
+      throw DiscussionAttachException(discussion: discussion, cause: e);
+    }
   }
 
   Future<void> setPinned({
@@ -187,3 +283,19 @@ class DiscussionController extends Notifier<void> {
 
 final discussionControllerProvider =
     NotifierProvider<DiscussionController, void>(DiscussionController.new);
+
+/// The discussion was created, but its image attachments failed (upload or
+/// linking). Carries the created discussion so callers can still navigate
+/// to it and inform the user — the text draft is never lost.
+class DiscussionAttachException implements Exception {
+  final Discussion discussion;
+  final Object cause;
+
+  const DiscussionAttachException({
+    required this.discussion,
+    required this.cause,
+  });
+
+  @override
+  String toString() => 'Images could not be attached: $cause';
+}

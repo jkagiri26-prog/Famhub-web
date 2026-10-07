@@ -40,6 +40,15 @@ class Discussion {
     required this.updatedAt,
   });
 
+  /// `media.files` ids attached to this discussion, stored in the existing
+  /// `metadata` JSONB column (never URLs — URLs are short-lived signed URLs
+  /// resolved through the media edge functions at display time).
+  List<String> get mediaFileIds =>
+      (metadata['media_file_ids'] as List?)?.whereType<String>().toList(
+        growable: false,
+      ) ??
+      const [];
+
   factory Discussion.fromJson(Map<String, dynamic> json) {
     return Discussion(
       id: json['id']?.toString() ?? '',

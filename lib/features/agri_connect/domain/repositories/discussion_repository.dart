@@ -26,6 +26,14 @@ abstract class DiscussionRepository {
     Map<String, dynamic> metadata = const {},
   });
 
+  /// Persist the discussion's `metadata` JSONB (used to store attached
+  /// `media.files` ids under `media_file_ids`). Merges nothing — pass the
+  /// complete metadata map.
+  Future<void> updateDiscussionMetadata({
+    required String discussionId,
+    required Map<String, dynamic> metadata,
+  });
+
   /// Pin/unpin where authorized (backend-enforced).
   Future<void> setPinned({required String discussionId, required bool pinned});
 

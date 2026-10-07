@@ -9,6 +9,7 @@
 /// Context contract (adjust to the deployed backend if it differs):
 ///   community profile image → context "communities", context_id = community id
 ///   message attachment       → context "messages",    context_id = message id
+///   discussion image         → context "discussions", context_id = discussion id
 /// ============================================================
 library;
 
@@ -25,6 +26,7 @@ class AgriConnectMediaDataSource {
 
   static const String communitiesContext = 'communities';
   static const String messagesContext = 'messages';
+  static const String discussionsContext = 'discussions';
 
   static const String _uploadFn = 'upload_media';
   static const String _getByContextFn = 'media_get_by_context';
@@ -39,6 +41,22 @@ class AgriConnectMediaDataSource {
     return _upload(
       context: communitiesContext,
       contextId: communityId,
+      bytes: bytes,
+      fileName: fileName,
+      contentType: MediaType('image', 'webp'),
+    );
+  }
+
+  /// Upload an image attachment for a discussion (max 2 per discussion,
+  /// enforced by the calling feature code).
+  Future<void> uploadDiscussionImage({
+    required Uint8List bytes,
+    required String fileName,
+    required String discussionId,
+  }) {
+    return _upload(
+      context: discussionsContext,
+      contextId: discussionId,
       bytes: bytes,
       fileName: fileName,
       contentType: MediaType('image', 'webp'),

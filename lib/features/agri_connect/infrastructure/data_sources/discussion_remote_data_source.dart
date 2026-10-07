@@ -96,6 +96,15 @@ class DiscussionRemoteDataSource {
     await _updateDiscussion(discussionId, {'is_pinned': pinned});
   }
 
+  /// Store attachment references (`media.files` ids) in the discussion's
+  /// existing `metadata` column.
+  Future<void> updateDiscussionMetadata({
+    required String discussionId,
+    required Map<String, dynamic> metadata,
+  }) async {
+    await _updateDiscussion(discussionId, {'metadata': metadata});
+  }
+
   Future<void> setLocked({
     required String discussionId,
     required bool locked,

@@ -151,6 +151,11 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
                       padding: const EdgeInsets.all(16),
                       child: _header(context, discussion, canModerate),
                     ),
+                    if (discussion.mediaFileIds.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        child: _images(context, discussion),
+                      ),
                     Divider(
                       height: 1,
                       indent: 16,
@@ -459,6 +464,126 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
           ),
         const SizedBox(height: 2),
       ],
+    );
+  }
+
+  /// Attached images (1–2) resolved through the existing media edge
+  /// functions. Tap to view full-screen. Only rendered when the
+  /// discussion's metadata references media files.
+  Widget _images(BuildContext context, Discussion discussion) {
+    final cs = Theme.of(context).colorScheme;
+    final urlsAsync = ref.watch(discussionMediaUrlsProvider(discussion.id));
+    final urls = (urlsAsync.value ?? const <String>[]).take(2).toList();
+    if (urls.isEmpty) {
+      return SizedBox(
+        height: 72,
+        child: urlsAsync.isLoading
+            ? const Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            : Center(
+                child: Text(
+                  'Image unavailable.',
+                  style: TextStyle(fontSize: 12.5, color: cs.outline),
+                ),
+              ),
+      );
+    }
+    final height = urls.length > 1 ? 150.0 : 210.0;
+    return Row(
+      children: [
+        for (var i = 0; i < urls.length; i++)
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(left: i == 0 ? 0 : 8),
+              child: _imageTile(context, urls[i], height),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _imageTile(BuildContext context, String url, double height) {
+    final cs = Theme.of(context).colorScheme;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: GestureDetector(
+        onTap: () => _viewImage(url),
+        child: Image.network(
+          url,
+          height: height,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          cacheWidth: 1080,
+          loadingBuilder: (context, child, progress) {
+            if (progress == null) return child;
+            return Container(
+              height: height,
+              width: double.infinity,
+              color: cs.surfaceContainerHighest,
+              child: const Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            );
+          },
+          errorBuilder: (_, __, ___) => Container(
+            height: height,
+            width: double.infinity,
+            color: cs.surfaceContainerHighest,
+            child: Icon(
+              Icons.broken_image_outlined,
+              size: 26,
+              color: cs.outline,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _viewImage(String url) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        final size = MediaQuery.sizeOf(dialogContext);
+        return Dialog(
+          backgroundColor: Colors.black87,
+          insetPadding: const EdgeInsets.all(12),
+          clipBehavior: Clip.antiAlias,
+          child: SizedBox(
+            width: size.width - 24,
+            height: size.height * 0.7,
+            child: InteractiveViewer(
+              child: Center(
+                child: Image.network(
+                  url,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return const CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    );
+                  },
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.broken_image_outlined,
+                    size: 32,
+                    color: Colors.white54,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 

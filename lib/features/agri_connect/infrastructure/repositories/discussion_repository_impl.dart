@@ -49,6 +49,17 @@ class DiscussionRepositoryImpl implements DiscussionRepository {
   }
 
   @override
+  Future<void> updateDiscussionMetadata({
+    required String discussionId,
+    required Map<String, dynamic> metadata,
+  }) async {
+    await _dataSource.updateDiscussionMetadata(
+      discussionId: discussionId,
+      metadata: metadata,
+    );
+  }
+
+  @override
   Future<void> setPinned({
     required String discussionId,
     required bool pinned,
