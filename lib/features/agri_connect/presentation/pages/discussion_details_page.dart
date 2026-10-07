@@ -475,22 +475,40 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
     final urlsAsync = ref.watch(discussionMediaUrlsProvider(discussion.id));
     final urls = (urlsAsync.value ?? const <String>[]).take(2).toList();
     if (urls.isEmpty) {
-      return SizedBox(
-        height: 72,
-        child: urlsAsync.isLoading
-            ? const Center(
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              )
-            : Center(
-                child: Text(
-                  'Image unavailable.',
-                  style: TextStyle(fontSize: 12.5, color: cs.outline),
-                ),
-              ),
+      if (urlsAsync.isLoading) {
+        return const SizedBox(
+          height: 72,
+          child: Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        );
+      }
+      // Loading finished with nothing to show — surface the exact signing /
+      // authorization error and let the user re-sign (tap to retry).
+      final message = urlsAsync.hasError
+          ? 'Image unavailable: ${urlsAsync.error}\nTap to retry.'
+          : 'Image unavailable. Tap to retry.';
+      return GestureDetector(
+        onTap: () => ref.invalidate(discussionMediaUrlsProvider(discussion.id)),
+        child: Container(
+          height: 72,
+          width: double.infinity,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 11.5, height: 1.4, color: cs.outline),
+          ),
+        ),
       );
     }
     final height = urls.length > 1 ? 150.0 : 210.0;
@@ -500,14 +518,19 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
           Expanded(
             child: Padding(
               padding: EdgeInsets.only(left: i == 0 ? 0 : 8),
-              child: _imageTile(context, urls[i], height),
+              child: _imageTile(context, urls[i], height, discussion.id),
             ),
           ),
       ],
     );
   }
 
-  Widget _imageTile(BuildContext context, String url, double height) {
+  Widget _imageTile(
+    BuildContext context,
+    String url,
+    double height,
+    String discussionId,
+  ) {
     final cs = Theme.of(context).colorScheme;
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
@@ -534,14 +557,31 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
               ),
             );
           },
-          errorBuilder: (_, __, ___) => Container(
-            height: height,
-            width: double.infinity,
-            color: cs.surfaceContainerHighest,
-            child: Icon(
-              Icons.broken_image_outlined,
-              size: 26,
-              color: cs.outline,
+          errorBuilder: (_, __, ___) => GestureDetector(
+            // Failed load (e.g. expired signed URL or storage 403/404) —
+            // re-run the provider so the URL is signed again.
+            onTap: () =>
+                ref.invalidate(discussionMediaUrlsProvider(discussionId)),
+            child: Container(
+              height: height,
+              width: double.infinity,
+              color: cs.surfaceContainerHighest,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.broken_image_outlined,
+                    size: 26,
+                    color: cs.outline,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Tap to retry',
+                    style: TextStyle(fontSize: 11, color: cs.outline),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

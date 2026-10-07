@@ -173,6 +173,11 @@ class DiscussionCard extends ConsumerWidget {
       if (urlsAsync.isLoading) {
         return _stripPlaceholder(cs, height, showSpinner: true);
       }
+      if (urlsAsync.hasError) {
+        // Signing/authorization failed — show the failure instead of
+        // silently hiding the strip (feeds stay scrollable, no retries).
+        return _stripPlaceholder(cs, height, showSpinner: false);
+      }
       return const SizedBox.shrink();
     }
     return Row(

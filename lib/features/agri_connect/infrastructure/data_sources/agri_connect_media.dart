@@ -32,6 +32,15 @@ class AgriConnectMediaDataSource {
   static const String _getByContextFn = 'media_get_by_context';
   static const String _deleteFn = 'delete_media';
 
+  /// Private bucket holding all media files — never read with
+  /// `getPublicUrl`; only short-lived signed URLs are used.
+  static const String mediaBucket = 'media';
+
+  /// Lifetime of client-signed URLs. Expired URLs are re-signed on the next
+  /// provider refresh or an image retry (the provider is re-evaluated and
+  /// [resolveDisplayUrl] signs again).
+  static const int signedUrlTtlSeconds = 3600;
+
   /// Upload an image for a community's profile image.
   Future<void> uploadCommunityImage({
     required Uint8List bytes,
@@ -178,18 +187,79 @@ class AgriConnectMediaDataSource {
     final entries = <Map<String, String>>[];
     for (final item in raw) {
       if (item is! Map) continue;
-      final url = (item['url'] ?? item['signed_url'] ?? item['public_url'])
+      final rawUrl =
+          (item['url'] ??
+                  item['signed_url'] ??
+                  item['signedUrl'] ??
+                  item['public_url'])
+              ?.toString();
+      final lower = rawUrl?.toLowerCase() ?? '';
+      final isHttp =
+          lower.startsWith('http://') || lower.startsWith('https://');
+
+      // Storage path: an explicit path key, or a non-http `url` value —
+      // the media functions may return the raw object path instead of a
+      // pre-signed URL. Never drop entries that only carry a path: they
+      // are signed client-side by [resolveDisplayUrl].
+      var path = (item['path'] ?? item['storage_path'] ?? item['object_path'])
           ?.toString();
-      final lower = url?.toLowerCase() ?? '';
-      if (lower.isEmpty ||
-          (!lower.startsWith('http://') && !lower.startsWith('https://'))) {
-        continue;
+      if ((path == null || path.isEmpty) && rawUrl != null && !isHttp) {
+        path = rawUrl;
       }
+
       final id = (item['id'] ?? item['file_id'] ?? item['media_id'])
           ?.toString();
-      entries.add({'url': url!, if (id != null && id.isNotEmpty) 'id': id});
+      if (!isHttp &&
+          (path == null || path.isEmpty) &&
+          (id == null || id.isEmpty)) {
+        continue; // Nothing usable in this entry.
+      }
+      entries.add({
+        if (isHttp) 'url': rawUrl!,
+        if (path != null && path.isNotEmpty) 'path': path,
+        if (id != null && id.isNotEmpty) 'id': id,
+      });
     }
     return entries;
+  }
+
+  /// Return a displayable, short-lived **signed URL** for a media entry.
+  ///
+  /// 1. Uses the URL returned by the media edge function when present.
+  /// 2. Otherwise signs [entry]'s storage path directly against the private
+  ///    `media` bucket with `createSignedUrl` (authenticated, RLS-checked —
+  ///    the bucket stays private).
+  ///
+  /// Never returns a `getPublicUrl` URL or a raw storage path — callers may
+  /// only pass the result to an image widget. Throws with the underlying
+  /// status on failure so storage access problems are diagnosable.
+  Future<String> resolveDisplayUrl(Map<String, String> entry) async {
+    final url = entry['url'];
+    if (url != null && url.isNotEmpty) {
+      final lower = url.toLowerCase();
+      if (lower.startsWith('http://') || lower.startsWith('https://')) {
+        return url;
+      }
+    }
+    final path = entry['path'];
+    if (path == null || path.isEmpty) {
+      throw Exception('The image has no storage path or signed URL.');
+    }
+    try {
+      final signed = await _client.storage
+          .from(mediaBucket)
+          .createSignedUrl(path, signedUrlTtlSeconds);
+      final lower = signed.toLowerCase();
+      if (!lower.startsWith('http://') && !lower.startsWith('https://')) {
+        throw Exception('The server returned an unusable URL for $path.');
+      }
+      return signed;
+    } on StorageException catch (e) {
+      throw Exception(
+        'Could not sign image URL (${e.statusCode ?? 'error'}): '
+        '${e.message} [$path]',
+      );
+    }
   }
 
   static String _describeFunctionError(String action, FunctionException e) {

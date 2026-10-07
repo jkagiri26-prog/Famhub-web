@@ -61,21 +61,26 @@ final postReactionsProvider = FutureProvider.family<ReactionSummary, String>((
 
 /// Short-lived signed URLs for a discussion's attached images (max 2).
 ///
-/// Only watch this for discussions whose metadata references media — it
-/// issues one `media_get_by_context` call per discussion (same pattern as
-/// Marketplace's `listingImageUrlsProvider`). URLs are never persisted.
+/// Resolves through `media_get_by_context` (existing authorization flow);
+/// entries that only carry a storage path are signed client-side against
+/// the private `media` bucket — never a public URL, never a raw path.
+/// Re-running this provider (invalidate / refresh / retry) re-signs, so an
+/// expired URL is never reused. Only watch this for discussions whose
+/// metadata references media — it issues one `media_get_by_context` call
+/// per discussion (same pattern as Marketplace's `listingImageUrlsProvider`).
 final discussionMediaUrlsProvider = FutureProvider.family<List<String>, String>(
   (ref, discussionId) async {
-    final entries = await ref
-        .watch(agriConnectMediaProvider)
-        .fetchMediaEntries(
-          context: AgriConnectMediaDataSource.discussionsContext,
-          contextId: discussionId,
-        );
-    return [
-      for (final e in entries)
-        if (e['url'] != null && e['url']!.isNotEmpty) e['url']!,
-    ];
+    final media = ref.watch(agriConnectMediaProvider);
+    final entries = await media.fetchMediaEntries(
+      context: AgriConnectMediaDataSource.discussionsContext,
+      contextId: discussionId,
+    );
+    final urls = <String>[];
+    for (final entry in entries) {
+      if (urls.length >= 2) break;
+      urls.add(await media.resolveDisplayUrl(entry));
+    }
+    return urls;
   },
 );
 
