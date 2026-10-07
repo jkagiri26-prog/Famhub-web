@@ -82,7 +82,8 @@ class _ForumTabState extends ConsumerState<ForumTab> {
             onChanged: _onSearchChanged,
             decoration: InputDecoration(
               hintText: 'Search discussions…',
-              prefixIcon: const Icon(Icons.search, size: 20),
+              hintStyle: TextStyle(fontSize: 14, color: cs.outline),
+              prefixIcon: Icon(Icons.search, size: 20, color: cs.outline),
               suffixIcon: _query.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear, size: 18),
@@ -90,10 +91,21 @@ class _ForumTabState extends ConsumerState<ForumTab> {
                     )
                   : null,
               filled: true,
-              fillColor: Colors.white,
+              fillColor: cs.surfaceContainerHighest,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(
+                  color: cs.primary.withValues(alpha: 0.4),
+                  width: 1.2,
+                ),
               ),
               contentPadding: const EdgeInsets.symmetric(vertical: 12),
             ),
@@ -107,9 +119,10 @@ class _ForumTabState extends ConsumerState<ForumTab> {
                 child: Text(
                   'Agricultural discussions',
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: FontWeight.w800,
-                    color: Colors.grey.shade800,
+                    letterSpacing: -0.2,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
               ),

@@ -53,12 +53,13 @@ class MembershipBadge extends StatelessWidget {
   Widget _chip(BuildContext context, String text, Color color, IconData icon) {
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: compact ? 6 : 8,
-        vertical: compact ? 2 : 4,
+        horizontal: compact ? 7 : 9,
+        vertical: compact ? 2 : 3,
       ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.28), width: 0.8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -69,7 +70,8 @@ class MembershipBadge extends StatelessWidget {
             text,
             style: TextStyle(
               fontSize: compact ? 10 : 11,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2,
               color: color,
             ),
           ),

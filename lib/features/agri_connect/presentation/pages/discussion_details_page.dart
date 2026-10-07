@@ -159,7 +159,7 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
                     ),
                     // ── Comments + replies ──
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                       child: postsAsync.when(
                         loading: () => const Center(
                           child: Padding(
@@ -179,7 +179,7 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
                           }
                           final children = <Widget>[
                             Padding(
-                              padding: const EdgeInsets.only(bottom: 4),
+                              padding: const EdgeInsets.only(bottom: 2),
                               child: Row(
                                 children: [
                                   Icon(
@@ -205,9 +205,9 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
                             if (i > 0) {
                               children.add(
                                 Divider(
-                                  height: 14,
-                                  indent: 26,
-                                  endIndent: 4,
+                                  height: 8,
+                                  indent: 30,
+                                  endIndent: 2,
                                   color: cs.outlineVariant.withValues(
                                     alpha: 0.5,
                                   ),
@@ -434,7 +434,7 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
                 // Reply — indented under the comment, orange accent.
                 for (final reply in replies)
                   Padding(
-                    padding: const EdgeInsets.only(left: 34, top: 10),
+                    padding: const EdgeInsets.only(left: 30, top: 6),
                     child: PostTile(
                       post: reply,
                       nested: true,
@@ -454,15 +454,16 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
         ),
         if (_replyingTo == post.id)
           Padding(
-            padding: const EdgeInsets.only(left: 34, top: 8),
+            padding: const EdgeInsets.only(left: 30, top: 4),
             child: _replyComposer(context, discussion, post.id),
           ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 2),
       ],
     );
   }
 
   Widget _composer(BuildContext context, Discussion discussion) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       padding: EdgeInsets.only(
         left: 16,
@@ -470,7 +471,15 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
         top: 10,
         bottom: 10 + MediaQuery.of(context).padding.bottom,
       ),
-      color: Colors.white,
+      decoration: BoxDecoration(
+        color: cs.surface,
+        border: Border(
+          top: BorderSide(
+            color: cs.outlineVariant.withValues(alpha: 0.6),
+            width: 1,
+          ),
+        ),
+      ),
       child: Row(
         children: [
           Expanded(
@@ -480,16 +489,28 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
               maxLines: 4,
               textInputAction: TextInputAction.newline,
               decoration: InputDecoration(
-                hintText: 'Add a reply…',
+                hintText: 'Write a comment…',
+                hintStyle: TextStyle(fontSize: 14, color: cs.outline),
                 filled: true,
-                fillColor: Colors.grey.shade100,
+                fillColor: cs.surfaceContainerHighest,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
                   borderSide: BorderSide.none,
                 ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide(
+                    color: cs.primary.withValues(alpha: 0.4),
+                    width: 1.2,
+                  ),
+                ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
-                  vertical: 10,
+                  vertical: 11,
                 ),
               ),
             ),
@@ -499,16 +520,17 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
             onPressed: _sending
                 ? null
                 : () => _submitPost(context, discussion, null),
+            style: IconButton.styleFrom(
+              backgroundColor: cs.primary.withValues(alpha: 0.10),
+              foregroundColor: cs.primary,
+            ),
             icon: _sending
                 ? const SizedBox(
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Icon(
-                    Icons.send,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+                : const Icon(Icons.send_rounded, size: 20),
           ),
         ],
       ),
@@ -520,6 +542,7 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
     Discussion discussion,
     String parentId,
   ) {
+    final cs = Theme.of(context).colorScheme;
     return Row(
       children: [
         Expanded(
@@ -530,27 +553,41 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
             maxLines: 3,
             decoration: InputDecoration(
               hintText: 'Reply…',
+              hintStyle: TextStyle(fontSize: 14, color: cs.outline),
               filled: true,
-              fillColor: Colors.grey.shade100,
+              fillColor: cs.surfaceContainerHighest,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(20),
                 borderSide: BorderSide.none,
               ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(20),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(20),
+                borderSide: BorderSide(
+                  color: cs.primary.withValues(alpha: 0.4),
+                  width: 1.2,
+                ),
+              ),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 14,
-                vertical: 8,
+                vertical: 9,
               ),
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 4),
         IconButton(
-          icon: const Icon(Icons.send, size: 20),
+          icon: Icon(Icons.send_rounded, size: 20, color: cs.primary),
           onPressed: () => _submitPost(context, discussion, parentId),
+          tooltip: 'Send',
         ),
         IconButton(
-          icon: const Icon(Icons.close, size: 18),
+          icon: Icon(Icons.close, size: 18, color: cs.outline),
           onPressed: () => setState(() => _replyingTo = null),
+          tooltip: 'Cancel',
         ),
       ],
     );

@@ -212,20 +212,33 @@ class _CommunitiesTabState extends ConsumerState<CommunitiesTab> {
     VoidCallback? onAction,
   }) {
     if (title.isEmpty) return const SizedBox.shrink();
+    final cs = Theme.of(context).colorScheme;
     return Row(
       children: [
         Expanded(
           child: Text(
             title,
             style: TextStyle(
-              fontSize: 15,
+              fontSize: 14,
               fontWeight: FontWeight.w800,
-              color: Colors.grey.shade800,
+              letterSpacing: -0.2,
+              color: cs.onSurface,
             ),
           ),
         ),
         if (actionLabel != null && onAction != null)
-          TextButton(onPressed: onAction, child: Text(actionLabel)),
+          TextButton(
+            onPressed: onAction,
+            style: TextButton.styleFrom(
+              foregroundColor: cs.primary,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              visualDensity: VisualDensity.compact,
+            ),
+            child: Text(
+              actionLabel,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+            ),
+          ),
       ],
     );
   }

@@ -45,6 +45,7 @@ class HomeTab extends ConsumerWidget {
         _hero(context),
         const SizedBox(height: 18),
         _sectionHeader(
+          context,
           'Public discussions',
           actionLabel: 'See all',
           onAction: () => onNavigate(2),
@@ -54,6 +55,7 @@ class HomeTab extends ConsumerWidget {
         if (myCommunities.isNotEmpty) ...[
           const SizedBox(height: 18),
           _sectionHeader(
+            context,
             'My communities',
             actionLabel: 'See all',
             onAction: () => onNavigate(1),
@@ -253,24 +255,38 @@ class HomeTab extends ConsumerWidget {
   // ── Section header ─────────────────────────────────────────
 
   Widget _sectionHeader(
+    BuildContext context,
     String title, {
     String? actionLabel,
     VoidCallback? onAction,
   }) {
+    final cs = Theme.of(context).colorScheme;
     return Row(
       children: [
         Expanded(
           child: Text(
             title,
             style: TextStyle(
-              fontSize: 15,
+              fontSize: 14,
               fontWeight: FontWeight.w800,
-              color: Colors.grey.shade800,
+              letterSpacing: -0.2,
+              color: cs.onSurface,
             ),
           ),
         ),
         if (actionLabel != null && onAction != null)
-          TextButton(onPressed: onAction, child: Text(actionLabel)),
+          TextButton(
+            onPressed: onAction,
+            style: TextButton.styleFrom(
+              foregroundColor: cs.primary,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              visualDensity: VisualDensity.compact,
+            ),
+            child: Text(
+              actionLabel,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+            ),
+          ),
       ],
     );
   }

@@ -72,7 +72,7 @@ class PostTile extends ConsumerWidget {
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 9),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -98,12 +98,12 @@ class PostTile extends ConsumerWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 3),
               Text(
                 post.body,
                 style: TextStyle(fontSize: 14, height: 1.45, color: bodyCol),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 3),
               Row(
                 children: [
                   Expanded(
@@ -122,7 +122,10 @@ class PostTile extends ConsumerWidget {
                       onTap: onReply,
                       borderRadius: BorderRadius.circular(8),
                       child: Padding(
-                        padding: const EdgeInsets.all(4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 3,
+                        ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [

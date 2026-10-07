@@ -35,14 +35,14 @@ class DiscussionCard extends StatelessWidget {
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+          color: colorScheme.outlineVariant.withValues(alpha: 0.5),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            color: colorScheme.shadow.withValues(alpha: 0.05),
+            blurRadius: 16,
+            offset: const Offset(0, 5),
           ),
         ],
       ),

@@ -17,26 +17,40 @@ class ConversationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
+    final cs = Theme.of(context).colorScheme;
+    final primary = cs.primary;
     final name = conversation.title ?? '${conversation.type.label} chat';
 
     return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
+      color: cs.surface,
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
+        splashColor: primary.withValues(alpha: 0.06),
+        highlightColor: primary.withValues(alpha: 0.03),
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade200),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+            boxShadow: [
+              BoxShadow(
+                color: cs.shadow.withValues(alpha: 0.05),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: primary.withValues(alpha: 0.12),
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: primary.withValues(alpha: 0.10),
+                  border: Border.all(color: primary.withValues(alpha: 0.18)),
+                ),
                 child: Icon(_icon(conversation), size: 20, color: primary),
               ),
               const SizedBox(width: 12),
@@ -49,10 +63,11 @@ class ConversationTile extends StatelessWidget {
                         Expanded(
                           child: Text(
                             name,
-                            style: const TextStyle(
-                              fontSize: 14,
+                            style: TextStyle(
+                              fontSize: 14.5,
                               fontWeight: FontWeight.w700,
-                              color: Colors.black87,
+                              letterSpacing: -0.2,
+                              color: cs.onSurface,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -60,10 +75,7 @@ class ConversationTile extends StatelessWidget {
                         if (conversation.lastMessageAt != null)
                           Text(
                             agriTimeAgo(conversation.lastMessageAt!),
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey.shade500,
-                            ),
+                            style: TextStyle(fontSize: 11, color: cs.outline),
                           ),
                       ],
                     ),
@@ -72,7 +84,7 @@ class ConversationTile extends StatelessWidget {
                       conversation.type.label,
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey.shade600,
+                        color: cs.onSurfaceVariant,
                       ),
                     ),
                   ],

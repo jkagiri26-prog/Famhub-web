@@ -23,19 +23,29 @@ class CommunityCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final primary = theme.colorScheme.primary;
+    final cs = theme.colorScheme;
+    final primary = cs.primary;
 
     return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
+      color: cs.surface,
+      borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
+        splashColor: primary.withValues(alpha: 0.06),
+        highlightColor: primary.withValues(alpha: 0.03),
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.grey.shade200),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+            boxShadow: [
+              BoxShadow(
+                color: cs.shadow.withValues(alpha: 0.05),
+                blurRadius: 14,
+                offset: const Offset(0, 5),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -70,10 +80,11 @@ class CommunityCard extends StatelessWidget {
                             Flexible(
                               child: Text(
                                 community.name,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
-                                  color: Colors.black87,
+                                  letterSpacing: -0.3,
+                                  color: cs.onSurface,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -90,19 +101,24 @@ class CommunityCard extends StatelessWidget {
                               const SizedBox(width: 6),
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
+                                  horizontal: 8,
+                                  vertical: 3,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.green.shade50,
-                                  borderRadius: BorderRadius.circular(6),
+                                  color: cs.primary.withValues(alpha: 0.10),
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(
+                                    color: cs.primary.withValues(alpha: 0.25),
+                                    width: 0.8,
+                                  ),
                                 ),
                                 child: Text(
                                   'Joined',
                                   style: TextStyle(
                                     fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.green.shade700,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.2,
+                                    color: cs.primary,
                                   ),
                                 ),
                               ),
@@ -118,7 +134,7 @@ class CommunityCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey.shade600,
+                              color: cs.onSurfaceVariant,
                             ),
                           ),
                       ],
@@ -166,10 +182,11 @@ class CommunityCard extends StatelessWidget {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.22), width: 0.8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
