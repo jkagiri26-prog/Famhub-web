@@ -120,22 +120,15 @@ class CommunityController extends Notifier<void> {
     return community;
   }
 
+  /// Join (or rejoin) a community. Delegates to the authenticated
+  /// `join_or_rejoin_community` RPC — identity, owner restoration and the
+  /// pending/approved outcome are all decided by the backend.
   Future<void> joinCommunity(String communityId) async {
     final profileId = ref.read(agriConnectProfileIdProvider);
     if (profileId == null) {
       throw Exception('You must be signed in to join a community.');
     }
-    // A previously-left membership may exist but be hidden from SELECT
-    // (the RLS read policy can omit non-active rows). Prefer updating that
-    // row back to `pending` via UPDATE; only insert a fresh active membership
-    // when no `left` row exists.
-    final rejoined = await _repo.rejoinCommunity(
-      communityId: communityId,
-      profileId: profileId,
-    );
-    if (!rejoined) {
-      await _repo.joinCommunity(communityId: communityId, profileId: profileId);
-    }
+    await _repo.joinOrRejoinCommunity(communityId);
     _invalidate(communityId);
   }
 
@@ -146,17 +139,15 @@ class CommunityController extends Notifier<void> {
     _invalidate(communityId);
   }
 
-  Future<bool> rejoinCommunity(String communityId) async {
+  /// Rejoin a community the caller previously left — same backend RPC as
+  /// [joinCommunity] (it handles join-or-rejoin in one call).
+  Future<void> rejoinCommunity(String communityId) async {
     final profileId = ref.read(agriConnectProfileIdProvider);
     if (profileId == null) {
       throw Exception('You must be signed in to rejoin a community.');
     }
-    final rejoined = await _repo.rejoinCommunity(
-      communityId: communityId,
-      profileId: profileId,
-    );
+    await _repo.joinOrRejoinCommunity(communityId);
     _invalidate(communityId);
-    return rejoined;
   }
 
   Future<void> requestToJoin(String communityId, {String? message}) async {

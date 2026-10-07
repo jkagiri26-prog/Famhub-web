@@ -731,14 +731,12 @@ class _MembershipActionCardState extends ConsumerState<_MembershipActionCard>
   Future<void> _rejoin(BuildContext context) async {
     setState(() => _busy = true);
     try {
-      final rejoined = await ref
+      // Backend RPC decides the outcome: active owner for the creator,
+      // pending approval for other returning members. The membership badge
+      // refreshes from the provider.
+      await ref
           .read(communityControllerProvider.notifier)
           .rejoinCommunity(widget.community.id);
-      if (!rejoined && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No previous membership to rejoin.')),
-        );
-      }
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(

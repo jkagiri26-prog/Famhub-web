@@ -99,14 +99,8 @@ class CommunityRepositoryImpl implements CommunityRepository {
   }
 
   @override
-  Future<void> joinCommunity({
-    required String communityId,
-    required String profileId,
-  }) async {
-    await _dataSource.joinCommunity(
-      communityId: communityId,
-      profileId: profileId,
-    );
+  Future<void> joinOrRejoinCommunity(String communityId) async {
+    await _dataSource.joinOrRejoinCommunity(communityId);
   }
 
   @override
@@ -118,18 +112,6 @@ class CommunityRepositoryImpl implements CommunityRepository {
       communityId: communityId,
       profileId: profileId,
     );
-  }
-
-  @override
-  Future<bool> rejoinCommunity({
-    required String communityId,
-    required String profileId,
-  }) async {
-    final row = await _dataSource.rejoinCommunity(
-      communityId: communityId,
-      profileId: profileId,
-    );
-    return row != null;
   }
 
   @override

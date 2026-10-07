@@ -49,24 +49,15 @@ abstract class CommunityRepository {
     required String profileId,
   });
 
-  /// Join an open community (direct active membership). RLS-scoped.
-  Future<void> joinCommunity({
-    required String communityId,
-    required String profileId,
-  });
+  /// Join or rejoin a community via the authenticated
+  /// `join_or_rejoin_community` RPC (identity from the caller's JWT).
+  ///
+  /// The backend returns an active owner membership for the community
+  /// creator and `pending` (approval) for other rejoining members.
+  Future<void> joinOrRejoinCommunity(String communityId);
 
   /// Leave a community (marks the caller's membership `left`). RLS-scoped.
   Future<void> leaveCommunity({
-    required String communityId,
-    required String profileId,
-  });
-
-  /// Rejoin a community the caller previously left.
-  ///
-  /// Updates the existing membership row (`left` → `pending`) by profile id.
-  /// Never inserts or upserts — the backend policy only permits this UPDATE.
-  /// Returns true when a `left` row was updated, false when none matched.
-  Future<bool> rejoinCommunity({
     required String communityId,
     required String profileId,
   });
