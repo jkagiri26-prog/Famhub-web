@@ -114,8 +114,8 @@ class DiscussionController extends Notifier<void> {
   ///
   /// Creation semantics are unchanged: `community_id` is only sent when
   /// [communityId] is non-empty (public forum → `community_id = null`).
-  /// Images are uploaded against context `discussions` / the new discussion
-  /// id, then their `media.files` ids are persisted in the existing
+  /// Images are uploaded against context `agri_connect_discussion` / the new
+  /// discussion id, then their `media.files` ids are persisted in the existing
   /// `metadata` JSONB column as `media_file_ids`.
   ///
   /// Throws [DiscussionAttachException] when the discussion was created but

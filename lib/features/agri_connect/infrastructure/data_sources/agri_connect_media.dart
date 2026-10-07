@@ -9,7 +9,10 @@
 /// Context contract (adjust to the deployed backend if it differs):
 ///   community profile image → context "communities", context_id = community id
 ///   message attachment       → context "messages",    context_id = message id
-///   discussion image         → context "discussions", context_id = discussion id
+///   discussion image         → context "agri_connect_discussion",
+///                              context_id = discussion id
+///                              (aliases "discussion_posts"/"posts" accepted
+///                              by media_get_by_context)
 /// ============================================================
 library;
 
@@ -27,7 +30,7 @@ class AgriConnectMediaDataSource {
 
   static const String communitiesContext = 'communities';
   static const String messagesContext = 'messages';
-  static const String discussionsContext = 'discussions';
+  static const String discussionsContext = 'agri_connect_discussion';
 
   static const String _uploadFn = 'upload_media';
   static const String _getByContextFn = 'media_get_by_context';
