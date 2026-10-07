@@ -151,11 +151,13 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
                       padding: const EdgeInsets.all(16),
                       child: _header(context, discussion, canModerate),
                     ),
-                    if (discussion.mediaFileIds.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                        child: _images(context, discussion),
-                      ),
+                    // Always resolve media for this discussion (one bounded
+                    // call) — also self-heals discussions whose metadata
+                    // write failed at creation time.
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      child: _images(context, discussion),
+                    ),
                     Divider(
                       height: 1,
                       indent: 16,
@@ -472,6 +474,7 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
   /// discussion's metadata references media files.
   Widget _images(BuildContext context, Discussion discussion) {
     final cs = Theme.of(context).colorScheme;
+    final expectImages = discussion.mediaFileIds.isNotEmpty;
     final urlsAsync = ref.watch(discussionMediaUrlsProvider(discussion.id));
     final urls = (urlsAsync.value ?? const <String>[]).take(2).toList();
     if (urls.isEmpty) {
@@ -487,8 +490,12 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
           ),
         );
       }
-      // Loading finished with nothing to show — surface the exact signing /
-      // authorization error and let the user re-sign (tap to retry).
+      if (!urlsAsync.hasError && !expectImages) {
+        // No media exists for this discussion — render nothing.
+        return const SizedBox.shrink();
+      }
+      // Surface the exact signing/authorization/response error (or a
+      // promised-but-missing image) and let the user re-sign (tap retry).
       final message = urlsAsync.hasError
           ? 'Image unavailable: ${urlsAsync.error}\nTap to retry.'
           : 'Image unavailable. Tap to retry.';

@@ -150,7 +150,7 @@ class DiscussionController extends Notifier<void> {
     final uploadedIds = <String>[];
     try {
       for (final bytes in images) {
-        await media.uploadDiscussionImage(
+        final payload = await media.uploadDiscussionImage(
           bytes: bytes,
           fileName:
               'discussion_image_'
@@ -158,12 +158,31 @@ class DiscussionController extends Notifier<void> {
               '_${bytes.lengthInBytes}.webp',
           discussionId: discussion.id,
         );
+        // Prefer ids returned by the upload response itself — no extra
+        // round-trip and independent of `media_get_by_context` shape.
+        for (final e in AgriConnectMediaDataSource.parseMediaEntries(payload)) {
+          final id = e['id'];
+          if (id != null && id.isNotEmpty && !uploadedIds.contains(id)) {
+            uploadedIds.add(id);
+          }
+        }
       }
-      final entries = await media.fetchMediaEntries(
-        context: AgriConnectMediaDataSource.discussionsContext,
-        contextId: discussion.id,
-      );
-      uploadedIds.addAll(entries.map((e) => e['id']).whereType<String>());
+      if (uploadedIds.length < images.length) {
+        // Fallback: resolve the ids through the context query.
+        final entries = await media.fetchMediaEntries(
+          context: AgriConnectMediaDataSource.discussionsContext,
+          contextId: discussion.id,
+        );
+        final fetched = entries
+            .map((e) => e['id'])
+            .whereType<String>()
+            .toList();
+        if (fetched.isNotEmpty) {
+          uploadedIds
+            ..clear()
+            ..addAll(fetched);
+        }
+      }
       if (uploadedIds.isEmpty) {
         throw Exception('The uploaded images could not be linked.');
       }

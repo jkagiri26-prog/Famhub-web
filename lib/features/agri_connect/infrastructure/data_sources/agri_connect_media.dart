@@ -13,6 +13,7 @@
 /// ============================================================
 library;
 
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
@@ -41,8 +42,9 @@ class AgriConnectMediaDataSource {
   /// [resolveDisplayUrl] signs again).
   static const int signedUrlTtlSeconds = 3600;
 
-  /// Upload an image for a community's profile image.
-  Future<void> uploadCommunityImage({
+  /// Upload an image for a community's profile image. Returns the raw
+  /// function payload so callers can read file ids/paths when present.
+  Future<dynamic> uploadCommunityImage({
     required Uint8List bytes,
     required String fileName,
     required String communityId,
@@ -57,8 +59,10 @@ class AgriConnectMediaDataSource {
   }
 
   /// Upload an image attachment for a discussion (max 2 per discussion,
-  /// enforced by the calling feature code).
-  Future<void> uploadDiscussionImage({
+  /// enforced by the calling feature code). Returns the raw function
+  /// payload — parsed for the new `media.files` id when the response
+  /// carries one, so linking does not depend on a second round-trip.
+  Future<dynamic> uploadDiscussionImage({
     required Uint8List bytes,
     required String fileName,
     required String discussionId,
@@ -73,7 +77,7 @@ class AgriConnectMediaDataSource {
   }
 
   /// Upload a message media attachment.
-  Future<void> uploadMessageMedia({
+  Future<dynamic> uploadMessageMedia({
     required Uint8List bytes,
     required String fileName,
     required String messageId,
@@ -112,7 +116,21 @@ class AgriConnectMediaDataSource {
         _getByContextFn,
         body: {'context': context, 'context_id': contextId},
       );
-      return _entries(response.data);
+      final entries = parseMediaEntries(response.data);
+      if (entries.isEmpty) {
+        final items = collectMediaItems(response.data);
+        if (items.isNotEmpty) {
+          // The function returned items but none were parseable — surface
+          // the raw shape instead of failing silently, so the UI can show
+          // exactly what came back.
+          final sample = jsonEncode(items.first).toString();
+          throw Exception(
+            'Unrecognized media response (${items.length} item(s)): '
+            '${sample.length > 400 ? sample.substring(0, 400) : sample}',
+          );
+        }
+      }
+      return entries;
     } on FunctionException catch (e) {
       throw Exception(_describeFunctionError('Failed to load media', e));
     }
@@ -133,7 +151,7 @@ class AgriConnectMediaDataSource {
     }
   }
 
-  Future<void> _upload({
+  Future<dynamic> _upload({
     required String context,
     required String contextId,
     required Uint8List bytes,
@@ -157,6 +175,7 @@ class AgriConnectMediaDataSource {
       if (reason != null) {
         throw Exception('Upload failed: $reason');
       }
+      return response.data;
     } on FunctionException catch (e) {
       throw Exception(_describeFunctionError('Upload failed', e));
     }
@@ -173,16 +192,49 @@ class AgriConnectMediaDataSource {
     return 'Unexpected response from the server.';
   }
 
-  static List<Map<String, String>> _entries(dynamic payload) {
-    final List<dynamic> raw;
-    if (payload is List) {
-      raw = payload;
-    } else if (payload is Map) {
-      final inner = payload['data'] ?? payload['media'] ?? payload['files'];
-      raw = inner is List ? inner : const [];
-    } else {
-      raw = const [];
+  /// Locate the list of media items inside any payload shape the deployed
+  /// media functions return: a bare list, `{data|files|media|items|...}`
+  /// (flat or one level nested), or a single media-object map.
+  /// Public so the parsing contract is unit-testable.
+  static List<dynamic> collectMediaItems(dynamic payload) {
+    const keys = [
+      'data',
+      'files',
+      'media',
+      'items',
+      'results',
+      'entries',
+      'file',
+    ];
+    if (payload is List) return payload;
+    if (payload is Map) {
+      for (final key in keys) {
+        final value = payload[key];
+        if (value == null) continue;
+        if (value is List) return value;
+        if (value is Map) {
+          final nested = collectMediaItems(value);
+          if (nested.isNotEmpty) return nested;
+        }
+      }
+      // Single-object payload that looks like one media item.
+      if (payload.containsKey('id') ||
+          payload.containsKey('file_id') ||
+          payload.containsKey('media_id') ||
+          payload.containsKey('path') ||
+          payload.containsKey('url')) {
+        return [payload];
+      }
     }
+    return const [];
+  }
+
+  /// Normalize media items to `{url?, path?, id?}` maps. Entries that only
+  /// carry a storage path are kept (they are signed client-side by
+  /// [resolveDisplayUrl]); an `id`-only entry is kept for linking.
+  /// Public so the parsing contract is unit-testable.
+  static List<Map<String, String>> parseMediaEntries(dynamic payload) {
+    final raw = collectMediaItems(payload);
 
     final entries = <Map<String, String>>[];
     for (final item in raw) {
