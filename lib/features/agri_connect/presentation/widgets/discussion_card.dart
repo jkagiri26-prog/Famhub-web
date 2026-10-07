@@ -11,9 +11,17 @@ import '../format.dart';
 
 class DiscussionCard extends StatelessWidget {
   final Discussion discussion;
+  final String? authorName;
+  final String? communityName;
   final VoidCallback? onTap;
 
-  const DiscussionCard({super.key, required this.discussion, this.onTap});
+  const DiscussionCard({
+    super.key,
+    required this.discussion,
+    this.authorName,
+    this.communityName,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -93,11 +101,24 @@ class DiscussionCard extends StatelessWidget {
                       ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Row(
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     _tag(discussion.type.label, typeColor),
-                    const SizedBox(width: 8),
+                    if (communityName != null && communityName!.isNotEmpty)
+                      _tag(communityName!, colorScheme.primary),
+                    if (authorName != null && authorName!.isNotEmpty)
+                      Text(
+                        'By $authorName',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: colorScheme.primary,
+                        ),
+                      ),
                     Text(
                       agriTimeAgo(discussion.createdAt),
                       style: TextStyle(
@@ -108,7 +129,7 @@ class DiscussionCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 10),
                 Row(
                   children: [
                     _metric(
@@ -155,6 +176,8 @@ class DiscussionCard extends StatelessWidget {
       ),
       child: Text(
         text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,

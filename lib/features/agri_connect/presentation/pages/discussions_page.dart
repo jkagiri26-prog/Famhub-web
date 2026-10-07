@@ -49,6 +49,9 @@ class DiscussionsPage extends ConsumerWidget {
 
   Widget _content(BuildContext context, WidgetRef ref) {
     final discussionsAsync = ref.watch(discussionsProvider(communityId));
+    final authors =
+        ref.watch(discussionAuthorNamesProvider(communityId)).value ??
+        const <String, String>{};
 
     return discussionsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -78,6 +81,7 @@ class DiscussionsPage extends ConsumerWidget {
             final d = discussions[index];
             return DiscussionCard(
               discussion: d,
+              authorName: authors[d.createdBy],
               onTap: () => _openDiscussion(context, d.id),
             );
           },

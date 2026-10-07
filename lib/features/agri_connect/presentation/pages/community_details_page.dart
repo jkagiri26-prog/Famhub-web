@@ -360,6 +360,9 @@ class _HomeTab extends ConsumerWidget {
 
   Widget _discussions(BuildContext context, WidgetRef ref) {
     final async = ref.watch(discussionsProvider(community.id));
+    final authors =
+        ref.watch(discussionAuthorNamesProvider(community.id)).value ??
+        const <String, String>{};
     return async.when(
       loading: () => const SizedBox(
         height: 40,
@@ -386,6 +389,7 @@ class _HomeTab extends ConsumerWidget {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: DiscussionCard(
                   discussion: d,
+                  authorName: authors[d.createdBy],
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => DiscussionDetailsPage(discussionId: d.id),

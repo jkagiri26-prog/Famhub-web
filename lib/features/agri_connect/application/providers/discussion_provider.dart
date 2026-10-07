@@ -53,6 +53,24 @@ final postReactionsProvider = FutureProvider.family<ReactionSummary, String>((
       .fetchPostReactions(postId: postId, profileId: profileId);
 });
 
+/// Display names for the authors of a discussion list, resolved in one
+/// batched request with the existing profile-name resolver.
+final discussionAuthorNamesProvider =
+    FutureProvider.family<Map<String, String>, String?>((
+      ref,
+      communityId,
+    ) async {
+      final discussions =
+          ref.watch(discussionsProvider(communityId)).value ??
+          const <Discussion>[];
+      final authorIds = discussions
+          .map((d) => d.createdBy)
+          .where((id) => id.isNotEmpty)
+          .toSet();
+      if (authorIds.isEmpty) return const {};
+      return ref.watch(agriConnectProfileNamesProvider).resolve(authorIds);
+    });
+
 /// Mutation controller for discussions, posts, reactions and views.
 class DiscussionController extends Notifier<void> {
   DiscussionRepository get _repo => ref.read(discussionRepositoryProvider);
@@ -70,7 +88,11 @@ class DiscussionController extends Notifier<void> {
       title: title,
       type: type,
     );
+    // Refresh both the source list and the public feed/forum list.
     ref.invalidate(discussionsProvider(communityId));
+    if (communityId != null) ref.invalidate(discussionsProvider(null));
+    ref.invalidate(discussionAuthorNamesProvider(communityId));
+    ref.invalidate(discussionAuthorNamesProvider(null));
     return discussion;
   }
 

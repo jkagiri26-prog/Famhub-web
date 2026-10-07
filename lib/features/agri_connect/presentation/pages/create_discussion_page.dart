@@ -13,9 +13,10 @@ import '../format.dart';
 import 'discussion_details_page.dart';
 
 class CreateDiscussionPage extends ConsumerStatefulWidget {
-  final String communityId;
+  /// null → public forum discussion (no community).
+  final String? communityId;
 
-  const CreateDiscussionPage({super.key, required this.communityId});
+  const CreateDiscussionPage({super.key, this.communityId});
 
   @override
   ConsumerState<CreateDiscussionPage> createState() =>
@@ -87,13 +88,22 @@ class _CreateDiscussionPageState extends ConsumerState<CreateDiscussionPage> {
               maxLines: 2,
               decoration: InputDecoration(
                 labelText: 'Title',
-                hintText: 'What would you like to discuss?',
+                hintText: widget.communityId == null
+                    ? 'e.g. How can I control fall armyworm in maize?'
+                    : 'What would you like to discuss?',
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.communityId == null
+                  ? 'This will be shared in the public forum.'
+                  : 'This will be shared with this community.',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 16),
             Text(

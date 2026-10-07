@@ -43,6 +43,16 @@ final myCommunitiesProvider = FutureProvider<List<Community>>((ref) async {
   return ref.watch(communityRepositoryProvider).fetchMyCommunities(profileId);
 });
 
+/// id → name for every community the caller can currently see.
+/// Reuses the discover list, so no request is made beyond the one the
+/// Communities tab already needs.
+final communityNamesProvider = Provider<Map<String, String>>((ref) {
+  final communities =
+      ref.watch(discoverCommunitiesProvider((query: '', type: null))).value ??
+      const <Community>[];
+  return {for (final c in communities) c.id: c.name};
+});
+
 final communityDetailsProvider = FutureProvider.family<Community?, String>((
   ref,
   communityId,
