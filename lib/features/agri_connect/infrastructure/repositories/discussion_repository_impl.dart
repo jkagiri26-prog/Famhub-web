@@ -17,6 +17,8 @@ class DiscussionRepositoryImpl implements DiscussionRepository {
 
   DiscussionRepositoryImpl(this._dataSource, this._profileNames);
 
+  /// `communityId == null` → general public forum discussions
+  /// (`community_id IS NULL`). Otherwise → that community's discussions.
   @override
   Future<List<Discussion>> fetchDiscussions({String? communityId}) async {
     final rows = await _dataSource.fetchDiscussions(communityId: communityId);

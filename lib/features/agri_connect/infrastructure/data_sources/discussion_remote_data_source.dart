@@ -30,6 +30,8 @@ class DiscussionRemoteDataSource {
 
   // ── Discussions ────────────────────────────────────────────
 
+  /// `communityId == null` → general public forum discussions only
+  /// (`community_id IS NULL`). Otherwise → that community's discussions.
   Future<List<Map<String, dynamic>>> fetchDiscussions({
     String? communityId,
   }) async {
@@ -41,6 +43,8 @@ class DiscussionRemoteDataSource {
           .eq('is_active', true);
       if (communityId != null && communityId.isNotEmpty) {
         query = query.eq('community_id', communityId);
+      } else {
+        query = query.isFilter('community_id', null);
       }
       final response = await query
           .order('is_pinned', ascending: false)

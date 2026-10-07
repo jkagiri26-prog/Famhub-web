@@ -12,6 +12,9 @@ import '../../domain/enums/discussion_enums.dart';
 import '../../domain/repositories/discussion_repository.dart';
 import 'agri_connect_providers.dart';
 
+/// `communityId == null` → general public forum discussions only
+/// (`community_id IS NULL`). Otherwise → that specific community's
+/// discussions. Filtering happens in the query, not in the UI.
 final discussionsProvider = FutureProvider.family<List<Discussion>, String?>((
   ref,
   communityId,
@@ -88,11 +91,8 @@ class DiscussionController extends Notifier<void> {
       title: title,
       type: type,
     );
-    // Refresh both the source list and the public feed/forum list.
     ref.invalidate(discussionsProvider(communityId));
-    if (communityId != null) ref.invalidate(discussionsProvider(null));
     ref.invalidate(discussionAuthorNamesProvider(communityId));
-    ref.invalidate(discussionAuthorNamesProvider(null));
     return discussion;
   }
 

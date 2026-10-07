@@ -13,6 +13,8 @@ import '../entities/reaction_summary.dart';
 import '../enums/discussion_enums.dart';
 
 abstract class DiscussionRepository {
+  /// `communityId == null` → general public forum discussions
+  /// (`community_id IS NULL`). Otherwise → that community's discussions.
   Future<List<Discussion>> fetchDiscussions({String? communityId});
 
   Future<Discussion?> fetchDiscussionById(String discussionId);
