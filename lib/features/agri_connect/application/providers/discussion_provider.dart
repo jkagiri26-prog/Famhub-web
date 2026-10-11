@@ -84,6 +84,45 @@ final discussionMediaUrlsProvider = FutureProvider.family<List<String>, String>(
   },
 );
 
+/// Media file entries (`{id, url?, path}`) attached to one comment or
+/// reply, resolved through `media_get_by_context` with the shared
+/// `agri_connect_post` context keyed by the post id. The relationship
+/// rows (`agri_connect.post_media`) are registered by the `upload_media`
+/// function itself — the client never writes them. Cached per post and
+/// invalidated after an attach/remove so the next watch re-fetches and
+/// re-signs.
+final postMediaEntriesProvider =
+    FutureProvider.family<List<Map<String, String>>, String>((ref, postId) {
+      return ref
+          .watch(agriConnectMediaProvider)
+          .fetchMediaEntries(
+            context: AgriConnectMediaDataSource.postContext,
+            contextId: postId,
+          );
+    });
+
+/// Short-lived signed URLs for a comment's attached images (max 2, the
+/// backend-enforced slot per post). Fetches the entries directly (the
+/// same pattern as [discussionMediaUrlsProvider]) so lookup failures
+/// surface as this provider's error state — the tile's tap-to-retry
+/// re-runs signing; an expired URL is never reused.
+final postMediaUrlsProvider = FutureProvider.family<List<String>, String>((
+  ref,
+  postId,
+) async {
+  final media = ref.watch(agriConnectMediaProvider);
+  final entries = await media.fetchMediaEntries(
+    context: AgriConnectMediaDataSource.postContext,
+    contextId: postId,
+  );
+  final urls = <String>[];
+  for (final entry in entries) {
+    if (urls.length >= 2) break;
+    urls.add(await media.resolveDisplayUrl(entry));
+  }
+  return urls;
+});
+
 /// Display names for the authors of a discussion list, resolved in one
 /// batched request with the existing profile-name resolver.
 final discussionAuthorNamesProvider =
@@ -366,6 +405,7 @@ class DiscussionController extends Notifier<void> {
     required String discussionId,
     String? parentPostId,
     required String body,
+    Uint8List? image,
   }) async {
     final profileId = ref.read(agriConnectProfileIdProvider);
     if (profileId == null) {
@@ -384,7 +424,52 @@ class DiscussionController extends Notifier<void> {
       );
     }
     ref.invalidate(discussionDetailsProvider(discussionId));
+    if (image != null) {
+      try {
+        await attachPostImage(postId: post.id, bytes: image);
+      } catch (e) {
+        // The comment row was created — keep it (never delete it to
+        // compensate) and hand it to the caller for reporting/retry.
+        throw PostAttachException(post: post, cause: e);
+      }
+    }
     return post;
+  }
+
+  /// Upload a comment/reply image for an already-created post through
+  /// `upload_media` (context `agri_connect_post`, `context_id = post id`).
+  /// The uploader reserves the post's slot and registers the
+  /// `post_media` relationship itself, so success only requires refreshing
+  /// the lookup providers. Throws on any failure the backend reports —
+  /// nothing is treated as attached unless the upload confirmed it.
+  Future<void> attachPostImage({
+    required String postId,
+    required Uint8List bytes,
+  }) async {
+    final media = ref.read(agriConnectMediaProvider);
+    await media.uploadPostImage(
+      bytes: bytes,
+      fileName:
+          'comment_image_${DateTime.now().microsecondsSinceEpoch}'
+          '_${bytes.lengthInBytes}.webp',
+      postId: postId,
+    );
+    ref.invalidate(postMediaEntriesProvider(postId));
+    ref.invalidate(postMediaUrlsProvider(postId));
+  }
+
+  /// Remove a comment/reply image through the authorized RPC
+  /// `agri_connect.remove_post_media(p_post_id, p_file_id)` — never the
+  /// listing-only `delete_media` edge function, never a direct Storage
+  /// delete. Success is reported only when the RPC completed.
+  Future<void> removePostImage({
+    required String postId,
+    required String fileId,
+  }) async {
+    final media = ref.read(agriConnectMediaProvider);
+    await media.removePostMedia(postId: postId, fileId: fileId);
+    ref.invalidate(postMediaEntriesProvider(postId));
+    ref.invalidate(postMediaUrlsProvider(postId));
   }
 
   Future<void> editPost({
@@ -443,6 +528,19 @@ class DiscussionAttachException implements Exception {
 
   @override
   String toString() => 'Images could not be attached: $cause';
+}
+
+/// The comment was created but its image upload failed. The text comment
+/// is kept (never deleted to compensate); [post] lets callers retry the
+/// upload without creating a duplicate comment.
+class PostAttachException implements Exception {
+  final Post post;
+  final Object cause;
+
+  const PostAttachException({required this.post, required this.cause});
+
+  @override
+  String toString() => 'The image could not be attached: $cause';
 }
 
 /// The media sub-step of an edit save that failed, so error reporting can

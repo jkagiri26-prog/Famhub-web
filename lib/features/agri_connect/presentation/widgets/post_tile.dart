@@ -111,6 +111,7 @@ class PostTile extends ConsumerWidget {
                 post.body,
                 style: TextStyle(fontSize: 14, height: 1.45, color: bodyCol),
               ),
+              _images(context, ref, cs),
               const SizedBox(height: 3),
               Row(
                 children: [
@@ -187,6 +188,114 @@ class PostTile extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+
+  /// Attached comment images (0–2) resolved through `media_get_by_context`
+  /// (context `agri_connect_post`, keyed by this post's id). Mirrors the
+  /// discussion-image conventions: bounded loading state, tap-to-retry on
+  /// lookup failures and per-image error tiles for expired URLs — display
+  /// never depends on persisted post metadata.
+  Widget _images(BuildContext context, WidgetRef ref, ColorScheme cs) {
+    final urlsAsync = ref.watch(postMediaUrlsProvider(post.id));
+    final urls = (urlsAsync.value ?? const <String>[]).take(2).toList();
+    if (urls.isEmpty) {
+      if (urlsAsync.isLoading) {
+        return const Padding(
+          padding: EdgeInsets.only(top: 4),
+          child: SizedBox(
+            height: 72,
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          ),
+        );
+      }
+      if (!urlsAsync.hasError) {
+        // No attachments for this comment — no extra chrome.
+        return const SizedBox.shrink();
+      }
+      return GestureDetector(
+        onTap: () => ref.invalidate(postMediaUrlsProvider(post.id)),
+        child: Container(
+          height: 72,
+          margin: const EdgeInsets.only(top: 4),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            'Image unavailable. Tap to retry.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 11.5, height: 1.4, color: cs.outline),
+          ),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          for (var i = 0; i < urls.length; i++)
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(right: i == urls.length - 1 ? 0 : 8),
+                child: _imageTile(urls[i], ref, cs),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _imageTile(String url, WidgetRef ref, ColorScheme cs) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: GestureDetector(
+        // A failed/expired URL re-signs by re-running the urls provider.
+        onTap: () => ref.invalidate(postMediaUrlsProvider(post.id)),
+        child: Image.network(
+          url,
+          height: 160,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, progress) {
+            if (progress == null) return child;
+            return Container(
+              height: 160,
+              color: cs.surfaceContainerHighest,
+              child: const Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            );
+          },
+          errorBuilder: (context, error, stack) => Container(
+            height: 160,
+            color: cs.surfaceContainerHighest,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.broken_image_outlined, size: 24, color: cs.outline),
+                const SizedBox(height: 4),
+                Text(
+                  'Tap to retry',
+                  style: TextStyle(fontSize: 11, color: cs.outline),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 

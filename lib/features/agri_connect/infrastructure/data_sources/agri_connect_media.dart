@@ -45,6 +45,13 @@ class AgriConnectMediaDataSource {
   /// makes image display work). Lookups use this; uploads do not.
   static const String discussionLookupContext = 'agri_connect_discussion';
 
+  /// Single context shared by upload and lookup for comment/reply images:
+  /// `upload_media` (v31+) reserves the post's image slot and registers
+  /// the attachment itself with `context_id = posts.id`, and
+  /// `media_get_by_context` resolves the same value for display. A post
+  /// supports up to 2 images (backend-enforced).
+  static const String postContext = 'agri_connect_post';
+
   static const String _uploadFn = 'upload_media';
   static const String _getByContextFn = 'media_get_by_context';
   static const String _deleteFn = 'delete_media';
@@ -86,6 +93,27 @@ class AgriConnectMediaDataSource {
     return _upload(
       context: discussionsContext,
       contextId: discussionId,
+      bytes: bytes,
+      fileName: fileName,
+      contentType: MediaType('image', 'webp'),
+    );
+  }
+
+  /// Upload one comment/reply image for an already-created post. The
+  /// uploader reserves the post's image slot and registers the attachment
+  /// itself — the client never writes post media state, so this method
+  /// only reports the upload's outcome. Transport errors, HTTP errors,
+  /// `success: false` and malformed payloads all surface as exceptions
+  /// (see [_upload] / [_failureReason]); nothing is treated as saved
+  /// unless the backend confirmed it.
+  Future<dynamic> uploadPostImage({
+    required Uint8List bytes,
+    required String fileName,
+    required String postId,
+  }) {
+    return _upload(
+      context: postContext,
+      contextId: postId,
       bytes: bytes,
       fileName: fileName,
       contentType: MediaType('image', 'webp'),
@@ -170,8 +198,9 @@ class AgriConnectMediaDataSource {
     }
   }
 
-  /// Schema holding `delete_discussion_media`.
-  static const String _discussionSchema = 'agri_connect';
+  /// Schema holding the Agri Connect media RPCs (`delete_discussion_media`,
+  /// `remove_post_media`).
+  static const String _agriSchema = 'agri_connect';
 
   /// Remove a discussion image through the existing authorized RPC
   /// `agri_connect.delete_discussion_media(p_file_id)` — the only
@@ -189,7 +218,7 @@ class AgriConnectMediaDataSource {
     final Object? data;
     try {
       data = await _client
-          .schema(_discussionSchema)
+          .schema(_agriSchema)
           .rpc('delete_discussion_media', params: {'p_file_id': fileId});
     } on PostgrestException catch (e) {
       // Diagnostic: surface the database's own error (rule violation,
@@ -206,6 +235,43 @@ class AgriConnectMediaDataSource {
     final reason = _rpcRemovalFailureReason(data);
     if (reason != null) {
       throw Exception('Media removal failed: $reason');
+    }
+  }
+
+  /// Remove a comment/reply image through the authorized RPC
+  /// `agri_connect.remove_post_media(p_post_id, p_file_id)` — the only
+  /// supported removal path for post media (never the listing-only
+  /// `delete_media` edge function, never a direct Storage delete).
+  ///
+  /// Failures surface the backend's own error text; nothing about the
+  /// removal is reported as successful unless the RPC completed.
+  Future<void> removePostMedia({
+    required String postId,
+    required String fileId,
+  }) async {
+    final Object? data;
+    try {
+      data = await _client
+          .schema(_agriSchema)
+          .rpc(
+            'remove_post_media',
+            params: {'p_post_id': postId, 'p_file_id': fileId},
+          );
+    } on PostgrestException catch (e) {
+      // Diagnostic: surface the database's own error (rule violation,
+      // authorization, missing row) for device logs.
+      // ignore: avoid_print
+      print(
+        '[remove_post_media] code=${e.code} message=${e.message} '
+        'details=${e.details}',
+      );
+      throw Exception('Image removal failed: ${e.message}');
+    } catch (e) {
+      throw Exception('Image removal failed: $e');
+    }
+    final reason = _rpcRemovalFailureReason(data);
+    if (reason != null) {
+      throw Exception('Image removal failed: $reason');
     }
   }
 
