@@ -167,7 +167,8 @@ class PostTile extends ConsumerWidget {
                       ),
                       tooltip: 'Report',
                     ),
-                  if (onEdit != null && authorProfileId != null &&
+                  if (onEdit != null &&
+                      authorProfileId != null &&
                       authorProfileId == post.authorProfileId)
                     IconButton(
                       onPressed: onEdit,

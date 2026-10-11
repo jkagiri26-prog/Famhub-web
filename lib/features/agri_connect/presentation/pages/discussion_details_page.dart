@@ -83,15 +83,20 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
               await ref
                   .read(discussionControllerProvider.notifier)
                   .editPost(
-                discussionId: widget.discussionId,
-                postId: post.id,
-                body: bodyController.text.trim(),
+                    discussionId: widget.discussionId,
+                    postId: post.id,
+                    body: bodyController.text.trim(),
+                  );
+              ref.invalidate(
+                postsProvider((
+                  discussionId: widget.discussionId,
+                  parentId: null,
+                )),
               );
-              ref.invalidate(postsProvider((discussionId: widget.discussionId, parentId: null)));
               if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Post updated.')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Post updated.')));
             },
             child: const Text('Save'),
           ),
@@ -132,15 +137,18 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
               if (discussion == null) return;
               final profileId = ref.read(agriConnectProfileIdProvider);
               // Only show Edit for the discussion author
-              if (profileId != null && profileId != discussion.createdBy) return;
+              if (profileId != null && profileId != discussion.createdBy)
+                return;
               // Show edit form in a dialog
               final TextEditingController titleController =
                   TextEditingController(text: discussion.title);
               final typeValues = DiscussionType.values
                   .map((e) => e.name)
                   .toList();
-              int currentTypeIndex =
-                  typeValues.indexWhere((n) => n == discussion.type.name) ?? 0;
+              int currentTypeIndex = typeValues.indexWhere(
+                (n) => n == discussion.type.name,
+              );
+              if (currentTypeIndex < 0) currentTypeIndex = 0;
               await showDialog(
                 context: context,
                 builder: (_) => AlertDialog(
@@ -150,24 +158,23 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
                     children: [
                       TextField(
                         controller: titleController,
-                        decoration:
-                            const InputDecoration(labelText: 'Title'),
+                        decoration: const InputDecoration(labelText: 'Title'),
                         onChanged: (val) =>
                             setState(() {}), // rebuild index lookup
                       ),
                       DropdownButtonFormField<String>(
                         value: typeValues[currentTypeIndex],
-                        decoration:
-                            const InputDecoration(labelText: 'Type'),
+                        decoration: const InputDecoration(labelText: 'Type'),
                         items: typeValues
-                            .map((e) => DropdownMenuItem(
-                              value: e,
-                              child: Text(e),
-                            ))
+                            .map(
+                              (e) => DropdownMenuItem(value: e, child: Text(e)),
+                            )
                             .toList(),
-                        onChanged: (val) =>
-                            setState(() => currentTypeIndex =
-                                typeValues.indexWhere((n) => n == val)),
+                        onChanged: (val) => setState(
+                          () => currentTypeIndex = typeValues.indexWhere(
+                            (n) => n == val,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -182,17 +189,16 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
                         await ref
                             .read(discussionControllerProvider.notifier)
                             .updateDiscussion(
-                          discussionId: widget.discussionId,
-                          title: titleController.text.trim(),
-                          discussionType: typeValues[currentTypeIndex],
-                        );
+                              discussionId: widget.discussionId,
+                              title: titleController.text.trim(),
+                              discussionType: typeValues[currentTypeIndex],
+                            );
                         ref.invalidate(
                           discussionDetailsProvider(widget.discussionId),
                         );
-                        if (!mounted) return;
+                        if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Discussion updated.')),
+                          const SnackBar(content: Text('Discussion updated.')),
                         );
                       },
                       child: const Text('Save'),
@@ -579,7 +585,6 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
                     ),
                   ),
               ],
-            );
             );
           },
         ),
