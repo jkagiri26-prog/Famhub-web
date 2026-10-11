@@ -32,12 +32,20 @@ class PostTile extends ConsumerWidget {
   /// Replies render smaller and indented under their comment.
   final bool nested;
 
+  /// Called when the author taps Edit.
+  final VoidCallback? onEdit;
+
+  /// The author's profile id, used to gate the Edit action.
+  final String? authorProfileId;
+
   const PostTile({
     super.key,
     required this.post,
     this.canReply = false,
     this.onReply,
     this.onReport,
+    this.onEdit,
+    this.authorProfileId,
     this.accent,
     this.bodyColor,
     this.nested = false,
@@ -158,6 +166,19 @@ class PostTile extends ConsumerWidget {
                         color: cs.outline,
                       ),
                       tooltip: 'Report',
+                    ),
+                  if (onEdit != null && authorProfileId != null &&
+                      authorProfileId == post.authorProfileId)
+                    IconButton(
+                      onPressed: onEdit,
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      icon: Icon(
+                        Icons.edit_outlined,
+                        size: 16,
+                        color: cs.outline,
+                      ),
+                      tooltip: 'Edit',
                     ),
                 ],
               ),

@@ -40,6 +40,14 @@ abstract class DiscussionRepository {
   /// Lock/unlock where authorized (backend-enforced).
   Future<void> setLocked({required String discussionId, required bool locked});
 
+  /// Update mutable fields of an existing discussion (title, discussion_type).
+  /// `community_id` is never changed; protected fields are database-maintained.
+  Future<void> updateDiscussion({
+    required String discussionId,
+    required String title,
+    required String discussionType,
+  });
+
   /// Record a view event. `profileId` is null for guests; the backend
   /// maintains `view_count` automatically.
   Future<void> recordView({required String discussionId, String? profileId});

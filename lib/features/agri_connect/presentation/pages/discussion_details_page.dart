@@ -59,6 +59,47 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
         .recordView(widget.discussionId);
   }
 
+  Future<void> _editPost(Post post) async {
+    final profileId = ref.read(agriConnectProfileIdProvider);
+    if (profileId == null || profileId != post.authorProfileId) return;
+    final bodyController = TextEditingController(text: post.body);
+    await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Edit Post'),
+        content: TextField(
+          controller: bodyController,
+          decoration: const InputDecoration(labelText: 'Body'),
+          maxLines: 3,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await ref
+                  .read(discussionControllerProvider.notifier)
+                  .editPost(
+                discussionId: widget.discussionId,
+                postId: post.id,
+                body: bodyController.text.trim(),
+              );
+              ref.invalidate(postsProvider((discussionId: widget.discussionId, parentId: null)));
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Post updated.')),
+              );
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final discussionAsync = ref.watch(
@@ -82,6 +123,84 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
               targetType: ReportTargetType.discussion,
               targetId: widget.discussionId,
             ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Edit',
+            onPressed: () async {
+              final discussion = discussionAsync.value;
+              if (discussion == null) return;
+              final profileId = ref.read(agriConnectProfileIdProvider);
+              // Only show Edit for the discussion author
+              if (profileId != null && profileId != discussion.createdBy) return;
+              // Show edit form in a dialog
+              final TextEditingController titleController =
+                  TextEditingController(text: discussion.title);
+              final typeValues = DiscussionType.values
+                  .map((e) => e.name)
+                  .toList();
+              int currentTypeIndex =
+                  typeValues.indexWhere((n) => n == discussion.type.name) ?? 0;
+              await showDialog(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: const Text('Edit Discussion'),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: titleController,
+                        decoration:
+                            const InputDecoration(labelText: 'Title'),
+                        onChanged: (val) =>
+                            setState(() {}), // rebuild index lookup
+                      ),
+                      DropdownButtonFormField<String>(
+                        value: typeValues[currentTypeIndex],
+                        decoration:
+                            const InputDecoration(labelText: 'Type'),
+                        items: typeValues
+                            .map((e) => DropdownMenuItem(
+                              value: e,
+                              child: Text(e),
+                            ))
+                            .toList(),
+                        onChanged: (val) =>
+                            setState(() => currentTypeIndex =
+                                typeValues.indexWhere((n) => n == val)),
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        Navigator.of(context).pop();
+                        await ref
+                            .read(discussionControllerProvider.notifier)
+                            .updateDiscussion(
+                          discussionId: widget.discussionId,
+                          title: titleController.text.trim(),
+                          discussionType: typeValues[currentTypeIndex],
+                        );
+                        ref.invalidate(
+                          discussionDetailsProvider(widget.discussionId),
+                        );
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text('Discussion updated.')),
+                        );
+                      },
+                      child: const Text('Save'),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -429,6 +548,8 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
             targetType: ReportTargetType.post,
             targetId: post.id,
           ),
+          onEdit: () => _editPost(post),
+          authorProfileId: ref.read(agriConnectProfileIdProvider),
         ),
         repliesAsync.when(
           loading: () => const SizedBox.shrink(),
@@ -453,9 +574,12 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
                         targetType: ReportTargetType.post,
                         targetId: reply.id,
                       ),
+                      onEdit: () => _editPost(reply),
+                      authorProfileId: ref.read(agriConnectProfileIdProvider),
                     ),
                   ),
               ],
+            );
             );
           },
         ),

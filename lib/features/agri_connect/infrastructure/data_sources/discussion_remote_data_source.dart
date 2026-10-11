@@ -126,6 +126,17 @@ class DiscussionRemoteDataSource {
     }
   }
 
+  Future<void> updateDiscussion({
+    required String discussionId,
+    required String title,
+    required String discussionType,
+  }) async {
+    await _updateDiscussion(discussionId, {
+      'title': title,
+      'discussion_type': discussionType,
+    });
+  }
+
   // ── Views (event counts) ───────────────────────────────────
 
   Future<void> insertView({

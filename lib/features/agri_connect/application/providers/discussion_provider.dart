@@ -232,6 +232,19 @@ class DiscussionController extends Notifier<void> {
     ref.invalidate(discussionDetailsProvider(discussionId));
   }
 
+  Future<void> updateDiscussion({
+    required String discussionId,
+    required String title,
+    required String discussionType,
+  }) async {
+    await _repo.updateDiscussion(
+      discussionId: discussionId,
+      title: title,
+      discussionType: discussionType,
+    );
+    ref.invalidate(discussionDetailsProvider(discussionId));
+  }
+
   Future<void> recordView(String discussionId) async {
     final profileId = ref.read(agriConnectProfileIdProvider);
     try {

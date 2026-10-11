@@ -76,6 +76,19 @@ class DiscussionRepositoryImpl implements DiscussionRepository {
   }
 
   @override
+  Future<void> updateDiscussion({
+    required String discussionId,
+    required String title,
+    required String discussionType,
+  }) async {
+    await _dataSource.updateDiscussion(
+      discussionId: discussionId,
+      title: title,
+      discussionType: discussionType,
+    );
+  }
+
+  @override
   Future<void> recordView({
     required String discussionId,
     String? profileId,
