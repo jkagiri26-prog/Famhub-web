@@ -20,6 +20,7 @@ import '../../application/providers/community_provider.dart';
 import '../format.dart';
 import '../widgets/post_tile.dart';
 import '../widgets/report_sheet.dart';
+import 'edit_discussion_dialog.dart';
 
 class DiscussionDetailsPage extends ConsumerStatefulWidget {
   final String discussionId;
@@ -136,79 +137,26 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
               final discussion = discussionAsync.value;
               if (discussion == null) return;
               final profileId = ref.read(agriConnectProfileIdProvider);
-              // Only show Edit for the discussion author
+              // Only show Edit for the discussion author. RLS remains
+              // authoritative — this is a UI affordance, not authorization.
               if (profileId != null && profileId != discussion.createdBy) {
                 return;
               }
-              // Show edit form in a dialog
-              final TextEditingController titleController =
-                  TextEditingController(text: discussion.title);
-              final typeValues = DiscussionType.values
-                  .map((e) => e.name)
-                  .toList();
-              int currentTypeIndex = typeValues.indexWhere(
-                (n) => n == discussion.type.name,
-              );
-              if (currentTypeIndex < 0) {
-                currentTypeIndex = 0;
-              }
-              await showDialog(
+              final result = await showDialog<Object>(
                 context: context,
-                builder: (dialogContext) => AlertDialog(
-                  title: const Text('Edit Discussion'),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextField(
-                        controller: titleController,
-                        decoration: const InputDecoration(labelText: 'Title'),
-                        onChanged: (val) =>
-                            setState(() {}), // rebuild index lookup
-                      ),
-                      DropdownButtonFormField<String>(
-                        value: typeValues[currentTypeIndex],
-                        decoration: const InputDecoration(labelText: 'Type'),
-                        items: typeValues
-                            .map(
-                              (e) => DropdownMenuItem(value: e, child: Text(e)),
-                            )
-                            .toList(),
-                        onChanged: (val) => setState(
-                          () => currentTypeIndex = typeValues.indexWhere(
-                            (n) => n == val,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(),
-                      child: const Text('Cancel'),
-                    ),
-                    TextButton(
-                      onPressed: () async {
-                        Navigator.of(dialogContext).pop();
-                        await ref
-                            .read(discussionControllerProvider.notifier)
-                            .updateDiscussion(
-                              discussionId: widget.discussionId,
-                              title: titleController.text.trim(),
-                              discussionType: typeValues[currentTypeIndex],
-                            );
-                        ref.invalidate(
-                          discussionDetailsProvider(widget.discussionId),
-                        );
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Discussion updated.')),
-                        );
-                      },
-                      child: const Text('Save'),
-                    ),
-                  ],
-                ),
+                builder: (_) => EditDiscussionDialog(discussion: discussion),
               );
+              if (!context.mounted || result == null) return;
+              final messenger = ScaffoldMessenger.of(context);
+              if (result == editDiscussionSaved) {
+                messenger.showSnackBar(
+                  const SnackBar(content: Text('Discussion updated.')),
+                );
+              } else if (result is DiscussionEditException) {
+                messenger.showSnackBar(
+                  SnackBar(content: Text(result.userMessage)),
+                );
+              }
             },
           ),
         ],

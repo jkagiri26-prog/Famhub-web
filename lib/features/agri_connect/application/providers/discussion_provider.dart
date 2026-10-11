@@ -245,6 +245,104 @@ class DiscussionController extends Notifier<void> {
     ref.invalidate(discussionDetailsProvider(discussionId));
   }
 
+  /// Full edit of a discussion: title/type first (text), then a media
+  /// reconciliation — retained ids + newly uploaded images replace the
+  /// previous list, and removed ids are detached through the existing
+  /// authorized `delete_media` path.
+  ///
+  /// Safe ordering: text save → upload new → persist `media_file_ids` →
+  /// detach removed. A failed upload/persist rolls back only the images
+  /// uploaded during this save; retained files are never touched. On media
+  /// failure the text save is kept and a [DiscussionEditException] reports
+  /// exactly which parts completed — the caller must not claim total
+  /// success.
+  Future<void> editDiscussion({
+    required String discussionId,
+    required Discussion discussion,
+    required String title,
+    required String discussionType,
+    required Set<String> retainedMediaIds,
+    List<Uint8List> newImages = const [],
+  }) async {
+    final plan = planDiscussionMediaEdit(
+      originalIds: discussion.mediaFileIds,
+      retainedIds: retainedMediaIds,
+      newImageCount: newImages.length,
+    );
+    await _repo.updateDiscussion(
+      discussionId: discussionId,
+      title: title,
+      discussionType: discussionType,
+    );
+    ref.invalidate(discussionDetailsProvider(discussionId));
+    ref.invalidate(discussionMediaUrlsProvider(discussionId));
+    ref.invalidate(discussionsProvider(discussion.communityId));
+    if (!plan.touchesMedia) return;
+
+    final media = ref.read(agriConnectMediaProvider);
+    final knownIds = <String>{...plan.retainedIds};
+    try {
+      await reconcileDiscussionMedia(
+        plan: plan,
+        newImages: newImages,
+        upload: (bytes) async {
+          final id = await _uploadDiscussionImage(
+            media,
+            bytes: bytes,
+            discussionId: discussionId,
+            knownIds: knownIds,
+          );
+          knownIds.add(id);
+          return id;
+        },
+        persist: (ids) => _repo.updateDiscussionMetadata(
+          discussionId: discussionId,
+          metadata: {...discussion.metadata, 'media_file_ids': ids},
+        ),
+        detach: media.deleteMedia,
+      );
+    } on DiscussionMediaPhaseException catch (e) {
+      ref.invalidate(discussionDetailsProvider(discussionId));
+      ref.invalidate(discussionMediaUrlsProvider(discussionId));
+      throw DiscussionEditException(
+        textSaved: true,
+        mediaSaved: e.listPersisted,
+        cause: e.cause,
+      );
+    }
+    ref.invalidate(discussionMediaUrlsProvider(discussionId));
+  }
+
+  /// Upload one image and resolve its `media.files` id: prefer the id the
+  /// upload response itself carries, fall back to the context query.
+  Future<String> _uploadDiscussionImage(
+    AgriConnectMediaDataSource media, {
+    required Uint8List bytes,
+    required String discussionId,
+    required Set<String> knownIds,
+  }) async {
+    final payload = await media.uploadDiscussionImage(
+      bytes: bytes,
+      fileName:
+          'discussion_image_${DateTime.now().microsecondsSinceEpoch}'
+          '_${bytes.lengthInBytes}.webp',
+      discussionId: discussionId,
+    );
+    for (final e in AgriConnectMediaDataSource.parseMediaEntries(payload)) {
+      final id = e['id'];
+      if (id != null && id.isNotEmpty && !knownIds.contains(id)) return id;
+    }
+    final entries = await media.fetchMediaEntries(
+      context: AgriConnectMediaDataSource.discussionsContext,
+      contextId: discussionId,
+    );
+    for (final e in entries) {
+      final id = e['id'];
+      if (id != null && id.isNotEmpty && !knownIds.contains(id)) return id;
+    }
+    throw Exception('The uploaded image could not be linked.');
+  }
+
   Future<void> recordView(String discussionId) async {
     final profileId = ref.read(agriConnectProfileIdProvider);
     try {
@@ -335,4 +433,140 @@ class DiscussionAttachException implements Exception {
 
   @override
   String toString() => 'Images could not be attached: $cause';
+}
+
+/// A discussion edit saved its text (title/type) but the media portion did
+/// not fully complete. [mediaSaved] distinguishes "nothing changed" from
+/// "list saved, old-image cleanup failed". Callers must surface this
+/// instead of reporting total success.
+class DiscussionEditException implements Exception {
+  final bool textSaved;
+  final bool mediaSaved;
+  final Object cause;
+
+  const DiscussionEditException({
+    required this.textSaved,
+    required this.mediaSaved,
+    required this.cause,
+  });
+
+  String get userMessage {
+    if (mediaSaved) {
+      return 'Title and type saved, but an old image could not be removed: '
+          '$cause';
+    }
+    return 'Title and type saved, but image changes were not '
+        'fully completed: $cause';
+  }
+
+  @override
+  String toString() => userMessage;
+}
+
+/// Media-phase failure raised by [reconcileDiscussionMedia].
+/// [listPersisted] is true when `metadata.media_file_ids` was already
+/// written and only the subsequent detach step failed.
+class DiscussionMediaPhaseException implements Exception {
+  final bool listPersisted;
+  final Object cause;
+
+  const DiscussionMediaPhaseException({
+    required this.listPersisted,
+    required this.cause,
+  });
+
+  @override
+  String toString() => 'Media changes incomplete: $cause';
+}
+
+/// Pure description of one edit's media changes, derived from the
+/// discussion's `metadata.media_file_ids` (the source of truth) plus the
+/// ids the author chose to keep. Never derived from image *loading* — a
+/// failed URL fetch cannot shrink this list.
+class DiscussionMediaEditPlan {
+  final List<String> retainedIds;
+  final List<String> removedIds;
+  final int newImageCount;
+
+  const DiscussionMediaEditPlan({
+    required this.retainedIds,
+    required this.removedIds,
+    required this.newImageCount,
+  });
+
+  int get total => retainedIds.length + newImageCount;
+
+  bool get touchesMedia => removedIds.isNotEmpty || newImageCount > 0;
+}
+
+/// Build the edit plan for a discussion's images (backend limit: 2 active
+/// files). [retainedIds] contains only ids the author kept; any original
+/// id not retained is scheduled for detach, and ids outside the original
+/// list are ignored.
+DiscussionMediaEditPlan planDiscussionMediaEdit({
+  required List<String> originalIds,
+  required Set<String> retainedIds,
+  required int newImageCount,
+}) {
+  if (newImageCount < 0) {
+    throw ArgumentError.value(newImageCount, 'newImageCount');
+  }
+  final retained = [
+    for (final id in originalIds)
+      if (retainedIds.contains(id)) id,
+  ];
+  final removed = [
+    for (final id in originalIds)
+      if (!retainedIds.contains(id)) id,
+  ];
+  final plan = DiscussionMediaEditPlan(
+    retainedIds: retained,
+    removedIds: removed,
+    newImageCount: newImageCount,
+  );
+  if (plan.total > 2) {
+    throw ArgumentError('A discussion can have at most 2 images.');
+  }
+  return plan;
+}
+
+/// Execute a media edit against the existing media functions:
+/// upload new images → persist the merged `media_file_ids` → detach
+/// removed files. On upload/persist failure only the images uploaded in
+/// this save are rolled back (retained files are untouched) and a
+/// [DiscussionMediaPhaseException] with `listPersisted: false` is thrown.
+/// A detach failure throws with `listPersisted: true` (the list is
+/// already correct; only old-file cleanup failed). A no-op plan performs
+/// no calls at all.
+Future<void> reconcileDiscussionMedia({
+  required DiscussionMediaEditPlan plan,
+  required List<Uint8List> newImages,
+  required Future<String> Function(Uint8List bytes) upload,
+  required Future<void> Function(List<String> mediaFileIds) persist,
+  required Future<void> Function(String fileId) detach,
+}) async {
+  if (!plan.touchesMedia) return;
+  final uploaded = <String>[];
+  try {
+    for (final bytes in newImages) {
+      uploaded.add(await upload(bytes));
+    }
+    await persist([...plan.retainedIds, ...uploaded]);
+  } catch (e) {
+    for (final id in uploaded) {
+      try {
+        await detach(id);
+      } catch (_) {
+        // Best effort — never mask the original failure.
+      }
+    }
+    throw DiscussionMediaPhaseException(listPersisted: false, cause: e);
+  }
+  for (final id in plan.removedIds) {
+    try {
+      await detach(id);
+    } catch (e) {
+      throw DiscussionMediaPhaseException(listPersisted: true, cause: e);
+    }
+  }
 }
