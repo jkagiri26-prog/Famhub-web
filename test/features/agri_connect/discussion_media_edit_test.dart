@@ -250,11 +250,9 @@ void main() {
             detach: r.detach,
           ),
           throwsA(
-            isA<DiscussionMediaPhaseException>().having(
-              (e) => e.listPersisted,
-              'listPersisted',
-              isFalse,
-            ),
+            isA<DiscussionMediaPhaseException>()
+                .having((e) => e.listPersisted, 'listPersisted', isFalse)
+                .having((e) => e.stage, 'stage', DiscussionMediaStage.upload),
           ),
         );
         expect(r.detaches, ['new1'], reason: 'uploaded so far must roll back');
@@ -280,11 +278,9 @@ void main() {
             detach: r.detach,
           ),
           throwsA(
-            isA<DiscussionMediaPhaseException>().having(
-              (e) => e.listPersisted,
-              'listPersisted',
-              isFalse,
-            ),
+            isA<DiscussionMediaPhaseException>()
+                .having((e) => e.listPersisted, 'listPersisted', isFalse)
+                .having((e) => e.stage, 'stage', DiscussionMediaStage.persist),
           ),
         );
         expect(r.detaches, ['new1']);
@@ -308,11 +304,9 @@ void main() {
           detach: r.detach,
         ),
         throwsA(
-          isA<DiscussionMediaPhaseException>().having(
-            (e) => e.listPersisted,
-            'listPersisted',
-            isTrue,
-          ),
+          isA<DiscussionMediaPhaseException>()
+              .having((e) => e.listPersisted, 'listPersisted', isTrue)
+              .having((e) => e.stage, 'stage', DiscussionMediaStage.detach),
         ),
       );
       expect(r.persists, [
@@ -335,6 +329,33 @@ void main() {
       );
       expect(textOnly.userMessage, contains('image changes were not'));
       expect(cleanup.userMessage, contains('could not be removed'));
+    });
+
+    test('stage-tagged failures name the exact media sub-step', () {
+      const uploadFailure = DiscussionEditException(
+        textSaved: true,
+        mediaSaved: false,
+        stage: DiscussionMediaStage.upload,
+        cause: 'Upload failed: unsupported context',
+      );
+      const persistFailure = DiscussionEditException(
+        textSaved: true,
+        mediaSaved: false,
+        stage: DiscussionMediaStage.persist,
+        cause: 'metadata write rejected',
+      );
+      expect(
+        uploadFailure.userMessage,
+        allOf(contains('uploading a new image'), contains('Upload failed')),
+      );
+      expect(persistFailure.userMessage, contains('saving the image list'));
+      expect(uploadFailure.toString(), contains('uploading a new image'));
+    });
+
+    test('stage labels identify upload, persist and detach', () {
+      expect(DiscussionMediaStage.upload.label, 'uploading a new image');
+      expect(DiscussionMediaStage.persist.label, 'saving the image list');
+      expect(DiscussionMediaStage.detach.label, 'removing an old image');
     });
   });
 }

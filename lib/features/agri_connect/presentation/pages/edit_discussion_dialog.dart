@@ -101,7 +101,7 @@ class _EditDiscussionDialogState extends ConsumerState<EditDiscussionDialog> {
     final media = ref.read(agriConnectMediaProvider);
     try {
       final entries = await media.fetchMediaEntries(
-        context: AgriConnectMediaDataSource.discussionsContext,
+        context: AgriConnectMediaDataSource.discussionLookupContext,
         contextId: _discussion.id,
       );
       final resolved = <String, String>{};

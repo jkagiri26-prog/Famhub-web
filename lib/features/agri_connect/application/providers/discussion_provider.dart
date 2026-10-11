@@ -72,7 +72,7 @@ final discussionMediaUrlsProvider = FutureProvider.family<List<String>, String>(
   (ref, discussionId) async {
     final media = ref.watch(agriConnectMediaProvider);
     final entries = await media.fetchMediaEntries(
-      context: AgriConnectMediaDataSource.discussionsContext,
+      context: AgriConnectMediaDataSource.discussionLookupContext,
       contextId: discussionId,
     );
     final urls = <String>[];
@@ -114,9 +114,9 @@ class DiscussionController extends Notifier<void> {
   ///
   /// Creation semantics are unchanged: `community_id` is only sent when
   /// [communityId] is non-empty (public forum → `community_id = null`).
-  /// Images are uploaded against context `agri_connect_discussion` / the new
-  /// discussion id, then their `media.files` ids are persisted in the existing
-  /// `metadata` JSONB column as `media_file_ids`.
+  /// Images are uploaded against the established `discussions` context /
+  /// the new discussion id, then their `media.files` ids are persisted in
+  /// the existing `metadata` JSONB column as `media_file_ids`.
   ///
   /// Throws [DiscussionAttachException] when the discussion was created but
   /// the images could not be attached (uploaded media is rolled back).
@@ -170,7 +170,7 @@ class DiscussionController extends Notifier<void> {
       if (uploadedIds.length < images.length) {
         // Fallback: resolve the ids through the context query.
         final entries = await media.fetchMediaEntries(
-          context: AgriConnectMediaDataSource.discussionsContext,
+          context: AgriConnectMediaDataSource.discussionLookupContext,
           contextId: discussion.id,
         );
         final fetched = entries
@@ -197,7 +197,7 @@ class DiscussionController extends Notifier<void> {
         // Upload failed midway — collect whatever did land for cleanup.
         try {
           final entries = await media.fetchMediaEntries(
-            context: AgriConnectMediaDataSource.discussionsContext,
+            context: AgriConnectMediaDataSource.discussionLookupContext,
             contextId: discussion.id,
           );
           orphans = entries.map((x) => x['id']).whereType<String>().toList();
@@ -307,6 +307,7 @@ class DiscussionController extends Notifier<void> {
       throw DiscussionEditException(
         textSaved: true,
         mediaSaved: e.listPersisted,
+        stage: e.stage,
         cause: e.cause,
       );
     }
@@ -333,7 +334,7 @@ class DiscussionController extends Notifier<void> {
       if (id != null && id.isNotEmpty && !knownIds.contains(id)) return id;
     }
     final entries = await media.fetchMediaEntries(
-      context: AgriConnectMediaDataSource.discussionsContext,
+      context: AgriConnectMediaDataSource.discussionLookupContext,
       contextId: discussionId,
     );
     for (final e in entries) {
@@ -435,18 +436,43 @@ class DiscussionAttachException implements Exception {
   String toString() => 'Images could not be attached: $cause';
 }
 
+/// The media sub-step of an edit save that failed, so error reporting can
+/// identify the exact operation instead of a generic "media phase" failure.
+enum DiscussionMediaStage {
+  /// Uploading a newly picked image through `upload_media`.
+  upload,
+
+  /// Persisting the merged `metadata.media_file_ids` list.
+  persist,
+
+  /// Detaching a removed image through `delete_media`.
+  detach;
+
+  /// User-facing description of the failed sub-step.
+  String get label => switch (this) {
+    DiscussionMediaStage.upload => 'uploading a new image',
+    DiscussionMediaStage.persist => 'saving the image list',
+    DiscussionMediaStage.detach => 'removing an old image',
+  };
+}
+
 /// A discussion edit saved its text (title/type) but the media portion did
 /// not fully complete. [mediaSaved] distinguishes "nothing changed" from
-/// "list saved, old-image cleanup failed". Callers must surface this
-/// instead of reporting total success.
+/// "list saved, old-image cleanup failed"; [stage] names the sub-step that
+/// threw. Callers must surface this instead of reporting total success.
 class DiscussionEditException implements Exception {
   final bool textSaved;
   final bool mediaSaved;
+
+  /// The media sub-step that failed, when the failure came from
+  /// [reconcileDiscussionMedia] (null for untagged causes).
+  final DiscussionMediaStage? stage;
   final Object cause;
 
   const DiscussionEditException({
     required this.textSaved,
     required this.mediaSaved,
+    this.stage,
     required this.cause,
   });
 
@@ -455,8 +481,12 @@ class DiscussionEditException implements Exception {
       return 'Title and type saved, but an old image could not be removed: '
           '$cause';
     }
-    return 'Title and type saved, but image changes were not '
-        'fully completed: $cause';
+    final phase = stage;
+    if (phase == null) {
+      return 'Title and type saved, but image changes were not '
+          'fully completed: $cause';
+    }
+    return 'Title and type saved, but ${phase.label} did not complete: $cause';
   }
 
   @override
@@ -464,19 +494,22 @@ class DiscussionEditException implements Exception {
 }
 
 /// Media-phase failure raised by [reconcileDiscussionMedia].
-/// [listPersisted] is true when `metadata.media_file_ids` was already
-/// written and only the subsequent detach step failed.
+/// [stage] is the sub-step that threw; [listPersisted] is true when
+/// `metadata.media_file_ids` was already written and only the subsequent
+/// detach step failed.
 class DiscussionMediaPhaseException implements Exception {
+  final DiscussionMediaStage stage;
   final bool listPersisted;
   final Object cause;
 
   const DiscussionMediaPhaseException({
+    required this.stage,
     required this.listPersisted,
     required this.cause,
   });
 
   @override
-  String toString() => 'Media changes incomplete: $cause';
+  String toString() => 'Media changes incomplete (${stage.label}): $cause';
 }
 
 /// Pure description of one edit's media changes, derived from the
@@ -537,7 +570,8 @@ DiscussionMediaEditPlan planDiscussionMediaEdit({
 /// [DiscussionMediaPhaseException] with `listPersisted: false` is thrown.
 /// A detach failure throws with `listPersisted: true` (the list is
 /// already correct; only old-file cleanup failed). A no-op plan performs
-/// no calls at all.
+/// no calls at all. Every thrown [DiscussionMediaPhaseException] carries
+/// the [DiscussionMediaStage] of the operation that failed.
 Future<void> reconcileDiscussionMedia({
   required DiscussionMediaEditPlan plan,
   required List<Uint8List> newImages,
@@ -547,10 +581,12 @@ Future<void> reconcileDiscussionMedia({
 }) async {
   if (!plan.touchesMedia) return;
   final uploaded = <String>[];
+  var stage = DiscussionMediaStage.upload;
   try {
     for (final bytes in newImages) {
       uploaded.add(await upload(bytes));
     }
+    stage = DiscussionMediaStage.persist;
     await persist([...plan.retainedIds, ...uploaded]);
   } catch (e) {
     for (final id in uploaded) {
@@ -560,13 +596,21 @@ Future<void> reconcileDiscussionMedia({
         // Best effort — never mask the original failure.
       }
     }
-    throw DiscussionMediaPhaseException(listPersisted: false, cause: e);
+    throw DiscussionMediaPhaseException(
+      stage: stage,
+      listPersisted: false,
+      cause: e,
+    );
   }
   for (final id in plan.removedIds) {
     try {
       await detach(id);
     } catch (e) {
-      throw DiscussionMediaPhaseException(listPersisted: true, cause: e);
+      throw DiscussionMediaPhaseException(
+        stage: DiscussionMediaStage.detach,
+        listPersisted: true,
+        cause: e,
+      );
     }
   }
 }

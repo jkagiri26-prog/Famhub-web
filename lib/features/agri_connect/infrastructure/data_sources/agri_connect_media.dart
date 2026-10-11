@@ -6,13 +6,16 @@
 /// edge functions (`upload_media`, `media_get_by_context`, `delete_media`).
 /// The client never writes to Storage or `media.context_access`.
 ///
-/// Context contract (adjust to the deployed backend if it differs):
+/// Context contract (matches the deployed backend):
 ///   community profile image → context "communities", context_id = community id
 ///   message attachment       → context "messages",    context_id = message id
-///   discussion image         → context "agri_connect_discussion",
-///                              context_id = discussion id
-///                              (aliases "discussion_posts"/"posts" accepted
-///                              by media_get_by_context)
+///   discussion image UPLOAD  → context "discussions" — the established
+///                              `upload_media` value; any other value is
+///                              rejected by that function
+///   discussion image LOOKUP  → context "agri_connect_discussion" — the
+///                              alias `media_get_by_context` accepts
+///                              (alongside "discussion_posts"/"posts")
+///                              for listing a discussion's media
 /// ============================================================
 library;
 
@@ -30,7 +33,17 @@ class AgriConnectMediaDataSource {
 
   static const String communitiesContext = 'communities';
   static const String messagesContext = 'messages';
-  static const String discussionsContext = 'agri_connect_discussion';
+
+  /// Established context value for `upload_media` on discussion images.
+  /// The deployed upload function only accepts this original value — it
+  /// must never be changed to an alias ("agri_connect_discussion",
+  /// "discussion"), or the upload is rejected and the media phase fails.
+  static const String discussionsContext = 'discussions';
+
+  /// Context value `media_get_by_context` accepts when listing a
+  /// discussion's media (the alias fixed in the deployed backend that
+  /// makes image display work). Lookups use this; uploads do not.
+  static const String discussionLookupContext = 'agri_connect_discussion';
 
   static const String _uploadFn = 'upload_media';
   static const String _getByContextFn = 'media_get_by_context';
