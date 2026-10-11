@@ -65,7 +65,7 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
     final bodyController = TextEditingController(text: post.body);
     await showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Edit Post'),
         content: TextField(
           controller: bodyController,
@@ -74,12 +74,12 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () async {
-              Navigator.of(context).pop();
+              Navigator.of(dialogContext).pop();
               await ref
                   .read(discussionControllerProvider.notifier)
                   .editPost(
@@ -137,8 +137,9 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
               if (discussion == null) return;
               final profileId = ref.read(agriConnectProfileIdProvider);
               // Only show Edit for the discussion author
-              if (profileId != null && profileId != discussion.createdBy)
+              if (profileId != null && profileId != discussion.createdBy) {
                 return;
+              }
               // Show edit form in a dialog
               final TextEditingController titleController =
                   TextEditingController(text: discussion.title);
@@ -148,10 +149,12 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
               int currentTypeIndex = typeValues.indexWhere(
                 (n) => n == discussion.type.name,
               );
-              if (currentTypeIndex < 0) currentTypeIndex = 0;
+              if (currentTypeIndex < 0) {
+                currentTypeIndex = 0;
+              }
               await showDialog(
                 context: context,
-                builder: (_) => AlertDialog(
+                builder: (dialogContext) => AlertDialog(
                   title: const Text('Edit Discussion'),
                   content: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -180,12 +183,12 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
                   ),
                   actions: [
                     TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: () => Navigator.of(dialogContext).pop(),
                       child: const Text('Cancel'),
                     ),
                     TextButton(
                       onPressed: () async {
-                        Navigator.of(context).pop();
+                        Navigator.of(dialogContext).pop();
                         await ref
                             .read(discussionControllerProvider.notifier)
                             .updateDiscussion(
