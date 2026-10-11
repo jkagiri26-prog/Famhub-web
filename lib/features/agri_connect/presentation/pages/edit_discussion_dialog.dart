@@ -4,8 +4,9 @@
 ///
 /// Title / type / image editing for an existing discussion. Field
 /// conventions mirror CreateDiscussionPage; images reuse the existing
-/// media infrastructure (upload_media / media_get_by_context / delete_media)
-/// and the marketplace image-processing service for compression.
+/// media infrastructure (upload_media / media_get_by_context / the
+/// agri_connect.delete_discussion_media RPC) and the marketplace
+/// image-processing service for compression.
 ///
 /// Pop result: [editDiscussionSaved] on full success, a
 /// [DiscussionEditException] when the text saved but the images did not
@@ -265,7 +266,8 @@ class _EditDiscussionDialogState extends ConsumerState<EditDiscussionDialog> {
   /// An image already attached to the discussion (from
   /// `metadata.media_file_ids`), with its signed URL resolved through the
   /// existing media flow. Removing it only updates local state — the
-  /// detach happens on save through the authorized `delete_media` path.
+  /// detach happens on save through the authorized
+  /// `agri_connect.delete_discussion_media` RPC.
   Widget _existingTile(String id, ColorScheme cs) {
     final url = _existingUrls[id];
     Widget image;

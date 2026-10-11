@@ -207,7 +207,7 @@ class DiscussionController extends Notifier<void> {
       }
       for (final id in orphans) {
         try {
-          await media.deleteMedia(id);
+          await media.deleteDiscussionMedia(id);
         } catch (_) {
           // Best effort only.
         }
@@ -246,16 +246,20 @@ class DiscussionController extends Notifier<void> {
   }
 
   /// Full edit of a discussion: title/type first (text), then a media
-  /// reconciliation — retained ids + newly uploaded images replace the
-  /// previous list, and removed ids are detached through the existing
-  /// authorized `delete_media` path.
+  /// reconciliation — removed ids are detached through the authorized
+  /// `agri_connect.delete_discussion_media` RPC (the generic `delete_media`
+  /// edge function is listing-specific) and retained/new ids form the
+  /// remaining list.
   ///
-  /// Safe ordering: text save → upload new → persist `media_file_ids` →
-  /// detach removed. A failed upload/persist rolls back only the images
-  /// uploaded during this save; retained files are never touched. On media
-  /// failure the text save is kept and a [DiscussionEditException] reports
-  /// exactly which parts completed — the caller must not claim total
-  /// success.
+  /// Safe ordering: text save → upload new → RPC detach removed → persist
+  /// `media_file_ids` only when new images were added. The RPC itself
+  /// removes the id from `metadata.media_file_ids`, so no metadata write
+  /// happens ahead of it — a failed RPC leaves the list untouched instead
+  /// of showing images as already removed. A failed upload/RPC/persist
+  /// rolls back only the images uploaded during this save; retained files
+  /// are never touched. On media failure the text save is kept and a
+  /// [DiscussionEditException] reports exactly which parts completed — the
+  /// caller must not claim total success.
   Future<void> editDiscussion({
     required String discussionId,
     required Discussion discussion,
@@ -299,7 +303,7 @@ class DiscussionController extends Notifier<void> {
           discussionId: discussionId,
           metadata: {...discussion.metadata, 'media_file_ids': ids},
         ),
-        detach: media.deleteMedia,
+        detach: media.deleteDiscussionMedia,
       );
     } on DiscussionMediaPhaseException catch (e) {
       ref.invalidate(discussionDetailsProvider(discussionId));
@@ -311,7 +315,12 @@ class DiscussionController extends Notifier<void> {
         cause: e.cause,
       );
     }
+    // Removal changed `metadata.media_file_ids` in the database (via the
+    // RPC) and/or the signed URLs — refresh details, image URLs and the
+    // discussion list so the UI shows the post-removal state.
+    ref.invalidate(discussionDetailsProvider(discussionId));
     ref.invalidate(discussionMediaUrlsProvider(discussionId));
+    ref.invalidate(discussionsProvider(discussion.communityId));
   }
 
   /// Upload one image and resolve its `media.files` id: prefer the id the
@@ -445,7 +454,8 @@ enum DiscussionMediaStage {
   /// Persisting the merged `metadata.media_file_ids` list.
   persist,
 
-  /// Detaching a removed image through `delete_media`.
+  /// Detaching a removed image through the
+  /// `agri_connect.delete_discussion_media` RPC.
   detach;
 
   /// User-facing description of the failed sub-step.
@@ -494,9 +504,9 @@ class DiscussionEditException implements Exception {
 }
 
 /// Media-phase failure raised by [reconcileDiscussionMedia].
-/// [stage] is the sub-step that threw; [listPersisted] is true when
-/// `metadata.media_file_ids` was already written and only the subsequent
-/// detach step failed.
+/// [stage] is the sub-step that threw; [listPersisted] is true only when
+/// `metadata.media_file_ids` was already written before the failure (the
+/// current flow persists the list last, so failures report false).
 class DiscussionMediaPhaseException implements Exception {
   final DiscussionMediaStage stage;
   final bool listPersisted;
@@ -564,14 +574,18 @@ DiscussionMediaEditPlan planDiscussionMediaEdit({
 }
 
 /// Execute a media edit against the existing media functions:
-/// upload new images → persist the merged `media_file_ids` → detach
-/// removed files. On upload/persist failure only the images uploaded in
-/// this save are rolled back (retained files are untouched) and a
-/// [DiscussionMediaPhaseException] with `listPersisted: false` is thrown.
-/// A detach failure throws with `listPersisted: true` (the list is
-/// already correct; only old-file cleanup failed). A no-op plan performs
-/// no calls at all. Every thrown [DiscussionMediaPhaseException] carries
-/// the [DiscussionMediaStage] of the operation that failed.
+/// upload new images → detach removed files through the authorized
+/// `agri_connect.delete_discussion_media` RPC → persist the merged
+/// `media_file_ids` only when new images were added.
+///
+/// The RPC owns the removal's metadata change, so no `persist` runs ahead
+/// of it — when the RPC fails (e.g. a backend rule rejects the removal),
+/// nothing was written and the old list still reflects reality. On any
+/// failure only the images uploaded in this save are rolled back (retained
+/// files are never touched) and a [DiscussionMediaPhaseException] with
+/// `listPersisted: false` is thrown. A no-op plan performs no calls at
+/// all. Every thrown [DiscussionMediaPhaseException] carries the
+/// [DiscussionMediaStage] of the operation that failed.
 Future<void> reconcileDiscussionMedia({
   required DiscussionMediaEditPlan plan,
   required List<Uint8List> newImages,
@@ -581,14 +595,8 @@ Future<void> reconcileDiscussionMedia({
 }) async {
   if (!plan.touchesMedia) return;
   final uploaded = <String>[];
-  var stage = DiscussionMediaStage.upload;
-  try {
-    for (final bytes in newImages) {
-      uploaded.add(await upload(bytes));
-    }
-    stage = DiscussionMediaStage.persist;
-    await persist([...plan.retainedIds, ...uploaded]);
-  } catch (e) {
+
+  Future<void> rollbackUploads() async {
     for (final id in uploaded) {
       try {
         await detach(id);
@@ -596,21 +604,43 @@ Future<void> reconcileDiscussionMedia({
         // Best effort — never mask the original failure.
       }
     }
+  }
+
+  try {
+    for (final bytes in newImages) {
+      uploaded.add(await upload(bytes));
+    }
+  } catch (e) {
+    await rollbackUploads();
     throw DiscussionMediaPhaseException(
-      stage: stage,
+      stage: DiscussionMediaStage.upload,
       listPersisted: false,
       cause: e,
     );
   }
-  for (final id in plan.removedIds) {
-    try {
+
+  try {
+    for (final id in plan.removedIds) {
       await detach(id);
-    } catch (e) {
-      throw DiscussionMediaPhaseException(
-        stage: DiscussionMediaStage.detach,
-        listPersisted: true,
-        cause: e,
-      );
     }
+  } catch (e) {
+    await rollbackUploads();
+    throw DiscussionMediaPhaseException(
+      stage: DiscussionMediaStage.detach,
+      listPersisted: false,
+      cause: e,
+    );
+  }
+
+  if (uploaded.isEmpty) return; // Removal alone is fully handled by the RPC.
+  try {
+    await persist([...plan.retainedIds, ...uploaded]);
+  } catch (e) {
+    await rollbackUploads();
+    throw DiscussionMediaPhaseException(
+      stage: DiscussionMediaStage.persist,
+      listPersisted: false,
+      cause: e,
+    );
   }
 }

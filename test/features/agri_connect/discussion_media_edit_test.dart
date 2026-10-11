@@ -188,26 +188,31 @@ void main() {
       expect(r.detaches, isEmpty);
     });
 
-    test('removing one image persists before detaching (safe order)', () async {
-      final r = _Recorder();
-      final plan = planDiscussionMediaEdit(
-        originalIds: ['a', 'b'],
-        retainedIds: {'a'},
-        newImageCount: 0,
-      );
-      await reconcileDiscussionMedia(
-        plan: plan,
-        newImages: const [],
-        upload: r.upload,
-        persist: r.persist,
-        detach: r.detach,
-      );
-      expect(r.persists, [
-        ['a'],
-      ]);
-      expect(r.detaches, ['b']);
-      expect(r.order.indexOf('persist'), lessThan(r.order.indexOf('detach:b')));
-    });
+    test(
+      'removing one image detaches via RPC with no metadata write',
+      () async {
+        final r = _Recorder();
+        final plan = planDiscussionMediaEdit(
+          originalIds: ['a', 'b'],
+          retainedIds: {'a'},
+          newImageCount: 0,
+        );
+        await reconcileDiscussionMedia(
+          plan: plan,
+          newImages: const [],
+          upload: r.upload,
+          persist: r.persist,
+          detach: r.detach,
+        );
+        expect(
+          r.persists,
+          isEmpty,
+          reason: 'the RPC removes the id from metadata itself',
+        );
+        expect(r.detaches, ['b']);
+        expect(r.order, ['detach:b']);
+      },
+    );
 
     test(
       'replacing an image detaches the old id and keeps the new one',
@@ -229,6 +234,11 @@ void main() {
           ['new1'],
         ]);
         expect(r.detaches, ['old']);
+        expect(
+          r.order.indexOf('detach:old'),
+          lessThan(r.order.indexOf('persist')),
+          reason: 'RPC removal runs before the merged list is persisted',
+        );
       },
     );
 
@@ -288,7 +298,7 @@ void main() {
       },
     );
 
-    test('detach of a removed image fails → listPersisted true', () async {
+    test('detach (RPC) failure → nothing persisted, stage detach', () async {
       final r = _Recorder()..failDetach = true;
       final plan = planDiscussionMediaEdit(
         originalIds: ['a', 'b'],
@@ -305,13 +315,17 @@ void main() {
         ),
         throwsA(
           isA<DiscussionMediaPhaseException>()
-              .having((e) => e.listPersisted, 'listPersisted', isTrue)
+              .having((e) => e.listPersisted, 'listPersisted', isFalse)
               .having((e) => e.stage, 'stage', DiscussionMediaStage.detach),
         ),
       );
-      expect(r.persists, [
-        ['a'],
-      ], reason: 'list already persisted when cleanup failed');
+      expect(
+        r.persists,
+        isEmpty,
+        reason:
+            'no metadata write happens before the RPC, so a failed removal '
+            'cannot show images as already removed',
+      );
     });
   });
 

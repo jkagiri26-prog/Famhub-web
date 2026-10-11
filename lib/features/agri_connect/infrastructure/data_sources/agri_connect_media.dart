@@ -152,6 +152,9 @@ class AgriConnectMediaDataSource {
     }
   }
 
+  /// Generic `delete_media` edge function (listing-specific contract).
+  /// Never use this for Agri Connect discussion images — use
+  /// [deleteDiscussionMedia] instead.
   Future<void> deleteMedia(String fileId) async {
     try {
       final response = await _client.functions.invoke(
@@ -165,6 +168,62 @@ class AgriConnectMediaDataSource {
     } on FunctionException catch (e) {
       throw Exception(_describeFunctionError('Media removal failed', e));
     }
+  }
+
+  /// Schema holding `delete_discussion_media`.
+  static const String _discussionSchema = 'agri_connect';
+
+  /// Remove a discussion image through the existing authorized RPC
+  /// `agri_connect.delete_discussion_media(p_file_id)` — the only
+  /// supported removal path for discussion media (the generic
+  /// `delete_media` edge function is listing-specific).
+  ///
+  /// The RPC detaches the id from `metadata.media_file_ids`, marks the
+  /// media record deleted and records the deletion event, returning
+  /// `storage_retained: true` — the Storage object stays, and the client
+  /// never deletes Storage objects directly.
+  ///
+  /// Failures surface the backend's own error text; nothing about the
+  /// removal is reported as successful unless the RPC completed.
+  Future<void> deleteDiscussionMedia(String fileId) async {
+    final Object? data;
+    try {
+      data = await _client
+          .schema(_discussionSchema)
+          .rpc('delete_discussion_media', params: {'p_file_id': fileId});
+    } on PostgrestException catch (e) {
+      // Diagnostic: surface the database's own error (rule violation,
+      // authorization, missing row) for device logs.
+      // ignore: avoid_print
+      print(
+        '[delete_discussion_media] code=${e.code} message=${e.message} '
+        'details=${e.details}',
+      );
+      throw Exception('Media removal failed: ${e.message}');
+    } catch (e) {
+      throw Exception('Media removal failed: $e');
+    }
+    final reason = _rpcRemovalFailureReason(data);
+    if (reason != null) {
+      throw Exception('Media removal failed: $reason');
+    }
+  }
+
+  /// Detect an error payload returned by `delete_discussion_media`
+  /// instead of a raised database error. A payload without an error
+  /// marker (e.g. `{storage_retained: true}`) is a success.
+  static String? _rpcRemovalFailureReason(Object? payload) {
+    if (payload is Map) {
+      if (payload['success'] == false) {
+        return payload['error']?.toString().isNotEmpty == true
+            ? payload['error'].toString()
+            : payload['message']?.toString() ??
+                  'The server rejected the removal.';
+      }
+      final error = payload['error'];
+      if (error is String && error.isNotEmpty) return error;
+    }
+    return null;
   }
 
   Future<dynamic> _upload({
