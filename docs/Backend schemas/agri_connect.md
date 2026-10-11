@@ -141,7 +141,7 @@ CREATE TABLE agri_connect.discussions (
   community_id uuid,
   title text NOT NULL,
   discussion_type text NOT NULL DEFAULT 'discussion'::text CHECK (discussion_type = ANY (ARRAY['question'::text, 'discussion'::text, 'announcement'::text, 'poll'::text])),
-  created_by uuid NOT NULL,
+  created_by uuid NOT NULL DEFAULT agri_connect.current_profile_id(),
   is_pinned boolean NOT NULL DEFAULT false,
   is_locked boolean NOT NULL DEFAULT false,
   is_active boolean NOT NULL DEFAULT true,
@@ -263,4 +263,23 @@ CREATE TABLE agri_connect.discussion_views (
   CONSTRAINT discussion_views_discussion_id_fkey FOREIGN KEY (discussion_id) REFERENCES agri_connect.discussions(id),
   CONSTRAINT discussion_views_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES users.profiles(id),
   CONSTRAINT discussion_views_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES core.entities(id)
+);
+CREATE TABLE agri_connect.post_media (
+  post_id uuid NOT NULL,
+  media_file_id uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT post_media_pkey PRIMARY KEY (post_id, media_file_id),
+  CONSTRAINT post_media_post_id_fkey FOREIGN KEY (post_id) REFERENCES agri_connect.posts(id),
+  CONSTRAINT post_media_media_file_id_fkey FOREIGN KEY (media_file_id) REFERENCES media.files(id)
+);
+CREATE TABLE agri_connect.post_media_uploads (
+  file_id uuid NOT NULL,
+  post_id uuid NOT NULL,
+  profile_id uuid NOT NULL,
+  path text NOT NULL UNIQUE,
+  status text NOT NULL CHECK (status = ANY (ARRAY['reserved'::text, 'attached'::text, 'aborted'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  expires_at timestamp with time zone NOT NULL,
+  finished_at timestamp with time zone,
+  CONSTRAINT post_media_uploads_pkey PRIMARY KEY (file_id)
 );
