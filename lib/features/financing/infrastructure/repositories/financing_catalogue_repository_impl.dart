@@ -18,6 +18,8 @@
 ///   P0002 → FinancingActionException(isNotFound)
 ///   22023 → FinancingActionException(isInvalid)
 ///   55000 → FinancingActionException(isLifecycleBlocked)
+///   23505 → FinancingActionException — slug-specific copy when the conflict
+///           came from `*_slug_key`, so the operator knows which field to fix
 ///   missing RPC → FinancingCatalogueUnavailableException
 /// ============================================================
 library;
@@ -237,10 +239,23 @@ class FinancingCatalogueRepositoryImpl implements FinancingCatalogueRepository {
       'P0002' => 'That record was not found.',
       '22023' => e.message,
       '55000' => e.message,
-      '23505' => 'A record with that value already exists.',
+      // `financial_providers_slug_key` / `financial_products_provider_slug_key`.
+      // The constraint name and `details` are inspected but never shown.
+      '23505' => _isSlugConflict(e)
+          ? 'That slug is already used by another provider or product. '
+              'Pick a different one.'
+          : 'A record with that value already exists.',
       '23503' => 'That record is referenced by other data and cannot change.',
       '23514' => 'That value is not allowed for this field.',
       _ => 'The request could not be completed.',
     };
+  }
+
+  /// True when the 23505 came from a slug unique constraint. Only the
+  /// constraint name (schema-qualified identifier, no user data) and the
+  /// column name in `details` are inspected — neither is ever echoed back.
+  static bool _isSlugConflict(PostgrestException e) {
+    final haystack = '${e.message} ${e.details ?? ''}'.toLowerCase();
+    return haystack.contains('slug');
   }
 }

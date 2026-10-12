@@ -26,7 +26,7 @@ import 'package:famhub_app/features/financing/presentation/widgets/financing_pro
 import 'package:famhub_app/features/financing/presentation/widgets/financing_provider_card_widget.dart';
 import 'package:famhub_app/features/financing/presentation/widgets/financing_status_chip_widget.dart';
 import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
-import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
+import 'package:famhub_app/features/financing/presentation/widgets/financing_hub_widgets.dart';
 import 'package:famhub_app/shared/widgets/states/states.dart';
 
 
@@ -110,32 +110,63 @@ class _FinancingCataloguePageState extends ConsumerState<FinancingCataloguePage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const ModuleHeaderWidget(
+          const FinancingHubHeader(
             title: 'Provider Catalogue',
             subtitle: 'Verified partners • Approved products',
-            trailingIcon: Icons.storefront_outlined,
+            description: 'Only verified providers and their approved, '
+                'published products are listed here. Search by name or pick '
+                'a partner type to narrow the list.',
+            icon: Icons.storefront_outlined,
           ),
-          const SizedBox(height: 16),
-          TabBar(
+          const SizedBox(height: 14),
+          FinancingSegmentedTabs(
             controller: _tabController,
-            labelColor: Theme.of(context).colorScheme.primary,
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: Theme.of(context).colorScheme.primary,
             tabs: const [
-              Tab(text: 'Providers'),
-              Tab(text: 'Products'),
+              FinancingTabSpec(
+                icon: Icons.storefront_outlined,
+                label: 'Providers',
+              ),
+              FinancingTabSpec(
+                icon: Icons.inventory_2_outlined,
+                label: 'Products',
+              ),
             ],
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _searchController,
+            textInputAction: TextInputAction.search,
             decoration: InputDecoration(
-              hintText: 'Search providers',
-              prefixIcon: const Icon(Icons.search),
+              hintText: 'Search providers and products',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              suffixIcon: _query.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: 'Clear search',
+                      iconSize: 18,
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _query = '');
+                      },
+                    ),
               isDense: true,
+              filled: true,
+              fillColor: Colors.white,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide:
+                    const BorderSide(color: Color(0xFF2E7D32), width: 1.4),
               ),
             ),
           ),

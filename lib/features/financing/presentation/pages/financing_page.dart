@@ -1,330 +1,370 @@
-import 'package:flutter/material.dart';
-
-import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
-import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
-import 'package:famhub_app/shared/widgets/headers/section_header_widget.dart';
-
-import '../widgets/credit_health_card_widget.dart';
-import '../widgets/financial_partner_card_widget.dart';
-import '../widgets/loan_offer_card_widget.dart';
-import 'financing_catalogue_page.dart';
-import 'financing_management_page.dart';
-
-/// FAMHUB Module: FinancingPage
+/// ============================================================
+/// FINANCING — MODULE LANDING
+/// ============================================================
+///
+/// Entry point of the Agri-Finance Hub. Everything below the two catalogue
+/// entry tiles is read from the real browse providers / products — this page
+/// used to ship hard-coded partners, loan offers and a fabricated credit
+/// score, none of which came from a data source.
 ///
 /// Architecture Compliance:
-/// - No Scaffold
-/// - No AppBar
-/// - No Drawer
-/// - No BottomNavigationBar
-/// - Uses ResponsiveWrapper
-/// - Uses shared headers
-/// - Uses module-specific finance widgets
-/// - Pure UI only (no backend logic)
-///
-/// This page acts as:
-/// Finance + Credit + Insurance + SACCO + Lending Hub
+/// - No Scaffold / AppBar / Drawer / BottomNavigationBar (shell owns them)
+/// - ResponsiveWrapper enforced
+/// - Loading / empty / error / guest states are always rendered
+/// - Reads only the public browse providers; no permission required beyond
+///   an authenticated session
+/// ============================================================
+library;
 
-class FinancingPage extends StatefulWidget {
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
+import 'package:famhub_app/features/financing/application/providers/financing_catalogue_provider.dart';
+import 'package:famhub_app/features/financing/domain/models/finance_models.dart';
+import 'package:famhub_app/features/financing/domain/models/financing_catalogue_models.dart';
+import 'package:famhub_app/features/financing/domain/repositories/financing_catalogue_repository.dart';
+import 'package:famhub_app/features/financing/presentation/pages/financing_catalogue_page.dart';
+import 'package:famhub_app/features/financing/presentation/pages/financing_management_page.dart';
+import 'package:famhub_app/features/financing/presentation/pages/financing_provider_detail_page.dart';
+import 'package:famhub_app/features/financing/presentation/widgets/financing_product_card_widget.dart';
+import 'package:famhub_app/features/financing/presentation/widgets/financing_provider_card_widget.dart';
+import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
+import 'package:famhub_app/features/financing/presentation/widgets/financing_hub_widgets.dart';
+import 'package:famhub_app/shared/widgets/headers/section_header_widget.dart';
+import 'package:famhub_app/shared/widgets/states/states.dart';
+
+/// How many rows each landing section previews; the full list lives on the
+/// catalogue screen.
+const int _landingPreviewCount = 3;
+
+class FinancingPage extends ConsumerStatefulWidget {
   const FinancingPage({super.key});
 
   @override
-  State<FinancingPage> createState() => _FinancingPageState();
+  ConsumerState<FinancingPage> createState() => _FinancingPageState();
 }
 
-class _FinancingPageState extends State<FinancingPage>
+class _FinancingPageState extends ConsumerState<FinancingPage>
     with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
-
-  int selectedPartnerTab = 0;
-
-  final List<String> partnerTabs = const [
-    'Banks',
-    'SACCOs',
-    'Insurance',
-  ];
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
 
-    return ResponsiveWrapper(
+    final entityContext = ref.watch(contextProvider);
+
+    if (entityContext.isLoading) {
+      return const ResponsiveWrapper(
+        child: LoadingStateWidget(message: 'Loading the finance hub...'),
+      );
+    }
+    if (entityContext.isGuest) {
+      return const ResponsiveWrapper(
+        child: PermissionDeniedWidget(
+          title: 'Finance hub locked',
+          message: 'Sign in to browse financing providers and products.',
+        ),
+      );
+    }
+
+    return const ResponsiveWrapper(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          /// MODULE HEADER
-          const ModuleHeaderWidget(
+          FinancingHubHeader(
             title: 'Agri-Finance Hub',
-            subtitle:
-                'Loans • SACCOs • Insurance • Input Financing',
-            trailingIcon: Icons.account_balance_outlined,
+            subtitle: 'Loans • Savings • Insurance • Input financing',
+            description: 'Everything offered by verified financial partners '
+                'in the FAMHUB catalogue. Products shown here have passed '
+                'review and are published.',
           ),
-
-          const SizedBox(height: 20),
-
-          /// PHASE 1 CATALOGUE ENTRIES
-          Row(
-            children: [
-              Expanded(
-                child: _CatalogueEntryCard(
-                  title: 'Browse catalogue',
-                  subtitle: 'Verified partners and their published products',
-                  icon: Icons.storefront_outlined,
-                  onTap: () => Navigator.of(context)
-                      .push(FinancingCataloguePage.route()),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _CatalogueEntryCard(
-                  title: 'Manage catalogue',
-                  subtitle: 'Providers, verification and product lifecycle',
-                  icon: Icons.manage_accounts_outlined,
-                  onTap: () => Navigator.of(context)
-                      .push(FinancingManagementPage.route()),
-                ),
-              ),
-            ],
+          SizedBox(height: 16),
+          _CatalogueEntryCard(
+            title: 'Browse catalogue',
+            subtitle: 'Verified partners and their published products',
+            icon: Icons.storefront_outlined,
+            onTapRoute: FinancingCataloguePage.route,
           ),
-
-          const SizedBox(height: 24),
-
-          /// CREDIT HEALTH
-          const CreditHealthCardWidget(),
-
-          const SizedBox(height: 24),
-
-          /// PARTNER SECTION
-          const SectionHeaderWidget(
-            title: 'Integrated Financial Partners',
+          SizedBox(height: 10),
+          _CatalogueEntryCard(
+            title: 'Manage catalogue',
+            subtitle: 'Providers, verification and product lifecycle',
+            icon: Icons.manage_accounts_outlined,
+            onTapRoute: FinancingManagementPage.route,
           ),
-
-          const SizedBox(height: 14),
-
-          _buildPartnerTabs(),
-
-          const SizedBox(height: 14),
-
-          _buildPartnerSection(),
-
-          const SizedBox(height: 24),
-
-          /// LOAN OFFERS
-          const SectionHeaderWidget(
-            title: 'Active Loan Offers',
-          ),
-
-          const SizedBox(height: 12),
-
-          const LoanOfferCardWidget(
-            title: 'Pre-Season Input Loan',
-            provider: 'Apollo Agriculture',
-            amount: 'KSh 25,000',
-            interest: '5% Monthly',
-            isPriority: true,
-          ),
-
-          const SizedBox(height: 12),
-
-          const LoanOfferCardWidget(
-            title: 'Emergency Harvest Credit',
-            provider: 'FamHub Finance',
-            amount: 'KSh 5,000',
-            interest: 'Instant Approval',
-            isPriority: false,
-          ),
-
-          const SizedBox(height: 80),
+          SizedBox(height: 26),
+          SectionHeaderWidget(title: 'Verified partners'),
+          SizedBox(height: 12),
+          _ProvidersPreview(),
+          SizedBox(height: 24),
+          SectionHeaderWidget(title: 'Published products'),
+          SizedBox(height: 12),
+          _ProductsPreview(),
+          SizedBox(height: 80),
         ],
       ),
     );
   }
+}
 
-  /// -----------------------------------
-  /// PARTNER TABS
-  /// -----------------------------------
+// ── Data previews ──────────────────────────────────────────────────────────
 
-  Widget _buildPartnerTabs() {
-    final primary = Theme.of(context).colorScheme.primary;
+class _ProvidersPreview extends ConsumerWidget {
+  const _ProvidersPreview();
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: List.generate(
-          partnerTabs.length,
-          (index) {
-            final isActive = index == selectedPartnerTab;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final providers = ref.watch(financingBrowseProvidersProvider);
 
-            return GestureDetector(
-              onTap: () {
-                setState(() {
-                  selectedPartnerTab = index;
-                });
-              },
-              child: Container(
-                margin: const EdgeInsets.only(right: 10),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: isActive
-                      ? primary.withOpacity(0.10)
-                      : Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isActive
-                        ? primary
-                        : Colors.grey.shade300,
-                  ),
-                ),
-                child: Text(
-                  partnerTabs[index],
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isActive
-                        ? FontWeight.w600
-                        : FontWeight.w400,
-                    color: isActive
-                        ? primary
-                        : Colors.grey.shade700,
-                  ),
+    return providers.when(
+      loading: () => const _PreviewSkeleton(),
+      error: (error, _) => _PreviewError(
+        message: error is FinancingCatalogueUnavailableException
+            ? 'The financing catalogue is not available in this environment yet.'
+            : 'We could not load the verified partners.',
+        onRetry: error is FinancingCatalogueUnavailableException
+            ? null
+            : () => ref.invalidate(financingBrowseProvidersProvider),
+      ),
+      data: (rows) {
+        if (rows.isEmpty) {
+          return EmptyStateWidget(
+            icon: Icons.storefront_outlined,
+            title: 'No verified partners yet',
+            subtitle:
+                'Partners appear here once they are verified and published. '
+                'Browse the catalogue for the full workflow.',
+            actionLabel: 'Browse catalogue',
+            onAction: () =>
+                Navigator.of(context).push(FinancingCataloguePage.route()),
+          );
+        }
+        final preview = rows.take(_landingPreviewCount).toList(growable: false);
+        return Column(
+          children: [
+            for (final provider in preview) ...[
+              FinancingProviderCardWidget(
+                provider: provider,
+                onTap: () => Navigator.of(context).push(
+                  FinancingProviderDetailPage.route(provider: provider),
                 ),
               ),
-            );
-          },
-        ),
-      ),
+              const SizedBox(height: 10),
+            ],
+            if (rows.length > preview.length)
+              _PreviewFooter(
+                label: 'View all ${rows.length} partners',
+                onOpen: () => Navigator.of(context)
+                    .push(FinancingCataloguePage.route()),
+              ),
+          ],
+        );
+      },
     );
-  }
-
-  /// -----------------------------------
-  /// PARTNER SECTION SWITCHER
-  /// -----------------------------------
-
-  Widget _buildPartnerSection() {
-    switch (selectedPartnerTab) {
-      case 0:
-        return const Column(
-          children: [
-            FinancialPartnerCardWidget(
-              title: 'Equity Bank',
-              subtitle: 'Input Loans • Asset Financing',
-              icon: Icons.account_balance_outlined,
-            ),
-            SizedBox(height: 12),
-            FinancialPartnerCardWidget(
-              title: 'Co-operative Bank',
-              subtitle: 'Farmer Lending • Working Capital',
-              icon: Icons.account_balance_wallet_outlined,
-            ),
-          ],
-        );
-
-      case 1:
-        return const Column(
-          children: [
-            FinancialPartnerCardWidget(
-              title: 'Mkulima SACCO',
-              subtitle: 'Savings • Credit • Milk Payments',
-              icon: Icons.groups_outlined,
-            ),
-            SizedBox(height: 12),
-            FinancialPartnerCardWidget(
-              title: 'AgriCoop SACCO',
-              subtitle: 'Farmer Deposits • Seasonal Loans',
-              icon: Icons.savings_outlined,
-            ),
-          ],
-        );
-
-      case 2:
-        return const Column(
-          children: [
-            FinancialPartnerCardWidget(
-              title: 'APA Insurance',
-              subtitle: 'Crop Cover • Livestock Protection',
-              icon: Icons.shield_outlined,
-            ),
-            SizedBox(height: 12),
-            FinancialPartnerCardWidget(
-              title: 'Jubilee Insurance',
-              subtitle: 'Farm Asset Cover • Weather Index',
-              icon: Icons.verified_user_outlined,
-            ),
-          ],
-        );
-
-      default:
-        return const SizedBox.shrink();
-    }
   }
 }
 
-/// Entry tile for one of the Phase 1 catalogue screens. Follows the
-/// established financing card convention (white card, 14 radius, hairline
-/// border) so it reads as part of the module.
+class _ProductsPreview extends ConsumerWidget {
+  const _ProductsPreview();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final products = ref.watch(financingBrowseProductsProvider);
+    final providers = ref.watch(financingBrowseProvidersProvider);
+    final names = <String, String>{
+      for (final p in providers.value ?? const <FinancingProvider>[])
+        p.id: p.name,
+    };
+
+    return products.when(
+      loading: () => const _PreviewSkeleton(),
+      error: (error, _) => _PreviewError(
+        message: error is FinancingCatalogueUnavailableException
+            ? 'The financing catalogue is not available in this environment yet.'
+            : 'We could not load the published products.',
+        onRetry: error is FinancingCatalogueUnavailableException
+            ? null
+            : () => ref.invalidate(financingBrowseProductsProvider),
+      ),
+      data: (rows) {
+        if (rows.isEmpty) {
+          return EmptyStateWidget(
+            icon: Icons.inventory_2_outlined,
+            title: 'No published products yet',
+            subtitle:
+                'Approved products appear here as soon as a partner publishes '
+                'them. Browse the catalogue to see every provider.',
+            actionLabel: 'Browse catalogue',
+            onAction: () =>
+                Navigator.of(context).push(FinancingCataloguePage.route()),
+          );
+        }
+        final preview = rows.take(_landingPreviewCount).toList(growable: false);
+        return Column(
+          children: [
+            for (final product in preview) ...[
+              FinancingProductCardWidget(
+                product: product,
+                providerName: names[product.providerId],
+                onTap: () {
+                  final providerId = product.providerId;
+                  final provider = providers.value?.where(
+                    (p) => p.id == providerId,
+                  );
+                  if (provider == null || provider.isEmpty) return;
+                  Navigator.of(context).push(
+                    FinancingProviderDetailPage.route(provider: provider.first),
+                  );
+                },
+              ),
+              const SizedBox(height: 10),
+            ],
+            if (rows.length > preview.length)
+              _PreviewFooter(
+                label: 'View all ${rows.length} products',
+                onOpen: () => Navigator.of(context)
+                    .push(FinancingCataloguePage.route()),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ── Preview helpers ────────────────────────────────────────────────────────
+
+class _PreviewSkeleton extends StatelessWidget {
+  const _PreviewSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const LoadingStateWidget(message: 'Loading the catalogue...');
+  }
+}
+
+class _PreviewError extends StatelessWidget {
+  const _PreviewError({required this.message, this.onRetry});
+
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return ErrorStateWidget(
+      title: 'Not available',
+      message: message,
+      retryLabel: onRetry == null ? null : 'Retry',
+      onRetry: onRetry,
+    );
+  }
+}
+
+class _PreviewFooter extends StatelessWidget {
+  const _PreviewFooter({required this.label, required this.onOpen});
+
+  final String label;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      onPressed: onOpen,
+      icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+      label: Text(label),
+      style: TextButton.styleFrom(
+        foregroundColor: const Color(0xFF1B5E20),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      ),
+    );
+  }
+}
+
+// ── Entry tiles ────────────────────────────────────────────────────────────
+
+/// Entry tile for one of the catalogue screens. Follows the established
+/// financing card convention (white card, 14 radius, hairline border).
 class _CatalogueEntryCard extends StatelessWidget {
   const _CatalogueEntryCard({
     required this.title,
     required this.subtitle,
     required this.icon,
-    required this.onTap,
+    required this.onTapRoute,
   });
 
   final String title;
   final String subtitle;
   final IconData icon;
-  final VoidCallback onTap;
+  final Route<void> Function() onTapRoute;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3F7F0),
-                borderRadius: BorderRadius.circular(10),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(onTapRoute()),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.grey.shade200),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
-              child: Icon(icon, size: 20, color: const Color(0xFF256D3A)),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF2E7D32), Color(0xFF43A047)],
+                  ),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(icon, size: 20, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13.5,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
-                  ),
-                ],
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        height: 1.3,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const Icon(Icons.chevron_right, size: 20, color: Colors.grey),
-          ],
+              const Icon(Icons.chevron_right, size: 20, color: Colors.grey),
+            ],
+          ),
         ),
       ),
     );

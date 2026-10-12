@@ -8,11 +8,14 @@
 /// - No Scaffold / AppBar / Drawer (shell owns them)
 /// - ResponsiveWrapper enforced
 /// - Gated on the backend `finance.*` keys — nothing is granted client side.
-///   The Phase 1 migration registers the keys but seeds no role assignment,
-///   so an unseeded backend renders the locked state below rather than data.
+///   Grants live in `role_permissions` + `entity_role_scopes` for the active
+///   entity, so a profile without them renders the locked state below rather
+///   than data.
 /// - Writes are RPC-only; no direct table access exists in the contract.
 /// ============================================================
 library;
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,14 +25,15 @@ import 'package:famhub_app/features/financing/application/providers/financing_ca
 import 'package:famhub_app/features/financing/application/providers/financing_management_provider.dart';
 import 'package:famhub_app/features/financing/application/providers/financing_permission_provider.dart';
 import 'package:famhub_app/features/financing/config/permissions.dart';
+import 'package:famhub_app/features/financing/domain/financing_slug.dart';
 import 'package:famhub_app/features/financing/domain/models/finance_models.dart';
 import 'package:famhub_app/features/financing/domain/models/financing_catalogue_models.dart';
 import 'package:famhub_app/features/financing/domain/repositories/financing_catalogue_repository.dart';
+import 'package:famhub_app/features/financing/presentation/widgets/financing_hub_widgets.dart';
 import 'package:famhub_app/features/financing/presentation/widgets/financing_product_card_widget.dart';
 import 'package:famhub_app/features/financing/presentation/widgets/financing_provider_card_widget.dart';
 import 'package:famhub_app/features/financing/presentation/widgets/financing_status_chip_widget.dart';
 import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
-import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
 import 'package:famhub_app/shared/widgets/states/states.dart';
 
 
@@ -52,6 +56,19 @@ class _FinancingManagementPageState
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
+  /// Provider-tab search + verification filter (client side; the managed
+  /// fetch already returns the full set for the active entity).
+  final TextEditingController _providerSearchController =
+      TextEditingController();
+  String _providerQuery = '';
+  FinancingVerificationStatus? _verificationFilter;
+
+  /// Product-tab search + approval filter, same rules as the provider tab.
+  final TextEditingController _productSearchController =
+      TextEditingController();
+  String _productQuery = '';
+  FinancingApprovalStatus? _approvalFilter;
+
   @override
   void initState() {
     super.initState();
@@ -61,6 +78,8 @@ class _FinancingManagementPageState
   @override
   void dispose() {
     _tabController.dispose();
+    _providerSearchController.dispose();
+    _productSearchController.dispose();
     super.dispose();
   }
 
@@ -127,20 +146,29 @@ class _FinancingManagementPageState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const ModuleHeaderWidget(
+          const FinancingHubHeader(
             title: 'Catalogue Management',
             subtitle: 'Providers • Verification • Product lifecycle',
-            trailingIcon: Icons.manage_accounts_outlined,
+            description: 'Add providers, verify partners, and move products '
+                'through review and publication. Every action runs against '
+                'your active entity context and its finance permissions.',
+            icon: Icons.manage_accounts_outlined,
           ),
-          const SizedBox(height: 16),
-          TabBar(
+          const SizedBox(height: 14),
+          FinancingSegmentedTabs(
             controller: _tabController,
-            labelColor: Theme.of(context).colorScheme.primary,
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: Theme.of(context).colorScheme.primary,
-            tabs: const [Tab(text: 'Providers'), Tab(text: 'Products')],
+            tabs: const [
+              FinancingTabSpec(
+                icon: Icons.storefront_outlined,
+                label: 'Providers',
+              ),
+              FinancingTabSpec(
+                icon: Icons.inventory_2_outlined,
+                label: 'Products',
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Expanded(
             child: TabBarView(
               controller: _tabController,
@@ -163,16 +191,72 @@ class _FinancingManagementPageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (canManage)
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: () => _showProviderForm(),
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Add provider'),
+        _addAction(
+          onPressed: canManage ? () => _showProviderForm() : null,
+          label: 'Add provider',
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _providerSearchController,
+          onChanged: (value) => setState(() => _providerQuery = value),
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: 'Search by name, slug or description',
+            prefixIcon: const Icon(Icons.search, size: 20),
+            suffixIcon: _providerQuery.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: 'Clear search',
+                    iconSize: 18,
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _providerSearchController.clear();
+                      setState(() => _providerQuery = '');
+                    },
+                  ),
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF2E7D32), width: 1.4),
             ),
           ),
-        const SizedBox(height: 8),
+        ),
+        const SizedBox(height: 10),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            children: [
+              _filterChip(
+                label: 'All',
+                selected: _verificationFilter == null,
+                onSelected: (_) => setState(() => _verificationFilter = null),
+              ),
+              for (final status in FinancingVerificationStatus.values)
+                _filterChip(
+                  label: status.label,
+                  selected: _verificationFilter == status,
+                  onSelected: (_) => setState(
+                    () => _verificationFilter =
+                        _verificationFilter == status ? null : status,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
         Expanded(
           child: providers.when(
             loading: () => const LoadingStateWidget(
@@ -207,12 +291,40 @@ class _FinancingManagementPageState
                   onAction: canManage ? () => _showProviderForm() : null,
                 );
               }
+              final query = _providerQuery.trim().toLowerCase();
+              final filtered = rows
+                  .where((p) =>
+                      (_verificationFilter == null ||
+                          p.verificationStatus == _verificationFilter) &&
+                      (query.isEmpty ||
+                          '${p.name} ${p.slug} ${p.description ?? ''}'
+                              .toLowerCase()
+                              .contains(query)))
+                  .toList(growable: false);
+
+              if (filtered.isEmpty) {
+                return EmptyStateWidget(
+                  icon: Icons.search_off_outlined,
+                  title: 'No matching providers',
+                  subtitle:
+                      'No provider matches "${_providerQuery.trim()}". Clear '
+                      'the search or pick a different verification filter.',
+                  actionLabel: 'Clear filters',
+                  onAction: () {
+                    _providerSearchController.clear();
+                    setState(() {
+                      _providerQuery = '';
+                      _verificationFilter = null;
+                    });
+                  },
+                );
+              }
               return ListView.separated(
                 physics: const BouncingScrollPhysics(),
-                itemCount: rows.length,
+                itemCount: filtered.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 10),
                 itemBuilder: (context, index) {
-                  final provider = rows[index];
+                  final provider = filtered[index];
                   return FinancingProviderCardWidget(
                     provider: provider,
                     trailing: (canManage || canVerify)
@@ -258,6 +370,53 @@ class _FinancingManagementPageState
           ),
         ),
       ],
+    );
+  }
+
+  /// Primary call to action for a tab: full width on narrow phones, right
+  /// aligned where there is room for it.
+  Widget _addAction({required VoidCallback? onPressed, required String label}) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final button = FinancingPrimaryButton(
+          onPressed: onPressed,
+          label: label,
+        );
+        if (constraints.maxWidth < 520) {
+          return SizedBox(width: double.infinity, child: button);
+        }
+        return Align(alignment: Alignment.centerRight, child: button);
+      },
+    );
+  }
+
+  Widget _filterChip({
+    required String label,
+    required bool selected,
+    required ValueChanged<bool> onSelected,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Text(label),
+        selected: selected,
+        onSelected: onSelected,
+        showCheckmark: false,
+        backgroundColor: Colors.white,
+        selectedColor: const Color(0xFF2E7D32).withValues(alpha: 0.12),
+        labelStyle: TextStyle(
+          fontSize: 12,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+          color: selected ? const Color(0xFF1B5E20) : Colors.grey.shade700,
+        ),
+        side: BorderSide(
+          color: selected
+              ? const Color(0xFF2E7D32).withValues(alpha: 0.45)
+              : Colors.grey.shade300,
+        ),
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
     );
   }
 
@@ -309,18 +468,76 @@ class _FinancingManagementPageState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (canManage)
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: () => _showProductForm(
-                providerOptions: providers.value ?? const [],
-              ),
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Add product'),
+        _addAction(
+          onPressed: canManage
+              ? () => _showProductForm(
+                    providerOptions: providers.value ?? const [],
+                  )
+              : null,
+          label: 'Add product',
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _productSearchController,
+          onChanged: (value) => setState(() => _productQuery = value),
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: 'Search by product name, slug or provider',
+            prefixIcon: const Icon(Icons.search, size: 20),
+            suffixIcon: _productQuery.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: 'Clear search',
+                    iconSize: 18,
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _productSearchController.clear();
+                      setState(() => _productQuery = '');
+                    },
+                  ),
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF2E7D32), width: 1.4),
             ),
           ),
-        const SizedBox(height: 8),
+        ),
+        const SizedBox(height: 10),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            children: [
+              _filterChip(
+                label: 'All',
+                selected: _approvalFilter == null,
+                onSelected: (_) => setState(() => _approvalFilter = null),
+              ),
+              for (final status in FinancingApprovalStatus.values)
+                _filterChip(
+                  label: status.label,
+                  selected: _approvalFilter == status,
+                  onSelected: (_) => setState(
+                    () => _approvalFilter =
+                        _approvalFilter == status ? null : status,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
         Expanded(
           child: products.when(
             loading: () => const LoadingStateWidget(
@@ -359,19 +576,48 @@ class _FinancingManagementPageState
                       : null,
                 );
               }
-              final names = <String, String>{
+              final providerNames = <String, String>{
                 for (final p in providers.value ?? const <FinancingProvider>[])
                   p.id: p.name,
               };
+              final query = _productQuery.trim().toLowerCase();
+              final filtered = rows
+                  .where((product) =>
+                      (_approvalFilter == null ||
+                          product.approvalStatus == _approvalFilter) &&
+                      (query.isEmpty ||
+                          '${product.name} ${product.slug} '
+                                  '${providerNames[product.providerId] ?? ''}'
+                              .toLowerCase()
+                              .contains(query)))
+                  .toList(growable: false);
+
+              if (filtered.isEmpty) {
+                return EmptyStateWidget(
+                  icon: Icons.search_off_outlined,
+                  title: 'No matching products',
+                  subtitle:
+                      'No product matches "${_productQuery.trim()}". Clear '
+                      'the search or pick a different approval filter.',
+                  actionLabel: 'Clear filters',
+                  onAction: () {
+                    _productSearchController.clear();
+                    setState(() {
+                      _productQuery = '';
+                      _approvalFilter = null;
+                    });
+                  },
+                );
+              }
               return ListView.separated(
                 physics: const BouncingScrollPhysics(),
-                itemCount: rows.length,
+                itemCount: filtered.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 10),
                 itemBuilder: (context, index) {
-                  final product = rows[index];
+                  final product = filtered[index];
                   return FinancingProductCardWidget(
                     product: product,
-                    providerName: names[product.providerId],
+                    providerName: providerNames[product.providerId],
                     showLifecycle: true,
                     trailing: (canManage || canReview || canPublish)
                         ? PopupMenuButton<String>(
@@ -564,158 +810,272 @@ class _FinancingManagementPageState
     var type = existing?.providerType ?? FinancialPartnerType.bank;
     var isActive = existing?.isActive ?? true;
 
+    // ── Slug derivation ──────────────────────────────────────────────────
+    // The slug mirrors the name while the operator has not touched it, and is
+    // frozen as soon as they do. Never sent until it passes the format rules.
+    var slugEdited = false;
+    var syncingSlug = false;
+    var lastSyncedName = existing?.name ?? '';
+    var fieldError = '';
+    var saving = false;
+
+    void syncSlug() {
+      if (slugEdited) return;
+      if (name.text == lastSyncedName) return;
+      final generated = buildFinancingSlug(name.text);
+      if (generated != slug.text) {
+        syncingSlug = true;
+        slug.text = generated;
+        syncingSlug = false;
+      }
+      lastSyncedName = name.text;
+    }
+
+    name.addListener(syncSlug);
+    slug.addListener(() {
+      if (!syncingSlug) slugEdited = true;
+    });
+
+    void disposeForm() {
+      name.removeListener(syncSlug);
+      for (final c in [
+        name,
+        slug,
+        description,
+        website,
+        email,
+        phone,
+        country,
+      ]) {
+        c.dispose();
+      }
+    }
+
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (sheetContext, setSheetState) => Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            top: 16,
-            bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 24,
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  existing == null ? 'Add provider' : 'Edit provider',
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 16),
-                _label('Name *'),
-                _textField(name, hint: 'e.g. Equity Bank'),
-                const SizedBox(height: 12),
-                _label('Type'),
-                DropdownButton<FinancialPartnerType>(
-                  isExpanded: true,
-                  value: type,
-                  items: [
-                    for (final t in FinancialPartnerType.values)
-                      DropdownMenuItem(
-                        value: t,
-                        child: Text(partnerTypeLabel(t)),
-                      ),
-                  ],
-                  onChanged: (v) => setSheetState(() => type = v ?? type),
-                ),
-                const SizedBox(height: 12),
-                _label('Slug (lowercase-with-dashes)'),
-                _textField(slug, hint: 'left blank — the backend derives it'),
-                const SizedBox(height: 12),
-                _label('Description'),
-                _textField(description, maxLines: 3),
-                const SizedBox(height: 12),
-                _label('Website'),
-                _textField(website, hint: 'https://'),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _label('Contact email'),
-                          _textField(email, keyboard: TextInputType.emailAddress),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _label('Contact phone'),
-                          _textField(phone, keyboard: TextInputType.phone),
-                        ],
-                      ),
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => _SheetLifecycle(
+        onDispose: disposeForm,
+        child: StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            final theme = Theme.of(sheetContext);
+            return PopScope(
+              canPop: !saving,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(26)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.16),
+                      blurRadius: 32,
+                      offset: const Offset(0, -8),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                padding: EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  top: 10,
+                  bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 24,
+                ),
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _sheetHeader(
+                        icon: Icons.storefront_outlined,
+                        title:
+                            existing == null ? 'Add provider' : 'Edit provider',
+                        subtitle: existing == null
+                            ? 'Create a financing partner. The slug is generated '
+                                'from the name and can be overridden below.'
+                            : 'Update partner details. Changing the name '
+                                'regenerates the slug unless you set it yourself.',
+                      ),
+                      const SizedBox(height: 20),
+                      _label('Name *'),
+                      _textField(name, hint: 'e.g. Equity Bank'),
+                      const SizedBox(height: 14),
+                      _label('Slug'),
+                      _textField(
+                        slug,
+                        hint: 'auto-generated from the name',
+                        helper: 'lowercase letters, numbers and hyphens',
+                      ),
+                      const SizedBox(height: 14),
+                      _label('Type'),
+                      _dropdown<FinancialPartnerType>(
+                        value: type,
+                        items: [
+                          for (final t in FinancialPartnerType.values)
+                            DropdownMenuItem(
+                              value: t,
+                              child: Text(partnerTypeLabel(t)),
+                            ),
+                        ],
+                        onChanged: (v) => setSheetState(() => type = v ?? type),
+                      ),
+                      const SizedBox(height: 14),
+                      _label('Description'),
+                      _textField(description, maxLines: 3),
+                      const SizedBox(height: 14),
+                      _label('Website'),
+                      _textField(website, hint: 'https://'),
+                      const SizedBox(height: 14),
+                      Row(
                         children: [
-                          _label('Country code'),
-                          _textField(country, hint: 'KE'),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _label('Contact email'),
+                                _textField(email,
+                                    keyboard: TextInputType.emailAddress),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _label('Contact phone'),
+                                _textField(phone, keyboard: TextInputType.phone),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Active', style: TextStyle(fontSize: 13)),
-                        value: isActive,
-                        onChanged: (v) => setSheetState(() => isActive = v),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _label('Country code'),
+                                _textField(country, hint: 'KE'),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _switchCard(
+                              title: 'Active',
+                              subtitle: 'Visible in the catalogue',
+                              value: isActive,
+                              onChanged: (v) => setSheetState(() => isActive = v),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () async {
-                      final value = name.text.trim();
-                      if (value.isEmpty) {
-                        _showMessage('Name is required.');
-                        return;
-                      }
-                      final navigator = Navigator.of(sheetContext);
-                      navigator.pop();
-                      await _run(() async {
-                        await ref
-                            .read(financingCatalogueActionsProvider)
-                            .saveProvider(
-                              providerId: existing?.id,
-                              slug: slug.text.trim().isEmpty
-                                  ? null
-                                  : slug.text.trim(),
-                              name: value,
-                              providerType: type,
-                              description: description.text.trim().isEmpty
-                                  ? null
-                                  : description.text.trim(),
-                              websiteUrl: website.text.trim().isEmpty
-                                  ? null
-                                  : website.text.trim(),
-                              contactEmail: email.text.trim().isEmpty
-                                  ? null
-                                  : email.text.trim(),
-                              contactPhone: phone.text.trim().isEmpty
-                                  ? null
-                                  : phone.text.trim(),
-                              countryCode: country.text.trim().isEmpty
-                                  ? null
-                                  : country.text.trim(),
-                              isActive: isActive,
-                            );
-                        _showMessage('Provider saved.');
-                      });
-                    },
-                    child: const Text('Save provider'),
+                      const SizedBox(height: 18),
+                      if (fieldError.isNotEmpty) ...[
+                        _inlineError(fieldError),
+                        const SizedBox(height: 14),
+                      ],
+                      _formActions(
+                        saving: saving,
+                        saveLabel: 'Save provider',
+                        onCancel: () {
+                          if (saving) return;
+                          Navigator.of(sheetContext).pop();
+                        },
+                        onSave: () async {
+                          if (saving) return;
+                          final value = name.text.trim();
+                          if (value.isEmpty) {
+                            setSheetState(() => fieldError = 'Name is required.');
+                            return;
+                          }
+                          final rawSlug = slugEdited ? slug.text.trim() : null;
+                          final resolvedSlug = resolveProviderSlug(
+                            name: value,
+                            existingSlug: existing?.slug,
+                            previousName: existing?.name,
+                            manualSlug: rawSlug,
+                          );
+                          final slugProblem = validateFinancingSlug(
+                            resolvedSlug,
+                            generated: rawSlug == null,
+                          );
+                          if (slugProblem != null) {
+                            setSheetState(() => fieldError = slugProblem);
+                            return;
+                          }
+
+                          setSheetState(() {
+                            saving = true;
+                            fieldError = '';
+                          });
+                          try {
+                            await ref
+                                .read(financingCatalogueActionsProvider)
+                                .saveProvider(
+                                  providerId: existing?.id,
+                                  slug: resolvedSlug,
+                                  name: value,
+                                  providerType: type,
+                                  description: description.text.trim().isEmpty
+                                      ? null
+                                      : description.text.trim(),
+                                  websiteUrl: website.text.trim().isEmpty
+                                      ? null
+                                      : website.text.trim(),
+                                  contactEmail: email.text.trim().isEmpty
+                                      ? null
+                                      : email.text.trim(),
+                                  contactPhone: phone.text.trim().isEmpty
+                                      ? null
+                                      : phone.text.trim(),
+                                  countryCode: country.text.trim().isEmpty
+                                      ? null
+                                      : country.text.trim(),
+                                  isActive: isActive,
+                                );
+                            if (!sheetContext.mounted) return;
+                            setSheetState(() => saving = false);
+                            Navigator.of(sheetContext).pop();
+                            _showMessage('Provider saved.');
+                          } catch (error) {
+                            if (sheetContext.mounted) {
+                              setSheetState(() {
+                                saving = false;
+                                fieldError = describeFinancingActionError(error);
+                              });
+                            } else if (mounted) {
+                              _showMessage(describeFinancingActionError(error));
+                            }
+                          }
+                        },
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
     );
 
-    for (final c in [name, slug, description, website, email, phone, country]) {
-      c.dispose();
-    }
   }
 
   // ── Product form ────────────────────────────────────────────────────────
@@ -753,274 +1113,453 @@ class _FinancingManagementPageState
             : providerOptions.first.id);
     var requiresCollateral = existing?.requiresCollateral ?? false;
     var isActive = existing?.isActive ?? true;
+    var fieldError = '';
+    var saving = false;
+
+    // The product form has no slug input — the value is always derived from
+    // the name (or preserved when the name is untouched on an existing row).
+    var slugText = existing?.slug ?? '';
+    var lastSyncedName = existing?.name ?? '';
+    var sheetOpen = false;
+    void Function(void Function())? setSheetStateRef;
+
+    void syncSlug() {
+      if (name.text == lastSyncedName) return;
+      final generated = buildFinancingSlug(name.text);
+      lastSyncedName = name.text;
+      if (generated != slugText) {
+        slugText = generated;
+        if (sheetOpen) setSheetStateRef?.call(() {});
+      }
+    }
+
+    name.addListener(syncSlug);
+
+    void disposeForm() {
+      sheetOpen = false;
+      name.removeListener(syncSlug);
+      for (final c in [
+        name,
+        summary,
+        currency,
+        minAmount,
+        maxAmount,
+        rate,
+        minTenure,
+        maxTenure,
+        requirements,
+      ]) {
+        c.dispose();
+      }
+    }
 
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (sheetContext, setSheetState) => Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            top: 16,
-            bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 24,
-          ),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  existing == null ? 'Add product' : 'Edit product',
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 16),
-                _label('Name *'),
-                _textField(name, hint: 'e.g. Seasonal input loan'),
-                const SizedBox(height: 12),
-                _label('Provider *'),
-                DropdownButton<String>(
-                  isExpanded: true,
-                  value: providerOptions.any((p) => p.id == providerId)
-                      ? providerId
-                      : providerOptions.first.id,
-                  items: [
-                    for (final p in providerOptions)
-                      DropdownMenuItem(value: p.id, child: Text(p.name)),
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => _SheetLifecycle(
+        onDispose: disposeForm,
+        child: StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            final theme = Theme.of(sheetContext);
+            sheetOpen = true;
+            setSheetStateRef = setSheetState;
+            return PopScope(
+              canPop: !saving,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(26)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.16),
+                      blurRadius: 32,
+                      offset: const Offset(0, -8),
+                    ),
                   ],
-                  onChanged: existing == null
-                      ? (v) => setSheetState(() => providerId = v ?? providerId)
-                      : null,
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                padding: EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  top: 10,
+                  bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 24,
+                ),
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _sheetHeader(
+                        icon: Icons.inventory_2_outlined,
+                        title:
+                            existing == null ? 'Add product' : 'Edit product',
+                        subtitle: existing == null
+                            ? 'Products start in draft and move through review '
+                                'before publication.'
+                            : 'Lifecycle rules decide which fields can change in '
+                                'the current approval state.',
+                      ),
+                      const SizedBox(height: 20),
+                      _label('Name *'),
+                      _textField(name, hint: 'e.g. Seasonal input loan'),
+                      const SizedBox(height: 14),
+                      _label('Slug'),
+                      _staticField(
+                        slugText,
+                        hint: 'auto-generated from the name',
+                        helper: 'lowercase letters, numbers and hyphens',
+                      ),
+                      const SizedBox(height: 14),
+                      _label('Provider *'),
+                      _dropdown<String>(
+                        value: providerOptions.any((p) => p.id == providerId)
+                            ? providerId
+                            : providerOptions.first.id,
+                        items: [
+                          for (final p in providerOptions)
+                            DropdownMenuItem(value: p.id, child: Text(p.name)),
+                        ],
+                        onChanged: existing == null
+                            ? (v) =>
+                                setSheetState(() => providerId = v ?? providerId)
+                            : null,
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
                         children: [
-                          _label('Type'),
-                          DropdownButton<FinancingProductType>(
-                            isExpanded: true,
-                            value: type,
-                            items: [
-                              for (final t in FinancingProductType.values)
-                                DropdownMenuItem(
-                                    value: t, child: Text(t.label)),
-                            ],
-                            onChanged: (v) =>
-                                setSheetState(() => type = v ?? type),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _label('Type'),
+                                _dropdown<FinancingProductType>(
+                                  value: type,
+                                  items: [
+                                    for (final t in FinancingProductType.values)
+                                      DropdownMenuItem(
+                                          value: t, child: Text(t.label)),
+                                  ],
+                                  onChanged: (v) =>
+                                      setSheetState(() => type = v ?? type),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _label('Rate type'),
+                                _dropdown<FinancingRateType>(
+                                  value: rateType,
+                                  items: [
+                                    for (final t in FinancingRateType.values)
+                                      DropdownMenuItem(
+                                          value: t, child: Text(t.label)),
+                                  ],
+                                  onChanged: (v) => setSheetState(
+                                      () => rateType = v ?? rateType),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      const SizedBox(height: 14),
+                      _label('Summary'),
+                      _textField(summary, maxLines: 2),
+                      const SizedBox(height: 14),
+                      Row(
                         children: [
-                          _label('Rate type'),
-                          DropdownButton<FinancingRateType>(
-                            isExpanded: true,
-                            value: rateType,
-                            items: [
-                              for (final t in FinancingRateType.values)
-                                DropdownMenuItem(
-                                    value: t, child: Text(t.label)),
-                            ],
-                            onChanged: (v) =>
-                                setSheetState(() => rateType = v ?? rateType),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _label('Currency'),
+                                _textField(currency),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _label('Interest rate (%)'),
+                                _textField(rate, keyboard: TextInputType.number),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _label('Summary'),
-                _textField(summary, maxLines: 2),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      const SizedBox(height: 14),
+                      Row(
                         children: [
-                          _label('Currency'),
-                          _textField(currency),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _label('Min amount'),
+                                _textField(minAmount,
+                                    keyboard: TextInputType.number),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _label('Max amount'),
+                                _textField(maxAmount,
+                                    keyboard: TextInputType.number),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      const SizedBox(height: 14),
+                      Row(
                         children: [
-                          _label('Interest rate (%)'),
-                          _textField(rate, keyboard: TextInputType.number),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _label('Min tenure (days)'),
+                                _textField(minTenure,
+                                    keyboard: TextInputType.number),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _label('Max tenure (days)'),
+                                _textField(maxTenure,
+                                    keyboard: TextInputType.number),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      const SizedBox(height: 14),
+                      _label('Requirements (comma separated)'),
+                      _textField(requirements,
+                          hint: 'National ID, Farm registration'),
+                      const SizedBox(height: 14),
+                      Row(
                         children: [
-                          _label('Min amount'),
-                          _textField(minAmount, keyboard: TextInputType.number),
+                          Expanded(
+                            child: _switchCard(
+                              title: 'Collateral',
+                              subtitle: 'Security required',
+                              value: requiresCollateral,
+                              onChanged: (v) =>
+                                  setSheetState(() => requiresCollateral = v),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _switchCard(
+                              title: 'Active',
+                              subtitle: 'Offered to customers',
+                              value: isActive,
+                              onChanged: (v) =>
+                                  setSheetState(() => isActive = v),
+                            ),
+                          ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _label('Max amount'),
-                          _textField(maxAmount, keyboard: TextInputType.number),
-                        ],
+                      const SizedBox(height: 18),
+                      if (fieldError.isNotEmpty) ...[
+                        _inlineError(fieldError),
+                        const SizedBox(height: 14),
+                      ],
+                      _formActions(
+                        saving: saving,
+                        saveLabel: 'Save product',
+                        onCancel: () {
+                          if (saving) return;
+                          Navigator.of(sheetContext).pop();
+                        },
+                        onSave: () async {
+                          if (saving) return;
+                          final value = name.text.trim();
+                          if (value.isEmpty) {
+                            setSheetState(
+                                () => fieldError = 'Name is required.');
+                            return;
+                          }
+                          if (existing == null && providerId.isEmpty) {
+                            setSheetState(
+                                () => fieldError = 'Select a provider.');
+                            return;
+                          }
+                          final resolvedSlug = resolveProviderSlug(
+                            name: value,
+                            existingSlug: existing?.slug,
+                            previousName: existing?.name,
+                            manualSlug: null,
+                          );
+                          final slugProblem = validateFinancingSlug(
+                            resolvedSlug,
+                            generated: true,
+                          );
+                          if (slugProblem != null) {
+                            setSheetState(() => fieldError = slugProblem);
+                            return;
+                          }
+
+                          setSheetState(() {
+                            saving = true;
+                            fieldError = '';
+                          });
+                          try {
+                            await ref
+                                .read(financingCatalogueActionsProvider)
+                                .saveProduct(
+                                  productId: existing?.id,
+                                  providerId:
+                                      existing == null ? providerId : null,
+                                  slug: resolvedSlug,
+                                  name: value,
+                                  productType: type,
+                                  summary: summary.text.trim().isEmpty
+                                      ? null
+                                      : summary.text.trim(),
+                                  currency: currency.text.trim().isEmpty
+                                      ? null
+                                      : currency.text.trim(),
+                                  minAmount:
+                                      double.tryParse(minAmount.text.trim()),
+                                  maxAmount:
+                                      double.tryParse(maxAmount.text.trim()),
+                                  interestRate:
+                                      double.tryParse(rate.text.trim()),
+                                  interestRateType: rateType,
+                                  minTenureDays:
+                                      int.tryParse(minTenure.text.trim()),
+                                  maxTenureDays:
+                                      int.tryParse(maxTenure.text.trim()),
+                                  requiresCollateral: requiresCollateral,
+                                  requirements: requirements.text
+                                      .split(',')
+                                      .map((e) => e.trim())
+                                      .where((e) => e.isNotEmpty)
+                                      .toList(),
+                                  isActive: isActive,
+                                );
+                            if (!sheetContext.mounted) return;
+                            setSheetState(() => saving = false);
+                            Navigator.of(sheetContext).pop();
+                            _showMessage('Product saved.');
+                          } catch (error) {
+                            if (sheetContext.mounted) {
+                              setSheetState(() {
+                                saving = false;
+                                fieldError = describeFinancingActionError(error);
+                              });
+                            } else if (mounted) {
+                              _showMessage(describeFinancingActionError(error));
+                            }
+                          }
+                        },
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _label('Min tenure (days)'),
-                          _textField(minTenure, keyboard: TextInputType.number),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _label('Max tenure (days)'),
-                          _textField(maxTenure, keyboard: TextInputType.number),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _label('Requirements (comma separated)'),
-                _textField(requirements,
-                    hint: 'National ID, Farm registration'),
-                const SizedBox(height: 8),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title:
-                      const Text('Collateral required', style: TextStyle(fontSize: 13)),
-                  value: requiresCollateral,
-                  onChanged: (v) => setSheetState(() => requiresCollateral = v),
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Active', style: TextStyle(fontSize: 13)),
-                  value: isActive,
-                  onChanged: (v) => setSheetState(() => isActive = v),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () async {
-                      final value = name.text.trim();
-                      if (value.isEmpty) {
-                        _showMessage('Name is required.');
-                        return;
-                      }
-                      if (existing == null && providerId.isEmpty) {
-                        _showMessage('Select a provider.');
-                        return;
-                      }
-                      final navigator = Navigator.of(sheetContext);
-                      navigator.pop();
-                      await _run(() async {
-                        await ref
-                            .read(financingCatalogueActionsProvider)
-                            .saveProduct(
-                              productId: existing?.id,
-                              providerId:
-                                  existing == null ? providerId : null,
-                              name: value,
-                              productType: type,
-                              summary: summary.text.trim().isEmpty
-                                  ? null
-                                  : summary.text.trim(),
-                              currency: currency.text.trim().isEmpty
-                                  ? null
-                                  : currency.text.trim(),
-                              minAmount: double.tryParse(minAmount.text.trim()),
-                              maxAmount: double.tryParse(maxAmount.text.trim()),
-                              interestRate: double.tryParse(rate.text.trim()),
-                              interestRateType: rateType,
-                              minTenureDays:
-                                  int.tryParse(minTenure.text.trim()),
-                              maxTenureDays:
-                                  int.tryParse(maxTenure.text.trim()),
-                              requiresCollateral: requiresCollateral,
-                              requirements: requirements.text
-                                  .split(',')
-                                  .map((e) => e.trim())
-                                  .where((e) => e.isNotEmpty)
-                                  .toList(),
-                              isActive: isActive,
-                            );
-                        _showMessage('Product saved.');
-                      });
-                    },
-                    child: const Text('Save product'),
+                    ],
                   ),
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
     );
 
-    for (final c in [
-      name,
-      summary,
-      currency,
-      minAmount,
-      maxAmount,
-      rate,
-      minTenure,
-      maxTenure,
-      requirements,
-    ]) {
-      c.dispose();
-    }
   }
 
   // ── Form helpers ────────────────────────────────────────────────────────
 
+  Widget _sheetHeader({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                const Color(0xFF2E7D32).withValues(alpha: 0.14),
+                const Color(0xFF2E7D32).withValues(alpha: 0.05),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, size: 20, color: const Color(0xFF2E7D32)),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  height: 1.4,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _label(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 4),
+        padding: const EdgeInsets.only(bottom: 6),
         child: Text(
           text,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.3,
+            color: Colors.grey.shade700,
+          ),
         ),
       );
 
   Widget _textField(
     TextEditingController controller, {
     String? hint,
+    String? helper,
     int maxLines = 1,
     TextInputType? keyboard,
   }) {
@@ -1028,14 +1567,233 @@ class _FinancingManagementPageState
       controller: controller,
       maxLines: maxLines,
       keyboardType: keyboard,
+      style: const TextStyle(fontSize: 14),
       decoration: InputDecoration(
         hintText: hint,
+        helperText: helper,
+        helperMaxLines: 1,
         isDense: true,
+        filled: true,
+        fillColor: const Color(0xFFF7F8FA),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: Colors.grey.shade300),
         ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF2E7D32), width: 1.4),
+        ),
       ),
     );
   }
+
+  /// Read-only value rendered like a field — used where the value is derived
+  /// (the product slug) and must not be edited by hand.
+  Widget _staticField(String value, {String? hint, String? helper}) {
+    return InputDecorator(
+      isEmpty: value.isEmpty,
+      decoration: InputDecoration(
+        hintText: hint,
+        helperText: helper,
+        helperMaxLines: 1,
+        isDense: true,
+        filled: true,
+        fillColor: const Color(0xFFF7F8FA),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        suffixIcon: const Icon(Icons.lock_outline, size: 16),
+        suffixIconConstraints:
+            const BoxConstraints(minWidth: 38, minHeight: 0),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+      ),
+      child: Text(
+        value,
+        style: TextStyle(
+          fontSize: 14,
+          color: value.isEmpty ? Colors.grey.shade500 : const Color(0xFF1B1B1F),
+        ),
+      ),
+    );
+  }
+
+  Widget _dropdown<T>({
+    required T value,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?>? onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F8FA),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          isExpanded: true,
+          value: value,
+          items: items,
+          onChanged: onChanged,
+          style: const TextStyle(fontSize: 14, color: Color(0xFF1B1B1F)),
+        ),
+      ),
+    );
+  }
+
+  /// A `ListTile` paints its background and ink on the nearest Material, so
+  /// the surface must be a Material rather than a decorated Container —
+  /// otherwise Flutter raises "ListTile background color or ink splashes may
+  /// be invisible".
+  Widget _switchCard({
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Material(
+      color: const Color(0xFFF7F8FA),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade300),
+      ),
+      child: SwitchListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+        dense: true,
+        title: Text(title, style: const TextStyle(fontSize: 13)),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+        ),
+        value: value,
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+  /// Inline validation feedback, rendered immediately above the actions so the
+  /// operator never has to read a snackbar to learn why nothing happened.
+  Widget _inlineError(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFDECEA),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFF2B8B5)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.error_outline,
+            size: 18,
+            color: Color(0xFFB3261E),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                fontSize: 13,
+                height: 1.35,
+                color: Color(0xFF8C1D18),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _formActions({
+    required bool saving,
+    required String saveLabel,
+    required VoidCallback onCancel,
+    required VoidCallback onSave,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            onPressed: saving ? null : onCancel,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text('Cancel'),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 2,
+          child: FilledButton(
+            onPressed: saving ? null : onSave,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: saving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : Text(saveLabel),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Runs [onDispose] only once the sheet subtree has actually left the tree.
+///
+/// `showModalBottomSheet` resolves as soon as the route is popped, which is
+/// *before* the exit transition finishes. Disposing the form controllers at
+/// that point trips "A TextEditingController was used after being disposed"
+/// the moment the still-mounted sheet rebuilds, so disposal is deferred to a
+/// microtask scheduled from `dispose()` — after every child has unmounted.
+class _SheetLifecycle extends StatefulWidget {
+  const _SheetLifecycle({
+    required this.onDispose,
+    required this.child,
+  });
+
+  final VoidCallback onDispose;
+  final Widget child;
+
+  @override
+  State<_SheetLifecycle> createState() => _SheetLifecycleState();
+}
+
+class _SheetLifecycleState extends State<_SheetLifecycle> {
+  @override
+  void dispose() {
+    final onDispose = widget.onDispose;
+    scheduleMicrotask(onDispose);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
