@@ -26,6 +26,8 @@ import 'package:famhub_app/features/farm_management/presentation/pages/farm_mana
 import 'package:famhub_app/features/marketplace/presentation/pages/marketplace_page.dart';
 import 'package:famhub_app/features/analytics/presentation/pages/analytics_page.dart';
 import 'package:famhub_app/features/financing/presentation/pages/financing_page.dart';
+import 'package:famhub_app/features/financing/presentation/pages/financing_catalogue_page.dart';
+import 'package:famhub_app/features/financing/presentation/pages/financing_management_page.dart';
 import 'package:famhub_app/features/logistics/presentation/pages/logistics_page.dart';
 import 'package:famhub_app/features/traceability/presentation/pages/traceability_page.dart';
 import 'package:famhub_app/features/carbon_credit/presentation/pages/carbon_credit_page.dart';
@@ -119,6 +121,25 @@ class DynamicRouteRegistrar {
           builder: (context, state) => builder(context),
         ),
       );
+
+      // Finance Phase 1 catalogue sub-pages.
+      // Registered inside this loop (rather than as static shell routes) so
+      // they only exist while the `finance` module is enabled — a disabled
+      // module must not expose a catalogue entry point.
+      if (module.moduleId == 'finance') {
+        moduleRoutes.addAll([
+          GoRoute(
+            path: AppRoutes.financingCatalog,
+            name: AppRoutes.financingCatalogName,
+            builder: (context, state) => const FinancingCataloguePage(),
+          ),
+          GoRoute(
+            path: AppRoutes.financingManagement,
+            name: AppRoutes.financingManagementName,
+            builder: (context, state) => const FinancingManagementPage(),
+          ),
+        ]);
+      }
     }
 
     // First-class module routes that must always resolve even before a

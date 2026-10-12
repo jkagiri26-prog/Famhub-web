@@ -17,6 +17,45 @@ enum FinancialPartnerType {
   mobileMoney,
 }
 
+/// Literal `financial_providers.provider_type` values from the Phase 1
+/// migration CHECK constraint. The Dart enum uses camelCase identifiers for
+/// readability; these are the strings the backend actually stores.
+const Map<FinancialPartnerType, String> _partnerTypeDbValues = {
+  FinancialPartnerType.bank: 'bank',
+  FinancialPartnerType.sacco: 'sacco',
+  FinancialPartnerType.insurance: 'insurance',
+  FinancialPartnerType.microfinance: 'microfinance',
+  FinancialPartnerType.lendingPlatform: 'lending_platform',
+  FinancialPartnerType.mobileMoney: 'mobile_money',
+};
+
+/// Backend value for a partner type — used as `p_provider_type`.
+String partnerTypeToDb(FinancialPartnerType type) =>
+    _partnerTypeDbValues[type] ?? 'bank';
+
+/// Parses a `provider_type` column value. Returns null when unknown so the
+/// caller can decide (the catalogue models fall back to `bank`).
+FinancialPartnerType? partnerTypeFromDb(String? value) {
+  if (value == null || value.isEmpty) return null;
+  for (final entry in _partnerTypeDbValues.entries) {
+    if (entry.value == value) return entry.key;
+  }
+  return null;
+}
+
+/// Label shown on cards/chips for a partner type.
+String partnerTypeLabel(FinancialPartnerType type) {
+  return switch (type) {
+    FinancialPartnerType.bank => 'Bank',
+    FinancialPartnerType.sacco => 'SACCO',
+    FinancialPartnerType.insurance => 'Insurance',
+    FinancialPartnerType.microfinance => 'Microfinance',
+    FinancialPartnerType.lendingPlatform => 'Lending platform',
+    FinancialPartnerType.mobileMoney => 'Mobile money',
+  };
+}
+
+
 /// Account balance summary
 class AccountBalance {
   final String accountId;

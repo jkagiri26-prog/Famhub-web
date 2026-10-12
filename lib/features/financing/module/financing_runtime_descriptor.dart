@@ -192,6 +192,16 @@ ModuleRuntimeDescriptor createFinancingDescriptor() {
         name: 'finance_payment',
         displayOrder: 3,
       ),
+      RouteDescriptor(
+        path: '/finance/catalogue',
+        name: 'finance_catalogue',
+        displayOrder: 4,
+      ),
+      RouteDescriptor(
+        path: '/finance/management',
+        name: 'finance_management',
+        displayOrder: 5,
+      ),
     ],
 
     // ── Permissions ──

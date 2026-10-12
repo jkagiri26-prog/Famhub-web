@@ -7,6 +7,8 @@ import 'package:famhub_app/shared/widgets/headers/section_header_widget.dart';
 import '../widgets/credit_health_card_widget.dart';
 import '../widgets/financial_partner_card_widget.dart';
 import '../widgets/loan_offer_card_widget.dart';
+import 'financing_catalogue_page.dart';
+import 'financing_management_page.dart';
 
 /// FAMHUB Module: FinancingPage
 ///
@@ -60,6 +62,33 @@ class _FinancingPageState extends State<FinancingPage>
           ),
 
           const SizedBox(height: 20),
+
+          /// PHASE 1 CATALOGUE ENTRIES
+          Row(
+            children: [
+              Expanded(
+                child: _CatalogueEntryCard(
+                  title: 'Browse catalogue',
+                  subtitle: 'Verified partners and their published products',
+                  icon: Icons.storefront_outlined,
+                  onTap: () => Navigator.of(context)
+                      .push(FinancingCataloguePage.route()),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _CatalogueEntryCard(
+                  title: 'Manage catalogue',
+                  subtitle: 'Providers, verification and product lifecycle',
+                  icon: Icons.manage_accounts_outlined,
+                  onTap: () => Navigator.of(context)
+                      .push(FinancingManagementPage.route()),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
 
           /// CREDIT HEALTH
           const CreditHealthCardWidget(),
@@ -230,5 +259,74 @@ class _FinancingPageState extends State<FinancingPage>
       default:
         return const SizedBox.shrink();
     }
+  }
+}
+
+/// Entry tile for one of the Phase 1 catalogue screens. Follows the
+/// established financing card convention (white card, 14 radius, hairline
+/// border) so it reads as part of the module.
+class _CatalogueEntryCard extends StatelessWidget {
+  const _CatalogueEntryCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F7F0),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, size: 20, color: const Color(0xFF256D3A)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, size: 20, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
   }
 }

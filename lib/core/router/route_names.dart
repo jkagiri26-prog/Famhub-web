@@ -49,6 +49,14 @@ class AppRoutes {
   static const finance = '/finance';
   static const financeName = 'finance';
 
+  /// Finance module — Phase 1 catalogue sub-pages.
+  /// Registered by DynamicRouteRegistrar ONLY while the `finance` module is
+  /// enabled, so a disabled module exposes no catalogue entry point.
+  static const financingCatalog = '/finance/catalogue';
+  static const financingCatalogName = 'finance_catalogue';
+  static const financingManagement = '/finance/management';
+  static const financingManagementName = 'finance_management';
+
   /// Logistics module
   static const logistics = '/logistics';
   static const logisticsName = 'logistics';
