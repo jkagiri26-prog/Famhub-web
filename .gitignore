@@ -94,3 +94,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Supabase CLI temporary files
+supabase/.temp/
+supabase/.branches/
