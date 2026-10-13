@@ -19,20 +19,40 @@
 ///   finance.manage_products, finance.review_products,
 ///   finance.publish_products
 ///
-/// ⚠️ GRANT MODEL / OPEN BLOCKER (see migration header):
-///   The migration registers these five codes in `core.permissions` only.
-///   It deliberately creates **no** `core.role_permissions` rows and **no**
-///   `core.entity_role_scopes` rows, and assigns no role.
-///   `core.has_permission` requires BOTH a role_permissions row AND a matching
-///   entity_role_scopes row (scope_type='module', module=the permission's
-///   module), so until an operator seeds both, every code below fails closed
-///   with 42501 for every role — including Admin.
-///   Operator recipe is documented at the top of the migration.
+/// ⚠️ GRANT MODEL:
+///   Resolution requires BOTH a `core.role_permissions` row AND a matching
+///   `core.entity_role_scopes` row for the caller's ACTIVE context
+///   (scope_type='module', entity_id = active entity, module = permission's
+///   module). Role membership alone is not enough. Granting is therefore
+///   always a data decision, never a code decision.
+///
+///   AT MIGRATION TIME (20261012000001) the migration registered these five
+///   codes in `core.permissions` and deliberately seeded **no**
+///   `core.role_permissions` rows, **no** `core.entity_role_scopes` rows and
+///   no role assignment. The operator recipe for adding them is documented at
+///   the top of that migration.
+///
+///   CURRENT PRODUCTION STATE (verified 2026-10-13): that recipe has since
+///   been applied. All five codes carry active grants on the Admin role
+///   (60773165-412a-4d1b-98da-5c9f2e7fe307), together with a matching
+///   scope_type='module' / module='finance' row in `core.entity_role_scopes`
+///   for profile 01a03733-ce44-7f82-ba8d-d12d97025346 acting in the FAMHUB
+///   Platform Administration entity (01a091e6-f283-70b5-9393-813acf541c09).
+///   The Finance module is enabled and not in maintenance mode.
+///
+///   SCOPE LIMIT: those grants resolve only for that Admin role inside that
+///   entity. The same profile acting as Owner of a different workspace
+///   legitimately evaluates to false — that is correct scoping, not a defect,
+///   and these keys must not be read as implying authorization elsewhere.
+///
+///   ERROR MODEL: `core.has_permission` returns a boolean and never raises.
+///   The SQLSTATE 42501 a client sees on a write comes from
+///   `financing._require_permission`, which raises 'Authentication required'
+///   when `auth.uid()` is NULL, and 'Finance permission denied: <code>' when
+///   the profile cannot be resolved or `core.has_permission` is false.
 ///
 ///   Precedent in this repo: `knowledge.*` is seeded into role_permissions;
-///   `logistics.*` is registered with none. Zero `scope_type='module'` rows
-///   exist in production today, which is why no code change can make these
-///   grants live — it is a data decision, not a code decision.
+///   `logistics.*` is registered with none.
 ///
 ///   Also note: API roles need `USAGE` on schema `financing` (granted to
 ///   authenticated + service_role by the migration, deliberately **not** to

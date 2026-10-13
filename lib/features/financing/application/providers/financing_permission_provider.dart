@@ -12,12 +12,16 @@
 ///   - Expose a safe loading / unavailable / allowed / denied state.
 ///
 /// ✅ ARCHITECTURE COMPLIANCE:
-///   - No permission is granted here. The Phase 1 migration registers the
-///     five `finance.*` codes but seeds NO role_permissions and NO
-///     entity_role_scopes rows, so the backend fails closed with 42501 for
-///     every role. This code does not compensate for that: when the backend
-///     denies or errors, the state is `denied` / `unavailable` and the UI
-///     shows a locked state instead of fabricating access.
+///   - No permission is granted here. The Phase 1 migration registered the
+///     five `finance.*` codes and seeded no grants of its own; an operator
+///     subsequently granted them to the Admin role inside the FAMHUB Platform
+///     Administration entity. This code grants nothing either way — when the
+///     backend denies or errors, the state is `denied` / `unavailable` and the
+///     UI shows a locked state instead of fabricating access.
+///   - `core.has_permission` returns a boolean and does not raise. A 42501
+///     reaching this provider comes from `financing._require_permission`
+///     (missing authentication, or a failed finance.* check for the active
+///     context) and is surfaced as `unavailable`, not as access.
 ///   - Mirrors the established `logisticsPermissionStatusProvider` pattern.
 ///
 /// ❌ Does NOT:

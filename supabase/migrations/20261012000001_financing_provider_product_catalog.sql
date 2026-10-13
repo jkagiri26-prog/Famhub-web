@@ -72,6 +72,45 @@
 --     -- Both are required. Role membership alone is not enough.
 --
 -- ─────────────────────────────────────────────────────────────────────────────
+-- POST-MIGRATION STATUS (added 2026-10-13; supersedes the BLOCKER above)
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Everything in this block is a READ-ONLY OBSERVATION of one production
+-- database, recorded so the BLOCKER above is not mistaken for current state.
+-- It is NOT created by this migration and NOT guaranteed by this migration in
+-- any other environment. Applying this migration anywhere seeds the permission
+-- registry only, exactly as described above; the grants, scopes, IDs and
+-- module flags below are operator-created, are specific to that one deployment,
+-- and will legitimately differ elsewhere.
+--
+-- The BLOCKER and the "observed live state" note above are retained verbatim
+-- because they describe this migration and that database as they stood when
+-- this file was written. They no longer describe that database.
+--
+-- OBSERVED in that production database as of 2026-10-13 (operator-applied, not
+-- migration-applied):
+--   * All five finance.* codes have active core.role_permissions grants on the
+--     Admin role (60773165-412a-4d1b-98da-5c9f2e7fe307).
+--   * A matching core.entity_role_scopes row exists with scope_type='module',
+--     module='finance', for profile 01a03733-ce44-7f82-ba8d-d12d97025346
+--     acting in entity 01a091e6-f283-70b5-9393-813acf541c09 (FAMHUB Platform
+--     Administration).
+--   * system.modules finance is is_enabled = true, maintenance_mode = false.
+--   * "every finance.* permission evaluates to false" therefore no longer
+--     holds for that role in that entity. It still holds, correctly, for any
+--     other role or any other workspace — the grants are scoped, not global.
+--
+-- Nothing in this migration is changed by any of that. It remains true that
+-- this migration seeds no grants and that granting is an operator decision.
+--
+-- ERROR ATTRIBUTION (correcting an earlier misreading):
+--   core.has_permission(p_permission) returns boolean and contains no RAISE;
+--     it cannot emit 42501. Denial is reported as false.
+--   financing._require_permission is the only 42501 source on this feature's
+--     write path. It raises 'Authentication required' when auth.uid() is NULL,
+--     and 'Finance permission denied: <code>' when the profile cannot be
+--     resolved or core.has_permission evaluates false.
+--
+-- ─────────────────────────────────────────────────────────────────────────────
 -- SCHEMA USAGE / financial_accounts SIDE EFFECT (documented exposure change)
 -- ─────────────────────────────────────────────────────────────────────────────
 -- financing.financial_accounts ALREADY carries table-level SELECT grants for

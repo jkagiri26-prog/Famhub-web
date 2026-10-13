@@ -14,7 +14,8 @@
 ///   - Grant anything, cache results, or fall back to fabricated data.
 ///
 /// ERROR TRANSLATION
-///   42501 → FinancingActionException(isUnauthorized)  — permission not seeded
+///   42501 → FinancingActionException(isUnauthorized)  — unauthenticated, or
+///           finance.* not granted to the caller's active context
 ///   P0002 → FinancingActionException(isNotFound)
 ///   22023 → FinancingActionException(isInvalid)
 ///   55000 → FinancingActionException(isLifecycleBlocked)
