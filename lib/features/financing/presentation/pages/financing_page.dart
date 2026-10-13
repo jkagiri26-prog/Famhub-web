@@ -28,6 +28,8 @@ import 'package:go_router/go_router.dart';
 import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
 import 'package:famhub_app/core/router/route_names.dart';
 import 'package:famhub_app/features/financing/application/providers/financing_catalogue_provider.dart';
+import 'package:famhub_app/features/financing/application/providers/financing_permission_provider.dart';
+import 'package:famhub_app/features/financing/config/permissions.dart';
 import 'package:famhub_app/features/financing/domain/models/finance_models.dart';
 import 'package:famhub_app/features/financing/domain/models/financing_catalogue_models.dart';
 import 'package:famhub_app/features/financing/domain/repositories/financing_catalogue_repository.dart';
@@ -478,11 +480,20 @@ class _ProvidersPreview extends ConsumerWidget {
 /// Destinations out of the hub. "My Finance" has no registered route in this
 /// build, so it is rendered as visibly unavailable rather than pointing at an
 /// unrelated screen or inventing an account dashboard.
-class _QuickLinks extends StatelessWidget {
+class _QuickLinks extends ConsumerWidget {
   const _QuickLinks();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Same gate the management screen itself applies. The entry is shown only
+    // once the check has resolved to allowed, so it never appears while the
+    // permission state is loading, denied or unavailable.
+    final canManage = ref
+        .watch(
+          financingAnyPermissionStatusProvider(FinancingPermissions.all),
+        )
+        .isAllowed;
+
     return Column(
       children: [
         _QuickLinkTile(
@@ -498,6 +509,15 @@ class _QuickLinks extends StatelessWidget {
           icon: Icons.storefront_outlined,
           onTap: () => context.go(_catalogueLocation(tab: 'providers')),
         ),
+        if (canManage) ...[
+          const SizedBox(height: 10),
+          _QuickLinkTile(
+            title: 'Manage catalogue',
+            subtitle: 'Providers, verification and product lifecycle',
+            icon: Icons.manage_accounts_outlined,
+            onTap: () => context.go(AppRoutes.financingManagement),
+          ),
+        ],
         const SizedBox(height: 10),
         const _UnavailableQuickLink(
           title: 'My Finance',
