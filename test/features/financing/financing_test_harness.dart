@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:famhub_app/core/context_engine/controllers/context_controller.dart';
 import 'package:famhub_app/core/context_engine/domain/models/entity_context.dart';
@@ -94,6 +95,35 @@ Future<void> pumpTestApp(
   }
 }
 
+/// Pumps the app behind a real [GoRouter] instead of a plain `MaterialApp`.
+///
+/// The provider-detail back affordance branches on whether the screen has any
+/// history to pop, so exercising it needs a router: one test pushes the detail
+/// page from the landing (history exists), another opens it as the initial
+/// location (deep link, history does not).
+Future<void> pumpRoutedTestApp(
+  WidgetTester tester,
+  GoRouter router, {
+  List<Override> overrides = const <Override>[],
+  bool settle = true,
+}) async {
+  tester.view.physicalSize = const Size(1200, 2400);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
+
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: overrides,
+      child: MaterialApp.router(routerConfig: router),
+    ),
+  );
+  if (settle) {
+    await tester.pumpAndSettle();
+  } else {
+    await tester.pump();
+  }
+}
+
 /// Record of a single `financing.manage_provider` call, so tests can assert
 /// the exact slug the form submitted.
 class SaveProviderCall {
@@ -116,11 +146,20 @@ class FakeFinancingCatalogueRepository
   FakeFinancingCatalogueRepository({
     List<FinancingProvider>? managedProviders,
     List<FinancingProduct>? managedProducts,
+    List<FinancingProvider>? browseProviders,
+    List<FinancingProduct>? browseProducts,
   })  : managedProviders = managedProviders ?? const [],
-        managedProducts = managedProducts ?? const [];
+        managedProducts = managedProducts ?? const [],
+        browseProviders = browseProviders ?? const [],
+        browseProducts = browseProducts ?? const [];
 
   List<FinancingProvider> managedProviders;
   List<FinancingProduct> managedProducts;
+
+  /// Rows returned by the two public-view reads (landing + catalogue +
+  /// provider detail, which resolves a partner from this list by slug).
+  List<FinancingProvider> browseProviders;
+  List<FinancingProduct> browseProducts;
 
   final List<SaveProviderCall> saveProviderCalls = [];
 
@@ -173,7 +212,7 @@ class FakeFinancingCatalogueRepository
     int limit = 100,
     FinancialPartnerType? providerType,
   }) async =>
-      const [];
+      browseProviders;
 
   @override
   Future<List<FinancingProduct>> fetchBrowseProducts({
@@ -181,7 +220,11 @@ class FakeFinancingCatalogueRepository
     String? providerId,
     FinancingProductType? productType,
   }) async =>
-      const [];
+      providerId == null
+          ? browseProducts
+          : browseProducts
+              .where((p) => p.providerId == providerId)
+              .toList(growable: false);
 
   @override
   Future<String> verifyProvider({

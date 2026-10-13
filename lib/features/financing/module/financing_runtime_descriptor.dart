@@ -107,22 +107,11 @@ ModuleRuntimeDescriptor createFinancingDescriptor() {
     ],
 
     // ── Quick Action Contributions ──
+    //
+    // Only actions that resolve to a registered route belong here. Loan
+    // requests and payments are not implemented yet, so no affordance is
+    // advertised for them.
     quickActions: [
-      QuickActionDescriptor(
-        actionKey: 'finance_request_loan',
-        label: 'Request Loan',
-        iconKey: 'add_circle',
-        displayOrder: 1,
-        route: '/finance/loans/request',
-        isPrimary: true,
-      ),
-      QuickActionDescriptor(
-        actionKey: 'finance_make_payment',
-        label: 'Make Payment',
-        iconKey: 'payment',
-        displayOrder: 2,
-        route: '/finance/payment',
-      ),
       QuickActionDescriptor(
         actionKey: 'finance_view_transactions',
         label: 'Transactions',
@@ -175,22 +164,17 @@ ModuleRuntimeDescriptor createFinancingDescriptor() {
     ],
 
     // ── Routes ──
+    //
+    // Declarative catalogue only. The GoRouter instance is built by
+    // DynamicRouteRegistrar from `system.modules` + ModulePageRegistry; the
+    // registered finance paths are `/finance`, `/finance/catalogue`,
+    // `/finance/management` and `/finance/providers/:slug`.
     routes: [
       RouteDescriptor(
         path: '/finance',
         name: 'finance',
         isPrimary: true,
         displayOrder: 1,
-      ),
-      RouteDescriptor(
-        path: '/finance/loans/request',
-        name: 'finance_loan_request',
-        displayOrder: 2,
-      ),
-      RouteDescriptor(
-        path: '/finance/payment',
-        name: 'finance_payment',
-        displayOrder: 3,
       ),
       RouteDescriptor(
         path: '/finance/catalogue',
@@ -201,6 +185,11 @@ ModuleRuntimeDescriptor createFinancingDescriptor() {
         path: '/finance/management',
         name: 'finance_management',
         displayOrder: 5,
+      ),
+      RouteDescriptor(
+        path: '/finance/providers/:slug',
+        name: 'finance_provider_detail',
+        displayOrder: 6,
       ),
     ],
 

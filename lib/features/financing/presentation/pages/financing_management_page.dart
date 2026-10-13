@@ -40,12 +40,6 @@ import 'package:famhub_app/shared/widgets/states/states.dart';
 class FinancingManagementPage extends ConsumerStatefulWidget {
   const FinancingManagementPage({super.key});
 
-  static Route<void> route() {
-    return MaterialPageRoute<void>(
-      builder: (_) => const FinancingManagementPage(),
-    );
-  }
-
   @override
   ConsumerState<FinancingManagementPage> createState() =>
       _FinancingManagementPageState();

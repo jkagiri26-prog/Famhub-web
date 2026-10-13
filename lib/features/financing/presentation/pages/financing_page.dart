@@ -13,20 +13,22 @@
 /// - Loading / empty / error / guest states are always rendered
 /// - Reads only the public browse providers; no permission required beyond
 ///   an authenticated session
+/// - All navigation goes through GoRouter (`context.go` for the catalogue
+///   screens, `context.push` for the provider drill-down) so the URL, the
+///   browser back/forward buttons and the shell selection stay in sync
 /// ============================================================
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
+import 'package:famhub_app/core/router/route_names.dart';
 import 'package:famhub_app/features/financing/application/providers/financing_catalogue_provider.dart';
 import 'package:famhub_app/features/financing/domain/models/finance_models.dart';
 import 'package:famhub_app/features/financing/domain/models/financing_catalogue_models.dart';
 import 'package:famhub_app/features/financing/domain/repositories/financing_catalogue_repository.dart';
-import 'package:famhub_app/features/financing/presentation/pages/financing_catalogue_page.dart';
-import 'package:famhub_app/features/financing/presentation/pages/financing_management_page.dart';
-import 'package:famhub_app/features/financing/presentation/pages/financing_provider_detail_page.dart';
 import 'package:famhub_app/features/financing/presentation/widgets/financing_product_card_widget.dart';
 import 'package:famhub_app/features/financing/presentation/widgets/financing_provider_card_widget.dart';
 import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
@@ -86,14 +88,14 @@ class _FinancingPageState extends ConsumerState<FinancingPage>
             title: 'Browse catalogue',
             subtitle: 'Verified partners and their published products',
             icon: Icons.storefront_outlined,
-            onTapRoute: FinancingCataloguePage.route,
+            location: AppRoutes.financingCatalog,
           ),
           SizedBox(height: 10),
           _CatalogueEntryCard(
             title: 'Manage catalogue',
             subtitle: 'Providers, verification and product lifecycle',
             icon: Icons.manage_accounts_outlined,
-            onTapRoute: FinancingManagementPage.route,
+            location: AppRoutes.financingManagement,
           ),
           SizedBox(height: 26),
           SectionHeaderWidget(title: 'Verified partners'),
@@ -138,8 +140,7 @@ class _ProvidersPreview extends ConsumerWidget {
                 'Partners appear here once they are verified and published. '
                 'Browse the catalogue for the full workflow.',
             actionLabel: 'Browse catalogue',
-            onAction: () =>
-                Navigator.of(context).push(FinancingCataloguePage.route()),
+            onAction: () => context.go(AppRoutes.financingCatalog),
           );
         }
         final preview = rows.take(_landingPreviewCount).toList(growable: false);
@@ -148,8 +149,8 @@ class _ProvidersPreview extends ConsumerWidget {
             for (final provider in preview) ...[
               FinancingProviderCardWidget(
                 provider: provider,
-                onTap: () => Navigator.of(context).push(
-                  FinancingProviderDetailPage.route(provider: provider),
+                onTap: () => context.push(
+                  AppRoutes.financingProviderLocation(provider.slug),
                 ),
               ),
               const SizedBox(height: 10),
@@ -157,8 +158,7 @@ class _ProvidersPreview extends ConsumerWidget {
             if (rows.length > preview.length)
               _PreviewFooter(
                 label: 'View all ${rows.length} partners',
-                onOpen: () => Navigator.of(context)
-                    .push(FinancingCataloguePage.route()),
+                onOpen: () => context.go(AppRoutes.financingCatalog),
               ),
           ],
         );
@@ -198,8 +198,7 @@ class _ProductsPreview extends ConsumerWidget {
                 'Approved products appear here as soon as a partner publishes '
                 'them. Browse the catalogue to see every provider.',
             actionLabel: 'Browse catalogue',
-            onAction: () =>
-                Navigator.of(context).push(FinancingCataloguePage.route()),
+            onAction: () => context.go(AppRoutes.financingCatalog),
           );
         }
         final preview = rows.take(_landingPreviewCount).toList(growable: false);
@@ -215,8 +214,8 @@ class _ProductsPreview extends ConsumerWidget {
                     (p) => p.id == providerId,
                   );
                   if (provider == null || provider.isEmpty) return;
-                  Navigator.of(context).push(
-                    FinancingProviderDetailPage.route(provider: provider.first),
+                  context.push(
+                    AppRoutes.financingProviderLocation(provider.first.slug),
                   );
                 },
               ),
@@ -225,8 +224,7 @@ class _ProductsPreview extends ConsumerWidget {
             if (rows.length > preview.length)
               _PreviewFooter(
                 label: 'View all ${rows.length} products',
-                onOpen: () => Navigator.of(context)
-                    .push(FinancingCataloguePage.route()),
+                onOpen: () => context.go(AppRoutes.financingCatalog),
               ),
           ],
         );
@@ -287,25 +285,30 @@ class _PreviewFooter extends StatelessWidget {
 
 /// Entry tile for one of the catalogue screens. Follows the established
 /// financing card convention (white card, 14 radius, hairline border).
+///
+/// Navigates with `context.go` so the URL, the browser back/forward buttons
+/// and the shell selection stay in sync with the screen on show.
 class _CatalogueEntryCard extends StatelessWidget {
   const _CatalogueEntryCard({
     required this.title,
     required this.subtitle,
     required this.icon,
-    required this.onTapRoute,
+    required this.location,
   });
 
   final String title;
   final String subtitle;
   final IconData icon;
-  final Route<void> Function() onTapRoute;
+
+  /// GoRouter location, from `AppRoutes`.
+  final String location;
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => Navigator.of(context).push(onTapRoute()),
+        onTap: () => context.go(location),
         borderRadius: BorderRadius.circular(14),
         child: Container(
           padding: const EdgeInsets.all(14),

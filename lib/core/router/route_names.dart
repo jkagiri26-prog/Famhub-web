@@ -57,6 +57,21 @@ class AppRoutes {
   static const financingManagement = '/finance/management';
   static const financingManagementName = 'finance_management';
 
+  /// Finance module — provider detail.
+  ///
+  /// `:slug` is the canonical public identifier of a partner
+  /// (`financing.public_financial_providers.slug`, UNIQUE and CHECK-constrained
+  /// to `^[a-z0-9]+(-[a-z0-9]+)*$`). The row id stays the foreign key used by
+  /// every query; the slug only addresses the page, so a browser refresh or a
+  /// direct deep link resolves to the same screen as an in-app tap.
+  static const financingProviderDetail = '/finance/providers/:slug';
+  static const financingProviderDetailName = 'finance_provider_detail';
+
+  /// Location builder for [financingProviderDetail]. Keeps the path pattern
+  /// and the path values in one file so the two can never drift.
+  static String financingProviderLocation(String slug) =>
+      '/finance/providers/$slug';
+
   /// Logistics module
   static const logistics = '/logistics';
   static const logisticsName = 'logistics';

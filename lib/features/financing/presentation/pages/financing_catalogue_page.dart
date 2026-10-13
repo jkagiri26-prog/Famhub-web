@@ -10,18 +10,22 @@
 /// - Loading / empty / error / permission states are always rendered
 /// - Reads only `financing.public_financial_*` views — no permission needed
 ///   beyond an authenticated session, and no private column is reachable
+/// - Provider drill-down uses GoRouter (`context.push`) so the URL and the
+///   browser back/forward buttons stay in sync; the list state above it is
+///   preserved for the round trip
 /// ============================================================
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
+import 'package:famhub_app/core/router/route_names.dart';
 import 'package:famhub_app/features/financing/application/providers/financing_catalogue_provider.dart';
 import 'package:famhub_app/features/financing/domain/models/finance_models.dart';
 import 'package:famhub_app/features/financing/domain/models/financing_catalogue_models.dart';
 import 'package:famhub_app/features/financing/domain/repositories/financing_catalogue_repository.dart';
-import 'package:famhub_app/features/financing/presentation/pages/financing_provider_detail_page.dart';
 import 'package:famhub_app/features/financing/presentation/widgets/financing_product_card_widget.dart';
 import 'package:famhub_app/features/financing/presentation/widgets/financing_provider_card_widget.dart';
 import 'package:famhub_app/features/financing/presentation/widgets/financing_status_chip_widget.dart';
@@ -32,10 +36,6 @@ import 'package:famhub_app/shared/widgets/states/states.dart';
 
 class FinancingCataloguePage extends ConsumerStatefulWidget {
   const FinancingCataloguePage({super.key});
-
-  static Route<void> route() {
-    return MaterialPageRoute<void>(builder: (_) => const FinancingCataloguePage());
-  }
 
   @override
   ConsumerState<FinancingCataloguePage> createState() =>
@@ -254,8 +254,8 @@ class _FinancingCataloguePageState extends ConsumerState<FinancingCataloguePage>
                   final provider = filtered[index];
                   return FinancingProviderCardWidget(
                     provider: provider,
-                    onTap: () => Navigator.of(context).push(
-                      FinancingProviderDetailPage.route(provider: provider),
+                    onTap: () => context.push(
+                      AppRoutes.financingProviderLocation(provider.slug),
                     ),
                   );
                 },
@@ -349,9 +349,9 @@ class _FinancingCataloguePageState extends ConsumerState<FinancingCataloguePage>
                                     const <FinancingProvider>[])
                                 .where((p) => p.id == product.providerId);
                             if (provider.isNotEmpty) {
-                              Navigator.of(context).push(
-                                FinancingProviderDetailPage.route(
-                                  provider: provider.first,
+                              context.push(
+                                AppRoutes.financingProviderLocation(
+                                  provider.first.slug,
                                 ),
                               );
                             }

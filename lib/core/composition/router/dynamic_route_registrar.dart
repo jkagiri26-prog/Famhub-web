@@ -28,6 +28,7 @@ import 'package:famhub_app/features/analytics/presentation/pages/analytics_page.
 import 'package:famhub_app/features/financing/presentation/pages/financing_page.dart';
 import 'package:famhub_app/features/financing/presentation/pages/financing_catalogue_page.dart';
 import 'package:famhub_app/features/financing/presentation/pages/financing_management_page.dart';
+import 'package:famhub_app/features/financing/presentation/pages/financing_provider_detail_page.dart';
 import 'package:famhub_app/features/logistics/presentation/pages/logistics_page.dart';
 import 'package:famhub_app/features/traceability/presentation/pages/traceability_page.dart';
 import 'package:famhub_app/features/carbon_credit/presentation/pages/carbon_credit_page.dart';
@@ -137,6 +138,13 @@ class DynamicRouteRegistrar {
             path: AppRoutes.financingManagement,
             name: AppRoutes.financingManagementName,
             builder: (context, state) => const FinancingManagementPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.financingProviderDetail,
+            name: AppRoutes.financingProviderDetailName,
+            builder: (context, state) => FinancingProviderDetailPage(
+              slug: state.pathParameters['slug'] ?? '',
+            ),
           ),
         ]);
       }
