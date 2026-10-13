@@ -78,6 +78,86 @@ class _FinancingCataloguePageState extends ConsumerState<FinancingCataloguePage>
     });
   }
 
+  /// Signature of the last URL query parameters applied to this screen.
+  ///
+  /// Hydration is keyed on this rather than a one-shot flag so a GoRouter
+  /// navigation between query strings on the same route updates the screen,
+  /// while ordinary rebuilds leave in-progress edits alone.
+  String? _appliedLocationSignature;
+
+  /// Comparison signature over the params this screen understands.
+  static String _signatureOf(Map<String, String> params) =>
+      '${params['tab'] ?? ''}|${params['q'] ?? ''}|'
+      '${params['type'] ?? ''}|${params['partner'] ?? ''}';
+
+  /// Seeds the existing tab / search / product-filter state from the URL.
+  ///
+  /// The Finance hub links here with `?tab=`, `?q=`, `?type=` and `?partner=`
+  /// so that search and category taps reuse this screen's filtering instead of
+  /// a second implementation. With no query parameters the screen behaves
+  /// exactly as before.
+  ///
+  /// Called from both [didUpdateWidget] and [didChangeDependencies]: this
+  /// route is registered with a stable `name`, so a query-string change
+  /// reuses the mounted element and arrives as `didUpdateWidget` rather than
+  /// as a rebuilt page. The signature guard makes the second call a no-op and
+  /// ensures a plain `setState` from the operator typing never re-applies the
+  /// URL over their edits.
+  void _hydrateFromLocation() {
+    final params = GoRouterState.of(context).uri.queryParameters;
+    final signature = _signatureOf(params);
+    if (signature == _appliedLocationSignature) return;
+    _appliedLocationSignature = signature;
+
+    final tab = params['tab'];
+    if (tab == 'products') {
+      _tabController.index = 1;
+    } else if (tab == 'providers') {
+      _tabController.index = 0;
+    }
+
+    final type = params['type'];
+    if (type == null) {
+      _productFilter = null;
+    } else {
+      final match = _productFilters.where((t) => t.dbValue == type);
+      _productFilter = match.isEmpty ? null : match.first;
+    }
+
+    final partner = params['partner'];
+    if (partner == null) {
+      _partnerFilter = null;
+    } else {
+      final match = _partnerFilters.where(
+        (t) => partnerTypeToDb(t) == partner,
+      );
+      _partnerFilter = match.isEmpty ? null : match.first;
+    }
+
+    // `_query` is assigned before the controller so the listener (which trims
+    // and compares) sees no change and does not call `setState` mid-build.
+    final q = params['q'];
+    _query = (q == null || q.trim().isEmpty) ? '' : q.trim();
+    if (_searchController.text != _query) {
+      _searchController.value = TextEditingValue(
+        text: _query,
+        selection: TextSelection.collapsed(offset: _query.length),
+      );
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _hydrateFromLocation();
+  }
+
+  @override
+  void didUpdateWidget(covariant FinancingCataloguePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _hydrateFromLocation();
+  }
+
   @override
   void dispose() {
     _tabController.dispose();
