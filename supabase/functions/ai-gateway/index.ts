@@ -47,7 +47,7 @@ type ProviderResult = ProviderSuccess | ProviderFailure;
 
 const FALLBACK_ORDER: Provider[] = ["gemini", "openrouter", "groq", "deepseek", "openai"];
 const PROVIDER_MODELS: Record<Provider, string> = {
-  gemini: "gemini-2.5-flash",
+  gemini: "gemini-3.8-flash",
   openrouter: "openai/gpt-4.1-mini",
   groq: "llama-3.3-70b-versatile",
   deepseek: "deepseek-chat",
@@ -173,6 +173,17 @@ function failure(status: number, code: string, message: string, retryable: boole
   return { ok: false, status, code, message, retryable };
 }
 
+// Providers report the real cause in their error body, which the gateway used
+// to discard, leaving "402" indistinguishable from "your key has no credit".
+// Pull the message field only, truncated, so a failure stays diagnosable
+// without forwarding the upstream payload into the app.
+function upstreamDetail(data: unknown): string {
+  if (!isRecord(data)) return "";
+  const container = isRecord(data.error) ? data.error : data;
+  const message = container.message ?? container.msg ?? container.detail ?? "";
+  return typeof message === "string" ? message.slice(0, 200) : "";
+}
+
 function extractOutput(provider: Provider, data: unknown): string {
   if (provider === "gemini") {
     const candidates = isRecord(data) ? data.candidates : undefined;
@@ -240,12 +251,22 @@ async function executeProvider(
     });
 
     if (!response.ok) {
+      // Read the upstream body before deciding, so the reason a provider
+      // rejected the call survives into the envelope.
+      let upstreamSaid = "";
+      try {
+        upstreamSaid = upstreamDetail(await response.json());
+      } catch {
+        // A non-JSON error body is not worth failing over; fall through.
+      }
+      const said = upstreamSaid ? ` Upstream said: ${upstreamSaid}` : "";
+
       // Only rate limiting and upstream/transient statuses qualify for fallback.
       // Other 4xx statuses (including provider auth or malformed-request errors) stop the chain.
       if (response.status === 408 || response.status === 425 || response.status === 429 || response.status >= 500) {
-        return failure(503, "provider_unavailable", "The AI provider is temporarily unavailable.", true);
+        return failure(503, "provider_unavailable", `The AI provider is temporarily unavailable (upstream HTTP ${response.status}).${said}`, true);
       }
-      return failure(502, "provider_error", "The AI provider request failed.", false);
+      return failure(502, "provider_error", `The AI provider request failed (upstream HTTP ${response.status}).${said}`, false);
     }
 
     let data: unknown;
@@ -253,12 +274,12 @@ async function executeProvider(
       data = await response.json();
     } catch {
       // A successful HTTP status with an unreadable upstream response is treated as transient.
-      return failure(502, "provider_invalid_response", "The AI provider returned an invalid response.", true);
+      return failure(502, "provider_invalid_response", `The AI provider returned an invalid response (upstream HTTP ${response.status}).`, true);
     }
 
     const output = extractOutput(selection.provider, data);
     if (!output) {
-      return failure(502, "provider_empty_response", "The AI provider returned no text output.", true);
+      return failure(502, "provider_empty_response", `The AI provider returned no text output (upstream HTTP ${response.status}).`, true);
     }
     return { ok: true, output };
   } catch {
