@@ -763,6 +763,84 @@ Deno.test({
   },
 });
 
+// ---------------------------------------------------------------------------
+// CORS — required for any authenticated browser caller
+// ---------------------------------------------------------------------------
+
+Deno.test({
+  name:
+    "Phase 3A: preflight allows browser origins and the provider selector header",
+  ...SANITIZERS,
+  fn: async () => {
+    reset();
+
+    const response = await handler!(
+      new Request("http://127.0.0.1/functions/v1/ai-gateway", {
+        method: "OPTIONS",
+        headers: {
+          Origin: "https://famhub.pages.dev",
+          "Access-Control-Request-Method": "POST",
+          "Access-Control-Request-Headers":
+            "authorization,content-type,x-ai-gateway-test-provider",
+        },
+      }),
+    );
+
+    assertEquals(response.status, 204, "preflight must answer 204");
+    assertEquals(
+      response.headers.get("Access-Control-Allow-Origin"),
+      "*",
+      "without Allow-Origin the browser discards the preflight",
+    );
+
+    const allowed = (response.headers.get("Access-Control-Allow-Headers") ?? "")
+      .toLowerCase();
+    for (
+      const header of [
+        "authorization",
+        "content-type",
+        "apikey",
+        "x-ai-gateway-test-provider",
+      ]
+    ) {
+      assert(allowed.includes(header), `preflight must allow "${header}"`);
+    }
+  },
+});
+
+Deno.test({
+  name:
+    "Phase 3A: success and error responses both carry Access-Control-Allow-Origin",
+  ...SANITIZERS,
+  fn: async () => {
+    reset();
+    script = (provider) => successResponse(provider);
+
+    const okResponse = await handler!(
+      gatewayRequest({ task: "general_text", input: {} }),
+    );
+    assertEquals(
+      okResponse.headers.get("Access-Control-Allow-Origin"),
+      "*",
+      "a success the browser cannot read is useless",
+    );
+
+    script = (
+      provider,
+    ) => (provider === "gemini"
+      ? nonTransientFailure()
+      : successResponse(provider));
+    const errResponse = await handler!(
+      gatewayRequest({ task: "general_text", input: {} }),
+    );
+    assertEquals(
+      errResponse.headers.get("Access-Control-Allow-Origin"),
+      "*",
+      "an error the browser cannot read hides the diagnostic",
+    );
+  },
+});
+
 // Note: fetch and performance.now stay stubbed for the lifetime of this test
 // process. They must not be restored at module scope, because top-level code in
 // a Deno test file runs during load, before any test body executes.

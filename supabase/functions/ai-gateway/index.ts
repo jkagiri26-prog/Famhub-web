@@ -5,6 +5,13 @@ const PROVIDER_TIMEOUT_MS = 25_000;
 const GATEWAY_PROVIDER_BUDGET_MS = 30_000;
 const MIN_PROVIDER_START_BUDGET_MS = 100;
 const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8" };
+// Browser callers (Flutter web) always send Authorization, which forces a
+// CORS preflight. Without Allow-Origin on the preflight AND on every
+// function-generated response, the browser discards the reply.
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-ai-gateway-test-provider",
+};
 
 type Provider = "gemini" | "openrouter" | "groq" | "deepseek" | "openai";
 type Capability = "text_input" | "text_output";
@@ -87,7 +94,10 @@ function supportsCapabilities(provider: Provider, required: readonly Capability[
   return required.every((capability) => available.includes(capability));
 }
 
-function selectProvidersForTask( task: string, explicitSelection?: ProviderSelection, ): ProviderSelection[] {
+function selectProvidersForTask(
+  task: string,
+  explicitSelection?: ProviderSelection,
+): ProviderSelection[] {
   const requirements = resolveTaskRequirements(task);
   const eligibleProviders = FALLBACK_ORDER.filter((provider) =>
     supportsCapabilities(provider, requirements.requiredCapabilities)
@@ -120,7 +130,7 @@ function resolveProviderSelection(testProvider: string | undefined): ProviderSel
 function jsonResponse(status: number, requestId: string, body: Record<string, unknown>): Response {
   return new Response(JSON.stringify({ request_id: requestId, ...body }), {
     status,
-    headers: JSON_HEADERS,
+    headers: { ...JSON_HEADERS, ...CORS_HEADERS },
   });
 }
 
@@ -179,7 +189,11 @@ function extractOutput(provider: Provider, data: unknown): string {
   return isRecord(message) && typeof message.content === "string" ? message.content : "";
 }
 
-async function executeProvider( selection: ProviderSelection, prompt: string, attemptTimeoutMs: number, ): Promise<ProviderResult> {
+async function executeProvider(
+  selection: ProviderSelection,
+  prompt: string,
+  attemptTimeoutMs: number,
+): Promise<ProviderResult> {
   const apiKey = Deno.env.get(PROVIDER_KEY_NAMES[selection.provider]);
   if (!apiKey) {
     // A missing server-side secret is configuration failure, not a transient provider outage.
@@ -258,8 +272,8 @@ Deno.serve(async (req: Request) => {
 
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: {
+      ...CORS_HEADERS,
       "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "authorization, content-type, apikey",
       "Access-Control-Max-Age": "86400",
     } });
   }
@@ -439,4 +453,4 @@ Deno.serve(async (req: Request) => {
     ok: false,
     error: { code: finalFailure.code, message: finalFailure.message },
   });
-}); 
+});
