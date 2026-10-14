@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-13
 **Project:** FAMHUB (`erbxiqdfjmqnoeyjupru`) — Kenya `core.locations` GPS/PostGIS backfill
-**Status:** **Applied and validated.** `docs/locations_coordinates_updates.sql` executed via Supabase Management API (2026-10-13); all post-apply checks passed (see §7.1). The SQL remains in `docs/` as the audit record and is safe to re-run (idempotent no-op).
+**Status:** **Applied and validated — complete.** First backfill (`docs/locations_coordinates_updates.sql`, 2026-10-13): 1,466 rows. Second backfill (remaining 8 wards, 2026-10-14): 8 rows via alternative IEBC/polygon sources (§5.4). All 1,451 Kenya wards now have coordinates; zero gps/geometry mismatches. SQL retained in `docs/` as the audit record and safe to re-run (idempotent no-op).
 
 ## 1. Sources
 
@@ -92,7 +92,7 @@ All are split/renamed groups where the **sub-county centroid cannot be assigned 
 | 490 | ISIOLO N.(MERTI) | post-split beyond source's Isiolo North/South pair |
 | 2700 | KITUTU MASABA(NORTH) | post-split; no source counterpart |
 
-## 5. Ward results — 1,442 matched, 6 unmatched, 2 ambiguous
+## 5. Ward results — 1,442 matched in first pass; all 1,451 wards now have coordinates (see §5.4)
 
 | | Count | Share |
 |---|---|---|
@@ -104,24 +104,41 @@ All are split/renamed groups where the **sub-county centroid cannot be assigned 
 
 Match methods: `exact` 1,334 · `fuzzy-subset` 49 · `exact-county` 35 · `wordfuzzy` 11 · `wordsubset` 9 · `fuzzy-subset-county` 2 · `wordbag` 1 · `lev1` 1. Of these, **33 matched under a different sub-county parent than the DB's** (scrambled source groupings; each verified unique by name within the county).
 
-### 5.1 Ambiguous (2) — DB duplicate
+### 5.1 Ambiguous (2) — DB duplicate — **resolved 2026-10-14**
 
-`KIAMAIKO` exists **twice** under sub-county 290 (MATHARE), codes **1450** and **1452**, while the source has a single Kiamaiko ward. Both left unchanged; the DB rows likely need deduplication (out of scope — no deletes performed).
+`KIAMAIKO` exists **twice** under sub-county 290 (MATHARE), codes **1450** and **1452**, while IEBC has a single Kiamaiko ward (code 1450). Both rows were assigned the same verified coordinates (duplicate rows retained; no deletes/renames) — see §5.4.
 
-### 5.2 Unmatched (6) — absent or non-corresponding in source
+### 5.2 Unmatched (6) — absent or non-corresponding in source — **resolved 2026-10-14**
 
-| Code | Ward | Sub-county | Note |
+All six resolved via alternative authoritative datasets (IEBC register, mikelmaron/kenya-election-data IEBC polygons, geoBoundaries KEN ADM3, HDX COD-AB, OSM/Nominatim) — see §5.4:
+
+| Code | Ward | Sub-county | Primary-source note |
 |---|---|---|---|
-| 216 | SALA | 44 LAFEY | no source counterpart |
-| 375 | NDITHINI | 75 MASINGA | no source counterpart (source has `Mananja` instead) |
-| 396 | MUTHWANI | 80 MAVOKO | no source counterpart (source has `Mathatani` instead) |
-| 401 | MACHAKOS CENTRAL | 81 MACHAKOS TOWN | likely = source `Township` (KE016081); names share no tokens — left for manual review |
-| 961 | KAPSUSER | 192 BELGUT | no source counterpart |
-| 1344 | KITUTU CENTRAL | 269 KITUTU CHACHE SOUTH | likely = source `Kisii Central` (KE045269); names share no tokens — left for manual review |
+| 216 | SALA | 44 LAFEY | IEBC register `044 LAFEY 0216 SALA`; polygon datasets mislabel slot 216 "Libehia" |
+| 375 | NDITHINI | 75 MASINGA | IEBC/mikelmaron code 375 exact; source `Mananja` was the same place |
+| 396 | MUTHWANI | 80 MAVOKO | IEBC/mikelmaron code 396 exact; source `Mathatani` was the same place |
+| 401 | MACHAKOS CENTRAL | 81 MACHAKOS TOWN | IEBC/mikelmaron code 401 exact; source `Township` = same ward (old name) |
+| 961 | KAPSUSER | 192 BELGUT | IEBC/mikelmaron code 961 exact; source `BELGUT` ward = same location |
+| 1344 | KITUTU CENTRAL | 269 KITUTU CHACHE SOUTH | mikelmaron code 1344 exact incl. name spacing; source `Kisii Central` = same ward |
 
 ### 5.3 Source wards with no DB counterpart (8)
 
-`Mathatani` (Masinga), `Township` (Machakos Town), `BELGUT` (Ainamoi), `Mananja` (Masinga), `Mahiga` (Othaya — DB already has coords), `Kisii Central` (Kitutu Chache South), `BULLA MPYA` (Mandera East), `Kiamaiko` (Mathare — blocked by the DB duplicate above).
+`Mathatani` (Masinga), `Township` (Machakos Town), `BELGUT` (Ainamoi), `Mananja` (Masinga), `Mahiga` (Othaya — DB already has coords), `Kisii Central` (Kitutu Chache South), `BULLA MPYA` (Mandera East), `Kiamaiko` (Mathare — resolved via the DB duplicate, §5.4). All eight were subsequently shown to be aliases/locations of DB wards already covered (or superseded by IEBC naming) — none represent additional missing wards.
+
+### 5.4 Second backfill (2026-10-14) — remaining 8 wards resolved
+
+Each match triangulated across ≥2 independent sources, validated inside the correct county/sub-county (HDX COD-AB polygons) and ward polygon; WGS84 (EPSG:4326); guarded by `gps IS NULL`.
+
+| Code | Ward | Parent | lat, lon | Evidence | Confidence |
+|---|---|---|---|---|---|
+| 216 | SALA | LAFEY | 3.9361, 41.2803 | IEBC register (name+code); Sala village inside ward-216 polygon (mikelmaron + geoBoundaries, both mislabelled "Libehia"); inside HDX Lafey | High |
+| 375 | NDITHINI | MASINGA | -0.8939, 37.3581 | mikelmaron `375 NDITHINI/ MASINGA` exact; geoBoundaries "Ndithini"; source "Mananja" same cluster; inside HDX Masinga | High |
+| 396 | MUTHWANI | MAVOKO | -1.3591, 37.1139 | mikelmaron `396 MUTHWANI/ MAVOKO` exact; geoBoundaries "Muthwani"; source "Mathatani" same cluster; inside HDX Mavoko | High |
+| 401 | MACHAKOS CENTRAL | MACHAKOS TOWN | -1.5073, 37.2805 | mikelmaron `401` exact; geoBoundaries; source "Township" alias confirmed; inside HDX Machakos Town | High |
+| 961 | KAPSUSER | BELGUT | -0.3419, 35.2215 | mikelmaron `961 KAPSUSER/ BELGUT` exact; geoBoundaries "Kapsuser"; inside HDX Belgut | High |
+| 1344 | KITUTU CENTRAL | KITUTU CHACHE SOUTH | -0.6545, 34.7549 | mikelmaron `1344 'KITUTU   CENTRAL'` exact (incl. spacing); geoBoundaries; source "Kisii Central" alias confirmed; inside HDX Kitutu Chache South | High |
+| 1450 | KIAMAIKO | MATHARE | -1.2573, 36.8754 | mikelmaron `1450 KIAMAIKO/ MATHARE` exact; geoBoundaries; source "Kiamaiko"; 0.6 km from parent centroid | High |
+| 1452 | KIAMAIKO | MATHARE | -1.2573, 36.8754 | DB duplicate of IEBC ward 1450 (no IEBC code 1452); same verified coordinates applied to both duplicate rows | High |
 
 ## 6. Notable findings
 
@@ -155,10 +172,25 @@ Applied via Supabase Management API (`POST /v1/projects/erbxiqdfjmqnoeyjupru/dat
 | `gps` not matching `"lat, lon"` format | 0 | **0** ✓ |
 | geometry/gps coordinate mismatch (X=lon, Y=lat, 1e-6) | 0 | **0** ✓ |
 | Remaining missing = 16 flagged sub-counties + 8 wards (+ country row) | 24 + 1 | **25** ✓ |
+
+### 7.2 Second backfill results (2026-10-14, executed)
+
+Applied via Supabase Management API, HTTP 201 (`/tmp/coords/update_wards_remaining.sql`, guarded, idempotent).
+
+| Check | Expected | Result |
+|---|---|---|
+| Rows updated (8 wards) | 8 | **8** ✓ |
+| Ward rows with coords | 1,451 | **1,451** ✓ |
+| Ward rows missing coords | 0 | **0** ✓ |
+| gps/geometry consistency, SRID 4326, format | all 0 | **0** ✓ |
+| Pre-existing `MAHIGA` (483) unchanged | `-0.52, 36.809` | `-0.52, 36.809` ✓ |
+| Re-run affected rows (idempotency) | 0 | **0** ✓ |
+
+**Kenya ward coverage is now complete: 0 wards with missing coordinates.** Remaining gaps: 16 split/renamed sub-counties (§4.2) and the Kenya country row — both out of scope.
 | Pre-existing ward `MAHIGA` (483) unchanged | `-0.52, 36.809` | `-0.52, 36.809` ✓ |
 | Re-run affected rows (idempotency) | 0 | **0** ✓ (24/1442 sets fully non-null) |
 
-Remaining missing rows match §4.2 and §5 exactly: 16 split/renamed sub-counties, 6 absent-from-source wards, 2 `KIAMAIKO` duplicate rows. The Kenya country row (`code 254`) also has no coords — out of scope for this task.
+State after the first backfill; superseded by §7.2 (all 8 wards since resolved). Remaining gaps: 16 split/renamed sub-counties (§4.2) and the Kenya country row (`code 254`) — out of scope.
 
 ## 8. How to apply (audit)
 
