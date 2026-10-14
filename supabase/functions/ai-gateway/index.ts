@@ -48,7 +48,7 @@ const FALLBACK_ORDER: Provider[] = ["gemini", "openrouter", "groq", "deepseek", 
 const PROVIDER_MODELS: Record<Provider, string> = {
   gemini: "gemini-3.8-flash",
   openrouter: "openai/gpt-4.1-mini",
-  groq: "llama-3.3-70b-versatile",
+  groq: "openai/gpt-oss-120b",
   deepseek: "deepseek-chat",
   openai: "gpt-4.1-mini",
 };
