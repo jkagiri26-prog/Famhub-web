@@ -800,10 +800,59 @@ Deno.test({
         "authorization",
         "content-type",
         "apikey",
+        "x-client-info",
         "x-ai-gateway-test-provider",
       ]
     ) {
       assert(allowed.includes(header), `preflight must allow "${header}"`);
+    }
+  },
+});
+
+// supabase_flutter (functions_client 2.5.0 + supabase 2.10.2) always sends
+// apikey, X-Client-Info and Authorization on invoke. A header requested in
+// Access-Control-Request-Headers but absent from Access-Control-Allow-Headers
+// fails the preflight, and the browser reports that to app code as a generic
+// network failure with no status — indistinguishable from a dead host. This
+// test pins that exact header set so it cannot drift again.
+Deno.test({
+  name:
+    "Phase 3A: preflight covers every header supabase_flutter actually sends",
+  ...SANITIZERS,
+  fn: async () => {
+    reset();
+
+    const sentByFlutterClient = [
+      "authorization",
+      "apikey",
+      "content-type",
+      "x-client-info",
+      "x-ai-gateway-test-provider",
+    ];
+
+    const response = await handler!(
+      new Request("http://127.0.0.1/functions/v1/ai-gateway", {
+        method: "OPTIONS",
+        headers: {
+          Origin: "http://localhost:8080",
+          "Access-Control-Request-Method": "POST",
+          "Access-Control-Request-Headers": sentByFlutterClient.join(","),
+        },
+      }),
+    );
+
+    const allowed = (response.headers.get("Access-Control-Allow-Headers") ?? "")
+      .toLowerCase()
+      .split(",")
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0);
+
+    for (const header of sentByFlutterClient) {
+      assert(
+        allowed.includes(header),
+        `a browser sending "${header}" would fail this preflight; ` +
+          `allow-list is [${allowed.join(", ")}]`,
+      );
     }
   },
 });

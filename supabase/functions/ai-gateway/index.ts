@@ -10,7 +10,11 @@ const JSON_HEADERS = { "Content-Type": "application/json; charset=utf-8" };
 // function-generated response, the browser discards the reply.
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-ai-gateway-test-provider",
+  // supabase_flutter sends apikey + X-Client-Info on every invoke. A header
+  // requested in the preflight but absent here fails the preflight, which the
+  // browser reports to app code as a generic network failure.
+  "Access-Control-Allow-Headers":
+    "authorization, content-type, apikey, x-client-info, x-region, x-ai-gateway-test-provider",
 };
 
 type Provider = "gemini" | "openrouter" | "groq" | "deepseek" | "openai";

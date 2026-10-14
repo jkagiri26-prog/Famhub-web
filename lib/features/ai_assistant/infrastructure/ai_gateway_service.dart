@@ -113,14 +113,21 @@ class AiGatewayService {
             'The gateway did not respond within ${timeout.inSeconds}s — '
             'no HTTP response was received.',
       );
-    } catch (_) {
+    } catch (error) {
       stopwatch.stop();
+      // Nothing reached the gateway, so there is no HTTP status. The runtime
+      // type is kept because a browser CORS rejection and a dead host look
+      // identical as a generic catch; surfacing them is the only way to tell
+      // them apart from this screen.
+      final detail = error.toString();
       return AiGatewayResult.failure(
         elapsed: stopwatch.elapsed,
         code: 'transport_error',
         message:
-            'Network failure: the gateway could not be reached from this '
-            'browser. This is usually a CORS or connectivity problem.',
+            'The request never left the browser — no HTTP response was '
+            'received. A rejected CORS preflight reports this way. '
+            'Runtime: ${error.runtimeType}.',
+        rawBody: detail,
       );
     }
   }
