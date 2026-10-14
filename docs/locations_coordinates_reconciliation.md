@@ -106,7 +106,7 @@ Match methods: `exact` 1,334 · `fuzzy-subset` 49 · `exact-county` 35 · `wordf
 
 ### 5.1 Ambiguous (2) — DB duplicate — **resolved 2026-10-14**
 
-`KIAMAIKO` exists **twice** under sub-county 290 (MATHARE), codes **1450** and **1452**, while IEBC has a single Kiamaiko ward (code 1450). Both rows were assigned the same verified coordinates (duplicate rows retained; no deletes/renames) — see §5.4.
+`KIAMAIKO` existed **twice** under sub-county 290 (MATHARE), codes **1450** and **1452**, while IEBC has a single Kiamaiko ward (code 1450). Both rows were first assigned the same verified coordinates (§5.4); on 2026-10-14 the duplicate row **code 1452 was deleted** (verified: zero dependent rows across all 18 tables with `location_id`; guarded delete by code+name+parent+level). Code **1450 retained** (IEBC-authoritative code, coordinates `-1.2573, 36.8754`).
 
 ### 5.2 Unmatched (6) — absent or non-corresponding in source — **resolved 2026-10-14**
 
@@ -138,7 +138,7 @@ Each match triangulated across ≥2 independent sources, validated inside the co
 | 961 | KAPSUSER | BELGUT | -0.3419, 35.2215 | mikelmaron `961 KAPSUSER/ BELGUT` exact; geoBoundaries "Kapsuser"; inside HDX Belgut | High |
 | 1344 | KITUTU CENTRAL | KITUTU CHACHE SOUTH | -0.6545, 34.7549 | mikelmaron `1344 'KITUTU   CENTRAL'` exact (incl. spacing); geoBoundaries; source "Kisii Central" alias confirmed; inside HDX Kitutu Chache South | High |
 | 1450 | KIAMAIKO | MATHARE | -1.2573, 36.8754 | mikelmaron `1450 KIAMAIKO/ MATHARE` exact; geoBoundaries; source "Kiamaiko"; 0.6 km from parent centroid | High |
-| 1452 | KIAMAIKO | MATHARE | -1.2573, 36.8754 | DB duplicate of IEBC ward 1450 (no IEBC code 1452); same verified coordinates applied to both duplicate rows | High |
+| 1452 | KIAMAIKO | MATHARE | -1.2573, 36.8754 | DB duplicate of IEBC ward 1450 (no IEBC code 1452); same coordinates applied, then row deleted on dedup (2026-10-14) | High |
 
 ## 6. Notable findings
 
@@ -182,11 +182,12 @@ Applied via Supabase Management API, HTTP 201 (`/tmp/coords/update_wards_remaini
 | Rows updated (8 wards) | 8 | **8** ✓ |
 | Ward rows with coords | 1,451 | **1,451** ✓ |
 | Ward rows missing coords | 0 | **0** ✓ |
+| Post-dedup ward total (1452 removed) | 1,450 | **1,450** ✓ |
 | gps/geometry consistency, SRID 4326, format | all 0 | **0** ✓ |
 | Pre-existing `MAHIGA` (483) unchanged | `-0.52, 36.809` | `-0.52, 36.809` ✓ |
 | Re-run affected rows (idempotency) | 0 | **0** ✓ |
 
-**Kenya ward coverage is now complete: 0 wards with missing coordinates.** Remaining gaps: 16 split/renamed sub-counties (§4.2) and the Kenya country row — both out of scope.
+**Kenya ward coverage is now complete: 0 wards with missing coordinates.** The `KIAMAIKO` duplicate (code 1452) was subsequently deleted (§5.1), leaving 1,450 ward rows = the IEBC ward count. Remaining gaps: 16 split/renamed sub-counties (§4.2) and the Kenya country row — both out of scope.
 | Pre-existing ward `MAHIGA` (483) unchanged | `-0.52, 36.809` | `-0.52, 36.809` ✓ |
 | Re-run affected rows (idempotency) | 0 | **0** ✓ (24/1442 sets fully non-null) |
 
