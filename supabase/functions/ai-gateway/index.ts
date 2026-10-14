@@ -40,7 +40,6 @@ type ProviderFailure = {
   status: number;
   code: string;
   message: string;
-  retryable: boolean;
 };
 type ProviderSuccess = { ok: true; output: string };
 type ProviderResult = ProviderSuccess | ProviderFailure;
@@ -169,8 +168,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function failure(status: number, code: string, message: string, retryable: boolean): ProviderFailure {
-  return { ok: false, status, code, message, retryable };
+// Every provider failure is eligible for fallback to the next provider.
+// Providers hold independent credentials and model catalogues, so one
+// provider's 401/402/404 says nothing about the others. Only FAMHUB's own
+// request validation and client JWT checks terminate a request outright, and
+// those are decided in the request handler before any provider is selected.
+function failure(status: number, code: string, message: string): ProviderFailure {
+  return { ok: false, status, code, message };
 }
 
 // Providers report the real cause in their error body, which the gateway used
@@ -209,10 +213,16 @@ async function executeProvider(
   prompt: string,
   attemptTimeoutMs: number,
 ): Promise<ProviderResult> {
-  const apiKey = Deno.env.get(PROVIDER_KEY_NAMES[selection.provider]);
+  const secretName = PROVIDER_KEY_NAMES[selection.provider];
+  const apiKey = Deno.env.get(secretName);
   if (!apiKey) {
-    // A missing server-side secret is configuration failure, not a transient provider outage.
-    return failure(503, "provider_not_configured", "The AI provider is not configured.", false);
+    // An absent secret is a configuration problem for this one provider, not a
+    // reason to take the gateway down. Skip it, keep going, and record the
+    // cause in the function logs so the gap stays visible operationally.
+    console.warn(
+      `ai-gateway: skipping ${selection.provider}; ${secretName} is not set.`,
+    );
+    return failure(503, "provider_not_configured", `The AI provider is not configured (missing ${secretName}).`);
   }
 
   const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -261,12 +271,13 @@ async function executeProvider(
       }
       const said = upstreamSaid ? ` Upstream said: ${upstreamSaid}` : "";
 
-      // Only rate limiting and upstream/transient statuses qualify for fallback.
-      // Other 4xx statuses (including provider auth or malformed-request errors) stop the chain.
+      // Keep the existing status/code distinction so the envelope contract is
+      // unchanged, but never stop the chain on it: a rejected key, an empty
+      // balance or a retired model is specific to this provider.
       if (response.status === 408 || response.status === 425 || response.status === 429 || response.status >= 500) {
-        return failure(503, "provider_unavailable", `The AI provider is temporarily unavailable (upstream HTTP ${response.status}).${said}`, true);
+        return failure(503, "provider_unavailable", `The AI provider is temporarily unavailable (upstream HTTP ${response.status}).${said}`);
       }
-      return failure(502, "provider_error", `The AI provider request failed (upstream HTTP ${response.status}).${said}`, false);
+      return failure(502, "provider_error", `The AI provider request failed (upstream HTTP ${response.status}).${said}`);
     }
 
     let data: unknown;
@@ -274,19 +285,19 @@ async function executeProvider(
       data = await response.json();
     } catch {
       // A successful HTTP status with an unreadable upstream response is treated as transient.
-      return failure(502, "provider_invalid_response", `The AI provider returned an invalid response (upstream HTTP ${response.status}).`, true);
+      return failure(502, "provider_invalid_response", `The AI provider returned an invalid response (upstream HTTP ${response.status}).`);
     }
 
     const output = extractOutput(selection.provider, data);
     if (!output) {
-      return failure(502, "provider_empty_response", `The AI provider returned no text output (upstream HTTP ${response.status}).`, true);
+      return failure(502, "provider_empty_response", `The AI provider returned no text output (upstream HTTP ${response.status}).`);
     }
     return { ok: true, output };
   } catch {
     if (timedOut) {
-      return failure(504, "provider_timeout", "The AI provider did not respond in time.", true);
+      return failure(504, "provider_timeout", "The AI provider did not respond in time.");
     }
-    return failure(502, "provider_unavailable", "The AI provider could not be reached.", true);
+    return failure(502, "provider_unavailable", "The AI provider could not be reached.");
   } finally {
     clearTimeout(timeout);
   }
@@ -465,7 +476,7 @@ Deno.serve(async (req: Request) => {
 
     lastFailure = result;
     const hasNextProvider = index < selections.length - 1;
-    if (!result.retryable || !hasNextProvider) {
+    if (!hasNextProvider) {
       return jsonResponse(result.status, requestId, {
         ok: false,
         error: { code: result.code, message: result.message },
@@ -473,7 +484,7 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  const finalFailure = lastFailure ?? failure(503, "provider_unavailable", "The AI provider is temporarily unavailable.", false);
+  const finalFailure = lastFailure ?? failure(503, "provider_unavailable", "The AI provider is temporarily unavailable.");
   return jsonResponse(finalFailure.status, requestId, {
     ok: false,
     error: { code: finalFailure.code, message: finalFailure.message },

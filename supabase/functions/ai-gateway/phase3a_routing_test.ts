@@ -470,15 +470,77 @@ Deno.test({
 // 7. non-transient failures stop the chain
 // ---------------------------------------------------------------------------
 Deno.test({
-  name: "Phase 3A: a non-transient provider error does not fall back",
+  name: "Phase 3A: an upstream 4xx falls through to the next eligible provider",
   ...SANITIZERS,
   fn: async () => {
     reset();
     script = (
       provider,
     ) => (provider === "gemini"
-      ? nonTransientFailure()
+      ? new Response(null, { status: 404 })
       : successResponse(provider));
+
+    const response = await handler!(
+      gatewayRequest({ task: "general_text", input: {} }),
+    );
+    const payload = await response.json();
+
+    assertEquals(
+      response.status,
+      200,
+      "a later provider must still answer after an upstream 4xx",
+    );
+    assertEquals(payload.ok, true);
+    assertEquals(payload.output, "ok:openrouter");
+    assertEquals(
+      called(),
+      ["gemini", "openrouter"],
+      "the chain must advance past the failing provider",
+    );
+  },
+});
+
+Deno.test({
+  name:
+    "Phase 3A: an upstream authentication failure falls through to the next provider",
+  ...SANITIZERS,
+  fn: async () => {
+    reset();
+    script = (provider) => (provider === "gemini"
+      ? new Response(
+        JSON.stringify({
+          error: { message: "API key not valid. Please pass a valid API key." },
+        }),
+        { status: 401, headers: { "Content-Type": "application/json" } },
+      )
+      : successResponse(provider));
+
+    const response = await handler!(
+      gatewayRequest({ task: "general_text", input: {} }),
+    );
+    const payload = await response.json();
+
+    assertEquals(
+      response.status,
+      200,
+      "a rejected upstream key must not take the gateway down",
+    );
+    assertEquals(payload.output, "ok:openrouter");
+    assertEquals(called(), ["gemini", "openrouter"]);
+  },
+});
+
+Deno.test({
+  name:
+    "Phase 3A: when every provider fails the last sanitized failure is returned",
+  ...SANITIZERS,
+  fn: async () => {
+    reset();
+    script = (provider) =>
+      new Response(
+        JSON.stringify({ error: { message: `nope from ${provider}` } }),
+        { status: 404, headers: { "Content-Type": "application/json" } },
+      );
 
     const response = await handler!(
       gatewayRequest({ task: "general_text", input: {} }),
@@ -487,21 +549,66 @@ Deno.test({
 
     assertEquals(response.status, 502);
     assertEquals(payload.error.code, "provider_error");
+    assert(
+      typeof payload.request_id === "string" && payload.request_id.length > 0,
+      "the request id must survive a total provider failure",
+    );
+    assertEquals(Object.keys(payload).sort(), ["error", "ok", "request_id"]);
+    assertEquals(Object.keys(payload.error).sort(), ["code", "message"]);
     assertEquals(
       called(),
-      ["gemini"],
-      "the chain must stop at the first non-transient failure",
+      ["gemini", "openrouter", "groq", "deepseek", "openai"],
+      "every eligible provider is attempted exactly once",
     );
   },
 });
 
 Deno.test({
   name:
-    "Phase 3A: a missing provider secret is a non-retryable configuration error",
+    "Phase 3A: a missing provider secret is skipped and the chain continues",
   ...SANITIZERS,
   fn: async () => {
     reset();
     Deno.env.delete("GEMINI_API_KEY");
+    script = (provider) => successResponse(provider);
+
+    const response = await handler!(
+      gatewayRequest({ task: "general_text", input: {} }),
+    );
+    const payload = await response.json();
+
+    assertEquals(
+      response.status,
+      200,
+      "an unconfigured provider must not take the gateway down",
+    );
+    assertEquals(payload.ok, true);
+    assertEquals(
+      called(),
+      ["openrouter"],
+      "the unconfigured provider is skipped without being called",
+    );
+    setProviderKeys();
+  },
+});
+
+Deno.test({
+  name:
+    "Phase 3A: an unconfigured provider reports its secret name in a sanitized envelope",
+  ...SANITIZERS,
+  fn: async () => {
+    reset();
+    for (
+      const key of [
+        "GEMINI_API_KEY",
+        "OPENROUTER_API_KEY",
+        "GROQ_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "OPENAI_API_KEY",
+      ]
+    ) {
+      Deno.env.delete(key);
+    }
     script = (provider) => successResponse(provider);
 
     const response = await handler!(
@@ -514,9 +621,105 @@ Deno.test({
     assertEquals(
       called(),
       [],
-      "an unconfigured provider must not be attempted",
+      "no provider may be contacted without its secret",
+    );
+    assert(
+      payload.error.message.includes("OPENAI_API_KEY"),
+      "the missing secret's name must stay identifiable operationally",
+    );
+    assert(
+      typeof payload.request_id === "string" && payload.request_id.length > 0,
+      "the request id must survive",
     );
     setProviderKeys();
+  },
+});
+
+Deno.test({
+  name: "Phase 3A: FAMHUB request validation errors stop before any provider",
+  ...SANITIZERS,
+  fn: async () => {
+    reset();
+    script = (provider) => successResponse(provider);
+
+    const cases: Array<[Request, string]> = [
+      [
+        new Request("http://127.0.0.1/functions/v1/ai-gateway", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${JWT}`,
+          },
+          body: "{",
+        }),
+        "invalid_json",
+      ],
+      [gatewayRequest({ input: {} }), "invalid_task"],
+      [gatewayRequest({ task: "general_text" }), "invalid_input"],
+      [
+        gatewayRequest({ task: "general_text", input: {}, context: [] }),
+        "invalid_context",
+      ],
+    ];
+
+    for (const [request, expectedCode] of cases) {
+      const response = await handler!(request);
+      const payload = await response.json();
+      assertEquals(response.status, 400, `${expectedCode} must be a 400`);
+      assertEquals(payload.error.code, expectedCode);
+    }
+    assertEquals(
+      called(),
+      [],
+      "no provider may be contacted for a rejected request",
+    );
+  },
+});
+
+Deno.test({
+  name: "Phase 3A: a client JWT failure stops before any provider",
+  ...SANITIZERS,
+  fn: async () => {
+    reset();
+    script = (provider) => successResponse(provider);
+
+    const missingAuth = await handler!(
+      new Request("http://127.0.0.1/functions/v1/ai-gateway", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ task: "general_text", input: {} }),
+      }),
+    );
+    assertEquals(missingAuth.status, 401);
+    assertEquals(
+      (await missingAuth.json()).error.code,
+      "unauthorized",
+      "a missing Authorization header must be rejected outright",
+    );
+
+    const anonClaims = [
+      btoa(JSON.stringify({ alg: "HS256", typ: "JWT" })),
+      btoa(JSON.stringify({ role: "anon", sub: "not-a-user" })),
+      "signature",
+    ].join(".");
+    const anonRole = await handler!(
+      gatewayRequest(
+        { task: "general_text", input: {} },
+        { Authorization: `Bearer ${anonClaims}` },
+      ),
+    );
+    assertEquals(anonRole.status, 401);
+    assertEquals(
+      (await anonRole.json()).error.code,
+      "unauthorized",
+      "a non-authenticated role must be rejected outright",
+    );
+
+    assertEquals(
+      called(),
+      [],
+      "no provider may be contacted without an authenticated client",
+    );
   },
 });
 
@@ -713,11 +916,9 @@ Deno.test({
       "a success must only carry request_id, ok, output",
     );
 
-    script = (
-      provider,
-    ) => (provider === "gemini"
-      ? nonTransientFailure()
-      : successResponse(provider));
+    // Every provider must fail so the failure envelope is still reached now
+    // that a single provider failure falls through to the next candidate.
+    script = () => nonTransientFailure();
     const errResponse = await handler!(
       gatewayRequest({ task: "general_text", input: {} }),
     );
