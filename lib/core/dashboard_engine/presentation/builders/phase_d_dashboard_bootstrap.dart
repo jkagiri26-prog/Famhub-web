@@ -22,6 +22,7 @@
 library;
 
 // ── Widget Registration ──
+import 'package:famhub_app/features/farm_management/application/ai/farm_assistant_launcher.dart';
 import 'package:famhub_app/features/farm_management/presentation/widgets/farm_widget_registration_bootstrap.dart';
 import 'package:famhub_app/features/marketplace/presentation/widgets/marketplace_widget_registration.dart';
 import 'package:famhub_app/features/business_hub/presentation/widgets/business_hub_widget_registration.dart';
@@ -52,6 +53,17 @@ void bootstrapPhaseD() {
   // DashboardCompositionEngine for dynamic rendering.
   // ════════════════════════════════════════════════════════════════
   _bootstrapWidgetRegistrations();
+
+  // ════════════════════════════════════════════════════════════════
+  // SHELL ASSISTANT LAUNCHER (agricultural capability)
+  // ════════════════════════════════════════════════════════════════
+  //
+  // Registers the FAMHUB AI assistant with the core shell seam for the
+  // workspaces that currently have it. The shell's existing AI Assistant
+  // button resolves this launcher — no shell change is needed when another
+  // workspace gains an assistant later.
+  // ════════════════════════════════════════════════════════════════
+  registerFarmAssistantLauncher();
 
   // ════════════════════════════════════════════════════════════════
   // WORKSTREAM 2: PAGE REGISTRATIONS (module pages → router)

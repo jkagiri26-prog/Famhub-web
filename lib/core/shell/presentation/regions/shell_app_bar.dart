@@ -23,6 +23,7 @@ import 'package:go_router/go_router.dart';
 import '../../../theme/shell_theme.dart';
 import '../../../navigation/responsive_breakpoints.dart';
 import '../../config/shell_config.dart';
+import '../../application/assistant/assistant_launcher_registry.dart';
 import '../../../providers/module_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../providers/notification_count_provider.dart';
@@ -119,16 +120,16 @@ class ShellAppBar extends ConsumerWidget {
 
             if (config.showSearch) const SizedBox(width: 4),
 
-            // AI Assistant
+            // AI Assistant — opens the registered assistant for the active
+            // workspace. The shell stays domain-agnostic: it only resolves a
+            // launcher from AssistantLauncherRegistry, never a feature widget.
             if (config.showAiAssistant)
               _AppBarButton(
                 icon: Icons.auto_awesome_rounded,
                 tooltip: 'AI Assistant',
                 palette: palette,
                 color: palette.info,
-                onPressed: () {
-                  // Future: AI assistant panel
-                },
+                onPressed: () => AssistantLauncherRegistry.open(context, ref),
               ),
 
             if (config.showAiAssistant) const SizedBox(width: 4),

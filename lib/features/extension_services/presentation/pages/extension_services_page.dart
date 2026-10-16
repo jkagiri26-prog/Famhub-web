@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'package:famhub_app/features/extension_services/presentation/widgets/service_category_card_widget.dart';
 import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
 import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
 import 'package:famhub_app/shared/widgets/headers/section_header_widget.dart';
-import '../widgets/expert_card_widget.dart';
-import '../widgets/service_category_card_widget.dart';
 
 class ExtensionServicesPage extends StatelessWidget {
   const ExtensionServicesPage({super.key});
@@ -20,25 +19,21 @@ class ExtensionServicesPage extends StatelessWidget {
             /// MODULE HEADER
             ModuleHeaderWidget(
               title: 'Extension Services',
-              subtitle:
-                  'Expert advice • Field support • Agricultural guidance',
+              subtitle: 'Practical advice for your crops and livestock',
               trailingIcon: Icons.support_agent_outlined,
             ),
 
             SizedBox(height: 20),
 
-            /// SECTION HEADER
-            SectionHeaderWidget(
-              title: 'Available Support Areas',
-            ),
+            /// AREAS THIS MODULE COVERS
+            SectionHeaderWidget(title: 'This can help with'),
 
             SizedBox(height: 12),
 
-            /// SERVICE CATEGORIES
             ServiceCategoryCardWidget(
               title: 'Crop Advisory',
               description:
-                  'Get expert recommendations on planting, pests, diseases, and crop productivity.',
+                  'Planting, pests, diseases, and crop productivity questions.',
               icon: Icons.grass_outlined,
             ),
 
@@ -47,36 +42,28 @@ class ExtensionServicesPage extends StatelessWidget {
             ServiceCategoryCardWidget(
               title: 'Livestock Support',
               description:
-                  'Veterinary guidance, feeding plans, breeding, and herd productivity.',
+                  'Feeding, breeding, and general herd or flock questions.',
               icon: Icons.pets_outlined,
             ),
 
             SizedBox(height: 24),
 
-            /// SECTION HEADER
-            SectionHeaderWidget(
-              title: 'Available Experts',
-            ),
+            /// HUMAN HELP — plain text only. FAMHUB does not hold a directory
+            /// of extension providers, so no referral is offered here.
+            SectionHeaderWidget(title: 'When you need a person'),
 
-            SizedBox(height: 12),
+            SizedBox(height: 8),
 
-            /// EXPERT CARDS
-            ExpertCardWidget(
-              name: "Dr. Jane Kamau",
-              specialty: "Soil Science & Fertility",
-              status: "Online",
-              imageUrl:
-                  "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=200",
-            ),
-
-            SizedBox(height: 12),
-
-            ExpertCardWidget(
-              name: "Officer Samuel Owen",
-              specialty: "Livestock Management",
-              status: "In Field",
-              imageUrl:
-                  "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200",
+            Text(
+              'Extension advice helps you think a problem through, but it is '
+              'not a substitute for a qualified professional.\n\n'
+              'For severe or fast-worsening animal illness, suspected '
+              'poisoning, difficult births, or a heavy crop outbreak, contact '
+              'a county extension officer, KALRO, or a qualified veterinary '
+              'officer promptly.\n\n'
+              'FAMHUB does not currently hold a directory of extension '
+              'providers, so it cannot contact or book anyone on your behalf.',
+              style: TextStyle(fontSize: 13, height: 1.5),
             ),
 
             SizedBox(height: 80),

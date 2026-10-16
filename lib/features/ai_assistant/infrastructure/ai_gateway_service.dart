@@ -58,11 +58,16 @@ class AiGatewayService {
 
   /// Send one prompt through the gateway.
   ///
+  /// [context] is optional structured data the gateway inlines into the
+  /// prompt as a JSON block. Omitting it (or passing an empty map) produces
+  /// a byte-identical request to the previous behaviour.
+  ///
   /// Never throws — every outcome is reported as an [AiGatewayResult] so the
   /// UI can show the exact diagnostic.
   Future<AiGatewayResult> complete({
     required String prompt,
     String? providerSelector,
+    Map<String, dynamic>? context,
   }) async {
     final trimmed = prompt.trim();
     if (trimmed.isEmpty) {
@@ -88,6 +93,9 @@ class AiGatewayService {
         body: <String, dynamic>{
           'task': task,
           'input': <String, dynamic>{'prompt': trimmed},
+          // Only forwarded when the caller supplies a non-empty object, so
+          // existing callers send exactly the same request as before.
+          if (context != null && context.isNotEmpty) 'context': context,
         },
       ).timeout(timeout);
 
