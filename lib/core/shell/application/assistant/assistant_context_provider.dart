@@ -47,11 +47,17 @@ final assistantContextProvider =
   final contexts =
       ref.watch(currentWorkspaceContextsProvider).value ?? const [];
 
-  final String? moduleId = _moduleIdForRoute(route, workspaceType);
+  // Match and report on the path only. `uri.toString()` from the router can
+  // carry a query or fragment (`/marketplace?tab=sell`), which would never
+  // equal a catalog route and would wrongly report "no module". Query values
+  // are screen state, not a page identity, and are not shipped to the model.
+  final String path = _routePathOf(route);
+
+  final String? moduleId = _moduleIdForRoute(path, workspaceType);
   final String? moduleName = _moduleNameFor(ref, moduleId);
 
   return AssistantContext(
-    route: route,
+    route: path,
     moduleId: moduleId,
     moduleName: moduleName,
     workspaceName: workspaceName,
@@ -61,7 +67,20 @@ final assistantContextProvider =
   );
 });
 
+/// Returns [route] with any query string and fragment removed.
+String _routePathOf(String route) {
+  final int query = route.indexOf('?');
+  final int fragment = route.indexOf('#');
+  int end = route.length;
+  if (query >= 0 && query < end) end = query;
+  if (fragment >= 0 && fragment < end) end = fragment;
+  return end == route.length ? route : route.substring(0, end);
+}
+
 /// Longest-prefix match of [route] against the static route catalog.
+///
+/// A base only matches on a path-segment boundary, so `/farm` resolves
+/// `/farm` and `/farm/crops` but never `/farmer-tools`.
 ///
 /// The landing route `/` has no module of its own — it renders the active
 /// workspace's primary module, so that is what it resolves to. Anything
@@ -77,7 +96,7 @@ String? _moduleIdForRoute(String route, String? workspaceType) {
   String? match;
   for (final mapping in RouteRegistry.mappings) {
     final String base = mapping.route;
-    if (base == '/') continue;
+    if (base == '/' || base.isEmpty) continue;
     if (route == base || route.startsWith('$base/')) {
       if (match == null || base.length > match.length) match = base;
     }

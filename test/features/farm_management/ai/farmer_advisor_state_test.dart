@@ -77,20 +77,39 @@ const AssistantContext _assistantContext = AssistantContext(
   entityName: 'Kibuye Farm',
 );
 
-FarmAiContext _farmContext() => const FarmAiContext(
+// Deliberately not `const`: every rebuild of FarmAiContext must yield a new
+// instance, the way the real provider does, so dependents are notified.
+// The `FarmAiContext` must stay non-const: a canonicalized instance would
+// never notify dependents, which is exactly the bug this guards against.
+// ignore: prefer_const_constructors
+FarmAiContext _farmContext() => FarmAiContext(
   stage: 'growing',
   stagePriority: 2,
   hierarchyPath: 'Kibuye Farm → Maize',
   crops: <CropSummary>[
-    CropSummary(name: 'Maize', variety: 'H614', status: 'healthy'),
+    const CropSummary(name: 'Maize', variety: 'H614', status: 'healthy'),
   ],
-  livestock: <LivestockSummary>[],
+  livestock: const <LivestockSummary>[],
   recentActivityCount: 3,
   recommendations: <String>['Scout for fall armyworm'],
   healthScore: 78,
   isActive: true,
   farmSize: 2.5,
   requiresAction: false,
+);
+
+/// Stands in for the farm lifecycle / hierarchy / farm-context providers
+/// that FarmAiContext derives from. Bumping it rebuilds FarmAiContext the
+/// way a real farm-data refresh does.
+class _FarmRefreshSeed extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void bump() => state = state + 1;
+}
+
+final _farmRefreshSeedProvider = NotifierProvider<_FarmRefreshSeed, int>(
+  _FarmRefreshSeed.new,
 );
 
 ({ProviderContainer container, _FakeGateway gateway, FarmAiContext? context})
@@ -389,6 +408,61 @@ void main() {
       expect(state.isEmpty, isTrue);
       expect(state.status, AdvisorStatus.ready);
       expect(state.hasFarmContext, isTrue);
+    });
+
+    test('the conversation is not erased when the farm context refreshes',
+        () async {
+      // Reproduces the original defect: FarmAiContext derives from the farm
+      // lifecycle, hierarchy and farm-context providers, any of which can
+      // rebuild while the chat is open, in the background, or between
+      // closing and reopening it. A controller that watches it re-runs
+      // build(), which replaced the whole state and wiped the history.
+      final _FakeGateway gateway = _FakeGateway();
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          farmerAdvisorGatewayProvider.overrideWithValue(gateway),
+          farmAiContextProvider.overrideWith((ref) {
+            ref.watch(_farmRefreshSeedProvider);
+            return _farmContext();
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      // Mirrors production: the chat page listens to this controller and its
+      // context banner listens to FarmAiContext, so neither is detached.
+      final ProviderSubscription<FarmerAdvisorState> chat = container.listen(
+        farmerAdvisorControllerProvider,
+        (_, __) {},
+      );
+      final ProviderSubscription<FarmAiContext?> farm = container.listen(
+        farmAiContextProvider,
+        (_, __) {},
+      );
+      addTearDown(chat.close);
+      addTearDown(farm.close);
+
+      await _ask(container, 'Why are my maize leaves yellow?');
+      await _drain();
+      expect(
+        container.read(farmerAdvisorControllerProvider).messages,
+        hasLength(2),
+      );
+
+      // Farm data reloads / the selection changes.
+      container.read(_farmRefreshSeedProvider.notifier).bump();
+      await _drain();
+
+      // Reopen: the same long-lived notifier is read again.
+      final FarmerAdvisorState reopened = container.read(
+        farmerAdvisorControllerProvider,
+      );
+      expect(reopened.messages, hasLength(2));
+      expect(reopened.messages.first.isFarmer, isTrue);
+      expect(reopened.messages.first.text, 'Why are my maize leaves yellow?');
+      expect(reopened.messages.last.isFarmer, isFalse);
+      expect(reopened.status, AdvisorStatus.ready);
+      expect(gateway.callCount, 1);
     });
 
     test('forwards the farmer question verbatim to the gateway', () async {

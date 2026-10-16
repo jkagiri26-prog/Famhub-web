@@ -119,6 +119,16 @@ class RouteRegistry {
       routeName: 'profile',
     ),
     RouteMapping(
+      moduleId: 'settings',
+      route: '/settings',
+      routeName: 'runtimeSettings',
+    ),
+    RouteMapping(
+      moduleId: 'weather',
+      route: '/weather',
+      routeName: 'weather',
+    ),
+    RouteMapping(
       moduleId: 'admin_console',
       route: '/admin',
       routeName: 'admin',

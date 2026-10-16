@@ -115,7 +115,21 @@ class FarmerAdvisorController extends Notifier<FarmerAdvisorState> {
 
   @override
   FarmerAdvisorState build() {
-    final FarmAiContext? farmContext = ref.watch(farmAiContextProvider);
+    // Deliberately a read, never a watch.
+    //
+    // Watching farmAiContextProvider here would make the farm lifecycle,
+    // hierarchy and farm-context providers dependencies of this controller.
+    // Any of them rebuilding (farm data loading, selecting a field, a
+    // refresh while the chat is closed) would re-run build(), and a re-run
+    // REPLACES the whole FarmerAdvisorState with a fresh one — silently
+    // erasing the conversation. That is what made the chat forget
+    // everything between closing and reopening it.
+    //
+    // build() is therefore dependency-free and runs exactly once for the
+    // life of the container, so the conversation survives. The farm context
+    // is re-read per request in ask(), and the UI reads farmAiContextProvider
+    // directly for its live banner.
+    final FarmAiContext? farmContext = ref.read(farmAiContextProvider);
     return FarmerAdvisorState(hasFarmContext: farmContext != null);
   }
 

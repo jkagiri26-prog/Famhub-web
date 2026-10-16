@@ -21,6 +21,15 @@ class _FixedContextController extends ContextController {
   EntityContext build() => context;
 }
 
+/// Platform modules the backend publishes in `system.modules` but that are
+/// deliberately absent from the static `ModuleRegistry` (which only carries
+/// workspace modules). Their display names therefore come from
+/// `runtimeModuleRegistryProvider`, exactly as they do in production.
+const List<RuntimeModule> _platformModules = <RuntimeModule>[
+  RuntimeModule(moduleId: 'weather', displayName: 'Weather', route: '/weather'),
+  RuntimeModule(moduleId: 'settings', displayName: 'Settings', route: '/settings'),
+];
+
 ({ProviderContainer container}) _fixture({
   String? workspaceType = 'farmer',
   String? workspaceName = 'Kibuye Farm',
@@ -223,6 +232,123 @@ void main() {
 
       expect(context.entityName, isNull);
       expect(context.toJson().containsKey('active_entity'), isFalse);
+    });
+  });
+
+  group('assistantContextProvider — platform routes (Weather, Settings)', () {
+    test('resolves the Weather route to the Weather module and name', () {
+      final f = _fixture(runtimeModules: _platformModules);
+      final AssistantContext context = _read(f.container, '/weather');
+
+      expect(context.route, '/weather');
+      expect(context.moduleId, 'weather');
+      expect(context.moduleName, 'Weather');
+      expect(context.toJson()['current_module'], 'Weather');
+    });
+
+    test('resolves the module id even before the backend registry loads',
+        () {
+      final f = _fixture(runtimeModules: const <RuntimeModule>[]);
+      final AssistantContext context = _read(f.container, '/weather');
+
+      expect(context.moduleId, 'weather');
+      // No name is invented — the envelope simply omits it until the
+      // runtime registry supplies one.
+      expect(context.moduleName, isNull);
+      expect(context.toJson().containsKey('current_module'), isFalse);
+    });
+
+    test('resolves a nested Weather route', () {
+      final f = _fixture(runtimeModules: _platformModules);
+
+      for (final route in <String>[
+        '/weather/hourly',
+        '/weather/forecast/daily',
+      ]) {
+        final AssistantContext context = _read(f.container, route);
+        expect(context.moduleId, 'weather', reason: route);
+        expect(context.moduleName, 'Weather', reason: route);
+      }
+    });
+
+    test('resolves the runtime Settings route to the Settings module', () {
+      final f = _fixture(runtimeModules: _platformModules);
+      final AssistantContext context = _read(f.container, '/settings');
+
+      expect(context.moduleId, 'settings');
+      expect(context.moduleName, 'Settings');
+    });
+  });
+
+  group('assistantContextProvider — prefix boundaries and unknown routes', () {
+    test('a sibling that shares a prefix never matches', () {
+      final f = _fixture(runtimeModules: _platformModules);
+
+      expect(_read(f.container, '/farmer-tools').moduleId, isNull);
+      expect(_read(f.container, '/farms').moduleId, isNull);
+      expect(_read(f.container, '/market').moduleId, isNull);
+      expect(_read(f.container, '/settings-backup').moduleId, isNull);
+      expect(_read(f.container, '/weatherish').moduleId, isNull);
+
+      // …while the real routes still resolve.
+      expect(_read(f.container, '/farm').moduleId, 'farm_management');
+      expect(_read(f.container, '/weather').moduleId, 'weather');
+      expect(_read(f.container, '/settings').moduleId, 'settings');
+    });
+
+    test('matches on path segments rather than raw string prefixes', () {
+      final f = _fixture(runtimeModules: _platformModules);
+
+      expect(_read(f.container, '/farm/crops').moduleId, 'farm_management');
+      expect(_read(f.container, '/farmers').moduleId, isNull);
+      // Nested settings page belongs to Profile, not to runtime Settings.
+      expect(_read(f.container, '/profile/settings').moduleId, 'profile');
+    });
+
+    test('ignores query strings and fragments when identifying the page',
+        () {
+      final f = _fixture(runtimeModules: _platformModules);
+      final AssistantContext context = _read(
+        f.container,
+        '/marketplace?tab=sell&entity=ent-1',
+      );
+
+      expect(context.moduleId, 'marketplace');
+      expect(context.moduleName, 'Marketplace');
+      // Query values are screen state, not page identity, and are never
+      // shipped to the model.
+      expect(context.route, '/marketplace');
+      expect(context.toJson()['current_page'], '/marketplace');
+      expect(
+        context.toJson().values.any((v) => v.toString().contains('tab=')),
+        isFalse,
+      );
+
+      expect(
+        _read(f.container, '/farm#crops').moduleId,
+        'farm_management',
+      );
+    });
+
+    test('genuinely unknown routes stay unknown', () {
+      final f = _fixture(runtimeModules: _platformModules);
+
+      for (final route in <String>[
+        '/nope',
+        '/x/y/z',
+        '/weatherx',
+        '/settings2',
+        '/farmer-tools',
+      ]) {
+        final AssistantContext context = _read(f.container, route);
+        expect(context.moduleId, isNull, reason: route);
+        expect(context.moduleName, isNull, reason: route);
+        expect(
+          context.toJson().containsKey('current_module'),
+          isFalse,
+          reason: route,
+        );
+      }
     });
   });
 

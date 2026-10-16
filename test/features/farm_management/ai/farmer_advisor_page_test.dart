@@ -57,14 +57,19 @@ class _FakeGateway implements FarmerAdvisorGateway {
   }
 }
 
-FarmAiContext _farmContext() => const FarmAiContext(
+// Deliberately not `const`: each refresh must yield a new instance, the way
+// the real provider does, so dependents are notified.
+// The `FarmAiContext` must stay non-const: a canonicalized instance would
+// never notify dependents, which is exactly the bug this guards against.
+// ignore: prefer_const_constructors
+FarmAiContext _farmContext() => FarmAiContext(
   stage: 'growing',
   stagePriority: 2,
   hierarchyPath: 'Kibuye Farm → Maize',
   crops: <CropSummary>[
-    CropSummary(name: 'Maize', variety: 'H614', status: 'healthy'),
+    const CropSummary(name: 'Maize', variety: 'H614', status: 'healthy'),
   ],
-  livestock: <LivestockSummary>[],
+  livestock: const <LivestockSummary>[],
   recentActivityCount: 3,
   recommendations: <String>[],
   healthScore: 78,
@@ -72,6 +77,44 @@ FarmAiContext _farmContext() => const FarmAiContext(
   farmSize: 2.5,
   requiresAction: false,
 );
+
+/// Stands in for the farm lifecycle / hierarchy / farm-context providers
+/// that FarmAiContext derives from. Bumping it rebuilds FarmAiContext the
+/// way a real farm-data refresh does, even while the chat is closed.
+class _FarmRefreshSeed extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void bump() => state = state + 1;
+}
+
+final _farmRefreshSeedProvider = NotifierProvider<_FarmRefreshSeed, int>(
+  _FarmRefreshSeed.new,
+);
+
+/// Opens and closes the assistant the way the shell launcher does, so a test
+/// can pop the chat and push it again.
+class _AssistantHost extends ConsumerWidget {
+  const _AssistantHost({required this.route});
+
+  final String route;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Scaffold(
+      body: Center(
+        child: TextButton(
+          onPressed: () => Navigator.of(context).push<void>(
+            MaterialPageRoute<void>(
+              builder: (_) => FarmerAdvisorPage(initialRoute: route),
+            ),
+          ),
+          child: const Text('open assistant'),
+        ),
+      ),
+    );
+  }
+}
 
 Future<void> _pumpPage(
   WidgetTester tester, {
@@ -105,6 +148,31 @@ Future<void> _send(WidgetTester tester, String question) async {
   await tester.tap(find.byTooltip('Send'));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 50));
+}
+
+Future<void> _pumpHost(
+  WidgetTester tester, {
+  required _FakeGateway gateway,
+  String route = '/farm',
+}) async {
+  tester.view.physicalSize = const Size(1100, 900);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
+
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        farmerAdvisorGatewayProvider.overrideWithValue(gateway),
+        farmAiContextProvider.overrideWith((ref) {
+          ref.watch(_farmRefreshSeedProvider);
+          return _farmContext();
+        }),
+        assistantContextProvider(route).overrideWithValue(_context),
+      ],
+      child: MaterialApp(home: _AssistantHost(route: route)),
+    ),
+  );
+  await tester.pump();
 }
 
 void main() {
@@ -325,6 +393,42 @@ void main() {
 
       expect(find.textContaining('may be uncertain'), findsOneWidget);
       expect(find.textContaining('qualified professional'), findsOneWidget);
+    });
+
+    testWidgets('chat history survives closing and reopening the assistant',
+        (tester) async {
+      final _FakeGateway gateway = _FakeGateway();
+      await _pumpHost(tester, gateway: gateway);
+
+      await tester.tap(find.text('open assistant'));
+      await tester.pumpAndSettle();
+      await _send(tester, 'My maize leaves are yellow.');
+      await tester.pumpAndSettle();
+
+      expect(find.text('My maize leaves are yellow.'), findsOneWidget);
+      expect(find.text('Consider testing the soil pH first.'), findsOneWidget);
+
+      // Close the chat.
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      expect(find.byType(FarmerAdvisorPage), findsNothing);
+      expect(find.byType(TextField), findsNothing);
+
+      // Farm data refreshes while the chat is closed.
+      ProviderScope.containerOf(tester.element(find.byType(_AssistantHost)))
+          .read(_farmRefreshSeedProvider.notifier)
+          .bump();
+      await tester.pumpAndSettle();
+
+      // Reopen it — the conversation is restored, not restarted.
+      await tester.tap(find.text('open assistant'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FarmerAdvisorPage), findsOneWidget);
+      expect(find.text('My maize leaves are yellow.'), findsOneWidget);
+      expect(find.text('Consider testing the soil pH first.'), findsOneWidget);
+      // Nothing was re-sent to the gateway to rebuild the history.
+      expect(gateway.callCount, 1);
     });
   });
 }
