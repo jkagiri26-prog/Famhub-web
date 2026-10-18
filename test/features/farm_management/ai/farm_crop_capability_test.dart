@@ -8,6 +8,7 @@ import 'package:famhub_app/core/shell/application/assistant/assistant_context.da
 import 'package:famhub_app/features/farm_management/application/ai/advisor_capabilities.dart';
 import 'package:famhub_app/features/farm_management/application/ai/farm_activity_history_capability.dart';
 import 'package:famhub_app/features/farm_management/application/ai/farm_crop_capability.dart';
+import 'package:famhub_app/features/farm_management/application/ai/farm_livestock_capability.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/farm_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/field_entity.dart';
@@ -761,7 +762,7 @@ void main() {
   });
 
   group('composition', () {
-    test('the ordered list keeps weather first, activity next, farm/crop last',
+    test('keeps weather first, then activity, livestock and farm/crop last',
         () {
       final ProviderContainer container = ProviderContainer(
         overrides: [
@@ -776,6 +777,8 @@ void main() {
               .overrideWithValue(_StubCapability('farm_weather')),
           farmActivityCapabilityProvider
               .overrideWithValue(_StubCapability('farm_activity_history')),
+          farmLivestockCapabilityProvider
+              .overrideWithValue(_StubCapability('farm_livestock_context')),
         ],
       );
       addTearDown(container.dispose);
@@ -788,14 +791,18 @@ void main() {
         <String>[
           'farm_weather',
           kFarmActivityCapabilityId,
+          kLivestockCapabilityId,
           kFarmCropCapabilityId,
         ],
       );
-      // Activity history must precede farm/crop: the farm/crop capability
-      // would otherwise claim "What activities have been recorded on this
-      // farm?" (farm noun + "recorded" signal).
+      // Activity history and livestock must precede farm/crop: the
+      // farm/crop capability would otherwise claim "What activities have
+      // been recorded on this farm?" (farm noun + "recorded" signal) and
+      // "Which animals are registered on my farm?" (farm noun +
+      // "registered" signal).
       expect(capabilities[1].id, kFarmActivityCapabilityId);
-      expect(capabilities[2], isA<FarmCropCapability>());
+      expect(capabilities[2].id, kLivestockCapabilityId);
+      expect(capabilities[3], isA<FarmCropCapability>());
       expect(capabilities.first, isNot(isA<FarmCropCapability>()));
     });
   });

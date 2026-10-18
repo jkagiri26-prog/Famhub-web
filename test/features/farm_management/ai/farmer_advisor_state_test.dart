@@ -10,6 +10,7 @@ import 'package:famhub_app/features/ai_assistant/infrastructure/ai_gateway_servi
 import 'package:famhub_app/features/farm_management/application/ai/advisor_capabilities.dart';
 import 'package:famhub_app/features/farm_management/application/ai/farm_activity_history_capability.dart';
 import 'package:famhub_app/features/farm_management/application/ai/farm_crop_capability.dart';
+import 'package:famhub_app/features/farm_management/application/ai/farm_livestock_capability.dart';
 import 'package:famhub_app/features/farm_management/application/ai/farmer_advisor_service.dart';
 import 'package:famhub_app/features/farm_management/application/ai/farmer_advisor_state.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_ai_context_provider.dart';
@@ -17,6 +18,8 @@ import 'package:famhub_app/features/farm_management/domain/entities/asset_entity
 import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/farm_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/field_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/production_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/models/activity_model.dart';
 import 'package:famhub_app/features/farm_management/domain/services/farm_ai_context_service.dart';
 
@@ -669,6 +672,71 @@ void main() {
       expect(row['field'], 'Main Field');
       expect(jsonEncode(evidence), isNot(contains('0711')));
       expect(jsonEncode(evidence), isNot(contains('a1')));
+      expect(
+        f.container.read(farmerAdvisorControllerProvider).status,
+        AdvisorStatus.ready,
+      );
+    });
+
+    test('the real livestock capability hands retrieved evidence to the gateway',
+        () async {
+      final FarmLivestockInputs inputs = FarmLivestockInputs(
+        farms: const <FarmEntity>[
+          FarmEntity(
+            id: 'f1',
+            farmName: 'Kibuye Farm',
+            isActive: true,
+            isVerified: true,
+          ),
+        ],
+        loadLivestock: (String farmId) async => <LivestockEntity>[
+          LivestockEntity(
+            id: 'as1',
+            farmId: farmId,
+            variantId: 'v1',
+            species: 'Dairy Fresian',
+            breed: 'Fresian',
+            count: 12,
+            notes: 'Private note, contact 0711 999 000',
+            createdAt: DateTime(2026, 1, 1),
+          ),
+        ],
+        loadFields: (String farmId) async => const <FieldEntity>[],
+        loadTaxonomy: () async => <LivestockTaxonomyEntry>[
+          (variantId: 'v1', itemName: 'dairy', categoryName: 'cattle'),
+        ],
+        loadActivities: (String farmId) async => const <ActivityModel>[],
+        loadActivityTypeNames: () async => const <String, String>{},
+        loadProduction: (String farmId) async => const <ProductionEntity>[],
+        loadCommodities: () async => const <String, String>{},
+        loadUnits: () async => const <String, String>{},
+      );
+      final f = _fixture(
+        capabilities: <AssistantCapability>[
+          FarmLivestockCapability(readInputs: () => inputs),
+        ],
+      );
+
+      await _ask(f.container, 'How many cattle do I have recorded?');
+      await _drain();
+
+      expect(
+        f.gateway.questions.single,
+        'How many cattle do I have recorded?',
+      );
+      final Map<String, dynamic>? evidence =
+          f.gateway.capabilityEvidences.single;
+      expect(evidence, isNotNull);
+      expect(evidence!['capability'], 'farm_livestock_context');
+      expect(evidence['_note'], isNotNull);
+      expect(evidence['query_species'], 'cattle');
+      final Map<String, dynamic> row =
+          (evidence['livestock'] as List).single as Map<String, dynamic>;
+      expect(row['species'], 'Dairy Fresian');
+      expect((evidence['counts']! as Map<String, int>)['head_recorded'], 12);
+      expect(jsonEncode(evidence), isNot(contains('0711')));
+      expect(jsonEncode(evidence), isNot(contains('as1')));
+      expect(jsonEncode(evidence), isNot(contains('v1"')));
       expect(
         f.container.read(farmerAdvisorControllerProvider).status,
         AdvisorStatus.ready,
