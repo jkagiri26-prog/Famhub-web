@@ -27,6 +27,7 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/shell/application/assistant/assistant_capability.dart';
+import 'package:famhub_app/features/farm_management/application/ai/farm_activity_history_capability.dart';
 import 'package:famhub_app/features/farm_management/application/ai/farm_crop_capability.dart';
 import 'package:famhub_app/features/weather/application/assistant/farm_weather_capability.dart';
 
@@ -34,8 +35,14 @@ import 'package:famhub_app/features/weather/application/assistant/farm_weather_c
 final advisorCapabilitiesProvider = Provider<List<AssistantCapability>>((
   ref,
 ) {
+  // Activity history precedes farm/crop: "What activities have been
+  // recorded on this farm?" would otherwise be claimed by the farm/crop
+  // capability (farm noun + "recorded" signal). The farm/crop example
+  // questions contain no activity noun, schedule word or action+history
+  // pair, so they still resolve there.
   return <AssistantCapability>[
     ref.watch(farmWeatherCapabilityProvider),
+    ref.watch(farmActivityCapabilityProvider),
     ref.watch(farmCropCapabilityProvider),
   ];
 });

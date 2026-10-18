@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,13 +8,16 @@ import 'package:famhub_app/core/shell/application/assistant/assistant_capability
 import 'package:famhub_app/core/shell/application/assistant/assistant_context.dart';
 import 'package:famhub_app/features/ai_assistant/infrastructure/ai_gateway_service.dart';
 import 'package:famhub_app/features/farm_management/application/ai/advisor_capabilities.dart';
+import 'package:famhub_app/features/farm_management/application/ai/farm_activity_history_capability.dart';
 import 'package:famhub_app/features/farm_management/application/ai/farm_crop_capability.dart';
 import 'package:famhub_app/features/farm_management/application/ai/farmer_advisor_service.dart';
 import 'package:famhub_app/features/farm_management/application/ai/farmer_advisor_state.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_ai_context_provider.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/asset_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/farm_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/field_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/models/activity_model.dart';
 import 'package:famhub_app/features/farm_management/domain/services/farm_ai_context_service.dart';
 
 /// Records every call and returns a scripted result. Implements the gateway
@@ -595,6 +599,76 @@ void main() {
       expect(evidence['_note'], isNotNull);
       expect(evidence['farms'], isNotEmpty);
       expect((evidence['crops'] as List).single, containsPair('name', 'Maize'));
+      expect(
+        f.container.read(farmerAdvisorControllerProvider).status,
+        AdvisorStatus.ready,
+      );
+    });
+
+    test('the real activity capability hands retrieved evidence to the gateway',
+        () async {
+      final FarmActivityInputs inputs = FarmActivityInputs(
+        farms: const <FarmEntity>[
+          FarmEntity(
+            id: 'f1',
+            farmName: 'Kibuye Farm',
+            isActive: true,
+            isVerified: true,
+          ),
+        ],
+        loadActivities: (String farmId) async => <ActivityModel>[
+          ActivityModel(
+            id: 'a1',
+            activityTypeId: 't1',
+            performedAt: DateTime(2026, 4, 2, 9),
+            assetId: 'as1',
+            notes: 'Private note, contact 0711 999 000',
+          ),
+        ],
+        loadActivityTypeNames: () async => <String, String>{'t1': 'Pruning'},
+        loadAssets: (String farmId) async => <AssetEntity>[
+          AssetEntity(
+            id: 'as1',
+            farmId: farmId,
+            assetType: 'crop',
+            fieldId: 'fd1',
+            assetName: 'Coffee',
+            createdAt: DateTime(2026, 1, 1),
+          ),
+        ],
+        loadFields: (String farmId) async => <FieldEntity>[
+          FieldEntity(
+            id: 'fd1',
+            farmId: farmId,
+            fieldName: 'Main Field',
+            createdAt: DateTime(2026, 1, 1),
+          ),
+        ],
+      );
+      final f = _fixture(
+        capabilities: <AssistantCapability>[
+          FarmActivityCapability(readInputs: () => inputs),
+        ],
+      );
+
+      await _ask(f.container, 'When did I last prune on my farm?');
+      await _drain();
+
+      expect(f.gateway.questions.single,
+          'When did I last prune on my farm?');
+      final Map<String, dynamic>? evidence =
+          f.gateway.capabilityEvidences.single;
+      expect(evidence, isNotNull);
+      expect(evidence!['capability'], 'farm_activity_history');
+      expect(evidence['_note'], isNotNull);
+      expect(evidence['ordered_by'], contains('performed_at'));
+      final Map<String, dynamic> row =
+          (evidence['activities'] as List).single as Map<String, dynamic>;
+      expect(row['type'], 'Pruning');
+      expect(row['asset'], 'Coffee');
+      expect(row['field'], 'Main Field');
+      expect(jsonEncode(evidence), isNot(contains('0711')));
+      expect(jsonEncode(evidence), isNot(contains('a1')));
       expect(
         f.container.read(farmerAdvisorControllerProvider).status,
         AdvisorStatus.ready,
