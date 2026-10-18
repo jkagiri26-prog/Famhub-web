@@ -109,6 +109,7 @@ const List<String> kLivestockNouns = <String>[
 /// ("My goat is lame." stays on the ordinary advisory path).
 const List<String> kLivestockInventorySignals = <String>[
   'do i have',
+  'do we have',
   'how many',
   'registered',
   'recorded',
@@ -213,6 +214,9 @@ const List<String> kLivestockCareIntentWords = <String>[
   'pregnant',
   'welfare',
   'care',
+  'feed',
+  'feeding',
+  'fed',
 ];
 
 /// Activity-type names (substrings) counted as recorded care events.
@@ -234,6 +238,7 @@ const List<String> kLivestockCareTypeWords = <String>[
   'calving',
   'pregnan',
   'slaughter',
+  'feed',
 ];
 
 /// Production question words.

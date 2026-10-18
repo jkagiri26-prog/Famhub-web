@@ -627,7 +627,7 @@ void main() {
         },
         typeNames: <String, String>{
           't1': 'Vaccination',
-          't2': 'Feeding',
+          't2': 'Weighing',
         },
       );
 
@@ -672,7 +672,7 @@ void main() {
             ),
           ],
         },
-        typeNames: <String, String>{'t2': 'Feeding'},
+        typeNames: <String, String>{'t2': 'Weighing'},
       );
 
       final AssistantCapabilityOutcome outcome = await _run(

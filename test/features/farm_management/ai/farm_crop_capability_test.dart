@@ -12,6 +12,7 @@ import 'package:famhub_app/features/farm_management/application/ai/farm_livestoc
 import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/farm_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/field_entity.dart';
+import 'package:famhub_app/features/marketplace/application/ai/marketplace_capability.dart';
 import 'package:famhub_app/features/weather/application/assistant/farm_weather_capability.dart';
 
 const AssistantContext _context = AssistantContext(
@@ -762,8 +763,8 @@ void main() {
   });
 
   group('composition', () {
-    test('keeps weather first, then activity, livestock and farm/crop last',
-        () {
+    test('keeps weather first, then activity, livestock, farm/crop and '
+        'marketplace listings', () {
       final ProviderContainer container = ProviderContainer(
         overrides: [
           farmCropInputsProvider.overrideWithValue(
@@ -779,6 +780,8 @@ void main() {
               .overrideWithValue(_StubCapability('farm_activity_history')),
           farmLivestockCapabilityProvider
               .overrideWithValue(_StubCapability('farm_livestock_context')),
+          marketplaceCapabilityProvider
+              .overrideWithValue(_StubCapability(kMarketplaceCapabilityId)),
         ],
       );
       addTearDown(container.dispose);
@@ -793,16 +796,19 @@ void main() {
           kFarmActivityCapabilityId,
           kLivestockCapabilityId,
           kFarmCropCapabilityId,
+          kMarketplaceCapabilityId,
         ],
       );
       // Activity history and livestock must precede farm/crop: the
       // farm/crop capability would otherwise claim "What activities have
       // been recorded on this farm?" (farm noun + "recorded" signal) and
       // "Which animals are registered on my farm?" (farm noun +
-      // "registered" signal).
+      // "registered" signal). Marketplace listings come last so no farm
+      // question can ever be answered from the marketplace read.
       expect(capabilities[1].id, kFarmActivityCapabilityId);
       expect(capabilities[2].id, kLivestockCapabilityId);
       expect(capabilities[3], isA<FarmCropCapability>());
+      expect(capabilities.last.id, kMarketplaceCapabilityId);
       expect(capabilities.first, isNot(isA<FarmCropCapability>()));
     });
   });

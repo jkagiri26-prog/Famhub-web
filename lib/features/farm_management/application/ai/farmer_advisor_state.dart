@@ -23,6 +23,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famhub_app/core/services/supabase_service.dart';
 import 'package:famhub_app/core/shell/application/assistant/assistant_capability.dart';
 import 'package:famhub_app/core/shell/application/assistant/assistant_context.dart';
+import 'package:famhub_app/core/shell/application/assistant/assistant_subject_resolver.dart';
 import 'package:famhub_app/features/ai_assistant/infrastructure/ai_gateway_service.dart';
 import 'package:famhub_app/features/farm_management/application/ai/advisor_capabilities.dart';
 import 'package:famhub_app/features/farm_management/application/ai/farmer_advisor_service.dart';
@@ -38,6 +39,12 @@ final farmerAdvisorGatewayProvider = Provider<FarmerAdvisorGateway>((ref) {
 
 /// Role of one visible message.
 enum AdvisorRole { farmer, adviser }
+
+/// How many recent conversation turns ride along with a gateway request,
+/// and the per-turn character cap. Trims a long chat well below the
+/// gateway's 100 kB prompt budget.
+const int kMaxConversationTurns = 6;
+const int kMaxConversationTurnChars = 400;
 
 /// One message in the visible conversation.
 class AdvisorMessage {
@@ -150,6 +157,15 @@ class FarmerAdvisorController extends Notifier<FarmerAdvisorState> {
     final FarmAiContext? farmContext = ref.read(farmAiContextProvider);
     _activeContext = assistantContext;
 
+    // Captured before this turn is appended: the conversation the question
+    // is being asked *into*, used both to resolve the active subject and
+    // to brief the stateless gateway on prior turns.
+    final List<String> priorQuestions = state.messages
+        .where((m) => m.isFarmer)
+        .map((m) => m.text)
+        .toList(growable: false);
+    final List<AdvisorMessage> priorMessages = state.messages;
+
     state = state.copyWith(
       status: AdvisorStatus.loading,
       hasFarmContext: farmContext != null,
@@ -161,14 +177,30 @@ class FarmerAdvisorController extends Notifier<FarmerAdvisorState> {
       ],
     );
 
+    // Resolve follow-ups and references BEFORE capability routing: the
+    // gates see the question with the active subject made explicit (only
+    // when the question itself did not name one), so "Do we have any
+    // maize?" after a marketplace turn routes to marketplace listings while
+    // an explicit "What's the weather forecast?" still routes itself.
+    final AdvisorSubjectResolution subject = resolveAdvisorSubject(
+      question: trimmed,
+      priorQuestions: priorQuestions,
+      moduleId: assistantContext.moduleId,
+      route: assistantContext.route,
+    );
+
     // Capability first. The model never chooses or executes a capability:
     // the question is matched locally, the capability resolves its own
     // authorized inputs, and only already-retrieved evidence is handed on.
     Map<String, dynamic>? capabilityEvidence;
-    final AssistantCapability? capability = _selectCapability(trimmed);
+    final AssistantCapability? capability = _selectCapability(
+      subject.routingQuestion,
+    );
     if (capability != null) {
       AssistantCapabilityOutcome outcome;
       try {
+        // The capability runs on the farmer's own words — the routing
+        // annotation exists only to select it.
         outcome = await capability.run(
           question: trimmed,
           assistantContext: assistantContext,
@@ -200,6 +232,10 @@ class FarmerAdvisorController extends Notifier<FarmerAdvisorState> {
             farmContext: farmContext?.toJson(),
             assistantContext: assistantContext.toJson(),
             capabilityEvidence: capabilityEvidence,
+            conversation: _conversation(
+              activeSubject: subject.subject,
+              priorMessages: priorMessages,
+            ),
           );
     } catch (_) {
       // The gateway contract never throws, but a fake or a future refactor
@@ -264,6 +300,36 @@ class FarmerAdvisorController extends Notifier<FarmerAdvisorState> {
       if (capability.matches(question)) return capability;
     }
     return null;
+  }
+
+  /// Recent conversation for the stateless gateway: the farmer's own
+  /// earlier turns and the resolved active subject, so a follow-up or a
+  /// subject switch is visible to the model instead of being guessed at.
+  ///
+  /// Null when there is neither history nor a subject — a first question
+  /// with no module context sends exactly the payload it sent before.
+  Map<String, dynamic>? _conversation({
+    required String? activeSubject,
+    required List<AdvisorMessage> priorMessages,
+  }) {
+    final int start =
+        priorMessages.length > kMaxConversationTurns
+            ? priorMessages.length - kMaxConversationTurns
+            : 0;
+    final List<Map<String, String>> turns = <Map<String, String>>[
+      for (final AdvisorMessage message in priorMessages.sublist(start))
+        <String, String>{
+          'role': message.isFarmer ? 'farmer' : 'adviser',
+          'text': message.text.length > kMaxConversationTurnChars
+              ? '${message.text.substring(0, kMaxConversationTurnChars)}…'
+              : message.text,
+        },
+    ];
+    if (activeSubject == null && turns.isEmpty) return null;
+    return <String, dynamic>{
+      if (activeSubject != null) 'active_subject': activeSubject,
+      if (turns.isNotEmpty) 'turns': turns,
+    };
   }
 
   /// Surfaces a clarification or an honest failure as an ordinary adviser

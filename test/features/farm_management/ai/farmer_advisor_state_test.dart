@@ -22,6 +22,12 @@ import 'package:famhub_app/features/farm_management/domain/entities/livestock_en
 import 'package:famhub_app/features/farm_management/domain/entities/production_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/models/activity_model.dart';
 import 'package:famhub_app/features/farm_management/domain/services/farm_ai_context_service.dart';
+import 'package:famhub_app/features/marketplace/application/ai/marketplace_capability.dart';
+import 'package:famhub_app/features/marketplace/domain/entities/listing.dart';
+import 'package:famhub_app/features/weather/application/assistant/farm_weather_capability.dart';
+import 'package:famhub_app/features/weather/application/providers/weather_providers.dart';
+import 'package:famhub_app/features/weather/domain/models/weather_models.dart';
+import 'package:famhub_app/features/weather/infrastructure/weather_service.dart';
 
 /// Records every call and returns a scripted result. Implements the gateway
 /// boundary, so no network and no Supabase client are involved.
@@ -40,6 +46,7 @@ class _FakeGateway implements FarmerAdvisorGateway {
       <Map<String, dynamic>?>[];
   final List<Map<String, dynamic>?> capabilityEvidences =
       <Map<String, dynamic>?>[];
+  final List<Map<String, dynamic>?> conversations = <Map<String, dynamic>?>[];
 
   int get callCount => questions.length;
 
@@ -64,11 +71,13 @@ class _FakeGateway implements FarmerAdvisorGateway {
     Map<String, dynamic>? farmContext,
     Map<String, dynamic>? assistantContext,
     Map<String, dynamic>? capabilityEvidence,
+    Map<String, dynamic>? conversation,
   }) async {
     questions.add(question);
     farmContexts.add(farmContext);
     assistantContexts.add(assistantContext);
     capabilityEvidences.add(capabilityEvidence);
+    conversations.add(conversation);
     if (throwOnCall) throw Exception('transport failure');
     final Completer<AiGatewayResult>? pending = gate;
     if (pending != null) {
@@ -857,7 +866,449 @@ void main() {
       );
     });
   });
+
+  // ══════════════════════════════════════════════════════════
+  // PHASE 3F — contextual AI coordination
+  //
+  // Real production composition (advisorCapabilitiesProvider untouched);
+  // only the data seams are faked, so capability ORDER is the order the
+  // app actually offers the request.
+  // ══════════════════════════════════════════════════════════
+  group('contextual coordination', () {
+    const AssistantContext onMarketplace = AssistantContext(
+      route: '/marketplace',
+      moduleId: 'marketplace',
+      moduleName: 'Marketplace',
+      workspaceType: 'trader',
+    );
+
+    Listing listingFor(String id, String title) => Listing(
+      id: id,
+      title: title,
+      pricePerUnit: 120,
+      images: const <String>[],
+      entityId: 'ent_secret',
+      variantId: 'var_secret',
+      stockId: 'stk_secret',
+      unitName: 'bag',
+      createdAt: DateTime(2026, 5, 2),
+      updatedAt: DateTime(2026, 5, 2),
+      sellerName: 'Kibuye Agrovet',
+      availableQuantity: 30,
+    );
+
+    test('marketplace follow-up and re-scope resolve to marketplace listings',
+        () async {
+      final List<Listing> listings = <Listing>[
+        listingFor('lst_a', 'Fresh Maize'),
+        listingFor('lst_b', 'Beans'),
+      ];
+      final List<String?> searches = <String?>[];
+      final f = _contextFixture(
+        marketplaceInputs: MarketplaceCapabilityInputs(
+          loadListings: ({String? searchQuery}) async {
+            searches.add(searchQuery);
+            if (searchQuery == null) return listings;
+            return listings
+                .where(
+                  (Listing l) =>
+                      l.title.toLowerCase().contains(searchQuery),
+                )
+                .toList(growable: false);
+          },
+        ),
+      );
+      final FarmerAdvisorController controller = f.container.read(
+        farmerAdvisorControllerProvider.notifier,
+      );
+
+      await controller.ask(
+        'What is in FAMHUB Marketplace?',
+        assistantContext: onMarketplace,
+      );
+      await _drain();
+      await controller.ask(
+        'Do we have any maize?',
+        assistantContext: onMarketplace,
+      );
+      await _drain();
+      await controller.ask(
+        'I mean in marketplace.',
+        assistantContext: onMarketplace,
+      );
+      await _drain();
+
+      // The gateway always receives the farmer's own words — the routing
+      // annotation never leaves the client.
+      expect(f.gateway.questions, <String>[
+        'What is in FAMHUB Marketplace?',
+        'Do we have any maize?',
+        'I mean in marketplace.',
+      ]);
+      expect(searches, <String?>[null, 'maize', null]);
+      for (final Map<String, dynamic>? evidence
+          in f.gateway.capabilityEvidences) {
+        expect(evidence, isNotNull);
+        expect(evidence!['capability'], kMarketplaceCapabilityId);
+      }
+
+      // Turn 2 shipped only the maize listing, with its search stated.
+      final Map<String, dynamic> followUp =
+          f.gateway.capabilityEvidences[1]!;
+      expect(followUp['searched_for'], 'maize');
+      expect(
+        (followUp['listings'] as List)
+            .map((dynamic r) => (r as Map<String, dynamic>)['title'])
+            .toList(),
+        <String>['Fresh Maize'],
+      );
+
+      // Redacted: no listing, entity, stock or variant ids anywhere.
+      final String evidenceJson = jsonEncode(f.gateway.capabilityEvidences);
+      expect(evidenceJson, isNot(contains('lst_')));
+      expect(evidenceJson, isNot(contains('ent_secret')));
+      expect(evidenceJson, isNot(contains('stk_secret')));
+
+      // The stateless gateway is briefed on the active subject and prior turns.
+      final Map<String, dynamic> conversation =
+          f.gateway.conversations[1]!;
+      expect(conversation['active_subject'], 'marketplace');
+      expect(
+        (conversation['turns'] as List).first,
+        <String, String>{
+          'role': 'farmer',
+          'text': 'What is in FAMHUB Marketplace?',
+        },
+      );
+
+      expect(
+        f.container.read(farmerAdvisorControllerProvider).status,
+        AdvisorStatus.ready,
+      );
+    });
+
+    test('feeding dates are retrieved and absent health records stay honest',
+        () async {
+      final f = _contextFixture(
+        livestockInputs: FarmLivestockInputs(
+          farms: const <FarmEntity>[
+            FarmEntity(
+              id: 'f1',
+              farmName: 'Kibuye Farm',
+              isActive: true,
+              isVerified: true,
+            ),
+          ],
+          loadLivestock: (String farmId) async => <LivestockEntity>[
+            LivestockEntity(
+              id: 'as1',
+              farmId: farmId,
+              variantId: 'v1',
+              species: 'Dairy Fresian',
+              breed: 'Fresian',
+              count: 12,
+              notes: 'Private note, contact 0711 999 000',
+              createdAt: DateTime(2026, 1, 1),
+            ),
+          ],
+          loadFields: (String farmId) async => const <FieldEntity>[],
+          loadTaxonomy: () async => <LivestockTaxonomyEntry>[
+            (variantId: 'v1', itemName: 'dairy', categoryName: 'cattle'),
+          ],
+          loadActivities: (String farmId) async => <ActivityModel>[
+            ActivityModel(
+              id: 'act_feed_1',
+              activityTypeId: 't1',
+              performedAt: DateTime(2026, 3, 5, 9),
+              assetId: 'as1',
+              notes: 'Private note, contact 0711 999 000',
+            ),
+          ],
+          loadActivityTypeNames: () async => <String, String>{
+            't1': 'Feeding',
+          },
+          loadProduction: (String farmId) async =>
+              const <ProductionEntity>[],
+          loadCommodities: () async => const <String, String>{},
+          loadUnits: () async => const <String, String>{},
+        ),
+      );
+
+      await _ask(f.container, 'When did we last feed the cattle?');
+      await _drain();
+
+      final Map<String, dynamic>? evidence =
+          f.gateway.capabilityEvidences.single;
+      expect(evidence, isNotNull);
+      // The activity gate must not swallow it: the animal-scoped livestock
+      // capability owns feeding history.
+      expect(evidence!['capability'], 'farm_livestock_context');
+
+      final List<dynamic> care = evidence['recorded_care_events'] as List;
+      expect(care, hasLength(1));
+      final Map<String, dynamic> feeding = care.single as Map<String, dynamic>;
+      expect(feeding['type'], 'Feeding');
+      expect(
+        (feeding['performed_at'] as String).startsWith('2026-03-05'),
+        isTrue,
+      );
+      expect(feeding['animal'], 'Dairy Fresian');
+
+      // No health/vaccination record exists — and the evidence says so
+      // without pretending care never happened.
+      final String evidenceJson = jsonEncode(evidence);
+      expect(evidenceJson, isNot(contains('Vaccin')));
+      expect(
+        evidence['records_caveat'] as String,
+        contains('never that an animal was not vaccinated'),
+      );
+
+      // Redaction: no activity id, no private note.
+      expect(evidenceJson, isNot(contains('act_feed_1')));
+      expect(evidenceJson, isNot(contains('0711')));
+      expect(f.gateway.questions.single, 'When did we last feed the cattle?');
+    });
+
+    test('a weather question retrieves the farm forecast on any module',
+        () async {
+      final f = _contextFixture(
+        weatherInputs: const FarmWeatherInputs(
+          farms: <FarmEntity>[
+            FarmEntity(
+              id: 'f1',
+              farmName: 'Kibuye Farm',
+              wardId: 'w1',
+              isActive: true,
+              isVerified: true,
+            ),
+          ],
+        ),
+        weatherService: _FakeWeatherService(bundle: _forecastBundle),
+      );
+
+      // Asked while the shell sits on Marketplace: the module is a signal,
+      // not a restriction.
+      await f.container
+          .read(farmerAdvisorControllerProvider.notifier)
+          .ask(
+            "What's the weather forecast this week?",
+            assistantContext: onMarketplace,
+          );
+      await _drain();
+
+      final Map<String, dynamic>? evidence =
+          f.gateway.capabilityEvidences.single;
+      expect(evidence, isNotNull);
+      expect(evidence!['capability'], 'farm_weather');
+      expect(evidence['location_label'], 'Kibuye Farm');
+      expect(evidence['scope'], 'forecast');
+      final Map<String, dynamic> forecast =
+          evidence['forecast']! as Map<String, dynamic>;
+      expect(forecast['daily'], isNotEmpty);
+      expect(f.gateway.questions.single, "What's the weather forecast this week?");
+    });
+
+    test('a clear topic change moves the conversation between modules',
+        () async {
+      final List<Listing> listings = <Listing>[
+        listingFor('lst_a', 'Fresh Maize'),
+      ];
+      final f = _contextFixture(
+        weatherInputs: const FarmWeatherInputs(
+          farms: <FarmEntity>[
+            FarmEntity(
+              id: 'f1',
+              farmName: 'Kibuye Farm',
+              wardId: 'w1',
+              isActive: true,
+              isVerified: true,
+            ),
+          ],
+        ),
+        weatherService: _FakeWeatherService(bundle: _forecastBundle),
+        marketplaceInputs: MarketplaceCapabilityInputs(
+          loadListings: ({String? searchQuery}) async => listings,
+        ),
+      );
+      final FarmerAdvisorController controller = f.container.read(
+        farmerAdvisorControllerProvider.notifier,
+      );
+
+      // Marketplace → weather, still on the marketplace route.
+      await controller.ask(
+        'What is in FAMHUB Marketplace?',
+        assistantContext: onMarketplace,
+      );
+      await _drain();
+      await controller.ask(
+        "What's the weather forecast this week?",
+        assistantContext: onMarketplace,
+      );
+      await _drain();
+      // Explicit marketplace again, now from the farm module.
+      await controller.ask(
+        'What is in FAMHUB Marketplace?',
+        assistantContext: _assistantContext,
+      );
+      await _drain();
+
+      expect(
+        f.gateway.capabilityEvidences
+            .map((Map<String, dynamic>? e) => e!['capability'])
+            .toList(),
+        <String>[
+          kMarketplaceCapabilityId,
+          'farm_weather',
+          kMarketplaceCapabilityId,
+        ],
+      );
+      expect(f.gateway.callCount, 3);
+    });
+
+    test('ordinary follow-ups reach the gateway with the recent conversation',
+        () async {
+      final f = _fixture();
+      final FarmerAdvisorController controller = f.container.read(
+        farmerAdvisorControllerProvider.notifier,
+      );
+
+      await controller.ask(
+        'Why are my maize leaves yellow?',
+        assistantContext: _assistantContext,
+      );
+      await _drain();
+      await controller.ask(
+        'And what about the yellowing on the lower leaves?',
+        assistantContext: _assistantContext,
+      );
+      await _drain();
+
+      expect(f.gateway.callCount, 2);
+      // The farmer's own words verbatim — never the routing annotation.
+      expect(f.gateway.questions[1],
+          'And what about the yellowing on the lower leaves?');
+
+      // First turn: subject from the module, no prior turns.
+      final Map<String, dynamic> first =
+          f.gateway.conversations[0]!;
+      expect(first['active_subject'], 'farm');
+      expect(first.containsKey('turns'), isFalse);
+
+      // Follow-up: the prior exchange travels with the request.
+      final Map<String, dynamic> second =
+          f.gateway.conversations[1]!;
+      expect(second['active_subject'], 'farm');
+      expect(
+        (second['turns'] as List).first,
+        <String, String>{
+          'role': 'farmer',
+          'text': 'Why are my maize leaves yellow?',
+        },
+      );
+    });
+  });
 }
+
+/// Production composition fixture: only data seams (inputs, weather
+/// service, gateway, farm context) are replaced, so capability selection
+/// order and provider wiring are exactly what the app runs.
+({
+  ProviderContainer container,
+  _FakeGateway gateway,
+}) _contextFixture({
+  FarmWeatherInputs weatherInputs = const FarmWeatherInputs(),
+  WeatherService? weatherService,
+  FarmActivityInputs? activityInputs,
+  FarmLivestockInputs? livestockInputs,
+  FarmCropInputs? cropInputs,
+  MarketplaceCapabilityInputs? marketplaceInputs,
+}) {
+  final _FakeGateway gateway = _FakeGateway();
+  final ProviderContainer container = ProviderContainer(
+    overrides: [
+      farmerAdvisorGatewayProvider.overrideWithValue(gateway),
+      farmAiContextProvider.overrideWithValue(null),
+      farmWeatherInputsProvider.overrideWithValue(weatherInputs),
+      weatherServiceProvider.overrideWithValue(
+        weatherService ?? _FakeWeatherService(bundle: const WeatherBundle()),
+      ),
+      farmActivityInputsProvider.overrideWithValue(
+        activityInputs ??
+            FarmActivityInputs(
+              loadActivities: (String farmId) async =>
+                  const <ActivityModel>[],
+              loadActivityTypeNames: () async => const <String, String>{},
+              loadAssets: (String farmId) async => const <AssetEntity>[],
+              loadFields: (String farmId) async => const <FieldEntity>[],
+            ),
+      ),
+      farmLivestockInputsProvider.overrideWithValue(
+        livestockInputs ??
+            FarmLivestockInputs(
+              loadLivestock: (String farmId) async =>
+                  const <LivestockEntity>[],
+              loadFields: (String farmId) async => const <FieldEntity>[],
+              loadTaxonomy: () async => const <LivestockTaxonomyEntry>[],
+              loadActivities: (String farmId) async =>
+                  const <ActivityModel>[],
+              loadActivityTypeNames: () async => const <String, String>{},
+              loadProduction: (String farmId) async =>
+                  const <ProductionEntity>[],
+              loadCommodities: () async => const <String, String>{},
+              loadUnits: () async => const <String, String>{},
+            ),
+      ),
+      farmCropInputsProvider.overrideWithValue(
+        cropInputs ??
+            FarmCropInputs(
+              loadFields: (String farmId) async => const <FieldEntity>[],
+              loadCrops: (String farmId, String? fieldId) async =>
+                  const <CropEntity>[],
+            ),
+      ),
+      marketplaceCapabilityInputsProvider.overrideWithValue(
+        marketplaceInputs ??
+            MarketplaceCapabilityInputs(
+              loadListings: ({String? searchQuery}) async =>
+                  const <Listing>[],
+            ),
+      ),
+    ],
+  );
+  addTearDown(container.dispose);
+  return (container: container, gateway: gateway);
+}
+
+/// Stand-in for the deployed `app-weather` client. Never touches the network.
+class _FakeWeatherService implements WeatherService {
+  _FakeWeatherService({required this.bundle});
+
+  final WeatherBundle bundle;
+
+  @override
+  Future<WeatherBundle> fetch({
+    required WeatherRequestTarget target,
+    required WeatherScope scope,
+  }) async {
+    return bundle;
+  }
+}
+
+final WeatherBundle _forecastBundle = WeatherBundle(
+  daily: <DailyForecast>[
+    DailyForecast(
+      date: DateTime(2026, 10, 19),
+      condition: 'Light rain',
+      tempMaxC: 27,
+      tempMinC: 16,
+      rainfallMm: 4.1,
+    ),
+  ],
+  meta: WeatherMeta(
+    fetchedAt: DateTime(2026, 10, 18, 9, 5),
+    scope: WeatherScope.forecast,
+  ),
+);
 
 /// Minimal capability double: no I/O, no container, no network.
 class _StubCapability implements AssistantCapability {

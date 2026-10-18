@@ -30,6 +30,7 @@ import 'package:famhub_app/core/shell/application/assistant/assistant_capability
 import 'package:famhub_app/features/farm_management/application/ai/farm_activity_history_capability.dart';
 import 'package:famhub_app/features/farm_management/application/ai/farm_crop_capability.dart';
 import 'package:famhub_app/features/farm_management/application/ai/farm_livestock_capability.dart';
+import 'package:famhub_app/features/marketplace/application/ai/marketplace_capability.dart';
 import 'package:famhub_app/features/weather/application/assistant/farm_weather_capability.dart';
 
 /// Approved capabilities, in the order they are offered the request.
@@ -42,10 +43,15 @@ final advisorCapabilitiesProvider = Provider<List<AssistantCapability>>((
   // farm/crop too: "Which animals are registered on my farm?" would
   // otherwise be answered from the crop/farm inventory. The farm/crop
   // example questions contain no animal noun, so they still resolve there.
+  // Marketplace listings come last: a subject-resolved follow-up like
+  // "Do we have any maize? [active subject: marketplace]" carries no
+  // farm/field/crop entity word, so no earlier gate can claim it, while
+  // every explicit marketplace question falls through the farm gates.
   return <AssistantCapability>[
     ref.watch(farmWeatherCapabilityProvider),
     ref.watch(farmActivityCapabilityProvider),
     ref.watch(farmLivestockCapabilityProvider),
     ref.watch(farmCropCapabilityProvider),
+    ref.watch(marketplaceCapabilityProvider),
   ];
 });

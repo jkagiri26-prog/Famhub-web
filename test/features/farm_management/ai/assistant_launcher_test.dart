@@ -23,6 +23,7 @@ class _FakeGateway implements FarmerAdvisorGateway {
     Map<String, dynamic>? farmContext,
     Map<String, dynamic>? assistantContext,
     Map<String, dynamic>? capabilityEvidence,
+    Map<String, dynamic>? conversation,
   }) async {
     return const AiGatewayResult.success(
       elapsed: Duration.zero,

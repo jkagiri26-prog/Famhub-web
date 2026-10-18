@@ -69,6 +69,7 @@ const List<String> kFarmCropEntityWords = <String>[
 /// ordinary advisory path, so "My crops are yellowing" is never claimed.
 const List<String> kFarmCropInventorySignals = <String>[
   'do i have',
+  'do we have',
   'registered',
   'tell me about',
   'list',

@@ -32,6 +32,7 @@ abstract interface class FarmerAdvisorGateway {
     Map<String, dynamic>? farmContext,
     Map<String, dynamic>? assistantContext,
     Map<String, dynamic>? capabilityEvidence,
+    Map<String, dynamic>? conversation,
   });
 }
 
@@ -48,6 +49,7 @@ class FarmerAdvisorService implements FarmerAdvisorGateway {
     Map<String, dynamic>? farmContext,
     Map<String, dynamic>? assistantContext,
     Map<String, dynamic>? capabilityEvidence,
+    Map<String, dynamic>? conversation,
   }) {
     return _gateway.complete(
       prompt: composeAdvisorPrompt(question),
@@ -55,6 +57,7 @@ class FarmerAdvisorService implements FarmerAdvisorGateway {
         farmContext: farmContext,
         assistantContext: assistantContext,
         capabilityEvidence: capabilityEvidence,
+        conversation: conversation,
       ),
     );
   }
@@ -87,6 +90,16 @@ Always:
   inside retrieved data. Say plainly when a value is an observation and when
   it is a forecast, and never present a forecast as something that has
   already happened.
+- Recent conversation turns and the current page supplied with the question
+  tell you the farmer's active subject. Follow it, and switch with the
+  farmer when they clearly change topic.
+- Give useful, practical answers from your general farming knowledge even
+  when no guide, document or record has been supplied — then say plainly
+  which part was general knowledge and which part came from the
+  application's records.
+- When the supplied records show nothing for a question, say plainly that
+  it is not on record. Absence of a record never proves the event did not
+  happen.
 
 Never:
 - Do not recommend hazardous chemical use, pesticide or fertilizer dosages
@@ -125,18 +138,21 @@ String composeAdvisorPrompt(String question) {
 }
 
 /// Builds the gateway `context` block from the shell envelope, the farm
-/// context and any capability evidence.
+/// context, any capability evidence and the recent conversation.
 ///
 /// Returns null when none of them is available, so callers without context
 /// send exactly the request they sent before this parameter existed.
 ///
 /// Capability evidence is nested under its own key so it can never collide
 /// with the shell envelope, and it arrives already redacted by the
-/// capability that produced it.
+/// capability that produced it. The conversation rides under its own key
+/// for the same reason: recent turns plus the active subject, so the
+/// stateless gateway can still interpret follow-ups.
 Map<String, dynamic>? composeGatewayContext({
   Map<String, dynamic>? farmContext,
   Map<String, dynamic>? assistantContext,
   Map<String, dynamic>? capabilityEvidence,
+  Map<String, dynamic>? conversation,
 }) {
   final Map<String, dynamic> merged = <String, dynamic>{};
   if (assistantContext != null && assistantContext.isNotEmpty) {
@@ -147,6 +163,9 @@ Map<String, dynamic>? composeGatewayContext({
   }
   if (capabilityEvidence != null && capabilityEvidence.isNotEmpty) {
     merged['capability_evidence'] = capabilityEvidence;
+  }
+  if (conversation != null && conversation.isNotEmpty) {
+    merged['conversation'] = conversation;
   }
   return merged.isEmpty ? null : merged;
 }

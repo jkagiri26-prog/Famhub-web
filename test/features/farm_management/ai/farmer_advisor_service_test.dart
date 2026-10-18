@@ -202,6 +202,65 @@ void main() {
         'capability': 'farm_weather',
       });
     });
+
+    test('nests the recent conversation under its own key', () {
+      const Map<String, dynamic> conversation = <String, dynamic>{
+        'active_subject': 'marketplace',
+        'turns': <Map<String, String>>[
+          <String, String>{'role': 'farmer', 'text': 'What is in the marketplace?'},
+        ],
+      };
+
+      final Map<String, dynamic>? merged = composeGatewayContext(
+        assistantContext: const <String, dynamic>{'current_page': '/marketplace'},
+        conversation: conversation,
+      );
+
+      expect(merged, isNotNull);
+      expect(merged!['conversation'], conversation);
+      // Subject and turns never float to the top of the envelope.
+      expect(merged.containsKey('active_subject'), isFalse);
+      expect(merged.containsKey('turns'), isFalse);
+    });
+
+    test('omits an empty or absent conversation so callers are unchanged', () {
+      expect(composeGatewayContext(), isNull);
+      expect(
+        composeGatewayContext(
+          assistantContext: const <String, dynamic>{'current_page': '/farm'},
+          conversation: const <String, dynamic>{},
+        )!.containsKey('conversation'),
+        isFalse,
+      );
+    });
+  });
+
+  group('contextual coordination instructions', () {
+    test('briefs the model on the active subject and topic switching', () {
+      final String prompt = composeAdvisorPrompt('x');
+
+      expect(prompt, contains("farmer's active subject"));
+      expect(prompt, contains('clearly change topic'));
+      expect(prompt, contains('Recent conversation turns'));
+    });
+
+    test('allows general knowledge without requiring a guide to exist', () {
+      final String prompt = composeAdvisorPrompt('x');
+
+      expect(prompt, contains('general farming knowledge'));
+      expect(prompt, contains('no guide, document or record has been supplied'));
+      expect(prompt, contains('which part came from the'));
+    });
+
+    test('distinguishes missing records from events that never happened', () {
+      final String prompt = composeAdvisorPrompt('x');
+
+      expect(prompt, contains('it is not on record'));
+      expect(
+        prompt,
+        contains('Absence of a record never proves the event did not'),
+      );
+    });
   });
 
   group('retrieved-data framing', () {

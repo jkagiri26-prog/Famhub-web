@@ -42,6 +42,7 @@ class _FakeGateway implements FarmerAdvisorGateway {
     Map<String, dynamic>? farmContext,
     Map<String, dynamic>? assistantContext,
     Map<String, dynamic>? capabilityEvidence,
+    Map<String, dynamic>? conversation,
   }) async {
     callCount++;
     lastAssistantContext = assistantContext;
