@@ -21,8 +21,10 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/services/supabase_service.dart';
+import 'package:famhub_app/core/shell/application/assistant/assistant_capability.dart';
 import 'package:famhub_app/core/shell/application/assistant/assistant_context.dart';
 import 'package:famhub_app/features/ai_assistant/infrastructure/ai_gateway_service.dart';
+import 'package:famhub_app/features/farm_management/application/ai/advisor_capabilities.dart';
 import 'package:famhub_app/features/farm_management/application/ai/farmer_advisor_service.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_ai_context_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/services/farm_ai_context_service.dart';
@@ -159,12 +161,45 @@ class FarmerAdvisorController extends Notifier<FarmerAdvisorState> {
       ],
     );
 
+    // Capability first. The model never chooses or executes a capability:
+    // the question is matched locally, the capability resolves its own
+    // authorized inputs, and only already-retrieved evidence is handed on.
+    Map<String, dynamic>? capabilityEvidence;
+    final AssistantCapability? capability = _selectCapability(trimmed);
+    if (capability != null) {
+      AssistantCapabilityOutcome outcome;
+      try {
+        outcome = await capability.run(
+          question: trimmed,
+          assistantContext: assistantContext,
+        );
+      } catch (_) {
+        // A capability must not throw, but a future one might. Report it
+        // honestly rather than letting it escape into the UI.
+        outcome = const AssistantCapabilityOutcome.failure(
+          capabilityId: 'unknown',
+          code: 'capability_failed',
+          text:
+              'I could not complete that request just now. Please try again.',
+        );
+      }
+
+      if (token != _requestToken) return;
+
+      if (outcome.kind != AssistantCapabilityOutcomeKind.evidence) {
+        _appendAdviserTurn(outcome.text ?? '');
+        return;
+      }
+      capabilityEvidence = outcome.evidence;
+    }
+
     final AiGatewayResult result;
     try {
       result = await ref.read(farmerAdvisorGatewayProvider).ask(
             question: trimmed,
             farmContext: farmContext?.toJson(),
             assistantContext: assistantContext.toJson(),
+            capabilityEvidence: capabilityEvidence,
           );
     } catch (_) {
       // The gateway contract never throws, but a fake or a future refactor
@@ -218,6 +253,31 @@ class FarmerAdvisorController extends Notifier<FarmerAdvisorState> {
     }
     state = state.copyWith(messages: trimmed, clearPending: true);
     await ask(question, assistantContext: context);
+  }
+
+  /// First approved capability that claims this question, or null so the
+  /// ordinary advisory path answers it unchanged.
+  AssistantCapability? _selectCapability(String question) {
+    final List<AssistantCapability> capabilities = ref
+        .read(advisorCapabilitiesProvider);
+    for (final AssistantCapability capability in capabilities) {
+      if (capability.matches(question)) return capability;
+    }
+    return null;
+  }
+
+  /// Surfaces a clarification or an honest failure as an ordinary adviser
+  /// turn. The gateway is never called, so nothing can be invented.
+  void _appendAdviserTurn(String text) {
+    state = state.copyWith(
+      status: AdvisorStatus.ready,
+      clearPending: true,
+      clearError: true,
+      messages: <AdvisorMessage>[
+        ...state.messages,
+        AdvisorMessage(role: AdvisorRole.adviser, text: text),
+      ],
+    );
   }
 
   /// Clears the conversation.

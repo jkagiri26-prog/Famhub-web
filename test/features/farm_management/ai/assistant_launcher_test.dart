@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:famhub_app/core/shell/application/assistant/assistant_capability.dart';
 import 'package:famhub_app/core/shell/application/assistant/assistant_context.dart';
 import 'package:famhub_app/core/shell/application/assistant/assistant_context_provider.dart';
 import 'package:famhub_app/core/shell/application/assistant/assistant_launcher_registry.dart';
 import 'package:famhub_app/core/workspace/application/workspace_dashboard_provider.dart';
 import 'package:famhub_app/features/ai_assistant/infrastructure/ai_gateway_service.dart';
+import 'package:famhub_app/features/farm_management/application/ai/advisor_capabilities.dart';
 import 'package:famhub_app/features/farm_management/application/ai/farm_assistant_launcher.dart';
 import 'package:famhub_app/features/farm_management/application/ai/farmer_advisor_service.dart';
 import 'package:famhub_app/features/farm_management/application/ai/farmer_advisor_state.dart';
@@ -20,6 +22,7 @@ class _FakeGateway implements FarmerAdvisorGateway {
     required String question,
     Map<String, dynamic>? farmContext,
     Map<String, dynamic>? assistantContext,
+    Map<String, dynamic>? capabilityEvidence,
   }) async {
     return const AiGatewayResult.success(
       elapsed: Duration.zero,
@@ -69,6 +72,8 @@ Future<void> _pumpHarness(
         activeWorkspaceTypeProvider.overrideWithValue(workspaceType),
         farmAiContextProvider.overrideWithValue(null),
         farmerAdvisorGatewayProvider.overrideWithValue(_FakeGateway()),
+        advisorCapabilitiesProvider
+            .overrideWithValue(const <AssistantCapability>[]),
         assistantContextProvider(location).overrideWithValue(
           AssistantContext(
             route: location,

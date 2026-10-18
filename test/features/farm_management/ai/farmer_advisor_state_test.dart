@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:famhub_app/core/shell/application/assistant/assistant_capability.dart';
 import 'package:famhub_app/core/shell/application/assistant/assistant_context.dart';
 import 'package:famhub_app/features/ai_assistant/infrastructure/ai_gateway_service.dart';
+import 'package:famhub_app/features/farm_management/application/ai/advisor_capabilities.dart';
 import 'package:famhub_app/features/farm_management/application/ai/farmer_advisor_service.dart';
 import 'package:famhub_app/features/farm_management/application/ai/farmer_advisor_state.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_ai_context_provider.dart';
@@ -24,6 +26,8 @@ class _FakeGateway implements FarmerAdvisorGateway {
   final List<String> questions = <String>[];
   final List<Map<String, dynamic>?> farmContexts = <Map<String, dynamic>?>[];
   final List<Map<String, dynamic>?> assistantContexts =
+      <Map<String, dynamic>?>[];
+  final List<Map<String, dynamic>?> capabilityEvidences =
       <Map<String, dynamic>?>[];
 
   int get callCount => questions.length;
@@ -48,10 +52,12 @@ class _FakeGateway implements FarmerAdvisorGateway {
     required String question,
     Map<String, dynamic>? farmContext,
     Map<String, dynamic>? assistantContext,
+    Map<String, dynamic>? capabilityEvidence,
   }) async {
     questions.add(question);
     farmContexts.add(farmContext);
     assistantContexts.add(assistantContext);
+    capabilityEvidences.add(capabilityEvidence);
     if (throwOnCall) throw Exception('transport failure');
     final Completer<AiGatewayResult>? pending = gate;
     if (pending != null) {
@@ -113,12 +119,16 @@ final _farmRefreshSeedProvider = NotifierProvider<_FarmRefreshSeed, int>(
 );
 
 ({ProviderContainer container, _FakeGateway gateway, FarmAiContext? context})
-_fixture({FarmAiContext? farmContext}) {
+_fixture({
+  FarmAiContext? farmContext,
+  List<AssistantCapability> capabilities = const <AssistantCapability>[],
+}) {
   final _FakeGateway gateway = _FakeGateway();
   final ProviderContainer container = ProviderContainer(
     overrides: [
       farmerAdvisorGatewayProvider.overrideWithValue(gateway),
       farmAiContextProvider.overrideWithValue(farmContext),
+      advisorCapabilitiesProvider.overrideWithValue(capabilities),
     ],
   );
   addTearDown(container.dispose);
@@ -425,6 +435,8 @@ void main() {
             ref.watch(_farmRefreshSeedProvider);
             return _farmContext();
           }),
+          advisorCapabilitiesProvider
+              .overrideWithValue(const <AssistantCapability>[]),
         ],
       );
       addTearDown(container.dispose);
@@ -476,4 +488,205 @@ void main() {
       expect(f.gateway.questions.single, 'What pesticide should I spray?');
     });
   });
+
+  group('capability routing', () {
+    test('a weather question runs the capability and sends its evidence',
+        () async {
+      final Map<String, dynamic> evidence = <String, dynamic>{
+        'capability': 'farm_weather',
+        'location_label': 'Kibuye Farm',
+        'scope': 'current',
+      };
+      final _StubCapability capability = _StubCapability(
+        id: 'farm_weather',
+        isMatch: (String q) => q.toLowerCase().contains('weather'),
+        outcome: AssistantCapabilityOutcome.evidence(
+          capabilityId: 'farm_weather',
+          evidence: evidence,
+        ),
+      );
+      final f = _fixture(capabilities: <AssistantCapability>[capability]);
+
+      await _ask(f.container, "What's the weather on my farm?");
+      await _drain();
+
+      expect(capability.runCount, 1);
+      // The gateway still receives the question, now with the evidence.
+      expect(f.gateway.questions.single, "What's the weather on my farm?");
+      expect(f.gateway.capabilityEvidences.single, evidence);
+      expect(
+        f.container.read(farmerAdvisorControllerProvider).status,
+        AdvisorStatus.ready,
+      );
+    });
+
+    test('a non-weather question keeps the existing advisory path', () async {
+      final _StubCapability capability = _StubCapability(
+        id: 'farm_weather',
+        isMatch: (String q) => q.toLowerCase().contains('weather'),
+        outcome: const AssistantCapabilityOutcome.evidence(
+          capabilityId: 'farm_weather',
+          evidence: <String, dynamic>{'capability': 'farm_weather'},
+        ),
+      );
+      final f = _fixture(capabilities: <AssistantCapability>[capability]);
+
+      await _ask(f.container, 'My maize leaves are yellow.');
+      await _drain();
+
+      expect(capability.runCount, 0);
+      expect(f.gateway.callCount, 1);
+      expect(f.gateway.capabilityEvidences.single, isNull);
+      expect(
+        f.container.read(farmerAdvisorControllerProvider).messages.last.text,
+        'Keep observing the leaves and share a photo.',
+      );
+    });
+
+    test('an ambiguous farm asks instead of picking one or calling the gateway',
+        () async {
+      final _StubCapability capability = _StubCapability(
+        id: 'farm_weather',
+        isMatch: (String q) => true,
+        outcome: const AssistantCapabilityOutcome.clarification(
+          capabilityId: 'farm_weather',
+          text: 'Which farm do you mean? Ask me again naming one.',
+        ),
+      );
+      final f = _fixture(capabilities: <AssistantCapability>[capability]);
+
+      await _ask(f.container, "What's the weather on my farm?");
+      await _drain();
+
+      expect(capability.runCount, 1);
+      expect(f.gateway.callCount, 0);
+
+      final FarmerAdvisorState state =
+          f.container.read(farmerAdvisorControllerProvider);
+      expect(state.status, AdvisorStatus.ready);
+      expect(state.messages.last.isFarmer, isFalse);
+      expect(state.messages.last.text, startsWith('Which farm do you mean'));
+    });
+
+    test('a capability failure is reported honestly and never invented',
+        () async {
+      final _StubCapability capability = _StubCapability(
+        id: 'farm_weather',
+        isMatch: (String q) => true,
+        outcome: const AssistantCapabilityOutcome.failure(
+          capabilityId: 'farm_weather',
+          code: 'weather_no_location',
+          text: '"Kibuye Farm" has no registered location yet.',
+        ),
+      );
+      final f = _fixture(capabilities: <AssistantCapability>[capability]);
+
+      await _ask(f.container, "What's the weather on my farm?");
+      await _drain();
+
+      // Nothing reached the model, so nothing could be invented.
+      expect(f.gateway.callCount, 0);
+
+      final FarmerAdvisorState state =
+          f.container.read(farmerAdvisorControllerProvider);
+      expect(state.status, AdvisorStatus.ready);
+      expect(state.messages.last.text, contains('no registered location'));
+      expect(state.lastErrorCode, isNull);
+    });
+
+    test('a capability that throws is turned into an honest failure',
+        () async {
+      final _StubCapability capability = _StubCapability(
+        id: 'farm_weather',
+        isMatch: (String q) => true,
+        outcome: const AssistantCapabilityOutcome.evidence(
+          capabilityId: 'farm_weather',
+          evidence: <String, dynamic>{'capability': 'farm_weather'},
+        ),
+        throwOnRun: true,
+      );
+      final f = _fixture(capabilities: <AssistantCapability>[capability]);
+
+      await _ask(f.container, "What's the weather on my farm?");
+      await _drain();
+
+      expect(f.gateway.callCount, 0);
+      final FarmerAdvisorState state =
+          f.container.read(farmerAdvisorControllerProvider);
+      expect(state.status, AdvisorStatus.ready);
+      expect(state.messages.last.isFarmer, isFalse);
+      expect(state.messages.last.text, contains('could not complete'));
+    });
+
+    test('a later gateway failure can still be retried with its evidence',
+        () async {
+      final _StubCapability capability = _StubCapability(
+        id: 'farm_weather',
+        isMatch: (String q) => true,
+        outcome: const AssistantCapabilityOutcome.evidence(
+          capabilityId: 'farm_weather',
+          evidence: <String, dynamic>{'capability': 'farm_weather'},
+        ),
+      );
+      final f = _fixture(capabilities: <AssistantCapability>[capability]);
+      f.gateway.scriptFailureThenSuccess();
+
+      await _ask(f.container, "What's the weather on my farm?");
+      await _drain();
+
+      FarmerAdvisorState state = f.container.read(farmerAdvisorControllerProvider);
+      expect(state.status, AdvisorStatus.failure);
+      expect(state.canRetry, isTrue);
+
+      f.gateway.result = const AiGatewayResult.success(
+        elapsed: Duration(milliseconds: 12),
+        statusCode: 200,
+        requestId: 'req-test',
+        output: 'It is 24 °C and partly cloudy on Kibuye Farm.',
+      );
+      await f.container.read(farmerAdvisorControllerProvider.notifier).retry();
+      await _drain();
+
+      state = f.container.read(farmerAdvisorControllerProvider);
+      expect(state.status, AdvisorStatus.ready);
+      expect(capability.runCount, 2);
+      expect(f.gateway.capabilityEvidences, hasLength(2));
+      expect(
+        f.gateway.capabilityEvidences.last,
+        <String, dynamic>{'capability': 'farm_weather'},
+      );
+    });
+  });
+}
+
+/// Minimal capability double: no I/O, no container, no network.
+class _StubCapability implements AssistantCapability {
+  _StubCapability({
+    required this.id,
+    required this.isMatch,
+    required this.outcome,
+    this.throwOnRun = false,
+  });
+
+  @override
+  final String id;
+
+  final bool Function(String question) isMatch;
+  final AssistantCapabilityOutcome outcome;
+  final bool throwOnRun;
+
+  int runCount = 0;
+
+  @override
+  bool matches(String question) => isMatch(question);
+
+  @override
+  Future<AssistantCapabilityOutcome> run({
+    required String question,
+    required AssistantContext assistantContext,
+  }) async {
+    runCount++;
+    if (throwOnRun) throw Exception('capability exploded');
+    return outcome;
+  }
 }

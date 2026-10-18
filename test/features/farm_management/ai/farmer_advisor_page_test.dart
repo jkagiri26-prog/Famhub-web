@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:famhub_app/core/shell/application/assistant/assistant_capability.dart';
 import 'package:famhub_app/core/shell/application/assistant/assistant_context.dart';
 import 'package:famhub_app/core/shell/application/assistant/assistant_context_provider.dart';
 import 'package:famhub_app/features/ai_assistant/infrastructure/ai_gateway_service.dart';
+import 'package:famhub_app/features/farm_management/application/ai/advisor_capabilities.dart';
 import 'package:famhub_app/features/farm_management/application/ai/farmer_advisor_service.dart';
 import 'package:famhub_app/features/farm_management/application/ai/farmer_advisor_state.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_ai_context_provider.dart';
@@ -32,15 +34,18 @@ class _FakeGateway implements FarmerAdvisorGateway {
   Completer<AiGatewayResult>? gate;
   int callCount = 0;
   Map<String, dynamic>? lastAssistantContext;
+  Map<String, dynamic>? lastCapabilityEvidence;
 
   @override
   Future<AiGatewayResult> ask({
     required String question,
     Map<String, dynamic>? farmContext,
     Map<String, dynamic>? assistantContext,
+    Map<String, dynamic>? capabilityEvidence,
   }) async {
     callCount++;
     lastAssistantContext = assistantContext;
+    lastCapabilityEvidence = capabilityEvidence;
     if (throwOnCall) throw Exception('boom');
     final Completer<AiGatewayResult>? pending = gate;
     if (pending != null) {
@@ -132,6 +137,8 @@ Future<void> _pumpPage(
       overrides: [
         farmerAdvisorGatewayProvider.overrideWithValue(gateway),
         farmAiContextProvider.overrideWithValue(farmContext),
+        advisorCapabilitiesProvider
+            .overrideWithValue(const <AssistantCapability>[]),
         assistantContextProvider(route).overrideWithValue(assistantContext),
       ],
       child: MaterialApp(
@@ -168,6 +175,8 @@ Future<void> _pumpHost(
           return _farmContext();
         }),
         assistantContextProvider(route).overrideWithValue(_context),
+        advisorCapabilitiesProvider
+            .overrideWithValue(const <AssistantCapability>[]),
       ],
       child: MaterialApp(home: _AssistantHost(route: route)),
     ),
