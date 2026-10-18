@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:famhub_app/core/session/session_provider.dart';
 import 'package:famhub_app/core/shell/application/assistant/assistant_capability.dart';
 import 'package:famhub_app/core/shell/application/assistant/assistant_context.dart';
 import 'package:famhub_app/core/shell/application/assistant/assistant_context_provider.dart';
@@ -15,6 +16,8 @@ import 'package:famhub_app/features/farm_management/application/ai/farmer_adviso
 import 'package:famhub_app/features/farm_management/application/ai/farmer_advisor_state.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_ai_context_provider.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/farmer_advisor_page.dart';
+
+import 'assistant_chat_test_harness.dart';
 
 class _FakeGateway implements FarmerAdvisorGateway {
   @override
@@ -73,8 +76,9 @@ Future<void> _pumpHarness(
         activeWorkspaceTypeProvider.overrideWithValue(workspaceType),
         farmAiContextProvider.overrideWithValue(null),
         farmerAdvisorGatewayProvider.overrideWithValue(_FakeGateway()),
-        advisorCapabilitiesProvider
-            .overrideWithValue(const <AssistantCapability>[]),
+        advisorCapabilitiesProvider.overrideWithValue(
+          const <AssistantCapability>[],
+        ),
         assistantContextProvider(location).overrideWithValue(
           AssistantContext(
             route: location,
@@ -84,6 +88,13 @@ Future<void> _pumpHarness(
             workspaceType: 'service_provider',
           ),
         ),
+        assistantChatRepositoryProvider.overrideWithValue(
+          InMemoryAssistantChatRepository(),
+        ),
+        assistantChatPreferencesProvider.overrideWithValue(
+          InMemoryAssistantChatPreferences(),
+        ),
+        isAuthenticatedProvider.overrideWithValue(true),
       ],
       child: MaterialApp.router(routerConfig: router),
     ),
@@ -108,30 +119,25 @@ void main() {
     });
 
     test('resolves a registered workspace and nothing else', () {
-      AssistantLauncherRegistry.register(
-        'farmer',
-        (context, ref, route) {},
-      );
+      AssistantLauncherRegistry.register('farmer', (context, ref, route) {});
 
       expect(AssistantLauncherRegistry.isRegistered('farmer'), isTrue);
       expect(AssistantLauncherRegistry.resolve('farmer'), isNotNull);
       expect(AssistantLauncherRegistry.resolve('trader'), isNull);
       expect(AssistantLauncherRegistry.resolve(null), isNull);
       expect(AssistantLauncherRegistry.resolve(''), isNull);
-      expect(
-        AssistantLauncherRegistry.registeredWorkspaceTypes,
-        <String>['farmer'],
-      );
+      expect(AssistantLauncherRegistry.registeredWorkspaceTypes, <String>[
+        'farmer',
+      ]);
     });
 
     test('re-registering the same workspace is safe', () {
       AssistantLauncherRegistry.register('farmer', (context, ref, route) {});
       AssistantLauncherRegistry.register('farmer', (context, ref, route) {});
 
-      expect(
-        AssistantLauncherRegistry.registeredWorkspaceTypes,
-        <String>['farmer'],
-      );
+      expect(AssistantLauncherRegistry.registeredWorkspaceTypes, <String>[
+        'farmer',
+      ]);
     });
 
     test('registerFarmAssistantLauncher covers both advisory workspaces', () {
@@ -142,8 +148,10 @@ void main() {
         unorderedEquals(<String>['farmer', 'service_provider']),
       );
       expect(kAgriculturalAssistantWorkspaceTypes, contains('farmer'));
-      expect(kAgriculturalAssistantWorkspaceTypes,
-          contains('service_provider'));
+      expect(
+        kAgriculturalAssistantWorkspaceTypes,
+        contains('service_provider'),
+      );
       // Nothing is registered for workspaces that have no assistant yet.
       expect(AssistantLauncherRegistry.isRegistered('trader'), isFalse);
       expect(AssistantLauncherRegistry.isRegistered('institution'), isFalse);
@@ -151,8 +159,9 @@ void main() {
   });
 
   group('AssistantLauncherRegistry.open', () {
-    testWidgets('hands the current route to the registered launcher',
-        (tester) async {
+    testWidgets('hands the current route to the registered launcher', (
+      tester,
+    ) async {
       String? capturedRoute;
       String? capturedType;
       AssistantLauncherRegistry.register('farmer', (context, ref, route) {
@@ -169,26 +178,28 @@ void main() {
     });
 
     testWidgets(
-        'tells the user plainly when the workspace has no assistant yet',
-        (tester) async {
-      await _pumpHarness(
-        tester,
-        location: '/marketplace',
-        workspaceType: 'trader',
-      );
-      await _tapOpen(tester);
+      'tells the user plainly when the workspace has no assistant yet',
+      (tester) async {
+        await _pumpHarness(
+          tester,
+          location: '/marketplace',
+          workspaceType: 'trader',
+        );
+        await _tapOpen(tester);
 
-      expect(
-        find.text(
-          'The FAMHUB AI assistant is not available for this workspace yet.',
-        ),
-        findsOneWidget,
-      );
-      expect(find.byType(FarmerAdvisorPage), findsNothing);
-    });
+        expect(
+          find.text(
+            'The FAMHUB AI assistant is not available for this workspace yet.',
+          ),
+          findsOneWidget,
+        );
+        expect(find.byType(FarmerAdvisorPage), findsNothing);
+      },
+    );
 
-    testWidgets('opens the advisory assistant from the farm workspace',
-        (tester) async {
+    testWidgets('opens the advisory assistant from the farm workspace', (
+      tester,
+    ) async {
       registerFarmAssistantLauncher();
 
       await _pumpHarness(tester, location: '/farm');
@@ -199,8 +210,9 @@ void main() {
       expect(find.byType(BackButton), findsOneWidget);
     });
 
-    testWidgets('opens the same assistant from the extension workspace',
-        (tester) async {
+    testWidgets('opens the same assistant from the extension workspace', (
+      tester,
+    ) async {
       registerFarmAssistantLauncher();
 
       await _pumpHarness(tester, location: '/extension');
@@ -210,8 +222,9 @@ void main() {
       expect(find.text('FAMHUB AI'), findsOneWidget);
     });
 
-    testWidgets('the assistant can be dismissed back to the shell',
-        (tester) async {
+    testWidgets('the assistant can be dismissed back to the shell', (
+      tester,
+    ) async {
       registerFarmAssistantLauncher();
 
       await _pumpHarness(tester, location: '/farm');

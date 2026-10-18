@@ -44,7 +44,7 @@ import 'package:famhub_app/features/marketplace/presentation/pages/marketplace_p
 import 'package:famhub_app/features/knowledge_link/presentation/pages/knowledge_link_page.dart';
 import 'package:famhub_app/features/financing/presentation/pages/financing_page.dart';
 import 'package:famhub_app/features/logistics/presentation/pages/logistics_page.dart';
-import 'package:famhub_app/features/ai_assistant/presentation/pages/ai_assistant_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/farmer_advisor_page.dart';
 import 'package:famhub_app/features/opportunities/presentation/pages/opportunities_page.dart';
 import 'package:famhub_app/features/agribusiness/presentation/pages/agribusiness_page.dart';
 import 'package:famhub_app/features/agri_connect/presentation/pages/agri_connect_page.dart';
@@ -122,98 +122,112 @@ const List<_ModuleCardData> _allModuleCards = [
   _ModuleCardData(
     id: 'marketplace',
     title: 'Marketplace',
-    description: 'Buy and sell agricultural products, inputs, and equipment. Connect with buyers, sellers, and traders across the value chain.',
+    description:
+        'Buy and sell agricultural products, inputs, and equipment. Connect with buyers, sellers, and traders across the value chain.',
     icon: Icons.store_outlined,
     color: Color(0xFF0891B2),
   ),
   _ModuleCardData(
     id: 'farm_management',
     title: 'Farm Management',
-    description: 'Track crops, livestock, inventory, and operations. Ideal for farmers, agronomists, and farm managers.',
+    description:
+        'Track crops, livestock, inventory, and operations. Ideal for farmers, agronomists, and farm managers.',
     icon: Icons.agriculture_outlined,
     color: Color(0xFF059669),
   ),
   _ModuleCardData(
     id: 'finance',
     title: 'Finance',
-    description: 'Access loans, insurance, savings, and financial tools for agricultural enterprises. Designed for farmers, cooperatives, and financial institutions.',
+    description:
+        'Access loans, insurance, savings, and financial tools for agricultural enterprises. Designed for farmers, cooperatives, and financial institutions.',
     icon: Icons.account_balance_outlined,
     color: Color(0xFF0891B2),
   ),
   _ModuleCardData(
     id: 'logistics',
     title: 'Logistics',
-    description: 'Manage transportation, storage, and supply chain coordination for agricultural goods. Essential for traders, transporters, and warehouse operators.',
+    description:
+        'Manage transportation, storage, and supply chain coordination for agricultural goods. Essential for traders, transporters, and warehouse operators.',
     icon: Icons.local_shipping_outlined,
     color: Color(0xFFDC2626),
   ),
   _ModuleCardData(
     id: 'agribusiness',
     title: 'Agribusiness',
-    description: 'Manage business operations, sales, procurement, and enterprise analytics for agricultural businesses of all sizes.',
+    description:
+        'Manage business operations, sales, procurement, and enterprise analytics for agricultural businesses of all sizes.',
     icon: Icons.business_outlined,
     color: Color(0xFF7C3AED),
   ),
   _ModuleCardData(
     id: 'market_prices',
     title: 'Market Prices',
-    description: 'Real-time and historical price data for crops, livestock, and inputs. Essential intelligence for traders, farmers, and investors.',
+    description:
+        'Real-time and historical price data for crops, livestock, and inputs. Essential intelligence for traders, farmers, and investors.',
     icon: Icons.trending_up_outlined,
     color: FamhubBrandTokens.orange,
   ),
   _ModuleCardData(
     id: 'knowledge',
     title: 'Knowledge Link',
-    description: 'Access agricultural guides, best practices, market insights, and training materials for every role in the ecosystem.',
+    description:
+        'Access agricultural guides, best practices, market insights, and training materials for every role in the ecosystem.',
     icon: Icons.school_outlined,
     color: Color(0xFF7C3AED),
   ),
   _ModuleCardData(
     id: 'community',
     title: 'Community',
-    description: 'Connect with farmers, traders, agronomists, buyers, and experts across the entire agricultural ecosystem.',
+    description:
+        'Connect with farmers, traders, agronomists, buyers, and experts across the entire agricultural ecosystem.',
     icon: Icons.people_outline,
     color: Color(0xFF0891B2),
   ),
   _ModuleCardData(
     id: 'opportunities',
     title: 'Opportunities',
-    description: 'Discover funding, partnership, training, and market opportunities across the agricultural value chain.',
+    description:
+        'Discover funding, partnership, training, and market opportunities across the agricultural value chain.',
     icon: Icons.rocket_launch_outlined,
     color: Color(0xFF059669),
   ),
   _ModuleCardData(
     id: 'ai_assistant',
     title: 'AI Assistant',
-    description: 'Get intelligent recommendations, market analysis, pest diagnosis, and actionable insights for your agricultural operations.',
+    description:
+        'Get intelligent recommendations, market analysis, pest diagnosis, and actionable insights for your agricultural operations.',
     icon: Icons.auto_awesome_outlined,
     color: Color(0xFF7C3AED),
   ),
   _ModuleCardData(
     id: 'agri_connect',
     title: 'AgriConnect',
-    description: 'Network with stakeholders across the ecosystem — cooperatives, processors, exporters, and service providers.',
+    description:
+        'Network with stakeholders across the ecosystem — cooperatives, processors, exporters, and service providers.',
     icon: Icons.hub_outlined,
     color: Color(0xFFDC2626),
   ),
   _ModuleCardData(
     id: 'analytics',
     title: 'Analytics',
-    description: 'Comprehensive data analysis, reporting, and business intelligence for informed decision-making at every level.',
+    description:
+        'Comprehensive data analysis, reporting, and business intelligence for informed decision-making at every level.',
     icon: Icons.analytics_outlined,
     color: Color(0xFF059669),
   ),
   _ModuleCardData(
     id: 'weather',
     title: 'Weather',
-    description: 'Local forecasts, historical climate data, and agricultural alerts to support planning across all operations.',
+    description:
+        'Local forecasts, historical climate data, and agricultural alerts to support planning across all operations.',
     icon: Icons.wb_sunny_outlined,
     color: FamhubBrandTokens.orange,
   ),
   _ModuleCardData(
     id: 'reports',
     title: 'Reports & Insights',
-    description: 'Generate detailed reports on production, sales, market trends, and operational performance.',
+    description:
+        'Generate detailed reports on production, sales, market trends, and operational performance.',
     icon: Icons.assessment_outlined,
     color: Color(0xFFDC2626),
   ),
@@ -272,28 +286,32 @@ const List<_MarketplacePreviewItem> _marketplacePreviews = [
 /// Success stories / testimonials
 const List<_Testimonial> _testimonials = [
   _Testimonial(
-    quote: 'FAMHUB transformed how I sell my produce. I now reach buyers across three Counties without leaving my farm.',
+    quote:
+        'FAMHUB transformed how I sell my produce. I now reach buyers across three Counties without leaving my farm.',
     name: 'Henry Ochieng',
     role: 'Tomatoes Farmer',
     location: 'Kisumu county',
     avatarColor: Color(0xFF059669),
   ),
   _Testimonial(
-    quote: 'The financing services helped me secure a loan to expand my poultry business. The process was seamless.',
+    quote:
+        'The financing services helped me secure a loan to expand my poultry business. The process was seamless.',
     name: 'Amina Yusuf',
     role: 'Poultry Farmer',
     location: 'Kwale County',
     avatarColor: Color(0xFF7C3AED),
   ),
   _Testimonial(
-    quote: 'As a trader, the real-time market prices and logistics tracking have been game-changers for my business.',
+    quote:
+        'As a trader, the real-time market prices and logistics tracking have been game-changers for my business.',
     name: 'Edith Kanini',
     role: 'Agricultural Trader',
     location: 'Machakos County',
     avatarColor: Color(0xFF0891B2),
   ),
   _Testimonial(
-    quote: 'Our cooperative reduced post-harvest losses by 40% using FAMHUB\'s storage and logistics coordination.',
+    quote:
+        'Our cooperative reduced post-harvest losses by 40% using FAMHUB\'s storage and logistics coordination.',
     name: 'Grace Mwangi',
     role: 'Cooperative Leader',
     location: 'Nakuru, Kenya',
@@ -310,11 +328,7 @@ class FamhubHomePage extends ConsumerWidget {
   /// The shell owns the Scaffold/chrome — the page renders body content only.
   final bool inShell;
 
-  const FamhubHomePage({
-    super.key,
-    this.onExploreSignIn,
-    this.inShell = false,
-  });
+  const FamhubHomePage({super.key, this.onExploreSignIn, this.inShell = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -330,9 +344,11 @@ class FamhubHomePage extends ConsumerWidget {
         // ── Exploration Banner (only for unauthenticated) ──
         if (!isAuthenticated)
           _ExplorationBanner(
-            onSignIn: onExploreSignIn ?? () {
-              // Default: handled by session gate
-            },
+            onSignIn:
+                onExploreSignIn ??
+                () {
+                  // Default: handled by session gate
+                },
           ),
 
         // ── Scrollable Content ──
@@ -346,7 +362,12 @@ class FamhubHomePage extends ConsumerWidget {
                 // authenticated users; the carousel always displays.
                 // ════════════════════════════════════════════
                 _buildHeroSection(
-                    context, theme, colorScheme, isMobile, isAuthenticated),
+                  context,
+                  theme,
+                  colorScheme,
+                  isMobile,
+                  isAuthenticated,
+                ),
 
                 // ════════════════════════════════════════════
                 // WEATHER BAND (authenticated only)
@@ -354,57 +375,68 @@ class FamhubHomePage extends ConsumerWidget {
                 // the dedicated Weather page.
                 // ════════════════════════════════════════════
                 if (isAuthenticated)
-                  _buildWeatherSection(
-                    context, ref, theme, isMobile,
-                  ),
+                  _buildWeatherSection(context, ref, theme, isMobile),
 
                 // ════════════════════════════════════════════
                 // SECTION 2: IMPACT NUMBERS (Count-up style)
                 // ════════════════════════════════════════════
-                _buildImpactSection(theme, colorScheme, isMobile, isTablet, size),
+                _buildImpactSection(
+                  theme,
+                  colorScheme,
+                  isMobile,
+                  isTablet,
+                  size,
+                ),
 
                 // ════════════════════════════════════════════
                 // SECTION 3: FAMHUB MODULES (2 vertical + scrollable)
                 // ════════════════════════════════════════════
                 _buildFamhubModulesSection(
-                  context, theme, colorScheme, isMobile, isTablet, size,
+                  context,
+                  theme,
+                  colorScheme,
+                  isMobile,
+                  isTablet,
+                  size,
                 ),
 
                 // ════════════════════════════════════════════
                 // SECTION 4: MARKETPLACE LISTINGS PREVIEW
                 // ════════════════════════════════════════════
-                _buildMarketplacePreview(
-                  context, colorScheme, isMobile,
-                ),
+                _buildMarketplacePreview(context, colorScheme, isMobile),
 
                 // ════════════════════════════════════════════
                 // SECTION 5: WHY CHOOSE FAMHUB
                 // ════════════════════════════════════════════
                 _buildWhyChooseSection(
-                  theme, colorScheme, isMobile, isTablet, size,
+                  theme,
+                  colorScheme,
+                  isMobile,
+                  isTablet,
+                  size,
                 ),
 
                 // ════════════════════════════════════════════
                 // SECTION 6: SUCCESS STORIES / TESTIMONIALS
                 // ════════════════════════════════════════════
-                _buildTestimonialSection(
-                  context, theme, colorScheme, isMobile,
-                ),
+                _buildTestimonialSection(context, theme, colorScheme, isMobile),
 
                 // ════════════════════════════════════════════
                 // SECTION 7: FINAL CTA
                 // (guest-only — Create Your Free Account)
                 // ════════════════════════════════════════════
                 if (!isAuthenticated)
-                  _buildFinalCtaSection(
-                    theme, colorScheme, isMobile,
-                  ),
+                  _buildFinalCtaSection(theme, colorScheme, isMobile),
 
                 // ════════════════════════════════════════════
                 // SECTION 8: FOOTER
                 // ════════════════════════════════════════════
                 _buildFooterSection(
-                  theme, colorScheme, isMobile, isTablet, size,
+                  theme,
+                  colorScheme,
+                  isMobile,
+                  isTablet,
+                  size,
                 ),
               ],
             ),
@@ -507,9 +539,7 @@ class FamhubHomePage extends ConsumerWidget {
                   width: 12,
                 ),
               ),
-            Expanded(
-              child: _buildImpactItem(colorScheme, _impactStats[i]),
-            ),
+            Expanded(child: _buildImpactItem(colorScheme, _impactStats[i])),
           ],
         ],
       ),
@@ -568,8 +598,8 @@ class FamhubHomePage extends ConsumerWidget {
     final cardWidth = isMobile
         ? size.width * 0.78
         : isTablet
-            ? 280.0
-            : 240.0;
+        ? 280.0
+        : 240.0;
 
     return Container(
       width: double.infinity,
@@ -582,7 +612,9 @@ class FamhubHomePage extends ConsumerWidget {
       decoration: BoxDecoration(
         color: colorScheme.surface,
         border: Border(
-          bottom: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+          bottom: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+          ),
         ),
       ),
       child: Column(
@@ -679,7 +711,9 @@ class FamhubHomePage extends ConsumerWidget {
       decoration: BoxDecoration(
         color: colorScheme.surface,
         border: Border(
-          bottom: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+          bottom: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+          ),
         ),
       ),
       child: Column(
@@ -712,7 +746,10 @@ class FamhubHomePage extends ConsumerWidget {
                 ),
               ),
               TextButton(
-                onPressed: () => _openModule(context, _allModuleCards.firstWhere((c) => c.id == 'marketplace')),
+                onPressed: () => _openModule(
+                  context,
+                  _allModuleCards.firstWhere((c) => c.id == 'marketplace'),
+                ),
                 style: TextButton.styleFrom(
                   foregroundColor: colorScheme.primary,
                 ),
@@ -766,37 +803,43 @@ class FamhubHomePage extends ConsumerWidget {
       _WhyChooseItem(
         icon: Icons.verified_outlined,
         title: 'Trusted & Verified',
-        description: 'Every user, product, and transaction is verified for your peace of mind.',
+        description:
+            'Every user, product, and transaction is verified for your peace of mind.',
         color: Color(0xFF059669),
       ),
       _WhyChooseItem(
         icon: Icons.phone_iphone_outlined,
         title: 'Works Offline-First',
-        description: 'Access critical features even without internet. Syncs when you reconnect.',
+        description:
+            'Access critical features even without internet. Syncs when you reconnect.',
         color: Color(0xFF0891B2),
       ),
       _WhyChooseItem(
         icon: Icons.language_outlined,
         title: 'Multi-Lingual',
-        description: 'Available in English, French, Swahili, and more local languages.',
+        description:
+            'Available in English, French, Swahili, and more local languages.',
         color: Color(0xFF7C3AED),
       ),
       _WhyChooseItem(
         icon: Icons.people_outline,
         title: 'For Everyone',
-        description: 'Designed for farmers, traders, cooperatives, and agribusinesses of all sizes.',
+        description:
+            'Designed for farmers, traders, cooperatives, and agribusinesses of all sizes.',
         color: FamhubBrandTokens.orange,
       ),
       _WhyChooseItem(
         icon: Icons.security_outlined,
         title: 'Secure Transactions',
-        description: 'End-to-end encrypted payments, contracts, and data protection.',
+        description:
+            'End-to-end encrypted payments, contracts, and data protection.',
         color: Color(0xFFDC2626),
       ),
       _WhyChooseItem(
         icon: Icons.support_outlined,
         title: '24/7 Support',
-        description: 'Dedicated support team available in multiple languages via chat and phone.',
+        description:
+            'Dedicated support team available in multiple languages via chat and phone.',
         color: Color(0xFF059669),
       ),
     ];
@@ -814,7 +857,9 @@ class FamhubHomePage extends ConsumerWidget {
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         border: Border(
-          bottom: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+          bottom: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+          ),
         ),
       ),
       child: Column(
@@ -838,31 +883,28 @@ class FamhubHomePage extends ConsumerWidget {
           SizedBox(height: isMobile ? 20 : 28),
 
           // Grid
-          ...List.generate(
-            (items.length / crossAxisCount).ceil(),
-            (rowIndex) {
-              final start = rowIndex * crossAxisCount;
-              final end = (start + crossAxisCount).clamp(0, items.length);
-              final rowItems = items.sublist(start, end);
+          ...List.generate((items.length / crossAxisCount).ceil(), (rowIndex) {
+            final start = rowIndex * crossAxisCount;
+            final end = (start + crossAxisCount).clamp(0, items.length);
+            final rowItems = items.sublist(start, end);
 
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  children: rowItems
-                      .map(
-                        (item) => Expanded(
-                          child: _WhyChooseCard(
-                            item: item,
-                            colorScheme: colorScheme,
-                            theme: theme,
-                          ),
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: rowItems
+                    .map(
+                      (item) => Expanded(
+                        child: _WhyChooseCard(
+                          item: item,
+                          colorScheme: colorScheme,
+                          theme: theme,
                         ),
-                      )
-                      .toList(),
-                ),
-              );
-            },
-          ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            );
+          }),
         ],
       ),
     );
@@ -887,7 +929,9 @@ class FamhubHomePage extends ConsumerWidget {
       decoration: BoxDecoration(
         color: colorScheme.surface,
         border: Border(
-          bottom: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+          bottom: BorderSide(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.5),
+          ),
         ),
       ),
       child: Column(
@@ -1042,7 +1086,13 @@ class FamhubHomePage extends ConsumerWidget {
     const footerLinks = <_FooterLinkGroup>[
       _FooterLinkGroup(
         title: 'Platform',
-        links: ['Marketplace', 'Farm Management', 'Finance', 'Logistics', 'Knowledge'],
+        links: [
+          'Marketplace',
+          'Farm Management',
+          'Finance',
+          'Logistics',
+          'Knowledge',
+        ],
       ),
       _FooterLinkGroup(
         title: 'Company',
@@ -1050,11 +1100,23 @@ class FamhubHomePage extends ConsumerWidget {
       ),
       _FooterLinkGroup(
         title: 'Support',
-        links: ['Help Center', 'FAQs', 'Community Forum', 'Report Issue', 'Status'],
+        links: [
+          'Help Center',
+          'FAQs',
+          'Community Forum',
+          'Report Issue',
+          'Status',
+        ],
       ),
       _FooterLinkGroup(
         title: 'Legal',
-        links: ['Privacy Policy', 'Terms of Service', 'Cookie Policy', 'Data Processing', 'Licenses'],
+        links: [
+          'Privacy Policy',
+          'Terms of Service',
+          'Cookie Policy',
+          'Data Processing',
+          'Licenses',
+        ],
       ),
     ];
 
@@ -1101,32 +1163,29 @@ class FamhubHomePage extends ConsumerWidget {
           SizedBox(height: isMobile ? 20 : 24),
 
           // Link columns
-          ...List.generate(
-            (footerLinks.length / columns).ceil(),
-            (rowIndex) {
-              final start = rowIndex * columns;
-              final end = (start + columns).clamp(0, footerLinks.length);
-              final rowLinks = footerLinks.sublist(start, end);
+          ...List.generate((footerLinks.length / columns).ceil(), (rowIndex) {
+            final start = rowIndex * columns;
+            final end = (start + columns).clamp(0, footerLinks.length);
+            final rowLinks = footerLinks.sublist(start, end);
 
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 20),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: rowLinks
-                      .map(
-                        (group) => Expanded(
-                          child: _FooterLinkGroupWidget(
-                            group: group,
-                            colorScheme: colorScheme,
-                            theme: theme,
-                          ),
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: rowLinks
+                    .map(
+                      (group) => Expanded(
+                        child: _FooterLinkGroupWidget(
+                          group: group,
+                          colorScheme: colorScheme,
+                          theme: theme,
                         ),
-                      )
-                      .toList(),
-                ),
-              );
-            },
-          ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            );
+          }),
 
           // Divider
           Divider(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
@@ -1148,7 +1207,10 @@ class FamhubHomePage extends ConsumerWidget {
                 children: [
                   _SocialIcon(icon: Icons.facebook_outlined, onTap: () {}),
                   const SizedBox(width: 8),
-                  _SocialIcon(icon: Icons.alternate_email_outlined, onTap: () {}),
+                  _SocialIcon(
+                    icon: Icons.alternate_email_outlined,
+                    onTap: () {},
+                  ),
                   const SizedBox(width: 8),
                   _SocialIcon(icon: Icons.videocam_outlined, onTap: () {}),
                 ],
@@ -1173,7 +1235,7 @@ class FamhubHomePage extends ConsumerWidget {
     bool isAuthenticated,
   ) {
     final size = MediaQuery.of(context).size;
-    
+
     // Compact hero carousel height - fixed for better visual balance
     const heroHeight = 200.0;
 
@@ -1205,10 +1267,7 @@ class FamhubHomePage extends ConsumerWidget {
 
   /// Navigate to the appropriate module page.
   /// Visitors open the real modules — only the data source differs.
-  void _openModule(
-    BuildContext context,
-    _ModuleCardData card,
-  ) {
+  void _openModule(BuildContext context, _ModuleCardData card) {
     switch (card.id) {
       case 'farm_management':
         Navigator.of(context).push(
@@ -1286,16 +1345,12 @@ class FamhubHomePage extends ConsumerWidget {
         break;
 
       case 'ai_assistant':
+        // The advisor owns its own Scaffold/AppBar (same as the shell
+        // launcher push), so it is pushed without a wrapper.
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => Scaffold(
-              appBar: AppBar(
-                title: const Text('AI Assistant'),
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-              ),
-              body: const AIAssistantPage(),
-            ),
+            builder: (_) =>
+                const FarmerAdvisorPage(initialRoute: AppRoutes.aiAssistant),
           ),
         );
         break;
@@ -1348,7 +1403,9 @@ class FamhubHomePage extends ConsumerWidget {
       default:
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${card.title} — Explore other services while we prepare more.'),
+            content: Text(
+              '${card.title} — Explore other services while we prepare more.',
+            ),
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 2),
           ),
@@ -1388,11 +1445,7 @@ class _ExplorationBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.explore_outlined,
-            color: colorScheme.primary,
-            size: 18,
-          ),
+          Icon(Icons.explore_outlined, color: colorScheme.primary, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -1414,10 +1467,7 @@ class _ExplorationBanner extends StatelessWidget {
             ),
             child: const Text(
               'Sign In',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-              ),
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
             ),
           ),
         ],
@@ -1467,11 +1517,7 @@ class _ModuleCardWidget extends StatelessWidget {
                   color: card.color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(
-                  card.icon,
-                  size: 26,
-                  color: card.color,
-                ),
+                child: Icon(card.icon, size: 26, color: card.color),
               ),
               const SizedBox(width: 16),
 
@@ -1617,9 +1663,7 @@ class _ImpactStatCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: stat.color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: stat.color.withValues(alpha: 0.15),
-        ),
+        border: Border.all(color: stat.color.withValues(alpha: 0.15)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1693,11 +1737,7 @@ class _MarketplacePreviewCard extends StatelessWidget {
                 top: Radius.circular(16.0),
               ),
             ),
-            child: Icon(
-              item.icon,
-              color: colorScheme.primary,
-              size: 32,
-            ),
+            child: Icon(item.icon, color: colorScheme.primary, size: 32),
           ),
           // Product details
           Padding(
@@ -1888,9 +1928,7 @@ class _TestimonialCard extends StatelessWidget {
                 radius: 18,
                 backgroundColor: testimonial.avatarColor.withValues(alpha: 0.2),
                 child: Text(
-                  testimonial.name.isNotEmpty
-                      ? testimonial.name[0]
-                      : '?',
+                  testimonial.name.isNotEmpty ? testimonial.name[0] : '?',
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 16,
@@ -1936,10 +1974,7 @@ class _FooterLinkGroup {
   final String title;
   final List<String> links;
 
-  const _FooterLinkGroup({
-    required this.title,
-    required this.links,
-  });
+  const _FooterLinkGroup({required this.title, required this.links});
 }
 
 /// ─────────────────────────────────────────────────────────────
@@ -2011,7 +2046,11 @@ class _SocialIcon extends StatelessWidget {
           color: Colors.transparent,
           borderRadius: BorderRadius.circular(20),
         ),
-        child: Icon(icon, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
+        child: Icon(
+          icon,
+          size: 18,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
       ),
     );
   }

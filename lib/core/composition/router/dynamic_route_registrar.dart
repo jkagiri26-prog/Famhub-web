@@ -50,7 +50,7 @@ import 'package:famhub_app/features/search/presentation/pages/global_search_page
 import 'package:famhub_app/features/notifications/presentation/pages/notification_center_page.dart';
 import 'package:famhub_app/features/settings/presentation/pages/runtime_settings_page.dart';
 import 'package:famhub_app/features/reports/presentation/pages/reports_center_page.dart';
-import 'package:famhub_app/features/ai_assistant/presentation/pages/ai_assistant_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/farmer_advisor_page.dart';
 import 'package:famhub_app/features/weather/presentation/pages/weather_page.dart';
 
 /// Page builder type for module page registration
@@ -202,7 +202,8 @@ class DynamicRouteRegistrar {
             GoRoute(
               path: AppRoutes.aiAssistant,
               name: AppRoutes.aiAssistantName,
-              builder: (context, state) => const AIAssistantPage(),
+              builder: (context, state) =>
+                  const FarmerAdvisorPage(initialRoute: AppRoutes.aiAssistant),
             ),
             GoRoute(
               path: AppRoutes.weather,
@@ -290,5 +291,8 @@ void bootstrapModulePageBuilders() {
   );
   ModulePageRegistry.register('reports', (_) => const ReportsCenterPage());
   ModulePageRegistry.register('settings', (_) => const RuntimeSettingsPage());
-  ModulePageRegistry.register('ai_assistant', (_) => const AIAssistantPage());
+  ModulePageRegistry.register(
+    'ai_assistant',
+    (_) => const FarmerAdvisorPage(initialRoute: AppRoutes.aiAssistant),
+  );
 }
