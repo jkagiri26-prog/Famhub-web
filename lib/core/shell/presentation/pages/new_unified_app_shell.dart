@@ -190,7 +190,12 @@ class _ShellLayoutBuilderState extends ConsumerState<_ShellLayoutBuilder> {
     final wrappedChild = AppShellContext(
       isGuest: isGuest,
       isSystemDown: widget.systemState.isSystemDown,
-      child: widget.child,
+      // Flutter draws text onto a canvas on the web, so the browser's own
+      // select-and-copy never applies: only widgets that opt in are
+      // selectable. One SelectionArea here makes every screen rendered
+      // inside the shell selectable and copyable, without touching
+      // editable fields (they own their own selection).
+      child: SelectionArea(child: widget.child),
     );
 
     Widget shell;

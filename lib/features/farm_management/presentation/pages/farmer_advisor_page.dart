@@ -105,37 +105,53 @@ class _FarmerAdvisorPageState extends ConsumerState<FarmerAdvisorPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _ContextBanner(
-                assistantContext: assistantContext,
-                hasFarm: farmAiContext != null,
-              ),
-              const SizedBox(height: 12),
+              // Everything readable is selectable. Flutter draws text onto a
+              // canvas, so nothing is copyable unless the app opts in. The
+              // composer below is deliberately outside this area — it owns
+              // its own selection as an editable field.
               Expanded(
-                child: state.isEmpty
-                    ? const _EmptyState()
-                    : ListView.builder(
-                        controller: _scrollController,
-                        itemCount:
-                            state.messages.length + (state.isLoading ? 1 : 0),
-                        itemBuilder: (BuildContext context, int index) {
-                          if (index == state.messages.length) {
-                            return const _TypingIndicator();
-                          }
-                          return _MessageBubble(message: state.messages[index]);
-                        },
+                child: SelectionArea(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _ContextBanner(
+                        assistantContext: assistantContext,
+                        hasFarm: farmAiContext != null,
                       ),
-              ),
-              if (state.status == AdvisorStatus.failure) ...[
-                const SizedBox(height: 8),
-                _FailureBanner(
-                  errorCode: state.lastErrorCode,
-                  onRetry: state.canRetry
-                      ? () => ref
-                            .read(farmerAdvisorControllerProvider.notifier)
-                            .retry()
-                      : null,
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: state.isEmpty
+                            ? const _EmptyState()
+                            : ListView.builder(
+                                controller: _scrollController,
+                                itemCount: state.messages.length +
+                                    (state.isLoading ? 1 : 0),
+                                itemBuilder: (BuildContext context, int index) {
+                                  if (index == state.messages.length) {
+                                    return const _TypingIndicator();
+                                  }
+                                  return _MessageBubble(
+                                    message: state.messages[index],
+                                  );
+                                },
+                              ),
+                      ),
+                      if (state.status == AdvisorStatus.failure) ...[
+                        const SizedBox(height: 8),
+                        _FailureBanner(
+                          errorCode: state.lastErrorCode,
+                          onRetry: state.canRetry
+                              ? () => ref
+                                    .read(farmerAdvisorControllerProvider
+                                        .notifier)
+                                    .retry()
+                              : null,
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              ],
+              ),
               const SizedBox(height: 12),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -181,14 +197,16 @@ class _FarmerAdvisorPageState extends ConsumerState<FarmerAdvisorPage> {
                 ],
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Advice is generated and may be uncertain — it is not a '
-                'diagnosis and not a substitute for a qualified professional. '
-                'For serious animal illness, suspected poisoning, difficult '
-                'births, or a heavy crop outbreak, contact a county extension '
-                'officer, KALRO, or a qualified veterinary officer promptly. '
-                'FAMHUB does not contact or book anyone for you.',
-                style: TextStyle(fontSize: 11, height: 1.4),
+              const SelectionArea(
+                child: Text(
+                  'Advice is generated and may be uncertain — it is not a '
+                  'diagnosis and not a substitute for a qualified professional. '
+                  'For serious animal illness, suspected poisoning, difficult '
+                  'births, or a heavy crop outbreak, contact a county extension '
+                  'officer, KALRO, or a qualified veterinary officer promptly. '
+                  'FAMHUB does not contact or book anyone for you.',
+                  style: TextStyle(fontSize: 11, height: 1.4),
+                ),
               ),
             ],
           ),
@@ -306,7 +324,7 @@ class _MessageBubble extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           border: farmer ? null : Border.all(color: colors.outlineVariant),
         ),
-        child: SelectableText(
+        child: Text(
           message.text,
           style: TextStyle(
             fontSize: 14,

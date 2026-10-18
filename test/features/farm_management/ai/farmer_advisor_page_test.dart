@@ -270,14 +270,20 @@ void main() {
         find.text('Consider testing the soil pH first.'),
         findsOneWidget,
       );
-      expect(find.byType(SelectableText), findsWidgets);
-      // The reply is never handed to a markup renderer.
+      // Flutter draws text onto a canvas on the web, so nothing is
+      // copyable unless the app opts in. Both turns sit inside a
+      // SelectionArea that does exactly that.
       expect(
         find.ancestor(
-          of: find.text('Consider testing the soil pH first.'),
-          matching: find.byType(SelectableText),
+          of: find.text('My maize leaves are yellow.'),
+          matching: find.byType(SelectionArea),
         ),
         findsWidgets,
+      );
+      // The reply is never handed to a markup renderer.
+      expect(
+        find.byType(SelectableText),
+        findsNothing,
       );
     });
 
@@ -394,6 +400,29 @@ void main() {
       expect(find.textContaining('county extension officer'), findsOneWidget);
       expect(find.textContaining('does not contact or book anyone'),
           findsOneWidget);
+      // The disclaimer is readable text, so it has to be copyable too.
+      expect(
+        find.ancestor(
+          of: find.textContaining('Advice is generated and may be uncertain'),
+          matching: find.byType(SelectionArea),
+        ),
+        findsWidgets,
+      );
+    });
+
+    testWidgets('keeps the composer outside the selectable area',
+        (tester) async {
+      await _pumpPage(tester, gateway: _FakeGateway());
+
+      // The input field owns its own selection and must not sit inside the
+      // page's SelectionArea.
+      expect(
+        find.ancestor(
+          of: find.byType(TextField),
+          matching: find.byType(SelectionArea),
+        ),
+        findsNothing,
+      );
     });
 
     testWidgets('never claims a diagnosis or a guaranteed outcome',
