@@ -27,6 +27,7 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/shell/application/assistant/assistant_capability.dart';
+import 'package:famhub_app/features/farm_management/application/ai/farm_crop_capability.dart';
 import 'package:famhub_app/features/weather/application/assistant/farm_weather_capability.dart';
 
 /// Approved capabilities, in the order they are offered the request.
@@ -35,5 +36,6 @@ final advisorCapabilitiesProvider = Provider<List<AssistantCapability>>((
 ) {
   return <AssistantCapability>[
     ref.watch(farmWeatherCapabilityProvider),
+    ref.watch(farmCropCapabilityProvider),
   ];
 });
