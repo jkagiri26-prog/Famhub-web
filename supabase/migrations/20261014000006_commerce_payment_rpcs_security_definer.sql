@@ -1,0 +1,9 @@
+-- ============================================================================
+-- Restored migration history (no statements)
+-- ============================================================================
+-- This version was applied to the remote database before this repository
+-- tracked it (the schema history arrived via supabase/baseline_schema.sql
+-- and out-of-band pushes). The file exists only so the local history matches
+-- supabase_migrations.schema_migrations; supabase db push skips it because
+-- the remote already records version 20261014000006. It intentionally
+-- contains no statements and is safe to run anywhere.
