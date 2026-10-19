@@ -33,6 +33,7 @@ class FarmSelectorWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectorState = ref.watch(farmSelectorProvider);
+    final selectedEntityId = ref.watch(hierarchyProvider).entityId;
     final theme = Theme.of(context);
 
     return Container(
@@ -121,7 +122,8 @@ class FarmSelectorWidget extends ConsumerWidget {
                 if (selectorState.farms.length > 1) ...[
                   const SizedBox(height: 8),
                   ...selectorState.farms
-                      .map((farm) => _farmOption(context, farm, ref)),
+                      .map((farm) => _farmOption(
+                          context, farm, ref, selectedEntityId)),
                 ],
               ],
             ),
@@ -162,51 +164,78 @@ class FarmSelectorWidget extends ConsumerWidget {
     );
   }
 
-  Widget _farmOption(BuildContext context, FarmEntity farm, WidgetRef ref) {
+  Widget _farmOption(
+    BuildContext context,
+    FarmEntity farm,
+    WidgetRef ref,
+    String? selectedEntityId,
+  ) {
+    final isSelected = farm.id == selectedEntityId;
     return Padding(
       padding: const EdgeInsets.only(top: 4),
-      child: InkWell(
-        onTap: () {
-          ref.read(hierarchyProvider.notifier).selectEntity(farm);
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) =>
-                  FarmDetailPage(farmId: farm.id, farmName: farm.farmName),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(6),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 6,
+      child: Container(
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.green.shade50 : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isSelected ? Colors.green.shade200 : Colors.transparent,
           ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.terrain,
-                size: 14,
-                color: Colors.grey.shade600,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  farm.farmName,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade700,
+        ),
+        child: Row(
+          children: [
+            // Farm name — selecting it promotes it to the top and refreshes
+            // the overview data for that farm (no navigation).
+            Expanded(
+              child: InkWell(
+                onTap: () =>
+                    ref.read(hierarchyProvider.notifier).selectEntity(farm),
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.terrain,
+                        size: 14,
+                        color: isSelected
+                            ? Colors.green.shade700
+                            : Colors.grey.shade600,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          farm.farmName,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                            color: isSelected
+                                ? Colors.green.shade800
+                                : Colors.grey.shade700,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              Icon(
-                Icons.open_in_new,
-                size: 14,
-                color: Colors.grey.shade400,
+            ),
+            // Explicit "Open" action beside the name.
+            TextButton(
+              onPressed: () => _openFarm(context, ref, farm),
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
               ),
-            ],
-          ),
+              child: const Text('Open'),
+            ),
+          ],
         ),
       ),
     );
