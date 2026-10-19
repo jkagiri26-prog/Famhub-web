@@ -1,3 +1,17 @@
+-- ============================================================================
+-- HISTORICAL SNAPSHOT -- NOT A MIGRATION -- DO NOT REPLAY
+-- ----------------------------------------------------------------------------
+-- This file is a pg_dump-style schema snapshot captured 2026-10-12 (git commit
+-- a9842ecb), BEFORE any of the 12 applied migrations in supabase/migrations/
+-- were applied to the linked project (ref erbxiqdfjmqnoeyjupru). It also
+-- contains out-of-band drift objects (e.g. financing.financial_accounts) and
+-- pre-Phase-0B GRANTs that would re-open privileges migrations
+-- 20261014000001-0004 and 20261014000007 were written to close.
+--
+-- Retained for audit/reference only. Do NOT replay, restore, or apply this
+-- file to any database. The authoritative applied schema lives in the linked
+-- project and in supabase/migrations/ (Piece 5A audit, 2026-10-19).
+-- ============================================================================
 
 
 
