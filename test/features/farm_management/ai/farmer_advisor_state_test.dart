@@ -1868,6 +1868,502 @@ void main() {
       },
     );
   });
+
+  // ══════════════════════════════════════════════════════════
+  // Clarification continuity — the pending-question fix. A short reply
+  // ("Green valley", "the second one") must resume the ORIGINAL request
+  // through the capability that asked it, with farm-scoped,
+  // repository-verified data. Real production composition throughout;
+  // only the data seams are faked.
+  // ══════════════════════════════════════════════════════════
+  group('clarification continuity', () {
+    const String originalQuestion =
+        'What activities have been recorded on my farm?';
+
+    const FarmEntity gold = FarmEntity(
+      id: 'f_gold',
+      farmName: 'Gold Farm',
+      isActive: true,
+      isVerified: true,
+    );
+    const FarmEntity green = FarmEntity(
+      id: 'f_green',
+      farmName: 'Green Valley',
+      isActive: true,
+      isVerified: true,
+    );
+
+    /// Two-farm activity seam that records every farm whose rows were
+    /// read. Only Green Valley keeps a feeding record, only Gold Farm a
+    /// spraying record — so the evidence proves which farm answered.
+    ({FarmActivityInputs inputs, List<String> requests}) activitySeam({
+      bool greenHasRecords = true,
+    }) {
+      final List<String> requests = <String>[];
+      return (
+        inputs: FarmActivityInputs(
+          farms: const <FarmEntity>[gold, green],
+          loadActivities: (String farmId) async {
+            requests.add(farmId);
+            if (farmId != 'f_green') {
+              return <ActivityModel>[
+                ActivityModel(
+                  id: 'act_spray_gold',
+                  activityTypeId: 't2',
+                  performedAt: DateTime(2026, 10, 10, 9),
+                ),
+              ];
+            }
+            if (!greenHasRecords) return const <ActivityModel>[];
+            return <ActivityModel>[
+              ActivityModel(
+                id: 'act_feed_green',
+                activityTypeId: 't1',
+                performedAt: DateTime(2026, 10, 12, 9),
+              ),
+            ];
+          },
+          loadActivityTypeNames: () async => const <String, String>{
+            't1': 'Feeding',
+            't2': 'Spraying',
+          },
+          loadAssets: (String farmId) async => const <AssetEntity>[],
+          loadFields: (String farmId) async => const <FieldEntity>[],
+        ),
+        requests: requests,
+      );
+    }
+
+    /// Stub that asks one farm clarification and then serves evidence for
+    /// the resumed run (plus a spare for a retry).
+    _StubCapability continuityStub() {
+      final _StubCapability capability = _StubCapability(
+        id: kFarmActivityCapabilityId,
+        isMatch: (String question) => true,
+        outcome: const AssistantCapabilityOutcome.clarification(
+          capabilityId: kFarmActivityCapabilityId,
+          text:
+              'Which farm do you mean? I can see: Gold Farm or Green '
+              'Valley.',
+          options: <String>['Gold Farm', 'Green Valley'],
+        ),
+      );
+      capability.scriptedOutcomes
+        ..add(capability.outcome)
+        ..add(
+          const AssistantCapabilityOutcome.evidence(
+            capabilityId: kFarmActivityCapabilityId,
+            evidence: <String, dynamic>{
+              'capability': kFarmActivityCapabilityId,
+            },
+          ),
+        )
+        ..add(
+          const AssistantCapabilityOutcome.evidence(
+            capabilityId: kFarmActivityCapabilityId,
+            evidence: <String, dynamic>{
+              'capability': kFarmActivityCapabilityId,
+            },
+          ),
+        );
+      return capability;
+    }
+
+    test(
+      'a short farm answer resumes the original request farm-scoped',
+      () async {
+        final seam = activitySeam();
+        final f = _contextFixture(activityInputs: seam.inputs);
+        f.gateway.result = const AiGatewayResult.success(
+          elapsed: Duration(milliseconds: 12),
+          statusCode: 200,
+          requestId: 'req-test',
+          output: 'Green Valley has one recorded feeding activity.',
+        );
+
+        // Turn 1: the capability asks which farm; the model is not
+        // called and no repository row is read yet.
+        await _ask(f.container, originalQuestion);
+        await _drain();
+
+        expect(f.gateway.callCount, 0);
+        final FarmerAdvisorState asking = f.container.read(
+          farmerAdvisorControllerProvider,
+        );
+        expect(asking.status, AdvisorStatus.ready);
+        expect(asking.messages.last.isFarmer, isFalse);
+        expect(asking.messages.last.text, contains('Which farm do you mean'));
+        expect(asking.messages.last.text, contains('Green Valley'));
+        expect(seam.requests, isEmpty);
+
+        // Turn 2: the reply alone resumes the SAME capability on the
+        // original request, scoped to Green Valley's rows only.
+        await _ask(f.container, 'Green valley');
+        await _drain();
+
+        expect(f.gateway.questions, <String>['Green valley']);
+        final Map<String, dynamic>? evidence =
+            f.gateway.capabilityEvidences.single;
+        expect(evidence, isNotNull);
+        expect(evidence!['capability'], kFarmActivityCapabilityId);
+        expect(
+          (evidence['farm']! as Map<String, dynamic>)['name'],
+          'Green Valley',
+        );
+        expect(
+          (evidence['activities'] as List)
+              .map((dynamic row) => (row as Map<String, dynamic>)['type'])
+              .toList(),
+          <String>['Feeding'],
+        );
+
+        // Repository-verified: Green Valley's rows were read, Gold Farm's
+        // spraying record was never touched, and no ids leaked.
+        expect(seam.requests, <String>['f_green']);
+        final String evidenceJson = jsonEncode(evidence);
+        expect(evidenceJson, isNot(contains('Spraying')));
+        expect(evidenceJson, isNot(contains('f_green')));
+        expect(evidenceJson, isNot(contains('act_feed_green')));
+
+        final FarmerAdvisorState answered = f.container.read(
+          farmerAdvisorControllerProvider,
+        );
+        expect(answered.status, AdvisorStatus.ready);
+        expect(
+          answered.messages.last.text,
+          'Green Valley has one recorded feeding activity.',
+        );
+      },
+    );
+
+    test('the other offered farm resumes against its own records', () async {
+      final seam = activitySeam();
+      final f = _contextFixture(activityInputs: seam.inputs);
+      f.gateway.result = const AiGatewayResult.success(
+        elapsed: Duration(milliseconds: 12),
+        statusCode: 200,
+        requestId: 'req-test',
+        output: 'Gold Farm has one recorded spraying activity.',
+      );
+
+      await _ask(f.container, originalQuestion);
+      await _drain();
+      await _ask(f.container, 'Gold Farm');
+      await _drain();
+
+      expect(f.gateway.questions, <String>['Gold Farm']);
+      final Map<String, dynamic>? evidence =
+          f.gateway.capabilityEvidences.single;
+      expect(evidence, isNotNull);
+      expect(evidence!['capability'], kFarmActivityCapabilityId);
+      expect((evidence['farm']! as Map<String, dynamic>)['name'], 'Gold Farm');
+      expect(
+        (evidence['activities'] as List)
+            .map((dynamic row) => (row as Map<String, dynamic>)['type'])
+            .toList(),
+        <String>['Spraying'],
+      );
+      expect(seam.requests, <String>['f_gold']);
+      expect(jsonEncode(evidence), isNot(contains('Feeding')));
+    });
+
+    test('the offered farm name matches in any casing', () async {
+      final seam = activitySeam();
+      final f = _contextFixture(activityInputs: seam.inputs);
+
+      await _ask(f.container, originalQuestion);
+      await _drain();
+      await _ask(f.container, 'GrEen VaLLeY');
+      await _drain();
+
+      expect(f.gateway.questions, <String>['GrEen VaLLeY']);
+      final Map<String, dynamic>? evidence =
+          f.gateway.capabilityEvidences.single;
+      expect(evidence, isNotNull);
+      expect(evidence!['capability'], kFarmActivityCapabilityId);
+      expect(
+        (evidence['farm']! as Map<String, dynamic>)['name'],
+        'Green Valley',
+      );
+      expect(seam.requests, <String>['f_green']);
+    });
+
+    test(
+      'a positional answer picks the option that was actually offered',
+      () async {
+        final seam = activitySeam();
+        final f = _contextFixture(activityInputs: seam.inputs);
+
+        await _ask(f.container, originalQuestion);
+        await _drain();
+        await _ask(f.container, 'the second one');
+        await _drain();
+
+        // Options were offered in farm order: Gold Farm, Green Valley.
+        expect(f.gateway.questions, <String>['the second one']);
+        final Map<String, dynamic>? evidence =
+            f.gateway.capabilityEvidences.single;
+        expect(evidence, isNotNull);
+        expect(evidence!['capability'], kFarmActivityCapabilityId);
+        expect(
+          (evidence['farm']! as Map<String, dynamic>)['name'],
+          'Green Valley',
+        );
+        expect(seam.requests, <String>['f_green']);
+      },
+    );
+
+    test('an unoffered answer re-asks without the gateway and the task '
+        'survives', () async {
+      final seam = activitySeam();
+      final f = _contextFixture(activityInputs: seam.inputs);
+      f.gateway.result = const AiGatewayResult.success(
+        elapsed: Duration(milliseconds: 12),
+        statusCode: 200,
+        requestId: 'req-test',
+        output: 'Green Valley has one recorded feeding activity.',
+      );
+
+      await _ask(f.container, originalQuestion);
+      await _drain();
+      await _ask(f.container, 'Blue Farm');
+      await _drain();
+
+      // "Blue Farm" maps to nothing offered: re-clarified from the
+      // still-open task, with no rows read and no model consulted.
+      expect(f.gateway.callCount, 0);
+      final FarmerAdvisorState reasking = f.container.read(
+        farmerAdvisorControllerProvider,
+      );
+      expect(reasking.status, AdvisorStatus.ready);
+      expect(reasking.messages.last.isFarmer, isFalse);
+      expect(reasking.messages.last.text, contains('Which farm do you mean'));
+      expect(seam.requests, isEmpty);
+
+      // The original request is still open and now completes.
+      await _ask(f.container, 'Green valley');
+      await _drain();
+
+      expect(f.gateway.questions, <String>['Green valley']);
+      final Map<String, dynamic>? evidence =
+          f.gateway.capabilityEvidences.single;
+      expect(evidence, isNotNull);
+      expect(evidence!['capability'], kFarmActivityCapabilityId);
+      expect(
+        (evidence['farm']! as Map<String, dynamic>)['name'],
+        'Green Valley',
+      );
+      expect(seam.requests, <String>['f_green']);
+    });
+
+    test('an answered farm with no records stays honest and scoped', () async {
+      final seam = activitySeam(greenHasRecords: false);
+      final f = _contextFixture(activityInputs: seam.inputs);
+
+      await _ask(f.container, originalQuestion);
+      await _drain();
+      await _ask(f.container, 'Green valley');
+      await _drain();
+
+      // Never invented: the model was not consulted, and Gold Farm's
+      // records were not substituted for Green Valley's missing rows.
+      expect(f.gateway.callCount, 0);
+      expect(seam.requests, <String>['f_green']);
+      final FarmerAdvisorState state = f.container.read(
+        farmerAdvisorControllerProvider,
+      );
+      expect(state.status, AdvisorStatus.ready);
+      expect(state.messages.last.isFarmer, isFalse);
+      expect(
+        state.messages.last.text,
+        contains('nothing matching is recorded here'),
+      );
+      expect(
+        state.messages.last.text,
+        contains('not that the work was never done'),
+      );
+    });
+
+    test(
+      'a clear new question replaces the open task instead of trapping it',
+      () async {
+        final seam = activitySeam();
+        final f = _contextFixture(
+          activityInputs: seam.inputs,
+          weatherInputs: const FarmWeatherInputs(
+            farms: <FarmEntity>[
+              FarmEntity(
+                id: 'f_weather',
+                farmName: 'Kibuye Farm',
+                wardId: 'w1',
+                isActive: true,
+                isVerified: true,
+              ),
+            ],
+          ),
+          weatherService: _FakeWeatherService(bundle: _forecastBundle),
+        );
+
+        await _ask(f.container, originalQuestion);
+        await _drain();
+        expect(f.gateway.callCount, 0);
+
+        // The weather question carries a question mark: it is a fresh
+        // request, not an answer to "which farm".
+        await _ask(f.container, "What's the weather forecast this week?");
+        await _drain();
+
+        expect(f.gateway.questions, <String>[
+          "What's the weather forecast this week?",
+        ]);
+        final Map<String, dynamic>? evidence =
+            f.gateway.capabilityEvidences.single;
+        expect(evidence, isNotNull);
+        expect(evidence!['capability'], 'farm_weather');
+        expect(evidence['location_label'], 'Kibuye Farm');
+        // The pending activity resume never ran.
+        expect(seam.requests, isEmpty);
+      },
+    );
+
+    test(
+      'a weather clarification resumes the forecast for the answered farm',
+      () async {
+        final f = _contextFixture(
+          weatherInputs: const FarmWeatherInputs(
+            farms: <FarmEntity>[
+              FarmEntity(
+                id: 'f_gold_w',
+                farmName: 'Gold Farm',
+                wardId: 'w1',
+                isActive: true,
+                isVerified: true,
+              ),
+              FarmEntity(
+                id: 'f_green_w',
+                farmName: 'Green Valley',
+                wardId: 'w2',
+                isActive: true,
+                isVerified: true,
+              ),
+            ],
+          ),
+          weatherService: _FakeWeatherService(bundle: _forecastBundle),
+        );
+
+        await _ask(f.container, "What's the weather forecast this week?");
+        await _drain();
+
+        expect(f.gateway.callCount, 0);
+        final FarmerAdvisorState asking = f.container.read(
+          farmerAdvisorControllerProvider,
+        );
+        expect(asking.status, AdvisorStatus.ready);
+        expect(asking.messages.last.text, contains('Which farm do you mean'));
+        expect(asking.messages.last.text, contains('Green Valley'));
+
+        await _ask(f.container, 'Green valley');
+        await _drain();
+
+        expect(f.gateway.questions, <String>['Green valley']);
+        final Map<String, dynamic>? evidence =
+            f.gateway.capabilityEvidences.single;
+        expect(evidence, isNotNull);
+        expect(evidence!['capability'], 'farm_weather');
+        expect(evidence['location_label'], 'Green Valley');
+        expect(evidence['scope'], 'forecast');
+        expect(
+          (evidence['forecast']! as Map<String, dynamic>)['daily'],
+          isNotEmpty,
+        );
+        expect(
+          f.container.read(farmerAdvisorControllerProvider).status,
+          AdvisorStatus.ready,
+        );
+      },
+    );
+
+    test(
+      'the resumed run executes the original question plus the answer',
+      () async {
+        final _StubCapability capability = continuityStub();
+        final f = _fixture(capabilities: <AssistantCapability>[capability]);
+
+        await _ask(f.container, originalQuestion);
+        await _drain();
+        await _ask(f.container, 'Green valley');
+        await _drain();
+
+        // The SAME capability ran twice: first on the farmer's question,
+        // then on that original question with the answer composed in —
+        // never on the short reply alone.
+        expect(capability.runQuestions, <String>[
+          originalQuestion,
+          '$originalQuestion Green valley',
+        ]);
+        // The gateway still receives the farmer's own words, verbatim.
+        expect(f.gateway.questions, <String>['Green valley']);
+        expect(f.gateway.capabilityEvidences.single, <String, dynamic>{
+          'capability': kFarmActivityCapabilityId,
+        });
+        expect(
+          f.container.read(farmerAdvisorControllerProvider).status,
+          AdvisorStatus.ready,
+        );
+      },
+    );
+
+    test(
+      'a failed resumed turn retries with its evidence still attached',
+      () async {
+        final _StubCapability capability = continuityStub();
+        final f = _fixture(capabilities: <AssistantCapability>[capability]);
+        f.gateway.scriptFailureThenSuccess();
+
+        await _ask(f.container, originalQuestion);
+        await _drain();
+        await _ask(f.container, 'Green valley');
+        await _drain();
+
+        final FarmerAdvisorState failed = f.container.read(
+          farmerAdvisorControllerProvider,
+        );
+        expect(failed.status, AdvisorStatus.failure);
+        expect(failed.canRetry, isTrue);
+
+        f.gateway.result = const AiGatewayResult.success(
+          elapsed: Duration(milliseconds: 12),
+          statusCode: 200,
+          requestId: 'req-test',
+          output: 'Green Valley recorded one feeding activity.',
+        );
+        await f.container
+            .read(farmerAdvisorControllerProvider.notifier)
+            .retry();
+        await _drain();
+
+        // The retry re-ran the SAME resume, so the model received the
+        // evidence instead of a bare short answer.
+        expect(capability.runQuestions, <String>[
+          originalQuestion,
+          '$originalQuestion Green valley',
+          '$originalQuestion Green valley',
+        ]);
+        expect(f.gateway.questions, <String>['Green valley', 'Green valley']);
+        expect(f.gateway.capabilityEvidences.last, <String, dynamic>{
+          'capability': kFarmActivityCapabilityId,
+        });
+        final FarmerAdvisorState retried = f.container.read(
+          farmerAdvisorControllerProvider,
+        );
+        expect(retried.status, AdvisorStatus.ready);
+        expect(
+          retried.messages.last.text,
+          'Green Valley recorded one feeding activity.',
+        );
+      },
+    );
+  });
 }
 
 /// Production composition fixture: only data seams (inputs, weather
@@ -1988,6 +2484,14 @@ class _StubCapability implements AssistantCapability {
 
   int runCount = 0;
 
+  /// Outcomes consumed one per run before [outcome], so a test can script a
+  /// clarification followed by the evidence its resumed run produces.
+  final List<AssistantCapabilityOutcome> scriptedOutcomes =
+      <AssistantCapabilityOutcome>[];
+
+  /// The exact question every run executed with.
+  final List<String> runQuestions = <String>[];
+
   @override
   bool matches(String question) => isMatch(question);
 
@@ -1997,7 +2501,9 @@ class _StubCapability implements AssistantCapability {
     required AssistantContext assistantContext,
   }) async {
     runCount++;
+    runQuestions.add(question);
     if (throwOnRun) throw Exception('capability exploded');
+    if (scriptedOutcomes.isNotEmpty) return scriptedOutcomes.removeAt(0);
     return outcome;
   }
 }

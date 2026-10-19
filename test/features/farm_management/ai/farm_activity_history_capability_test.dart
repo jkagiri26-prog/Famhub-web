@@ -229,6 +229,9 @@ void main() {
       expect(outcome.text, contains('Which farm do you mean'));
       expect(outcome.text, contains('Alpha Farm'));
       expect(outcome.text, contains('Beta Farm'));
+      // The offered names travel with the outcome so a short reply can be
+      // matched against what was actually listed, never guessed at.
+      expect(outcome.options, <String>['Alpha Farm', 'Beta Farm']);
       expect(recording.activityRequests, isEmpty);
     });
 

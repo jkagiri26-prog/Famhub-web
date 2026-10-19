@@ -417,6 +417,7 @@ class FarmActivityCapability implements AssistantCapability {
             example: (String first) =>
                 'What activities have been recorded at $first?',
           ),
+          options: farmResolution.farmNames,
         );
       case FarmCropFarmStatus.resolved:
         break;
@@ -469,16 +470,18 @@ class FarmActivityCapability implements AssistantCapability {
         // than ask a question they cannot resolve.
         cropScope = candidates;
       } else {
+        final List<String> cropLabels = candidates
+            .map((AssetEntity a) => _assetLabel(a, fieldById))
+            .toList(growable: false);
         return AssistantCapabilityOutcome.clarification(
           capabilityId: id,
           text: _clarification(
             kind: 'crop',
-            names: candidates
-                .map((AssetEntity a) => _assetLabel(a, fieldById))
-                .toList(growable: false),
+            names: cropLabels,
             example: (String first) =>
                 'When did I last apply fertilizer to $first?',
           ),
+          options: cropLabels,
         );
       }
     }
@@ -502,6 +505,7 @@ class FarmActivityCapability implements AssistantCapability {
               example: (String first) =>
                   'What activities are recorded for $first?',
             ),
+            options: fieldResolution.fieldNames,
           );
         case FarmCropFieldStatus.resolved:
           scopedField = fieldResolution.field;

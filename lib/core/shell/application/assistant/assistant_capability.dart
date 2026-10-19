@@ -56,6 +56,7 @@ class AssistantCapabilityOutcome {
   const AssistantCapabilityOutcome.clarification({
     required this.capabilityId,
     required this.text,
+    this.options = const <String>[],
   })  : kind = AssistantCapabilityOutcomeKind.clarification,
         code = null,
         evidence = null;
@@ -65,14 +66,16 @@ class AssistantCapabilityOutcome {
     required this.code,
     required this.text,
   })  : kind = AssistantCapabilityOutcomeKind.failure,
-        evidence = null;
+        evidence = null,
+        options = const <String>[];
 
   const AssistantCapabilityOutcome.evidence({
     required this.capabilityId,
     required this.evidence,
   })  : kind = AssistantCapabilityOutcomeKind.evidence,
         code = null,
-        text = null;
+        text = null,
+        options = const <String>[];
 
   final AssistantCapabilityOutcomeKind kind;
 
@@ -88,6 +91,12 @@ class AssistantCapabilityOutcome {
 
   /// Minimal, already-redacted context for the gateway. Never raw records.
   final Map<String, dynamic>? evidence;
+
+  /// The names offered in this clarification, in the order they were
+  /// listed to the farmer. Lets a short reply ("the second one") be
+  /// matched against what was actually offered instead of guessed at.
+  /// Empty for outcomes that asked no question.
+  final List<String> options;
 }
 
 /// One approved application capability the assistant may invoke.

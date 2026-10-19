@@ -634,6 +634,7 @@ class FarmLivestockCapability implements AssistantCapability {
             names: farmResolution.farmNames,
             example: (String first) => 'Which animals are registered at $first?',
           ),
+          options: farmResolution.farmNames,
         );
       case FarmCropFarmStatus.resolved:
         break;
@@ -744,14 +745,16 @@ class FarmLivestockCapability implements AssistantCapability {
     if (matched.length > 1 &&
         _isSingularAnimalReference(lower) &&
         !_allSameLabel(matched, fieldById)) {
+      final List<String> groupLabels = _labels(matched, fieldById);
       return AssistantCapabilityOutcome.clarification(
         capabilityId: id,
         text: _clarification(
           kind: 'livestock group',
-          names: _labels(matched, fieldById),
+          names: groupLabels,
           example: (String first) =>
               'Tell me about this $first herd on my farm?',
         ),
+        options: groupLabels,
       );
     }
 

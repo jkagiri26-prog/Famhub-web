@@ -75,6 +75,47 @@ enum AdvisorRole { farmer, adviser }
 const int kMaxConversationTurns = 6;
 const int kMaxConversationTurnChars = 400;
 
+/// First words that mark a message as a fresh question rather than an
+/// answer to an open clarification. Anything else short enough to be an
+/// answer resumes the pending task.
+const Set<String> _kNewQuestionStarts = <String>{
+  'what',
+  'which',
+  'where',
+  'when',
+  'why',
+  'how',
+  'who',
+  'whose',
+  'whom',
+  'is',
+  'are',
+  'was',
+  'were',
+  'do',
+  'does',
+  'did',
+  'can',
+  'could',
+  'will',
+  'would',
+  'should',
+  'shall',
+  'must',
+  'tell',
+  'show',
+  'list',
+  'give',
+  'explain',
+  'compare',
+  'describe',
+  'define',
+  'recommend',
+  'suggest',
+  'advise',
+  'name',
+};
+
 /// One message in the visible conversation.
 class AdvisorMessage {
   const AdvisorMessage({
@@ -222,6 +263,29 @@ class _PendingTurn {
   int get unsavedCount => (farmerSaved ? 0 : 1) + (adviserSaved ? 0 : 1);
 }
 
+/// The clarification the assistant is waiting on: which capability asked
+/// it, the ORIGINAL question it was asked for, and the options that were
+/// offered. Held for exactly one reply so a short answer ("Green valley",
+/// "the second one") resumes the original request instead of being
+/// routed as a brand-new question. Cleared by a new question, a finished
+/// outcome, or a conversation switch — never a parallel intent system.
+class _PendingClarification {
+  const _PendingClarification({
+    required this.capabilityId,
+    required this.question,
+    required this.options,
+  });
+
+  final String capabilityId;
+  final String question;
+  final List<String> options;
+}
+
+/// How many names a clarification lists to the farmer. Mirrors the cap
+/// every capability renders with (`kMaxClarificationNames` and its
+/// equivalents), so an ordinal answer never indexes a name unseen.
+const int kClarificationOptionsShown = 4;
+
 /// Drives one advisory conversation.
 class FarmerAdvisorController extends Notifier<FarmerAdvisorState> {
   /// Guards against a stale response overwriting a newer turn, which also
@@ -235,6 +299,10 @@ class FarmerAdvisorController extends Notifier<FarmerAdvisorState> {
   /// Context captured for the question currently in flight, so a retry after
   /// a failure re-sends with the same envelope.
   AssistantContext? _activeContext;
+
+  /// The clarification awaiting the farmer's short answer (see
+  /// [_PendingClarification]). Null whenever no clarification is open.
+  _PendingClarification? _pendingClarification;
 
   /// The conversation new turns are written into, mirrored into state.
   String? _activeConversationId;
@@ -316,20 +384,27 @@ class FarmerAdvisorController extends Notifier<FarmerAdvisorState> {
       route: assistantContext.route,
     );
 
+    // An open clarification turns a short reply into a RESUME: the same
+    // capability that asked runs again on the original question plus the
+    // farmer's answer, so the pending intent and farm scope survive. A
+    // clear new question drops the open task and routes normally.
+    final ({AssistantCapability capability, String question})? resume =
+        _resumePlanFor(trimmed);
+
     // Capability first. The model never chooses or executes a capability:
     // the question is matched locally, the capability resolves its own
     // authorized inputs, and only already-retrieved evidence is handed on.
     Map<String, dynamic>? capabilityEvidence;
-    final AssistantCapability? capability = _selectCapability(
-      subject.routingQuestion,
-    );
+    final AssistantCapability? capability =
+        resume?.capability ?? _selectCapability(subject.routingQuestion);
     if (capability != null) {
       AssistantCapabilityOutcome outcome;
       try {
-        // The capability runs on the farmer's own words — the routing
-        // annotation exists only to select it.
+        // A resumed run executes the ORIGINAL request (with the answer
+        // composed in); an ordinary run executes the farmer's own words.
+        // The routing annotation exists only to select the capability.
         outcome = await capability.run(
-          question: trimmed,
+          question: resume?.question ?? trimmed,
           assistantContext: assistantContext,
         );
       } catch (_) {
@@ -343,6 +418,23 @@ class FarmerAdvisorController extends Notifier<FarmerAdvisorState> {
       }
 
       if (token != _requestToken) return;
+
+      if (outcome.kind == AssistantCapabilityOutcomeKind.clarification) {
+        // Remember the outstanding task. The question stays the ORIGINAL
+        // one across repeated clarifications; the options refresh to what
+        // was just offered.
+        _pendingClarification = _PendingClarification(
+          capabilityId: outcome.capabilityId,
+          question: _pendingClarification?.question ?? trimmed,
+          options: outcome.options,
+        );
+      } else if (outcome.kind == AssistantCapabilityOutcomeKind.failure) {
+        // An honest failure concludes the task; nothing is left to answer.
+        _pendingClarification = null;
+      }
+      // Evidence keeps the pending clarification only until the turn
+      // commits, so a gateway failure on a resumed turn can retry WITH
+      // its evidence (see the success path below).
 
       if (outcome.kind != AssistantCapabilityOutcomeKind.evidence) {
         final String answer = outcome.text ?? '';
@@ -387,6 +479,10 @@ class FarmerAdvisorController extends Notifier<FarmerAdvisorState> {
     if (token != _requestToken) return;
 
     if (result.succeeded) {
+      // The turn committed: any clarification it was answering is closed.
+      // A failure below keeps it, so retry() re-runs the resume (with
+      // evidence) instead of treating the short answer as a new question.
+      _pendingClarification = null;
       final String answer = result.output!;
       state = state.copyWith(
         status: AdvisorStatus.ready,
@@ -527,6 +623,7 @@ class FarmerAdvisorController extends Notifier<FarmerAdvisorState> {
     final int epoch = ++_sessionEpoch;
     _requestToken++;
     _activeContext = null;
+    _pendingClarification = null;
     _tryState(
       () => state.copyWith(
         openingConversation: true,
@@ -583,6 +680,7 @@ class FarmerAdvisorController extends Notifier<FarmerAdvisorState> {
     _requestToken++;
     _sessionEpoch++;
     _activeContext = null;
+    _pendingClarification = null;
     _activeConversationId = null;
     final FarmerAdvisorState previous = state;
     state = FarmerAdvisorState(
@@ -645,6 +743,7 @@ class FarmerAdvisorController extends Notifier<FarmerAdvisorState> {
         _requestToken++;
         _sessionEpoch++;
         _activeContext = null;
+        _pendingClarification = null;
         _activeConversationId = null;
         final FarmerAdvisorState previous = state;
         state = FarmerAdvisorState(
@@ -838,6 +937,109 @@ class FarmerAdvisorController extends Notifier<FarmerAdvisorState> {
     return null;
   }
 
+  /// The registered capability with [id], or null when it is gone.
+  AssistantCapability? _capabilityById(String id) {
+    final List<AssistantCapability> capabilities = ref.read(
+      advisorCapabilitiesProvider,
+    );
+    for (final AssistantCapability capability in capabilities) {
+      if (capability.id == id) return capability;
+    }
+    return null;
+  }
+
+  /// Builds the resume of an open clarification for the farmer's reply, or
+  /// null when the reply is a new question (the pending task is dropped in
+  /// that case) or no clarification is open.
+  ///
+  /// The resumed question is the ORIGINAL question plus the reply, with a
+  /// positional answer ("the second one") mapped to the option that was
+  /// actually offered. An answer that maps to nothing is passed through
+  /// unchanged, so the capability re-clarifies instead of choosing
+  /// arbitrarily.
+  ({AssistantCapability capability, String question})? _resumePlanFor(
+    String answer,
+  ) {
+    final _PendingClarification? pending = _pendingClarification;
+    if (pending == null) return null;
+    if (_isLikelyNewQuestion(answer)) {
+      _pendingClarification = null;
+      return null;
+    }
+    final AssistantCapability? capability = _capabilityById(
+      pending.capabilityId,
+    );
+    if (capability == null) {
+      _pendingClarification = null;
+      return null;
+    }
+    final String resolved = _optionForOrdinal(answer, pending.options) ?? answer;
+    final String question =
+        '${pending.question} $resolved'
+            .replaceAll(RegExp(r'\s+'), ' ')
+            .trim();
+    return (capability: capability, question: question);
+  }
+
+  /// True when [message] reads as a fresh question rather than an answer to
+  /// an outstanding clarification: it carries a question mark, or opens
+  /// with an interrogative / ask-verb. Short answers ("Green valley",
+  /// "the second one", "yes, the green one") are not questions.
+  bool _isLikelyNewQuestion(String message) {
+    final String lower = message.trim().toLowerCase();
+    if (lower.contains('?')) return true;
+    String firstWord = '';
+    for (final String part in lower.split(RegExp(r'[^a-z0-9]+'))) {
+      if (part.isNotEmpty) {
+        firstWord = part;
+        break;
+      }
+    }
+    return _kNewQuestionStarts.contains(firstWord);
+  }
+
+  /// Maps an ordinal answer to the option shown at that position, or null
+  /// when it cannot be matched safely (nothing offered, index beyond what
+  /// was listed, no ordinal present).
+  String? _optionForOrdinal(String answer, List<String> options) {
+    if (options.isEmpty) return null;
+    final String lower = answer.trim().toLowerCase();
+    final int shown = options.length < kClarificationOptionsShown
+        ? options.length
+        : kClarificationOptionsShown;
+    int index = -1;
+    final Match? numeric = RegExp(
+      r'^(?:the\s+)?(?:option|choice|number|no\.?|#)?\s*(\d+)(?:\s*(?:st|nd|rd|th))?$',
+    ).firstMatch(lower);
+    if (numeric != null) {
+      index = int.parse(numeric.group(1)!) - 1;
+    } else {
+      const Map<String, int> ordinals = <String, int>{
+        'first': 0,
+        'second': 1,
+        'third': 2,
+        'fourth': 3,
+      };
+      for (final MapEntry<String, int> entry in ordinals.entries) {
+        if (_containsWord(lower, entry.key)) {
+          index = entry.value;
+          break;
+        }
+      }
+    }
+    if (index < 0 || index >= shown) return null;
+    return options[index];
+  }
+
+  /// Matches [word] only on word boundaries.
+  bool _containsWord(String haystackLower, String word) {
+    final RegExp pattern = RegExp(
+      r'\b' + RegExp.escape(word) + r'\b',
+      caseSensitive: false,
+    );
+    return pattern.hasMatch(haystackLower);
+  }
+
   /// Recent conversation for the stateless gateway: the farmer's own
   /// earlier turns and the resolved active subject, so a follow-up or a
   /// subject switch is visible to the model instead of being guessed at.
@@ -886,6 +1088,7 @@ class FarmerAdvisorController extends Notifier<FarmerAdvisorState> {
   void reset() {
     _requestToken++;
     _activeContext = null;
+    _pendingClarification = null;
     state = FarmerAdvisorState(
       hasFarmContext: state.hasFarmContext,
       historyStatus: state.historyStatus,

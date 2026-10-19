@@ -534,6 +534,7 @@ class FarmCropCapability implements AssistantCapability {
         return AssistantCapabilityOutcome.clarification(
           capabilityId: id,
           text: _farmClarification(farmResolution.farmNames),
+          options: farmResolution.farmNames,
         );
       case FarmCropFarmStatus.resolved:
         break;
@@ -563,6 +564,7 @@ class FarmCropCapability implements AssistantCapability {
           return AssistantCapabilityOutcome.clarification(
             capabilityId: id,
             text: _fieldClarification(fieldResolution.fieldNames),
+            options: fieldResolution.fieldNames,
           );
         case FarmCropFieldStatus.resolved:
           narrowed = fieldResolution.field;

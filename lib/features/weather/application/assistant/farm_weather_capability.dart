@@ -421,6 +421,7 @@ class FarmWeatherCapability implements AssistantCapability {
         return AssistantCapabilityOutcome.clarification(
           capabilityId: id,
           text: _clarificationFor(resolution.farmNames),
+          options: resolution.farmNames,
         );
       case FarmWeatherTargetStatus.noFarm:
         return AssistantCapabilityOutcome.failure(
