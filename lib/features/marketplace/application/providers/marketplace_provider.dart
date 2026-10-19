@@ -159,6 +159,78 @@ class MarketplaceController extends AsyncNotifier<List<Listing>> {
     return report;
   }
 
+  /// Publish a STANDALONE listing (no managed-stock reference).
+  ///
+  /// The listing is created as a draft via the direct `marketplace.listings`
+  /// insert (authorized server-side by can_sell membership), photos are
+  /// uploaded through the hardened media flow, and the listing is then
+  /// activated via `marketplace.set_listing_status`.
+  ///
+  /// `stock_id` is intentionally null — no fabricated stock id is sent.
+  /// `entity_id` comes from the ACTIVE entity context (never user input) and
+  /// remains validated by backend RLS.
+  Future<Listing> publishStandaloneListing({
+    required String title,
+    required double pricePerUnit,
+    required String variantId,
+    String? unitId,
+    required String locationId,
+    String? description,
+    List<SelectedListingImage> images = const [],
+  }) async {
+    final entityId = ref.read(contextProvider).entityId;
+    if (entityId == null || entityId.isEmpty) {
+      throw Exception(
+        'An active entity/business context is required before listing.',
+      );
+    }
+
+    // STEP 1 — Create the standalone draft (stock_id null).
+    final listing = await _repo.createListing({
+      'title': title,
+      'description': description,
+      'price_per_unit': pricePerUnit,
+      'currency': 'KES',
+      'variant_id': variantId,
+      'unit_id': unitId,
+      'location_id': locationId,
+      'entity_id': entityId,
+      'stock_id': null,
+    });
+
+    var listingId = listing.id;
+    if (listingId.isEmpty) {
+      throw Exception('Listing was created but its id could not be read.');
+    }
+
+    // STEP 2 — Upload selected photos against the created listing id.
+    for (final image in images) {
+      try {
+        await _repo.uploadListingImage(
+          bytes: image.bytes,
+          fileName: image.fileName,
+          listingId: listingId,
+        );
+      } catch (_) {
+        // Photo uploads are best-effort; the listing itself is already valid.
+      }
+    }
+
+    // STEP 3 — Activate the standalone listing (set_listing_status permits
+    // standalone activation; stock-backed listings retain stock validation).
+    final activated = await _repo.setListingStatus(
+      listingId: listingId,
+      status: ListingStatus.active,
+    );
+
+    ref.invalidateSelf();
+    ref.invalidate(listingDetailsProvider(listingId));
+    if (activated.entityId.isNotEmpty) {
+      _invalidateSellerListings(activated.entityId);
+    }
+    return activated;
+  }
+
     Future<void> updateInventory({
     required String listingId,
     double? availableQuantity,

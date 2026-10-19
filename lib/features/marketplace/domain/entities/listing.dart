@@ -31,7 +31,11 @@ class Listing {
   final List<String> images;
   final String entityId;
   final String variantId;
-  final String stockId;
+
+  /// Optional managed-stock reference. Null for standalone listings
+  /// (goods offered without formal inventory). Non-null when the listing is
+  /// stock-backed and derives quantity/availability from commerce.stock_registry.
+  final String? stockId;
   final String? unitId;
   final String? locationId;
   final String contactVisibility;
@@ -58,7 +62,7 @@ class Listing {
     required this.images,
     required this.entityId,
     required this.variantId,
-    required this.stockId,
+    this.stockId,
     this.unitId,
     this.locationId,
     this.contactVisibility = 'locked',
@@ -75,6 +79,9 @@ class Listing {
     this.availableQuantity = 0,
     this.reservedQuantity = 0,
   });
+
+  /// True when this listing is stock-backed (has a managed-stock reference).
+  bool get isStockBacked => stockId != null && stockId!.isNotEmpty;
 
   /// True when available quantity is at or below zero.
   bool get isSoldOut => availableQuantity <= 0;
@@ -97,6 +104,7 @@ class Listing {
     String? entityId,
     String? variantId,
     String? stockId,
+    bool clearStockId = false,
     String? unitId,
     String? locationId,
     String? contactVisibility,
@@ -121,7 +129,7 @@ class Listing {
       images: images ?? this.images,
       entityId: entityId ?? this.entityId,
       variantId: variantId ?? this.variantId,
-      stockId: stockId ?? this.stockId,
+      stockId: clearStockId ? null : (stockId ?? this.stockId),
       unitId: unitId ?? this.unitId,
       locationId: locationId ?? this.locationId,
       contactVisibility: contactVisibility ?? this.contactVisibility,

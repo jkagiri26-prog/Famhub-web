@@ -1,5 +1,5 @@
 /// ============================================================
-/// LISTING MAPPER — Contract Alignment
+/// LISTING MAPPER ï¿½ Contract Alignment
 /// ============================================================
 ///
 /// Maps between backend JSON (marketplace.listings + FK joins)
@@ -52,7 +52,7 @@ class ListingMapper {
       images: (json['images'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       entityId: json['entity_id']?.toString() ?? '',
       variantId: json['variant_id']?.toString() ?? '',
-      stockId: json['stock_id']?.toString() ?? '',
+      stockId: json['stock_id']?.toString(),
       unitId: json['unit_id']?.toString(),
       locationId: json['location_id']?.toString(),
       contactVisibility: json['contact_visibility']?.toString() ?? 'locked',

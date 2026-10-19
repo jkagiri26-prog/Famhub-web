@@ -12,7 +12,7 @@ import 'package:famhub_app/features/farm_management/application/providers/hierar
 import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/production_page.dart';
 import 'package:famhub_app/features/farm_management/presentation/widgets/workspace_tab_header.dart';
-import 'package:famhub_app/features/marketplace/presentation/pages/stock_selection_page.dart';
+import 'package:famhub_app/features/marketplace/presentation/pages/create_listing_page.dart';
 import 'package:famhub_app/features/knowledge_link/presentation/widgets/contextual_knowledge_widget.dart';
 
 /// Livestock tab — the user's GLOBAL livestock workspace.
@@ -73,11 +73,17 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
     );
   }
 
-  void _openStock(LivestockEntity animal) {
+  void _openSellOnMarketplace(LivestockEntity animal) {
+    final entity = ref.read(hierarchyProvider).entity;
+    final locationId =
+        entity?.wardId ?? entity?.subCountyId ?? entity?.countyId;
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => StockSelectionPage(
+        builder: (_) => CreateListingPage(
           initialVariantId: animal.variantId,
+          initialTitle: animal.species,
+          initialContextLabel: 'Selling from: ${animal.species} (livestock)',
+          initialLocationId: locationId,
         ),
       ),
     );
@@ -268,7 +274,7 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
                     animal.variantId!.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   OutlinedButton.icon(
-                    onPressed: () => _openStock(animal),
+                    onPressed: () => _openSellOnMarketplace(animal),
                     icon: const Icon(Icons.storefront_outlined),
                     label: const Text('Sell on Marketplace'),
                   ),

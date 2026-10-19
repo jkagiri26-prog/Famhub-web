@@ -41,6 +41,7 @@ import 'package:famhub_app/features/farm_management/application/providers/fields
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_cascade_coordinator.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/marketplace/presentation/pages/stock_selection_page.dart';
+import 'package:famhub_app/features/marketplace/presentation/pages/create_listing_page.dart';
 import 'package:famhub_app/features/guest/auth_guard.dart';
 
 /// Production Recording Form
@@ -590,8 +591,17 @@ class _ProductionRecordingPageState extends ConsumerState<ProductionRecordingPag
   }
 
   void _navigateToSellOnMarketplace(BuildContext context) {
+    // General listing from the farm workspace — no production/stock
+    // reference required (standalone listing, stock_id null).
+    final entity = ref.read(hierarchyProvider).entity;
+    final locationId =
+        entity?.wardId ?? entity?.subCountyId ?? entity?.countyId;
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const StockSelectionPage()),
+      MaterialPageRoute(
+        builder: (_) => CreateListingPage(
+          initialLocationId: locationId,
+        ),
+      ),
     );
   }
 

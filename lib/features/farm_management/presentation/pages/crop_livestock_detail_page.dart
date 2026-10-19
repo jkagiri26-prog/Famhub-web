@@ -8,6 +8,7 @@ import 'package:famhub_app/features/farm_management/domain/entities/livestock_en
 import 'package:famhub_app/features/farm_management/presentation/pages/activity_creation_page.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/production_page.dart';
 import 'package:famhub_app/features/marketplace/presentation/pages/stock_selection_page.dart';
+import 'package:famhub_app/features/marketplace/presentation/pages/create_listing_page.dart';
 
 /// Detail workspace for one crop or livestock asset.
 ///
@@ -61,6 +62,28 @@ class _CropLivestockDetailPageState
     );
   }
 
+  /// The farm's most-specific canonical location (ward → sub-county → county).
+  /// Used only to prefill a standalone listing's location; never fabricated.
+  String? _farmLocationId() {
+    final entity = ref.read(hierarchyProvider).entity;
+    return entity?.wardId ??
+        entity?.subCountyId ??
+        entity?.countyId;
+  }
+
+  void _openSellOnMarketplace() {
+    final variantId = widget.isCrop
+        ? widget.crop!.variantId
+        : widget.livestock!.variantId;
+    _open(CreateListingPage(
+      initialVariantId: variantId,
+      initialTitle: widget.title,
+      initialContextLabel:
+          'Selling from: ${widget.title}${widget.isCrop ? ' (crop)' : ' (livestock)'}',
+      initialLocationId: _farmLocationId(),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     final hierarchy = ref.watch(hierarchyProvider);
@@ -104,13 +127,7 @@ class _CropLivestockDetailPageState
             _ActionButton(
               icon: Icons.shopping_basket,
               label: 'Sell on Marketplace',
-              onPressed: () => _open(
-                StockSelectionPage(
-                  initialVariantId: widget.isCrop
-                      ? widget.crop!.variantId
-                      : widget.livestock!.variantId,
-                ),
-              ),
+              onPressed: _openSellOnMarketplace,
             ),
             const SizedBox(height: 10),
             _ActionButton(

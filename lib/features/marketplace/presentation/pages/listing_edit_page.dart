@@ -306,7 +306,8 @@ class _ListingEditFormState extends ConsumerState<_ListingEditForm> {
         ? 'Activate listing?'
         : 'Deactivate listing?';
     final confirmBody = activating
-        ? 'This listing will become active if stock is available.'
+        ? 'This listing will become active. Stock-backed listings also '
+              'require available stock.'
         : 'This listing will no longer appear as an active '
               'Marketplace listing.';
     final confirmLabel = activating ? 'Activate' : 'Deactivate';
@@ -442,8 +443,8 @@ class _ListingEditFormState extends ConsumerState<_ListingEditForm> {
           const SizedBox(height: 16),
 
           Text(
-            'Quantity, product, unit and location are managed by your '
-            'inventory and cannot be edited here.',
+            'Product, unit and location are set when the listing was created '
+            'and cannot be edited here.',
             style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
           ),
           const SizedBox(height: 24),
