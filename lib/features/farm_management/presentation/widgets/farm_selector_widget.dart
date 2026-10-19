@@ -174,13 +174,7 @@ class FarmSelectorWidget extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.only(top: 4),
       child: Container(
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.green.shade50 : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: isSelected ? Colors.green.shade200 : Colors.transparent,
-          ),
-        ),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(6)),
         child: Row(
           children: [
             // Farm name — selecting it promotes it to the top and refreshes
