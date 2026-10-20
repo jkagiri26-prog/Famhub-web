@@ -74,6 +74,19 @@ class FieldsNotifier extends Notifier<FieldListState> {
 
   @override
   FieldListState build() {
+    // 🔑 SELF-HEALING LOAD: watch the selected farm and auto-load its
+    // fields on every rebuild. The cascade coordinator invalidates this
+    // provider whenever the hierarchy farm-level changes (including a
+    // full reset). Without self-loading, a reset→reopen of the SAME farm
+    // races: the manual loadFields() call is clobbered by the
+    // coordinator's post-frame invalidate, leaving a fresh notifier stuck
+    // in its initial isLoading:true state forever (infinite spinner).
+    // Loading from build() reloads on every rebuild, so the provider can
+    // never be left empty after an invalidation.
+    final farmId = ref.watch(farmContextProvider.select((c) => c.farmId));
+    if (farmId != null) {
+      Future.microtask(() => loadFields(farmId: farmId));
+    }
     return FieldListState.initial();
   }
 

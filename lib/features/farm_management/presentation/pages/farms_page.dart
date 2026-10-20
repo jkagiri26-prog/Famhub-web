@@ -61,23 +61,11 @@ class _FarmsPageState extends ConsumerState<FarmsPage> {
         ref.read(farmSelectorProvider.notifier).loadFarms();
       }
     });
-    // Load fields for the currently selected farm whenever it changes.
-    ref.listen<FarmContext>(farmContextProvider, (previous, next) {
-      final farmId = next.farmId;
-      if (farmId == null) return;
-      if (previous?.farmId != farmId) {
-        ref.read(fieldsProvider.notifier).loadFields(farmId: farmId);
-      }
-    });
-    // A farm may already be selected before this tab mounts (e.g. Overview
-    // auto-selects the first farm) — the listener only fires on CHANGE, so
-    // ensure fields are loaded for the current farm on first build too.
-    Future.microtask(() {
-      final farmId = ref.read(farmContextProvider).farmId;
-      if (farmId != null) {
-        ref.read(fieldsProvider.notifier).loadFields(farmId: farmId);
-      }
-    });
+    // Fields are loaded automatically by fieldsProvider (it watches the
+    // selected farm in build() and reloads on every rebuild), so no
+    // manual loadFields / ref.listen is needed here. Driving the load
+    // from a listener raced with the cascade coordinator's invalidate and
+    // could leave the provider stuck spinning after a reset→reopen.
   }
 
   void _loadFields() {
