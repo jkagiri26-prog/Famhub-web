@@ -36,6 +36,7 @@ class ListingMapper {
       stockId: json['stock_id']?.toString(),
       unitId: json['unit_id']?.toString(),
       locationId: json['location_id']?.toString(),
+      quantityOffered: (json['quantity_offered'] as num?)?.toDouble(),
       contactVisibility: json['contact_visibility']?.toString() ?? 'locked',
       isPromoted: json['is_promoted'] == true,
       promotedUntil: json['promoted_until'] != null
@@ -53,7 +54,9 @@ class ListingMapper {
       locationName: json['location_name']?.toString(),
       sellerName: json['seller_name']?.toString(),
       sellerRating: (json['seller_rating'] as num?)?.toDouble(),
-      availableQuantity: (json['available_quantity'] ?? 0).toDouble(),
+      availableQuantity: (json['available_quantity'] as num?)?.toDouble() ??
+          (json['quantity_offered'] as num?)?.toDouble() ??
+          0,
       reservedQuantity: (json['reserved_quantity'] ?? 0).toDouble(),
     );
   }
@@ -259,6 +262,18 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
     final refreshed = await dataSource.fetchListingById(listingId);
     if (refreshed != null) return _enrichSingleSellerProfile(refreshed);
     throw Exception('Listing status was updated but could not be reloaded.');
+  }
+
+  @override
+  Future<List<({String id, String name})>> searchLocations(
+    String query,
+  ) {
+    return dataSource.searchLocations(query);
+  }
+
+  @override
+  Future<Map<String, String>> fetchLocationNames(Set<String> locationIds) {
+    return dataSource.fetchLocationsByIds(locationIds);
   }
 
   @override

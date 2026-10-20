@@ -167,13 +167,15 @@ class MarketplaceController extends AsyncNotifier<List<Listing>> {
   /// activated via `marketplace.set_listing_status`.
   ///
   /// `stock_id` is intentionally null — no fabricated stock id is sent.
-  /// `entity_id` comes from the ACTIVE entity context (never user input) and
-  /// remains validated by backend RLS.
+  /// `quantity_offered` (positive) and `unit_id` are required for standalone
+  /// listings per the backend contract. `entity_id` comes from the ACTIVE
+  /// entity context (never user input) and remains validated by backend RLS.
   Future<Listing> publishStandaloneListing({
     required String title,
     required double pricePerUnit,
     required String variantId,
-    String? unitId,
+    required String unitId,
+    required double quantityOffered,
     required String locationId,
     String? description,
     List<SelectedListingImage> images = const [],
@@ -193,6 +195,7 @@ class MarketplaceController extends AsyncNotifier<List<Listing>> {
       'currency': 'KES',
       'variant_id': variantId,
       'unit_id': unitId,
+      'quantity_offered': quantityOffered,
       'location_id': locationId,
       'entity_id': entityId,
       'stock_id': null,
@@ -231,7 +234,7 @@ class MarketplaceController extends AsyncNotifier<List<Listing>> {
     return activated;
   }
 
-    Future<void> updateInventory({
+  Future<void> updateInventory({
     required String listingId,
     double? availableQuantity,
     double? reservedQuantity,
@@ -528,4 +531,18 @@ final listingMediaFilesProvider =
         (ref, listingId) async {
   final repo = ref.read(marketplaceRepositoryProvider);
   return repo.fetchListingImageFiles(listingId);
+});
+
+/// ============================================================
+/// LOCATION SEARCH (STANDALONE LISTING PICKER)
+/// ============================================================
+
+/// Searches canonical `core.locations` by name for the seller-side location
+/// picker fallback (used only when the active context has no location).
+///
+/// Read-only: never creates a location and never invents an id.
+final locationSearchProvider = FutureProvider.family<
+    List<({String id, String name})>, String>((ref, query) async {
+  final repo = ref.read(marketplaceRepositoryProvider);
+  return repo.searchLocations(query);
 });

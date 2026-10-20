@@ -6,8 +6,9 @@
 /// actually changed while editing a listing.
 ///
 /// This object is intentionally narrow: it can only ever carry
-///   title / description / price_per_unit / currency
-/// It has no way to represent entity ids, stock ids, variant ids, unit ids,
+///   title / description / price_per_unit / currency /
+///   quantity_offered / unit_id
+/// It has no way to represent entity ids, stock ids, variant ids,
 /// location ids, images, status, promotion fields or timestamps — so the
 /// presentation layer cannot accidentally mutate protected fields.
 ///
@@ -36,12 +37,22 @@ class ListingEditChanges {
   /// New currency. Null when the currency was not changed.
   final String? currency;
 
+  /// New seller-declared quantity (standalone listings only). Null when the
+  /// quantity was not changed or the listing is stock-backed.
+  final double? quantityOffered;
+
+  /// New unit id (standalone listings only). Null when the unit was not
+  /// changed or the listing is stock-backed.
+  final String? unitId;
+
   const ListingEditChanges({
     this.title,
     this.descriptionChanged = false,
     this.description,
     this.pricePerUnit,
     this.currency,
+    this.quantityOffered,
+    this.unitId,
   });
 
   /// True when nothing was changed and no mutation should be attempted.
@@ -49,6 +60,8 @@ class ListingEditChanges {
       title == null &&
       pricePerUnit == null &&
       currency == null &&
+      quantityOffered == null &&
+      unitId == null &&
       !descriptionChanged;
 
   /// Computes the normalized set of changed editable fields between the
@@ -60,12 +73,16 @@ class ListingEditChanges {
   ///     (null) and compared accordingly
   ///   - the price is compared numerically, never as a formatted string
   ///   - the currency is compared as-is
+  ///   - quantity/unit are only ever included for standalone listings;
+  ///     stock-backed listings keep their stock-derived values
   static ListingEditChanges diff({
     required Listing original,
     required String title,
     required String? description,
     required double pricePerUnit,
     required String currency,
+    double? quantityOffered,
+    String? unitId,
   }) {
     final normalizedTitle = title.trim();
     final rawDescription = description?.trim() ?? '';
@@ -75,6 +92,12 @@ class ListingEditChanges {
     final descriptionChanged = effectiveDescription != original.description;
     final priceChanged = pricePerUnit != original.pricePerUnit;
     final currencyChanged = currency != original.currency;
+    final quantityChanged =
+        original.isStandalone &&
+        quantityOffered != null &&
+        quantityOffered != original.quantityOffered;
+    final unitChanged =
+        original.isStandalone && unitId != null && unitId != original.unitId;
 
     return ListingEditChanges(
       title: titleChanged ? normalizedTitle : null,
@@ -82,6 +105,8 @@ class ListingEditChanges {
       description: descriptionChanged ? effectiveDescription : null,
       pricePerUnit: priceChanged ? pricePerUnit : null,
       currency: currencyChanged ? currency : null,
+      quantityOffered: quantityChanged ? quantityOffered : null,
+      unitId: unitChanged ? unitId : null,
     );
   }
 }

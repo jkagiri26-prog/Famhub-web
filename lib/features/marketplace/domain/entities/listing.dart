@@ -38,6 +38,11 @@ class Listing {
   final String? stockId;
   final String? unitId;
   final String? locationId;
+
+  /// Seller-declared quantity offered (standalone listings). Null for
+  /// stock-backed listings, whose availability is inventory-derived.
+  final double? quantityOffered;
+
   final String contactVisibility;
   final bool isPromoted;
   final DateTime? promotedUntil;
@@ -65,6 +70,7 @@ class Listing {
     this.stockId,
     this.unitId,
     this.locationId,
+    this.quantityOffered,
     this.contactVisibility = 'locked',
     this.isPromoted = false,
     this.promotedUntil,
@@ -82,6 +88,9 @@ class Listing {
 
   /// True when this listing is stock-backed (has a managed-stock reference).
   bool get isStockBacked => stockId != null && stockId!.isNotEmpty;
+
+  /// True when this listing is standalone (seller-declared, no stock).
+  bool get isStandalone => !isStockBacked;
 
   /// True when available quantity is at or below zero.
   bool get isSoldOut => availableQuantity <= 0;
@@ -107,6 +116,8 @@ class Listing {
     bool clearStockId = false,
     String? unitId,
     String? locationId,
+    double? quantityOffered,
+    bool clearQuantityOffered = false,
     String? contactVisibility,
     bool? isPromoted,
     DateTime? promotedUntil,
@@ -132,6 +143,9 @@ class Listing {
       stockId: clearStockId ? null : (stockId ?? this.stockId),
       unitId: unitId ?? this.unitId,
       locationId: locationId ?? this.locationId,
+      quantityOffered: clearQuantityOffered
+          ? null
+          : (quantityOffered ?? this.quantityOffered),
       contactVisibility: contactVisibility ?? this.contactVisibility,
       isPromoted: isPromoted ?? this.isPromoted,
       promotedUntil: promotedUntil ?? this.promotedUntil,
@@ -147,4 +161,3 @@ class Listing {
     );
   }
 }
-

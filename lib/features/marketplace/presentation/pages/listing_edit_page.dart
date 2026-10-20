@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
 import 'package:famhub_app/features/marketplace/application/providers/marketplace_provider.dart';
 import 'package:famhub_app/features/marketplace/domain/entities/listing.dart';
 import 'package:famhub_app/features/marketplace/domain/enums/listing_status.dart';
@@ -21,14 +22,16 @@ import 'package:famhub_app/shared/widgets/states/loading_state_widget.dart';
 /// Edits the editable metadata of an existing listing and lets the seller
 /// activate / deactivate it.
 ///
-/// Editable fields (metadata only):
+/// Editable fields (metadata):
 ///   - title
 ///   - description
 ///   - price_per_unit (numeric)
 ///   - currency (display-only KES — no currency picker)
+///   - quantity offered + unit (standalone listings only)
 ///
-/// NOT editable here: stock, seller/entity, variant, unit, location, images,
-/// promotion, timestamps, internal ids.
+/// NOT editable here: stock, seller/entity, variant, location, images,
+/// promotion, timestamps, internal ids. Stock-backed listings keep their
+/// stock-derived quantity and unit (read-only here).
 ///
 /// Mutations go exclusively through the canonical RPCs
 /// (`update_listing` / `set_listing_status`); the backend authorizes via the
@@ -109,10 +112,17 @@ class _ListingEditFormState extends ConsumerState<_ListingEditForm> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _priceController = TextEditingController();
+  final _quantityController = TextEditingController();
 
   late Listing _original;
   bool _isSaving = false;
   bool _isChangingStatus = false;
+
+  /// Unit picker (standalone listings only) — same `core.units` taxonomy the
+  /// create form uses. Stock-backed listings keep their stock-derived unit.
+  String? _selectedUnitId;
+  List<({String id, String name})> _units = [];
+  bool _loadingUnits = false;
 
   /// Staged photo edits (additions + removals) reported by the photos section.
   /// This is the single source of truth for image dirty-state; nothing here is
@@ -126,9 +136,32 @@ class _ListingEditFormState extends ConsumerState<_ListingEditForm> {
     _titleController.text = widget.listing.title;
     _descriptionController.text = widget.listing.description ?? '';
     _priceController.text = _formatPrice(widget.listing.pricePerUnit);
+    _quantityController.text = widget.listing.quantityOffered != null
+        ? _formatPrice(widget.listing.quantityOffered!)
+        : '';
+    _selectedUnitId = widget.listing.unitId;
     _titleController.addListener(_onFieldChanged);
     _descriptionController.addListener(_onFieldChanged);
     _priceController.addListener(_onFieldChanged);
+    _quantityController.addListener(_onFieldChanged);
+    if (widget.listing.isStandalone) _loadUnits();
+  }
+
+  Future<void> _loadUnits() async {
+    if (_units.isNotEmpty || _loadingUnits) return;
+    setState(() => _loadingUnits = true);
+    try {
+      final units = await ref.read(farmRepositoryProvider).getUnits();
+      if (!mounted) return;
+      setState(() {
+        _units = units;
+        _loadingUnits = false;
+      });
+    } catch (_) {
+      // Units are display + validation only; a failed load leaves the picker
+      // disabled rather than fabricating taxonomy entries.
+      if (mounted) setState(() => _loadingUnits = false);
+    }
   }
 
   void _onFieldChanged() {
@@ -152,9 +185,11 @@ class _ListingEditFormState extends ConsumerState<_ListingEditForm> {
     _titleController.removeListener(_onFieldChanged);
     _descriptionController.removeListener(_onFieldChanged);
     _priceController.removeListener(_onFieldChanged);
+    _quantityController.removeListener(_onFieldChanged);
     _titleController.dispose();
     _descriptionController.dispose();
     _priceController.dispose();
+    _quantityController.dispose();
     super.dispose();
   }
 
@@ -194,10 +229,28 @@ class _ListingEditFormState extends ConsumerState<_ListingEditForm> {
             parsedPrice != _original.pricePerUnit);
     final currencyChanged = _original.currency != 'KES';
 
+    // Standalone listings: quantity + unit are seller-declared and editable.
+    // An invalid/empty quantity counts as "edited" so validation feedback can
+    // surface instead of silently disabling Save.
+    var quantityEdited = false;
+    var unitChanged = false;
+    if (_original.isStandalone) {
+      final quantityText = _quantityController.text.trim();
+      final parsedQuantity = double.tryParse(quantityText);
+      quantityEdited =
+          quantityText.isEmpty ||
+          parsedQuantity == null ||
+          parsedQuantity <= 0 ||
+          parsedQuantity != _original.quantityOffered;
+      unitChanged = _selectedUnitId != _original.unitId;
+    }
+
     return titleChanged ||
         descriptionChanged ||
         priceEdited ||
         currencyChanged ||
+        quantityEdited ||
+        unitChanged ||
         _imageDraft.hasChanges;
   }
 
@@ -205,6 +258,48 @@ class _ListingEditFormState extends ConsumerState<_ListingEditForm> {
     final value = double.tryParse(_priceController.text.trim());
     if (value == null || value <= 0) return null;
     return value;
+  }
+
+  double? get _parsedQuantity {
+    if (!_original.isStandalone) return null;
+    final value = double.tryParse(_quantityController.text.trim());
+    if (value == null || value <= 0) return null;
+    return value;
+  }
+
+  /// The selected unit's name for the quantity field suffix.
+  String _unitSuffix() {
+    final id = _selectedUnitId;
+    if (id == null) return '';
+    for (final u in _unitDropdownItems()) {
+      if (u.id == id) return '/ ${u.name}';
+    }
+    return '';
+  }
+
+  /// Units for the picker. When the listing's current unit id is not in the
+  /// loaded taxonomy (or units are still loading), the existing unit — as
+  /// resolved by the listing itself — is included so the dropdown never
+  /// asserts on a missing value.
+  List<({String id, String name})> _unitDropdownItems() {
+    final items = [..._units];
+    final selected = _selectedUnitId;
+    if (selected != null && selected.isNotEmpty) {
+      final exists = items.any((u) => u.id == selected);
+      if (!exists) {
+        items.insert(0, (
+          id: selected,
+          name: _original.unitName ?? 'Current unit',
+        ));
+      }
+    }
+    return items;
+  }
+
+  String? _unitDropdownValue() {
+    final selected = _selectedUnitId;
+    if (selected == null || selected.isEmpty) return null;
+    return _unitDropdownItems().any((u) => u.id == selected) ? selected : null;
   }
 
   Future<void> _save() async {
@@ -215,12 +310,22 @@ class _ListingEditFormState extends ConsumerState<_ListingEditForm> {
     final listing = _original;
     if (price == null) return;
 
+    double? quantity;
+    if (listing.isStandalone) {
+      quantity = _parsedQuantity;
+      if (quantity == null) return;
+      final unitId = _selectedUnitId;
+      if (unitId == null || unitId.isEmpty) return;
+    }
+
     final changes = ListingEditChanges.diff(
       original: listing,
       title: _titleController.text,
       description: _descriptionController.text,
       pricePerUnit: price,
       currency: 'KES',
+      quantityOffered: quantity,
+      unitId: _selectedUnitId,
     );
 
     final imageDraft = _imageDraft;
@@ -436,6 +541,83 @@ class _ListingEditFormState extends ConsumerState<_ListingEditForm> {
           ),
           const SizedBox(height: 16),
 
+          if (listing.isStandalone) ...[
+            TextFormField(
+              controller: _quantityController,
+              decoration: InputDecoration(
+                labelText: 'Quantity offered *',
+                hintText: 'e.g. 120',
+                suffixText: _unitSuffix(),
+              ),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Required';
+                final quantity = double.tryParse(v);
+                if (quantity == null) return 'Invalid number';
+                if (quantity <= 0) {
+                  return 'Quantity must be greater than zero';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+
+            DropdownButtonFormField<String>(
+              value: _unitDropdownValue(),
+              decoration: const InputDecoration(labelText: 'Unit *'),
+              hint: Text(
+                _loadingUnits && _units.isEmpty
+                    ? 'Loading units...'
+                    : 'Select unit',
+              ),
+              items: _unitDropdownItems()
+                  .map(
+                    (u) => DropdownMenuItem(
+                      value: u.id,
+                      child: Text(u.name, style: const TextStyle(fontSize: 14)),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (_loadingUnits && _units.isEmpty)
+                  ? null
+                  : (v) => setState(() => _selectedUnitId = v),
+              validator: (v) => v == null ? 'Required' : null,
+            ),
+            const SizedBox(height: 16),
+          ] else ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Availability: ${listing.availableQuantity.toStringAsFixed(0)} '
+                    '${listing.unitName ?? ''} (from managed stock)',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Quantity and unit are derived from your inventory and '
+                    'cannot be edited here.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
           ListingEditImagesSection(
             listingId: listing.id,
             onStateChanged: _onImagesStateChanged,
@@ -443,8 +625,12 @@ class _ListingEditFormState extends ConsumerState<_ListingEditForm> {
           const SizedBox(height: 16),
 
           Text(
-            'Product, unit and location are set when the listing was created '
-            'and cannot be edited here.',
+            listing.isStandalone
+                ? 'Product and location are set when the listing was created '
+                      'and cannot be edited here.'
+                : 'Quantity and unit come from managed stock. Product and '
+                      'location are set when the listing was created and cannot '
+                      'be edited here.',
             style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
           ),
           const SizedBox(height: 24),

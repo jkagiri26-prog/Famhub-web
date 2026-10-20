@@ -19,8 +19,9 @@ import '../../domain/models/listing_edit_changes.dart';
 /// Serializes [changes] into the exact whitelisted JSONB payload accepted by
 /// `marketplace.update_listing`.
 ///
-/// Only the four editable fields can ever appear:
-///   title, description, price_per_unit, currency
+/// Only the editable fields can ever appear:
+///   title, description, price_per_unit, currency,
+///   quantity_offered, unit_id
 /// Nothing else (images, status, ids, promotion fields, timestamps) can be
 /// produced, because [ListingEditChanges] cannot even carry them.
 /// A description that was intentionally cleared serializes as `null`.
@@ -34,6 +35,10 @@ Map<String, dynamic> editableListingChangesPayload(ListingEditChanges changes) {
     payload['price_per_unit'] = changes.pricePerUnit;
   }
   if (changes.currency != null) payload['currency'] = changes.currency;
+  if (changes.quantityOffered != null) {
+    payload['quantity_offered'] = changes.quantityOffered;
+  }
+  if (changes.unitId != null) payload['unit_id'] = changes.unitId;
   return payload;
 }
 
@@ -129,6 +134,31 @@ class MarketplaceRemoteDataSource {
       throw Exception('Failed to fetch locations: ${e.message}');
     } catch (e) {
       throw Exception('Failed to fetch locations: $e');
+    }
+  }
+
+  /// Search canonical `core.locations` entries by name (seller-side picker
+  /// fallback when the active context has no location configured).
+  ///
+  /// Read-only, ordered, capped — never creates or fabricates location ids.
+  Future<List<({String id, String name})>> searchLocations(String query) async {
+    try {
+      final base = _client.schema('core').from('locations').select('id, name');
+      final trimmed = query.trim();
+      final filtered = trimmed.isEmpty
+          ? base
+          : base.ilike('name', '%$trimmed%');
+      final response = await filtered.order('name', ascending: true).limit(50);
+      final rows = (response as List).cast<Map<String, dynamic>>();
+      return [
+        for (final row in rows)
+          if (row['id'] != null)
+            (id: row['id'].toString(), name: row['name']?.toString() ?? ''),
+      ];
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to search locations: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to search locations: $e');
     }
   }
 

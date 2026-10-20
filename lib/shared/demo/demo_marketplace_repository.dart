@@ -186,6 +186,7 @@ class DemoMarketplaceRepository implements MarketplaceRepository {
       variantId: payload['variant_id'] as String? ?? 'demo-variant',
       stockId: payload['stock_id'] as String? ?? 'demo-stock',
       unitId: payload['unit_id'] as String?,
+      quantityOffered: (payload['quantity_offered'] as num?)?.toDouble(),
       status: ListingStatus.draft,
       createdAt: now,
       updatedAt: now,
@@ -451,6 +452,8 @@ class DemoMarketplaceRepository implements MarketplaceRepository {
           : existing.description,
       pricePerUnit: changes.pricePerUnit ?? existing.pricePerUnit,
       currency: changes.currency ?? existing.currency,
+      quantityOffered: changes.quantityOffered ?? existing.quantityOffered,
+      unitId: changes.unitId ?? existing.unitId,
       updatedAt: DateTime.now(),
     );
   }
@@ -477,5 +480,41 @@ class DemoMarketplaceRepository implements MarketplaceRepository {
       status: status,
       updatedAt: DateTime.now(),
     );
+  }
+
+  // ──────────────────────────────────────────────────────────
+  // LOCATION PICKER (DEMO)
+  // ──────────────────────────────────────────────────────────
+  //
+  // Demo mode returns fixed sample `core.locations`-style entries so the
+  // seller-side location picker behaves consistently without Supabase.
+
+  static const List<({String id, String name})> _sampleLocations = [
+    (id: 'demo-loc-nairobi', name: 'Nairobi'),
+    (id: 'demo-loc-nakuru', name: 'Nakuru'),
+    (id: 'demo-loc-kisumu', name: 'Kisumu'),
+    (id: 'demo-loc-eldoret', name: 'Eldoret'),
+    (id: 'demo-loc-machakos', name: 'Machakos'),
+  ];
+
+  @override
+  Future<List<({String id, String name})>> searchLocations(
+    String query,
+  ) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    final trimmed = query.trim().toLowerCase();
+    if (trimmed.isEmpty) return _sampleLocations;
+    return _sampleLocations
+        .where((loc) => loc.name.toLowerCase().contains(trimmed))
+        .toList();
+  }
+
+  @override
+  Future<Map<String, String>> fetchLocationNames(Set<String> locationIds) async {
+    await Future.delayed(const Duration(milliseconds: 100));
+    return {
+      for (final loc in _sampleLocations)
+        if (locationIds.contains(loc.id)) loc.id: loc.name,
+    };
   }
 }

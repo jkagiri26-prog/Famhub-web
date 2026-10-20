@@ -19,14 +19,14 @@ import 'listing_image_picker_area.dart';
 /// Collects (schema-supported fields):
 ///   - product category (core.item_variants) — prefilled when context allows
 ///   - title
-///   - description (the seller describes the exact product + quantity offered)
+///   - description
 ///   - price per unit (KES)
-///   - unit (core.units)
+///   - quantity offered (required, positive) + unit (required)
 ///   - optional photographs (hardened `upload_media` flow)
 ///
-/// Location is prefilled from the active farm/entity context and is never
-/// entered by the seller. entity_id comes from the active context and is
-/// validated server-side.
+/// Location is prefilled from the active farm/entity context when available;
+/// otherwise the seller picks an existing canonical `core.locations` entry.
+/// entity_id comes from the active context and is validated server-side.
 /// ============================================================
 class CreateListingFormWidget extends ConsumerStatefulWidget {
   final String? initialVariantId;
@@ -55,10 +55,13 @@ class _CreateListingFormWidgetState
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _priceController = TextEditingController();
+  final _quantityController = TextEditingController();
 
   List<SelectedListingImage> _selectedImages = [];
   String? _selectedVariantId;
   String? _selectedUnitId;
+  String? _selectedLocationId;
+  String? _selectedLocationName;
   bool _isSubmitting = false;
 
   bool _loadingRefs = true;
@@ -72,6 +75,11 @@ class _CreateListingFormWidgetState
     if (widget.initialTitle != null && widget.initialTitle!.trim().isNotEmpty) {
       _titleController.text = widget.initialTitle!.trim();
     }
+    if (widget.initialLocationId != null &&
+        widget.initialLocationId!.trim().isNotEmpty) {
+      _selectedLocationId = widget.initialLocationId!.trim();
+      _selectedLocationName = widget.initialLocationName;
+    }
     Future.microtask(_loadReferences);
   }
 
@@ -82,13 +90,31 @@ class _CreateListingFormWidgetState
     });
     try {
       final repo = ref.read(farmRepositoryProvider);
+      final marketRepo = ref.read(marketplaceRepositoryProvider);
       final variants = await repo.getVariants();
       final units = await repo.getUnits();
+
+      // Resolve the prefilled location's display name when the caller only
+      // supplied the id (canonical `core.locations` lookup — never a guess).
+      String? locationName = widget.initialLocationName;
+      final prefilledId = _selectedLocationId;
+      if ((locationName == null || locationName.trim().isEmpty) &&
+          prefilledId != null) {
+        try {
+          final names = await marketRepo.fetchLocationNames({prefilledId});
+          locationName = names[prefilledId];
+        } catch (_) {
+          // Name resolution is display-only; fall back to the picker label.
+        }
+      }
+
       if (!mounted) return;
       setState(() {
         _variants = variants;
         _units = units;
-        _selectedVariantId = widget.initialVariantId != null &&
+        _selectedLocationName = locationName;
+        _selectedVariantId =
+            widget.initialVariantId != null &&
                 variants.any((v) => v.id == widget.initialVariantId)
             ? widget.initialVariantId
             : null;
@@ -108,19 +134,20 @@ class _CreateListingFormWidgetState
     _titleController.dispose();
     _descriptionController.dispose();
     _priceController.dispose();
+    _quantityController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final locationId = widget.initialLocationId;
+    final locationId = _selectedLocationId;
     if (locationId == null || locationId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'A location is required before listing. Your entity has no '
-            'location configured.',
+            'Select a location for this listing. Your entity has no '
+            'location configured, so pick one from the list.',
           ),
           backgroundColor: Colors.orange,
         ),
@@ -139,10 +166,22 @@ class _CreateListingFormWidgetState
       return;
     }
 
+    final unitId = _selectedUnitId;
+    if (unitId == null || unitId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Select a unit (e.g. kg, bag).'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isSubmitting = true);
 
     try {
       final price = double.parse(_priceController.text.trim());
+      final quantityOffered = double.parse(_quantityController.text.trim());
       final title = _titleController.text.trim();
       final description = _descriptionController.text.trim();
 
@@ -151,7 +190,8 @@ class _CreateListingFormWidgetState
         title: title,
         pricePerUnit: price,
         variantId: variantId,
-        unitId: _selectedUnitId,
+        unitId: unitId,
+        quantityOffered: quantityOffered,
         locationId: locationId,
         description: description.isEmpty ? null : description,
         images: _selectedImages,
@@ -179,6 +219,50 @@ class _CreateListingFormWidgetState
     }
   }
 
+  /// The selected unit's name, shown as the quantity field suffix.
+  String _selectedUnitSuffix() {
+    final id = _selectedUnitId;
+    if (id == null) return '';
+    for (final u in _units) {
+      if (u.id == id) return '/ ${u.name}';
+    }
+    return '';
+  }
+
+  /// Location input: read-only prefilled value from the entity context, or a
+  /// canonical `core.locations` search picker when no context location exists.
+  Widget _buildLocationField() {
+    final prefilled =
+        _selectedLocationId != null &&
+        widget.initialLocationId != null &&
+        _selectedLocationId == widget.initialLocationId;
+
+    if (prefilled) {
+      return InputDecorator(
+        decoration: const InputDecoration(
+          labelText: 'Location',
+          prefixIcon: Icon(Icons.place_outlined, size: 20),
+          helperText: 'From your farm location',
+        ),
+        child: Text(
+          (_selectedLocationName != null && _selectedLocationName!.isNotEmpty)
+              ? _selectedLocationName!
+              : 'Farm location',
+          style: const TextStyle(fontSize: 14),
+        ),
+      );
+    }
+
+    return _LocationPickerField(
+      selectedLocationId: _selectedLocationId,
+      selectedLocationName: _selectedLocationName,
+      onSelected: (id, name) => setState(() {
+        _selectedLocationId = id;
+        _selectedLocationName = name;
+      }),
+    );
+  }
+
   String _friendly(Object e) {
     final t = e.toString().toLowerCase();
     if (t.contains('permission') ||
@@ -186,6 +270,12 @@ class _CreateListingFormWidgetState
         t.contains('authorized') ||
         t.contains('row-level')) {
       return 'You do not have permission to list for this entity.';
+    }
+    if (t.contains('quantity')) {
+      return 'Quantity offered must be greater than zero.';
+    }
+    if (t.contains('unit')) {
+      return 'A valid unit is required for this listing.';
     }
     if (t.contains('location')) {
       return 'A valid location is required for this listing.';
@@ -278,9 +368,7 @@ class _CreateListingFormWidgetState
             controller: _descriptionController,
             decoration: const InputDecoration(
               labelText: 'Description',
-              hintText:
-                  'Describe your product and the quantity offered (e.g. '
-                  '5 bags of maize).',
+              hintText: 'Describe your product (e.g. sun-dried, sorted).',
             ),
             maxLines: 4,
           ),
@@ -315,24 +403,51 @@ class _CreateListingFormWidgetState
                 child: DropdownButtonFormField<String>(
                   value: _selectedUnitId,
                   decoration: InputDecoration(
-                    labelText: 'Unit',
+                    labelText: 'Unit *',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   hint: const Text('Unit'),
                   items: _units
-                      .map((u) => DropdownMenuItem(
-                            value: u.id,
-                            child: Text(u.name,
-                                style: const TextStyle(fontSize: 13)),
-                          ))
+                      .map(
+                        (u) => DropdownMenuItem(
+                          value: u.id,
+                          child: Text(
+                            u.name,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      )
                       .toList(),
                   onChanged: (v) => setState(() => _selectedUnitId = v),
+                  validator: (v) => v == null ? 'Required' : null,
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 16),
+
+          TextFormField(
+            controller: _quantityController,
+            decoration: InputDecoration(
+              labelText: 'Quantity offered *',
+              hintText: 'e.g. 120',
+              suffixText: _selectedUnitSuffix(),
+            ),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) return 'Required';
+              final q = double.tryParse(v);
+              if (q == null) return 'Invalid';
+              if (q <= 0) return '> 0';
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+
+          // ── Location ──
+          _buildLocationField(),
           const SizedBox(height: 16),
 
           ListingImagePickerArea(
@@ -404,6 +519,183 @@ class _ContextBanner extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// ============================================================
+/// LOCATION PICKER FIELD (CANONICAL `core.locations` ONLY)
+/// ============================================================
+///
+/// Seller-side fallback used when the active entity context has no location:
+/// search existing canonical `core.locations` entries and select one.
+/// Never creates a location and never invents an id.
+class _LocationPickerField extends ConsumerStatefulWidget {
+  final String? selectedLocationId;
+  final String? selectedLocationName;
+  final void Function(String id, String name) onSelected;
+
+  const _LocationPickerField({
+    this.selectedLocationId,
+    this.selectedLocationName,
+    required this.onSelected,
+  });
+
+  @override
+  ConsumerState<_LocationPickerField> createState() =>
+      _LocationPickerFieldState();
+}
+
+class _LocationPickerFieldState extends ConsumerState<_LocationPickerField> {
+  final _searchController = TextEditingController();
+  late bool _editing;
+
+  @override
+  void initState() {
+    super.initState();
+    final selected = widget.selectedLocationId;
+    _editing = selected == null || selected.isEmpty;
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  bool get _hasSelection =>
+      widget.selectedLocationId != null &&
+      widget.selectedLocationId!.isNotEmpty;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_editing && _hasSelection) {
+      return InputDecorator(
+        decoration: InputDecoration(
+          labelText: 'Location *',
+          prefixIcon: const Icon(Icons.place_outlined, size: 20),
+          helperText: 'Pick an existing location to change',
+          suffixIcon: TextButton(
+            onPressed: () => setState(() => _editing = true),
+            child: const Text('Change'),
+          ),
+        ),
+        child: Text(
+          (widget.selectedLocationName?.isNotEmpty ?? false)
+              ? widget.selectedLocationName!
+              : 'Selected location',
+          style: const TextStyle(fontSize: 14),
+        ),
+      );
+    }
+
+    final query = _searchController.text.trim();
+    final showResults = query.length >= 2;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextFormField(
+          controller: _searchController,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            labelText: 'Location *',
+            prefixIcon: Icon(Icons.place_outlined, size: 20),
+            hintText: 'Search your area (e.g. Nakuru)',
+            helperText: 'Select an existing location',
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+        if (showResults) ...[
+          const SizedBox(height: 6),
+          _LocationSearchResults(
+            query: query,
+            onSelected: (id, name) {
+              widget.onSelected(id, name);
+              _searchController.clear();
+              setState(() => _editing = false);
+            },
+          ),
+        ],
+        if (_hasSelection) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => setState(() {
+                _editing = false;
+                _searchController.clear();
+              }),
+              icon: const Icon(Icons.close, size: 16),
+              label: const Text('Cancel search'),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _LocationSearchResults extends ConsumerWidget {
+  final String query;
+  final void Function(String id, String name) onSelected;
+
+  const _LocationSearchResults({required this.query, required this.onSelected});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final resultsAsync = ref.watch(locationSearchProvider(query));
+
+    return resultsAsync.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: LinearProgressIndicator(minHeight: 2),
+      ),
+      error: (e, _) => Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Could not search locations.',
+              style: TextStyle(fontSize: 12, color: Colors.red.shade700),
+            ),
+          ),
+          TextButton(
+            onPressed: () => ref.invalidate(locationSearchProvider(query)),
+            child: const Text('Retry', style: TextStyle(fontSize: 12)),
+          ),
+        ],
+      ),
+      data: (results) {
+        if (results.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Text(
+              'No location found for "$query".',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+          );
+        }
+        return Container(
+          constraints: const BoxConstraints(maxHeight: 220),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ListView.builder(
+            shrinkWrap: true,
+            padding: EdgeInsets.zero,
+            itemCount: results.length,
+            itemBuilder: (context, index) {
+              final loc = results[index];
+              return ListTile(
+                dense: true,
+                leading: const Icon(Icons.place_outlined, size: 18),
+                title: Text(loc.name, style: const TextStyle(fontSize: 14)),
+                onTap: () => onSelected(loc.id, loc.name),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }

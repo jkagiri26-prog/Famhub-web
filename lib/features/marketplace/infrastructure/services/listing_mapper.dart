@@ -55,6 +55,7 @@ class ListingMapper {
       stockId: json['stock_id']?.toString(),
       unitId: json['unit_id']?.toString(),
       locationId: json['location_id']?.toString(),
+      quantityOffered: (json['quantity_offered'] as num?)?.toDouble(),
       contactVisibility: json['contact_visibility']?.toString() ?? 'locked',
       isPromoted: json['is_promoted'] == true,
       promotedUntil: json['promoted_until'] != null
@@ -76,9 +77,10 @@ class ListingMapper {
           : null,
       sellerName: json['seller_name']?.toString(),
       sellerRating: (json['seller_rating'] as num?)?.toDouble(),
-      availableQuantity: stockData is Map<String, dynamic>
-          ? (stockData['quantity'] as num?)?.toDouble() ?? 0
-          : 0,
+      availableQuantity:
+          (json['available_quantity'] as num?)?.toDouble() ??
+          (json['quantity_offered'] as num?)?.toDouble() ??
+          0,
       reservedQuantity: stockData is Map<String, dynamic>
           ? (stockData['reserved_quantity'] as num?)?.toDouble() ?? 0
           : 0,
@@ -99,6 +101,7 @@ class ListingMapper {
       'stock_id': listing.stockId,
       'unit_id': listing.unitId,
       'location_id': listing.locationId,
+      'quantity_offered': listing.quantityOffered,
       'contact_visibility': listing.contactVisibility,
       'is_promoted': listing.isPromoted,
       'promoted_until': listing.promotedUntil?.toIso8601String(),

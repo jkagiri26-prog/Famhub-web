@@ -26,7 +26,7 @@ abstract class MarketplaceRepository {
 
   Future<void> archiveListing(String id);
 
-    Future<Listing> publishListing(String id);
+  Future<Listing> publishListing(String id);
 
   Future<void> updateInventory({
     required String listingId,
@@ -113,14 +113,16 @@ abstract class MarketplaceRepository {
   // canonical RPCs. The client never writes `marketplace.listings` directly
   // and never submits entity/stock/variant/unit/location/images/status.
   //
-  //   marketplace.update_listing(uuid, jsonb)   → metadata only
+  //   marketplace.update_listing(uuid, jsonb)   → metadata + standalone
+  //                                                quantity/unit
   //   marketplace.set_listing_status(uuid, text) → active | inactive
   //
   // Authorization (auth.uid() + can_manage membership) is performed entirely
   // by the backend; no user id, entity id or ownership claim is sent here.
 
   /// Update ONLY the editable listing metadata (title, description,
-  /// price_per_unit, currency) via `marketplace.update_listing`.
+  /// price_per_unit, currency — plus quantity_offered / unit_id for
+  /// standalone listings) via `marketplace.update_listing`.
   ///
   /// [changes] carries only changed editable fields. When [changes.isEmpty]
   /// the caller must not invoke this method — no mutation is possible.
@@ -139,4 +141,17 @@ abstract class MarketplaceRepository {
     required String listingId,
     required ListingStatus status,
   });
+
+  // ──────────────────────────────────────────────────────────
+  // STANDALONE LISTING LOCATION PICKER
+  // ──────────────────────────────────────────────────────────
+  //
+  // When the active entity context has no configured location, the seller
+  // picks an existing canonical `core.locations` entry (read-only search).
+
+  /// Search canonical `core.locations` entries by name.
+  Future<List<({String id, String name})>> searchLocations(String query);
+
+  /// Resolve display names for canonical `core.locations` ids (id → name).
+  Future<Map<String, String>> fetchLocationNames(Set<String> locationIds);
 }
