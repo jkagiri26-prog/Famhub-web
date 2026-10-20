@@ -53,6 +53,7 @@ import 'package:famhub_app/shared/demo/demo_banner_widget.dart' show ExploreBann
 
 import 'package:famhub_app/features/farm_management/application/bootstrap/farm_module_bootstrap.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_selector_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/farm_tab_navigation_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_onboarding_provider.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/add_farm_page.dart';
@@ -109,6 +110,11 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
   bool _bootstrapped = false;
   late TabController _tabController;
 
+  /// Bumped when the user re-taps the active Activity Logs tab so the
+  /// page (whose detail view lives in local state) returns to its
+  /// journal home.
+  int _activitiesResetToken = 0;
+
   /// Keys per tab so we can scroll the strip to keep the active tab visible.
   late final List<GlobalKey> _tabKeys;
 
@@ -155,6 +161,40 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     });
   }
 
+  /// TabBar.onTap — fires AFTER TabController.animateTo (see
+  /// TabBar._handleTap), so a tab SWITCH always arrives here with
+  /// [TabController.indexIsChanging] == true. A re-tap of the already-
+  /// active tab is short-circuited by TabController (same index → no-op)
+  /// and arrives with indexIsChanging == false — that re-tap is the
+  /// "return this tab to its home view" gesture.
+  void _onTabTapped(int index) {
+    if (_tabController.indexIsChanging) return;
+    _resetTabToHome(index);
+  }
+
+  /// Return the given tab to its home/content view. Mirrors each tab's
+  /// own back-arrow behaviour so every entry point stays consistent.
+  void _resetTabToHome(int index) {
+    final notifier = ref.read(hierarchyProvider.notifier);
+    final state = ref.read(hierarchyProvider);
+    switch (index) {
+      case 1: // My Farms → farm list (FarmsPage back arrow)
+        if (state.hasEntity) notifier.reset();
+      case 2: // Crops → crops list (CropsPage._clearSelection)
+        if (state.cropOrLivestockType == 'crop') notifier.clearToField();
+      case 3: // Livestock → list (LivestockPage._clearSelection)
+        if (state.cropOrLivestockType == 'livestock') notifier.clearToField();
+      case 4: // Activity Logs → journal (detail lives in ActivitiesPage)
+        setState(() => _activitiesResetToken++);
+      case 5: // Reports → global report (ReportsPage._resetToGlobal)
+        if (state.hasEntity || state.cropOrLivestock != null) {
+          notifier.reset();
+        }
+      default: // Overview (0) — the dashboard is already home.
+        break;
+    }
+  }
+
   /// Initialize the module through the bootstrap coordinator.
   /// This happens automatically — the module never depends on
   /// another page having called loadFarms(), initializeDashboard(),
@@ -173,6 +213,14 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     final selectorState = ref.watch(farmSelectorProvider);
     final hierarchy = ref.watch(hierarchyProvider);
 
+    // Tab-switch requests from dashboard widgets (e.g. the farm selector's
+    // "Open" action opens a farm inside the My Farms tab).
+    ref.listen(farmTabNavigationProvider, (previous, next) {
+      if (next != null && next.tabIndex != _tabController.index) {
+        _tabController.animateTo(next.tabIndex);
+      }
+    });
+
     return ShellPageContent(
       title: 'Farm Management',
       subtitle: hierarchy.hasEntity
@@ -189,6 +237,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
               child: TabBar(
                 controller: _tabController,
                 isScrollable: true,
+                onTap: _onTabTapped,
                 tabs: [
                   for (var i = 0; i < _tabDefs.length; i++)
                     Tab(
@@ -238,6 +287,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
                   ActivitiesPage(
                     onOpenCrops: () => _tabController.animateTo(2),
                     onOpenLivestock: () => _tabController.animateTo(3),
+                    resetToken: _activitiesResetToken,
                   ),
 
                   // 6. Reports — reporting workspace

@@ -26,10 +26,15 @@ class ActivitiesPage extends ConsumerStatefulWidget {
   /// Switch to the Livestock tab.
   final VoidCallback? onOpenLivestock;
 
+  /// Bumped by the parent when the user re-taps the active Activity Logs
+  /// tab — returns the journal to its home (list) view.
+  final int resetToken;
+
   const ActivitiesPage({
     super.key,
     this.onOpenCrops,
     this.onOpenLivestock,
+    this.resetToken = 0,
   });
 
   @override
@@ -46,6 +51,16 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
 
   /// When true, ignore the contextual asset filter (user pressed View All).
   bool _showAllContext = false;
+
+  @override
+  void didUpdateWidget(covariant ActivitiesPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Mirrors _backToList (the detail view's own back arrow). No setState
+    // needed — the element rebuilds right after this callback.
+    if (widget.resetToken != oldWidget.resetToken) {
+      _selected = null;
+    }
+  }
 
   void _openDetail(GlobalActivityEntry entry) {
     setState(() => _selected = entry);

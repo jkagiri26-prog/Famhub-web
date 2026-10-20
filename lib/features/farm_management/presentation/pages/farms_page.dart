@@ -52,7 +52,14 @@ class _FarmsPageState extends ConsumerState<FarmsPage> {
   void initState() {
     super.initState();
     Future.microtask(() {
-      ref.read(farmSelectorProvider.notifier).loadFarms();
+      // Only bootstrap the farm list when it isn't already available.
+      // Reloading here would re-auto-select the FIRST farm into the
+      // hierarchy and override a farm the user just opened from the
+      // Overview selector.
+      final selector = ref.read(farmSelectorProvider);
+      if (selector.farms.isEmpty && !selector.isLoading) {
+        ref.read(farmSelectorProvider.notifier).loadFarms();
+      }
     });
     // Load fields for the currently selected farm whenever it changes.
     ref.listen<FarmContext>(farmContextProvider, (previous, next) {

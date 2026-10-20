@@ -20,9 +20,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/farm_selector_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/farm_tab_navigation_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/farm_entity.dart';
-import 'package:famhub_app/features/farm_management/presentation/pages/farm_detail_page.dart';
 
 /// Farm Selector dashboard widget.
 ///
@@ -70,7 +70,8 @@ class FarmSelectorWidget extends ConsumerWidget {
               children: [
                 // Current farm display
                 InkWell(
-                  onTap: () => _openFarm(context, ref, _selectedFarm(selectorState, ref)),
+                  onTap: () =>
+                      _openFarm(ref, _selectedFarm(selectorState, ref)),
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
                     width: double.infinity,
@@ -122,8 +123,7 @@ class FarmSelectorWidget extends ConsumerWidget {
                 if (selectorState.farms.length > 1) ...[
                   const SizedBox(height: 8),
                   ...selectorState.farms
-                      .map((farm) => _farmOption(
-                          context, farm, ref, selectedEntityId)),
+                      .map((farm) => _farmOption(farm, ref, selectedEntityId)),
                 ],
               ],
             ),
@@ -150,26 +150,19 @@ class FarmSelectorWidget extends ConsumerWidget {
     );
   }
 
-  void _openFarm(
-    BuildContext context,
-    WidgetRef ref,
-    FarmEntity? farm,
-  ) {
+  /// Open a farm's details — inside the My Farms tab, never as a pushed
+  /// route. Selecting the farm also refreshes the Overview dashboard for
+  /// it; the tab request makes the details appear in My Farms, where the
+  /// back arrow (or re-tapping the My Farms tab) returns to the farm list.
+  void _openFarm(WidgetRef ref, FarmEntity? farm) {
     if (farm == null) return;
     ref.read(hierarchyProvider.notifier).selectEntity(farm);
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => FarmDetailPage(farmId: farm.id, farmName: farm.farmName),
-      ),
-    );
+    ref
+        .read(farmTabNavigationProvider.notifier)
+        .goTo(FarmManagementTab.myFarms);
   }
 
-  Widget _farmOption(
-    BuildContext context,
-    FarmEntity farm,
-    WidgetRef ref,
-    String? selectedEntityId,
-  ) {
+  Widget _farmOption(FarmEntity farm, WidgetRef ref, String? selectedEntityId) {
     final isSelected = farm.id == selectedEntityId;
     return Padding(
       padding: const EdgeInsets.only(top: 4),
@@ -222,7 +215,7 @@ class FarmSelectorWidget extends ConsumerWidget {
             ),
             // Explicit "Open" action beside the name.
             TextButton(
-              onPressed: () => _openFarm(context, ref, farm),
+              onPressed: () => _openFarm(ref, farm),
               style: TextButton.styleFrom(
                 visualDensity: VisualDensity.compact,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
