@@ -9,13 +9,15 @@ import 'package:famhub_app/features/farm_management/domain/models/activity_model
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_context_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
-import 'package:famhub_app/features/farm_management/application/providers/assets_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/activity_type_catalog_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/activities_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/production_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_cascade_coordinator.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_live_providers.dart';
-import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/production_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/utils/activity_type_scope.dart';
 import 'package:famhub_app/features/marketplace/application/providers/marketplace_provider.dart';
 
 import 'package:famhub_app/features/farm_management/presentation/pages/activity_template_selection_page.dart';
@@ -29,17 +31,21 @@ class ActivityCreationPage extends ConsumerStatefulWidget {
   const ActivityCreationPage({super.key});
 
   @override
-  ConsumerState<ActivityCreationPage> createState() => _ActivityCreationPageState();
+  ConsumerState<ActivityCreationPage> createState() =>
+      _ActivityCreationPageState();
 }
 
 class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
   final _formKey = GlobalKey<FormState>();
   final _notesController = TextEditingController();
   final _quantityController = TextEditingController();
-  String? _selectedAssetId;
+  final _dateController = TextEditingController();
+
+  /// Selected quick-form activity type — a live `activity_types` catalog
+  /// entry (real id → always resolvable by create_activity).
+  ActivityTypeOption? _selectedType;
   String? _selectedCommodityId;
   String? _selectedUnitId;
-  String _activityTypeId = 'general';
   DateTime _performedAt = DateTime.now();
   bool _isSubmitting = false;
   bool _loadingProductionReferences = false;
@@ -47,26 +53,21 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
   List<({String id, String name, String category})> _commodities = [];
   List<({String id, String name})> _units = [];
 
-  static const _activityTypes = [
-    ('general', 'General Activity', Icons.event_note, Colors.blue),
-    ('planting', 'Planting', Icons.eco, Colors.green),
-    ('irrigation', 'Irrigation', Icons.water_drop, Colors.cyan),
-    ('fertilizing', 'Fertilizing', Icons.biotech, Colors.teal),
-    ('pest_control', 'Pest Control', Icons.bug_report, Colors.orange),
-    ('harvesting', 'Harvesting', Icons.shopping_basket, Colors.green),
-    ('maintenance', 'Maintenance', Icons.build, Colors.blueGrey),
-    ('feeding', 'Feeding', Icons.restaurant, Colors.brown),
-    ('milking', 'Milking', Icons.water, Colors.lightBlue),
-    ('vaccination', 'Vaccination', Icons.medical_services, Colors.red),
-    ('inspection', 'Inspection', Icons.visibility, Colors.purple),
-    ('transport', 'Transport', Icons.local_shipping, Colors.indigo),
-    ('other', 'Other', Icons.more_horiz, Colors.grey),
-  ];
+  /// Harvesting output fields are only relevant for the harvesting type.
+  bool get _isHarvesting =>
+      _selectedType?.name.toLowerCase() == 'harvesting';
+
+  @override
+  void initState() {
+    super.initState();
+    _dateController.text = _formatDateTime(_performedAt);
+  }
 
   @override
   void dispose() {
     _notesController.dispose();
     _quantityController.dispose();
+    _dateController.dispose();
     super.dispose();
   }
 
@@ -106,11 +107,53 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
         .toList();
   }
 
+  /// Activity types relevant to the currently selected asset kind
+  /// (crop vs livestock), straight from the live catalog.
+  List<ActivityTypeOption> _filteredTypes(
+    List<ActivityTypeOption> allTypes,
+    String assetType,
+  ) {
+    return allTypes
+        .where((t) =>
+            activityTypeAppliesTo(
+              name: t.name,
+              category: t.category,
+              assetType: assetType,
+            ))
+        .toList();
+  }
+
+  /// Keeps the selection inside the filtered list (first catalog load or a
+  /// changed asset kind). Only assigns local fields this same build renders,
+  /// so it is safe to call during build without setState.
+  void _syncSelection(List<ActivityTypeOption> options) {
+    if (options.isEmpty) {
+      _selectedType = null;
+      return;
+    }
+    final selected = _selectedType;
+    if (selected != null && options.any((o) => o.id == selected.id)) {
+      _selectedType = options.firstWhere((o) => o.id == selected.id);
+      return;
+    }
+    _selectedType = options.firstWhere(
+      (o) => o.name.toLowerCase() == 'general',
+      orElse: () => options.first,
+    );
+  }
+
+  String _assetLabel(HierarchySelectionState hierarchy) {
+    final asset = hierarchy.cropOrLivestock;
+    if (asset is CropEntity) return asset.cropName;
+    if (asset is LivestockEntity) return asset.species;
+    return '';
+  }
+
   @override
   Widget build(BuildContext context) {
     final farmId = ref.watch(farmContextProvider).farmId;
     final hierarchy = ref.watch(hierarchyProvider);
-    final assetState = farmId != null ? ref.watch(assetsProvider) : null;
+    final catalogAsync = ref.watch(activityTypeCatalogProvider);
 
     // 🚫 BLOCK: Must have a crop/livestock selected to create an activity
     if (!hierarchy.hasCropOrLivestock) {
@@ -123,72 +166,137 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
             children: [
               Icon(Icons.block, size: 48, color: Colors.grey),
               SizedBox(height: 16),
-              Text('Select a Crop or Livestock record first to create an activity.',
-                style: TextStyle(color: Colors.grey, fontSize: 16)),
+              Text(
+                'Select a Crop or Livestock record first to create an activity.',
+                style: TextStyle(color: Colors.grey, fontSize: 16),
+              ),
             ],
           ),
         ),
       );
     }
 
+    final assetType = hierarchy.cropOrLivestockType ?? kAssetTypeCrop;
+    final isLivestock = assetType == kAssetTypeLivestock;
+    final assetLabel = _assetLabel(hierarchy);
+
     return ShellPageContent(
       title: 'Record Activity',
-      subtitle: hierarchy.hasCropOrLivestock
-          ? '${hierarchy.cropOrLivestockType == 'livestock' ? '🐄' : '🌱'} ${hierarchy.cropOrLivestockType == 'livestock' ? (hierarchy.cropOrLivestock as dynamic)?.species ?? '' : (hierarchy.cropOrLivestock as dynamic)?.cropName ?? ''}'
-          : '',
+      subtitle: '${isLivestock ? '🐄' : '🌱'} $assetLabel',
       child: farmId == null
           ? const Center(child: Text('Select a farm first'))
-          : SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ── Hierarchy Context Banner ──
-                  _buildHierarchyContextBanner(hierarchy),
-                  const SizedBox(height: 16),
-
-                  // ── Template Workflow Entry ──
-                  _buildWorkflowBanner(context),
-                  const SizedBox(height: 16),
-                  _buildOrDivider(),
-                  const SizedBox(height: 16),
-
-                  // ── Quick Activity Form ──
-                  Form(
+          : catalogAsync.when(
+              loading: () =>
+                  const LoadingStateWidget(message: 'Loading activity types…'),
+              error: (error, _) => _buildCatalogError(),
+              data: (allTypes) {
+                final options = _filteredTypes(allTypes, assetType);
+                _syncSelection(options);
+                if (options.isEmpty) {
+                  return _buildNoTypesState(isLivestock);
+                }
+                return SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  child: Form(
                     key: _formKey,
-                    child: _buildQuickForm(context, assetState, farmId, hierarchy),
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ── Where this activity will be recorded ──
+                        _buildContextBanner(hierarchy, assetLabel),
+                        const SizedBox(height: 16),
+
+                        // ── Quick activity form ──
+                        _buildQuickFormCard(
+                          context,
+                          farmId,
+                          hierarchy,
+                          options,
+                          assetType,
+                        ),
+                        const SizedBox(height: 20),
+
+                        // ── Guided workflow entry ──
+                        _buildOrDivider('OR use a guided workflow'),
+                        const SizedBox(height: 12),
+                        _buildWorkflowBanner(context),
+                      ],
+                    ),
                   ),
-                ],
-              ),
+                );
+              },
             ),
     );
   }
 
-  Widget _buildHierarchyContextBanner(HierarchySelectionState hierarchy) {
+  // ─────────────────────────────────────────────────────────────
+  // CONTEXT BANNER
+  // ─────────────────────────────────────────────────────────────
+  Widget _buildContextBanner(
+    HierarchySelectionState hierarchy,
+    String assetLabel,
+  ) {
+    final isLivestock = hierarchy.cropOrLivestockType == 'livestock';
+    final color = isLivestock ? Colors.brown : Colors.green;
     final fieldName = hierarchy.field?.fieldName ?? 'Field';
-    final cropOrLivestockLabel = hierarchy.cropOrLivestockType == 'livestock'
-        ? (hierarchy.cropOrLivestock as dynamic)?.species ?? 'Livestock'
-        : (hierarchy.cropOrLivestock as dynamic)?.cropName ?? 'Crop';
+    final farmName = hierarchy.entity?.farmName ?? '';
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.blue.shade200),
+        gradient: LinearGradient(
+          colors: [
+            color.withValues(alpha: 0.10),
+            color.withValues(alpha: 0.03),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
       ),
       child: Row(
         children: [
-          Icon(
-            hierarchy.cropOrLivestockType == 'livestock' ? Icons.pets : Icons.eco,
-            size: 18, color: Colors.blue.shade700,
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              isLivestock ? Icons.pets : Icons.eco,
+              size: 20,
+              color: color.shade700,
+            ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              'Recording activity for: $cropOrLivestockLabel in $fieldName',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.blue.shade800),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Recording for $assetLabel',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  farmName.isEmpty ? fieldName : '$fieldName · $farmName',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: Colors.grey.shade700,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ),
         ],
@@ -196,6 +304,241 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
     );
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // QUICK FORM CARD
+  // ─────────────────────────────────────────────────────────────
+  Widget _buildQuickFormCard(
+    BuildContext context,
+    String farmId,
+    HierarchySelectionState hierarchy,
+    List<ActivityTypeOption> options,
+    String assetType,
+  ) {
+    final theme = Theme.of(context);
+    final assetWord = assetType == kAssetTypeLivestock ? 'livestock' : 'crop';
+
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Card header ──
+            Row(
+              children: [
+                Icon(Icons.edit_note, size: 22, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Quick Activity',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Log a single activity in a few taps.',
+              style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 18),
+
+            // ── Activity type ──
+            _SectionHeader(
+              icon: Icons.category_outlined,
+              title: 'Activity type',
+              caption:
+                  'Showing ${options.length} types relevant to this $assetWord',
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: options.map((type) {
+                final (icon, color) = _typePresentation(type.name);
+                final isSelected = _selectedType?.id == type.id;
+                return ChoiceChip(
+                  avatar: Icon(
+                    icon,
+                    size: 15,
+                    color: isSelected ? Colors.white : color,
+                  ),
+                  label: Text(_prettyTypeName(type.name)),
+                  labelStyle: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected ? Colors.white : Colors.black87,
+                  ),
+                  selected: isSelected,
+                  selectedColor: color,
+                  showCheckmark: false,
+                  side: BorderSide(
+                    color: isSelected ? color : color.withValues(alpha: 0.35),
+                  ),
+                  visualDensity: VisualDensity.compact,
+                  onSelected: (_) => setState(() => _selectedType = type),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            const SizedBox(height: 16),
+
+            // ── Date & time ──
+            const _SectionHeader(
+              icon: Icons.schedule,
+              title: 'When did it happen?',
+              caption:
+                  'Backdate up to 30 days — activities can’t be logged in the future.',
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _dateController,
+              readOnly: true,
+              onTap: () => _pickDateTime(context),
+              decoration: InputDecoration(
+                prefixIcon:
+                    const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
+                suffixIcon:
+                    const Icon(Icons.edit_outlined, size: 18, color: Colors.grey),
+                hintText: 'Select date & time',
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
+              validator: _validatePerformedAt,
+            ),
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            const SizedBox(height: 16),
+
+            // ── Notes ──
+            const _SectionHeader(
+              icon: Icons.notes,
+              title: 'Notes',
+              caption: 'Required — describe what was done.',
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _notesController,
+              maxLines: 4,
+              decoration: InputDecoration(
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                hintText: 'Describe the activity performed...',
+                contentPadding: const EdgeInsets.all(16),
+              ),
+              validator: (value) => (value == null || value.trim().isEmpty)
+                  ? 'Please add a brief description'
+                  : null,
+            ),
+
+            if (_isHarvesting) ...[
+              const SizedBox(height: 16),
+              const Divider(height: 1),
+              const SizedBox(height: 16),
+              _buildHarvestingOutputForm(context, hierarchy),
+            ],
+
+            const SizedBox(height: 20),
+
+            // ── Submit ──
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: FilledButton.icon(
+                onPressed:
+                    _isSubmitting ? null : () => _submitActivity(context, farmId),
+                icon: _isSubmitting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.check_circle_outline),
+                label: Text(_isSubmitting ? 'Recording...' : 'Record Activity'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: theme.colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor:
+                      theme.colorScheme.primary.withValues(alpha: 0.6),
+                  disabledForegroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  textStyle: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCatalogError() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off, size: 48, color: Colors.grey),
+            const SizedBox(height: 12),
+            const Text(
+              'Couldn’t load activity types',
+              style: TextStyle(fontSize: 15, color: Colors.black54),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Check your connection and try again.',
+              style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 14),
+            OutlinedButton.icon(
+              onPressed: () => ref.invalidate(activityTypeCatalogProvider),
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoTypesState(bool isLivestock) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(isLivestock ? Icons.pets : Icons.eco,
+                size: 48, color: Colors.grey),
+            const SizedBox(height: 12),
+            Text(
+              'No activity types available for this ${isLivestock ? 'livestock' : 'crop'} yet.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14.5, color: Colors.grey.shade700),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // GUIDED WORKFLOW ENTRY
+  // ─────────────────────────────────────────────────────────────
   Widget _buildWorkflowBanner(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
@@ -211,18 +554,23 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.15)),
+        border:
+            Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.auto_awesome, color: theme.colorScheme.primary, size: 20),
+              Icon(Icons.auto_awesome,
+                  color: theme.colorScheme.primary, size: 20),
               const SizedBox(width: 8),
               Text(
                 'Guided Agricultural Workflows',
-                style: TextStyle(fontWeight: FontWeight.w600, color: theme.colorScheme.primary, fontSize: 15),
+                style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary,
+                    fontSize: 15),
               ),
             ],
           ),
@@ -240,7 +588,8 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
               label: const Text('Browse Workflow Templates'),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
                 side: BorderSide(color: theme.colorScheme.primary),
               ),
             ),
@@ -250,149 +599,26 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
     );
   }
 
-  Widget _buildOrDivider() {
+  Widget _buildOrDivider(String label) {
     return Row(
       children: [
         const Expanded(child: Divider()),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text('OR quick activity', style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
+          child: Text(label,
+              style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade500,
+                  fontWeight: FontWeight.w500)),
         ),
         const Expanded(child: Divider()),
       ],
     );
   }
 
-  Widget _buildQuickForm(
-    BuildContext context,
-    dynamic assetState,
-    String farmId,
-    HierarchySelectionState hierarchy,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Quick Activity', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
-        Text('Simple form with basic fields', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-        const SizedBox(height: 12),
-
-        // Activity Type
-        Text('Activity Type', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _activityTypes.map((type) {
-            final isSelected = _activityTypeId == type.$1;
-            return ChoiceChip(
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(type.$3, size: 16, color: isSelected ? Colors.white : type.$4),
-                  const SizedBox(width: 6),
-                  Text(type.$2),
-                ],
-              ),
-              selected: isSelected,
-              selectedColor: type.$4,
-              labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.black87, fontSize: 12),
-              onSelected: (_) => setState(() => _activityTypeId = type.$1),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 20),
-
-        // Asset Selection
-        Text('Related Asset (Optional)', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        if (assetState != null && assetState.isLoading)
-          const LoadingStateWidget()
-        else if (assetState != null && assetState.assets.isNotEmpty)
-          DropdownButtonFormField<String>(
-            value: _selectedAssetId,
-            decoration: InputDecoration(
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              hintText: 'Select an asset (optional)',
-            ),
-            items: [
-              const DropdownMenuItem(value: null, child: Text('None')),
-              ...assetState.assets.map((asset) => DropdownMenuItem(
-                value: asset.id,
-                child: Text('${asset.assetName} (${asset.typeLabel})'),
-              )),
-            ],
-            onChanged: (value) => setState(() => _selectedAssetId = value),
-          )
-        else
-          Text('No assets available.', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
-        const SizedBox(height: 20),
-
-        // Date & Time
-        Text('Date & Time', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        InkWell(
-          onTap: () => _pickDateTime(context),
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(12)),
-            child: Row(
-              children: [
-                const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
-                const SizedBox(width: 12),
-                Text('${_performedAt.day}/${_performedAt.month}/${_performedAt.year} '
-                    '${_performedAt.hour.toString().padLeft(2, '0')}:${_performedAt.minute.toString().padLeft(2, '0')}',
-                    style: const TextStyle(fontSize: 15)),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-
-        // Notes
-        Text('Notes & Description', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: _notesController,
-          maxLines: 4,
-          decoration: InputDecoration(
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            hintText: 'Describe the activity performed...',
-            contentPadding: const EdgeInsets.all(16),
-          ),
-          validator: (value) => (value == null || value.trim().isEmpty) ? 'Please add a brief description' : null,
-        ),
-        const SizedBox(height: 32),
-
-        if (_activityTypeId == 'harvesting') ...[
-          _buildHarvestingOutputForm(context, hierarchy),
-          const SizedBox(height: 32),
-        ],
-
-        // Submit
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: ElevatedButton.icon(
-            onPressed: _isSubmitting ? null : () => _submitActivity(context, farmId),
-            icon: _isSubmitting
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Icon(Icons.check),
-            label: Text(_isSubmitting ? 'Recording...' : 'Record Activity'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
+  // ─────────────────────────────────────────────────────────────
+  // HARVEST OUTPUT
+  // ─────────────────────────────────────────────────────────────
   Widget _buildHarvestingOutputForm(
     BuildContext context,
     HierarchySelectionState hierarchy,
@@ -425,20 +651,14 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Harvest Output',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          isLivestock
+        _SectionHeader(
+          icon: Icons.shopping_basket,
+          title: 'Harvest output',
+          caption: isLivestock
               ? 'Livestock harvesting requires a canonical backend unit before it can be submitted.'
               : 'Record the output created by this harvesting activity.',
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         TextFormField(
           controller: _quantityController,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -446,10 +666,11 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             labelText: 'Quantity',
             hintText: 'e.g. 10',
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
           validator: (value) {
-            if (_activityTypeId != 'harvesting') return null;
+            if (!_isHarvesting) return null;
             final quantity = double.tryParse(value?.trim() ?? '');
             if (quantity == null || quantity <= 0) return 'Enter a positive quantity';
             return null;
@@ -473,7 +694,7 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
               ? null
               : (value) => setState(() => _selectedUnitId = value),
           validator: (value) {
-            if (_activityTypeId != 'harvesting') return null;
+            if (!_isHarvesting) return null;
             if (isLivestock) {
               return 'Livestock harvesting is unavailable until a canonical unit is configured';
             }
@@ -495,16 +716,26 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
                   ))
               .toList(),
           onChanged: (value) => setState(() => _selectedCommodityId = value),
-          validator: (value) => _activityTypeId == 'harvesting' && value == null
-              ? 'Select an output commodity'
-              : null,
+          validator: (value) =>
+              _isHarvesting && value == null ? 'Select an output commodity' : null,
         ),
       ],
     );
   }
 
   void _navigateToTemplates(BuildContext context) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ActivityTemplateSelectionPage()));
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const ActivityTemplateSelectionPage()));
+  }
+
+  String? _validatePerformedAt(String? _) {
+    // The picker clamps future times already — this is a submission-time
+    // backstop against clock skew so the backend's `performed_at <= now()`
+    // checks can never reject the record with a raw SQL error.
+    if (_performedAt.isAfter(DateTime.now())) {
+      return 'Activities can’t be logged in the future';
+    }
+    return null;
   }
 
   Future<void> _pickDateTime(BuildContext context) async {
@@ -514,14 +745,101 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
       firstDate: DateTime.now().subtract(const Duration(days: 30)),
       lastDate: DateTime.now(),
     );
-    if (date == null) return;
-    final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(_performedAt));
-    if (time == null) return;
-    setState(() => _performedAt = DateTime(date.year, date.month, date.day, time.hour, time.minute));
+    if (date == null || !context.mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_performedAt),
+    );
+    if (time == null || !context.mounted) return;
+
+    var picked =
+        DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    final now = DateTime.now();
+    final wasClamped = picked.isAfter(now);
+    if (wasClamped) picked = now;
+
+    setState(() {
+      _performedAt = picked;
+      _dateController.text = _formatDateTime(_performedAt);
+    });
+
+    if (wasClamped) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Activities can’t be logged in the future — time set to now.',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
+  }
+
+  String _formatDateTime(DateTime dt) {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    final hh = dt.hour.toString().padLeft(2, '0');
+    final mm = dt.minute.toString().padLeft(2, '0');
+    return '${days[dt.weekday - 1]}, ${dt.day} ${months[dt.month - 1]} '
+        '${dt.year} · $hh:$mm';
+  }
+
+  /// Icon + colour for a catalog type, derived from its name so unknown
+  /// future types still get a sensible glyph.
+  (IconData, Color) _typePresentation(String name) {
+    final n = name.toLowerCase();
+    if (n.contains('plant')) return (Icons.eco, Colors.green);
+    if (n.contains('irrigat') || n.contains('water')) {
+      return (Icons.water_drop, Colors.cyan);
+    }
+    if (n.contains('fertiliz')) return (Icons.biotech, Colors.teal);
+    if (n.contains('weed')) return (Icons.grass, Colors.lightGreen);
+    if (n.contains('pest') || n.contains('spray') || n.contains('protect')) {
+      return (Icons.bug_report, Colors.orange);
+    }
+    if (n.contains('harvest')) return (Icons.shopping_basket, Colors.green);
+    if (n.contains('feed')) return (Icons.restaurant, Colors.brown);
+    if (n.contains('milk') || n.contains('dairy')) {
+      return (Icons.water, Colors.lightBlue);
+    }
+    if (n.contains('vaccin') || n.contains('medic')) {
+      return (Icons.medical_services, Colors.red);
+    }
+    if (n.contains('inspect')) return (Icons.visibility, Colors.purple);
+    if (n.contains('transport') || n.contains('ship')) {
+      return (Icons.local_shipping, Colors.indigo);
+    }
+    if (n.contains('mainten')) return (Icons.build, Colors.blueGrey);
+    if (n.contains('other')) return (Icons.more_horiz, Colors.grey);
+    if (n.contains('general')) return (Icons.event_note, Colors.blue);
+    return (Icons.local_activity, Colors.blueGrey);
+  }
+
+  /// 'pest_control' → 'Pest Control', 'feeding' → 'Feeding', …
+  String _prettyTypeName(String name) {
+    return name
+        .split(RegExp(r'[_\s]+'))
+        .where((w) => w.isNotEmpty)
+        .map((w) => w[0].toUpperCase() + w.substring(1).toLowerCase())
+        .join(' ');
   }
 
   Future<void> _submitActivity(BuildContext context, String farmId) async {
     if (!_formKey.currentState!.validate()) return;
+
+    final selectedType = _selectedType;
+    if (selectedType == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Choose an activity type first.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
 
     // ── Guest mode: show sign-up prompt instead of saving ──
     final shouldProceed = await showProtectedActionPrompt(
@@ -529,7 +847,7 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
       ref,
       action: 'save this activity record',
     );
-    if (!shouldProceed) return;
+    if (!shouldProceed || !context.mounted) return;
 
     setState(() => _isSubmitting = true);
     try {
@@ -543,7 +861,7 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
       // farm/field/crop columns), so submission is blocked here rather
       // than silently recording an unlinked activity.
       if (!hierarchy.hasFullSelection) {
-        if (!mounted) return;
+        if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
@@ -556,9 +874,22 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
         return;
       }
 
-      if (_activityTypeId == 'harvesting' &&
+      // Backend rejects future timestamps with a raw SQL error — guard here
+      // so the farmer sees a friendly message instead.
+      if (_performedAt.isAfter(DateTime.now())) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Activities can’t be logged in the future.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      if (_isHarvesting &&
           hierarchy.cropOrLivestockType == 'livestock') {
-        if (!mounted) return;
+        if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
@@ -575,25 +906,26 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
       // ASSET instance. The crop/livestock id in the hierarchy IS the asset id.
       final activity = ActivityModel(
         id: '', // Backend will generate
-        activityTypeId: _activityTypeId,
+        activityTypeId: selectedType.id,
         farmId: farmId, // UI context only
         fieldId: hierarchy.fieldId, // UI context only
         cropOrLivestockId: hierarchy.cropOrLivestockId, // UI context only
         cropOrLivestockType: hierarchy.cropOrLivestockType, // UI context only
         performedAt: _performedAt,
         notes: _notesController.text.trim(),
-        assetId: hierarchy.cropOrLivestockId ?? _selectedAssetId,
+        assetId: hierarchy.cropOrLivestockId,
         planId: null,
       );
 
       // Create activity via the create_activity RPC — only documented
       // activity columns are sent.
-      final createdActivity = await repository.createActivity(activity: activity);
+      final createdActivity =
+          await repository.createActivity(activity: activity);
 
       // Invalidate activities + central mutation refresh (dashboard,
       // lifecycle, AI context)
       ref.invalidate(activitiesProvider);
-      if (_activityTypeId == 'harvesting') {
+      if (_isHarvesting) {
         final quantity = double.parse(_quantityController.text.trim());
         try {
           await repository.recordProduction(
@@ -613,7 +945,7 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
           ref.invalidate(farmStockValueProvider);
           ref.invalidate(eligibleStockProvider);
           ref.read(hierarchyCascadeCoordinatorProvider).refreshAfterMutation();
-          if (!mounted) return;
+          if (!context.mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Activity saved, but production/stock failed: $e'),
@@ -629,18 +961,69 @@ class _ActivityCreationPageState extends ConsumerState<ActivityCreationPage> {
       }
       ref.read(hierarchyCascadeCoordinatorProvider).refreshAfterMutation();
 
-      if (!mounted) return;
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Activity recorded successfully'), backgroundColor: Colors.green),
+        const SnackBar(
+            content: Text('Activity recorded successfully'),
+            backgroundColor: Colors.green),
       );
       Navigator.of(context).pop();
     } catch (e) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+}
+
+/// Consistent labelled section header used across the quick form.
+class _SectionHeader extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? caption;
+
+  const _SectionHeader({
+    required this.icon,
+    required this.title,
+    this.caption,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 16, color: Colors.grey.shade700),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+              if (caption != null) ...[
+                const SizedBox(height: 1),
+                Text(
+                  caption!,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }

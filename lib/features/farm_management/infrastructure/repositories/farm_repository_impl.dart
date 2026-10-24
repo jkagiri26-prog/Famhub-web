@@ -239,7 +239,10 @@ class FarmRepositoryImpl implements FarmRepository {
       final response = await _queryFarmActivities(
         farmId: farmId,
         extraFilter: (query) => query.gte(
-            'performed_at', startOfDay.toIso8601String()),
+            // UTC: local wall-midnight without an offset is read as UTC by
+            // timestamptz, which would cut the window off by the timezone
+            // offset (missing early-morning activities).
+            'performed_at', startOfDay.toUtc().toIso8601String()),
         limit: 50,
       );
       return response;
@@ -1152,7 +1155,11 @@ class FarmRepositoryImpl implements FarmRepository {
       final payload = <String, dynamic>{
         'asset_id': activity.assetId,
         'activity_type_id': activityTypeId,
-        'performed_at': activity.performedAt.toIso8601String(),
+        // UTC ("Z"-suffixed) so PostgREST/timestamptz parse the instant
+        // correctly. A local-time string without an offset is read as UTC
+        // by Postgres, which shifted timestamps into the future for any
+        // UTC+N timezone and tripped the `performed_at <= now()` checks.
+        'performed_at': activity.performedAt.toUtc().toIso8601String(),
         'notes': activity.notes,
         if (activity.planId != null) 'plan_id': activity.planId,
       };

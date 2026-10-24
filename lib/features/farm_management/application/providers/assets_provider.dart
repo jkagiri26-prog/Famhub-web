@@ -81,7 +81,20 @@ class AssetsNotifier extends Notifier<AssetListState> {
 
   @override
   AssetListState build() {
-    return AssetListState.initial();
+    // Self-heal: watch the active farm so the first build AND every
+    // invalidation (cascade coordinator, main.dart refresh hooks) reloads
+    // automatically. Without this, state stayed at isLoading:true forever
+    // whenever no other page happened to call loadAssets() — the "Related
+    // Asset" spinner on the activity form, and stuck low-stock widgets.
+    final farmId = ref.watch(
+      farmContextProvider.select((context) => context.farmId),
+    );
+    if (farmId != null) {
+      Future.microtask(() => loadAssets(farmId: farmId));
+      return AssetListState.initial();
+    }
+    // No farm selected → nothing to load; don't show an endless spinner.
+    return const AssetListState(assets: [], isLoading: false);
   }
 
   Future<void> loadAssets({String? farmId}) async {

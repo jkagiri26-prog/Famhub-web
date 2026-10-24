@@ -48,7 +48,9 @@ class FarmRemoteDataSource {
               ''');
 
           if (since != null) {
-            query = query.gte('performed_at', since.toIso8601String());
+            // UTC: timestamptz reads offset-less strings as UTC, so a local
+            // instant must be converted or the window shifts by the offset.
+            query = query.gte('performed_at', since.toUtc().toIso8601String());
           }
 
           final response = await query

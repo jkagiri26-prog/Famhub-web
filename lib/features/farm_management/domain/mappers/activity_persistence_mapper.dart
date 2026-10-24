@@ -27,7 +27,10 @@ import 'package:famhub_app/features/farm_management/domain/models/activity_model
 Map<String, dynamic> buildActivityInsertPayload(ActivityModel activity) {
   return {
     'activity_type_id': activity.activityTypeId,
-    'performed_at': activity.performedAt.toIso8601String(),
+    // UTC ("Z"-suffixed): a local string without an offset is read as UTC
+    // by timestamptz parsing, which shifted UTC+N times into the future
+    // and tripped `performed_at <= now()` on the backend.
+    'performed_at': activity.performedAt.toUtc().toIso8601String(),
     'notes': activity.notes,
     'asset_id': activity.assetId,
     'plan_id': activity.planId,
@@ -54,7 +57,11 @@ ActivityModel activityFromRow(
     fieldId: fieldId,
     cropOrLivestockId: cropOrLivestockId,
     cropOrLivestockType: cropOrLivestockType,
-    performedAt: DateTime.parse(row['performed_at'] as String),
+    // PostgREST returns timestamptz values (offset/Z suffixed) which
+    // DateTime.parse normalises to a UTC instant — convert back to local
+    // so wall-clock rendering (day/month/hour in lists & details) shows the
+    // farmer's local time rather than UTC.
+    performedAt: DateTime.parse(row['performed_at'] as String).toLocal(),
     notes: row['notes'] as String?,
     assetId: row['asset_id'] as String?,
     planId: row['plan_id'] as String?,
