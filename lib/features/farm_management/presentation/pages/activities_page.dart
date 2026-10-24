@@ -30,11 +30,18 @@ class ActivitiesPage extends ConsumerStatefulWidget {
   /// tab — returns the journal to its home (list) view.
   final int resetToken;
 
+  /// Reports whether the in-tab activity detail view is open. The detail
+  /// lives in this State, so it is invisible to the router — the parent's
+  /// system-back (PopScope) handler needs it to unwind detail → list
+  /// instead of treating the journal as the tab's home.
+  final ValueChanged<bool>? onDetailOpenChanged;
+
   const ActivitiesPage({
     super.key,
     this.onOpenCrops,
     this.onOpenLivestock,
     this.resetToken = 0,
+    this.onDetailOpenChanged,
   });
 
   @override
@@ -53,6 +60,10 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
   /// mode is suppressed only for THIS asset — selecting a different crop/
   /// livestock re-arms the filter so the journal shows that asset again.
   String? _viewAllForAssetId;
+
+  /// Last detail-open value reported to [ActivitiesPage.onDetailOpenChanged]
+  /// (null until the first build of this State).
+  bool? _lastReportedDetailOpen;
 
   @override
   void didUpdateWidget(covariant ActivitiesPage oldWidget) {
@@ -73,6 +84,22 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
 
   void _backToList() {
     setState(() => _selected = null);
+  }
+
+  /// Keep the parent's system-back state in sync with this page's local
+  /// detail view. Runs from build so every mutation path (row tap, back
+  /// arrow, reset token) reports — and so a freshly recreated State reports
+  /// its initial value, correcting a stale parent flag after the tab was
+  /// disposed and revisited.
+  void _reportDetailOpen() {
+    final callback = widget.onDetailOpenChanged;
+    if (callback == null) return;
+    final open = _selected != null;
+    if (_lastReportedDetailOpen == open) return;
+    _lastReportedDetailOpen = open;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) callback(open);
+    });
   }
 
   void _viewAllActivities(String assetId) {
@@ -100,6 +127,7 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
 
   @override
   Widget build(BuildContext context) {
+    _reportDetailOpen();
     final hierarchy = ref.watch(hierarchyProvider);
     final currentAssetId = hierarchy.cropOrLivestockId;
     // Contextual mode is active only while a crop/livestock is selected AND

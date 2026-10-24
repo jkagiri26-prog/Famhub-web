@@ -56,6 +56,8 @@ import 'package:famhub_app/features/farm_management/application/providers/farm_s
 import 'package:famhub_app/features/farm_management/application/providers/farm_tab_navigation_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_onboarding_provider.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/add_farm_page.dart';
 import 'package:famhub_app/features/farm_management/presentation/widgets/farm_setup_guide_widget.dart';
 import 'package:famhub_app/features/farm_management/presentation/widgets/farm_onboarding_checklist_widget.dart';
@@ -115,6 +117,15 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
   /// journal home.
   int _activitiesResetToken = 0;
 
+  /// Whether ActivitiesPage's in-tab detail view is open. Reported by the
+  /// page via its onDetailOpenChanged callback — the detail is local state
+  /// the router cannot see, but system back must unwind it first.
+  bool _activityDetailOpen = false;
+
+  /// Last tab index at which the TabController settled (animation done).
+  /// Used to rebuild when the tab changes so PopScope.canPop stays in sync.
+  int _settledTabIndex = FarmManagementTab.overview;
+
   /// Keys per tab so we can scroll the strip to keep the active tab visible.
   late final List<GlobalKey> _tabKeys;
 
@@ -149,6 +160,12 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
   /// including when the tab is switched programmatically.
   void _onTabChanged() {
     if (_tabController.indexIsChanging) return;
+    // Rebuild once per settled tab switch so PopScope.canPop tracks the
+    // tab the user is actually on (the controller notifies at settle).
+    if (_tabController.index != _settledTabIndex) {
+      _settledTabIndex = _tabController.index;
+      if (mounted) setState(() {});
+    }
     final key = _tabKeys[_tabController.index].currentContext;
     if (key == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -195,6 +212,130 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     }
   }
 
+  /// Callback from ActivitiesPage reporting whether its in-tab detail view
+  /// is open (kept in [_activityDetailOpen] for the system-back handler).
+  void _onActivityDetailChanged(bool open) {
+    if (!mounted || _activityDetailOpen == open) return;
+    setState(() => _activityDetailOpen = open);
+  }
+
+  /// Whether the current view has an internal destination that Android
+  /// system back must unwind before the event is allowed to leave Farm
+  /// Management (and, from the Overview root, the app).
+  ///
+  /// Mirrors the existing navigation model:
+  ///  * Every non-default tab has at least one internal step: its own
+  ///    detail/list hierarchy (rules 1–3) or, when already at the tab's
+  ///    home view, the default Overview tab (rule 4).
+  ///  * Overview is the workspace root. Explicit detail views opened in
+  ///    other tabs (an asset detail or an open activity detail) still count
+  ///    as internal destinations, so back returns to them instead of
+  ///    exiting (rule 6). Hierarchy *context* (farm/field) does not gate
+  ///    exit — `loadFarms` auto-selects the first farm at bootstrap, so
+  ///    treating context as a destination would trap every back press.
+  ///  * No destination left → back follows the router: pops to the page
+  ///    Farm Management was pushed from, or exits at the true app root
+  ///    (rules 5–6).
+  ///
+  /// Only checked at this page's own route: pushed forms/dialogs sit on
+  /// top of it and consult their own routes first.
+  bool _hasInternalBackDestination(HierarchySelectionState hierarchy) {
+    if (_tabController.index != FarmManagementTab.overview) return true;
+    return _activityDetailOpen || hierarchy.cropOrLivestock != null;
+  }
+
+  /// Unwind exactly one internal level in response to the Android system
+  /// back button. Called only when [_hasInternalBackDestination] was true
+  /// (PopScope.canPop == false), so every branch must consume the event.
+  ///
+  /// Each branch mirrors the tab's visible back-arrow semantics so the
+  /// system back button and the on-screen arrows stay consistent.
+  void _handleSystemBack() {
+    final notifier = ref.read(hierarchyProvider.notifier);
+    final hierarchy = ref.read(hierarchyProvider);
+
+    switch (_tabController.index) {
+      case FarmManagementTab.myFarms:
+        // Farm detail with fields expanding inside it (rules 1–3):
+        // collapse the expanded field first, then farm → farms list
+        // (FarmsPage back arrow).
+        if (hierarchy.hasEntity) {
+          if (hierarchy.field != null) {
+            notifier.clearToEntity();
+          } else {
+            notifier.reset();
+          }
+          return;
+        }
+        break;
+      case FarmManagementTab.crops:
+        // Crop detail → All Crops (CropsPage._clearSelection).
+        if (hierarchy.cropOrLivestockType == 'crop' &&
+            hierarchy.cropOrLivestock is CropEntity) {
+          notifier.clearToField();
+          return;
+        }
+        break;
+      case FarmManagementTab.livestock:
+        // Livestock detail → All Livestock (LivestockPage._clearSelection).
+        if (hierarchy.cropOrLivestockType == 'livestock' &&
+            hierarchy.cropOrLivestock is LivestockEntity) {
+          notifier.clearToField();
+          return;
+        }
+        break;
+      case FarmManagementTab.activityLogs:
+        // In-tab activity detail → journal list first (rule 1). The reset
+        // token is the page's existing "return to home" path.
+        if (_activityDetailOpen) {
+          setState(() => _activitiesResetToken++);
+          return;
+        }
+        // Contextual journal opened from an asset → back to that asset's
+        // detail, with the hierarchy context preserved (spec: activity logs
+        // opened from a crop/livestock return to that crop/livestock).
+        if (hierarchy.cropOrLivestock != null) {
+          _tabController.animateTo(
+            hierarchy.cropOrLivestockType == 'livestock'
+                ? FarmManagementTab.livestock
+                : FarmManagementTab.crops,
+          );
+          return;
+        }
+        break;
+      case FarmManagementTab.reports:
+        // Asset/farm report → global report (ReportsPage back arrows).
+        if (hierarchy.hasEntity || hierarchy.cropOrLivestock != null) {
+          notifier.reset();
+          return;
+        }
+        break;
+      default: // Overview
+        // Only reachable while a detail view in another tab is open:
+        // return to that detail instead of exiting (rule 6).
+        if (_activityDetailOpen) {
+          _tabController.animateTo(FarmManagementTab.activityLogs);
+          return;
+        }
+        if (hierarchy.cropOrLivestock != null) {
+          _tabController.animateTo(
+            hierarchy.cropOrLivestockType == 'livestock'
+                ? FarmManagementTab.livestock
+                : FarmManagementTab.crops,
+          );
+          return;
+        }
+        break;
+    }
+
+    // Rule 4 — nothing deeper in this view: the previous internal view is
+    // the default Overview tab (tabs have no separate navigation history;
+    // hierarchy context is preserved, never reset).
+    if (_tabController.index != FarmManagementTab.overview) {
+      _tabController.animateTo(FarmManagementTab.overview);
+    }
+  }
+
   /// Initialize the module through the bootstrap coordinator.
   /// This happens automatically — the module never depends on
   /// another page having called loadFarms(), initializeDashboard(),
@@ -221,7 +362,18 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
       }
     });
 
-    return ShellPageContent(
+    // Android system back / predictive back: intercepted at this page's
+    // route so back unwinds internal workspace navigation first instead of
+    // bubbling to the root navigator and closing the app (the tab views are
+    // local/provider state, not routes, so the router has nothing to pop).
+    // Pushed forms and dialogs sit on top of this route and are unaffected.
+    return PopScope(
+      canPop: !_hasInternalBackDestination(hierarchy),
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (didPop) return;
+        _handleSystemBack();
+      },
+      child: ShellPageContent(
       title: 'Farm Management',
       subtitle: hierarchy.hasEntity
           ? hierarchy.entity!.farmName
@@ -288,6 +440,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
                     onOpenCrops: () => _tabController.animateTo(2),
                     onOpenLivestock: () => _tabController.animateTo(3),
                     resetToken: _activitiesResetToken,
+                    onDetailOpenChanged: _onActivityDetailChanged,
                   ),
 
                   // 6. Reports — reporting workspace
@@ -301,6 +454,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
             ),
           ],
         ),
+      ),
       ),
     );
   }
