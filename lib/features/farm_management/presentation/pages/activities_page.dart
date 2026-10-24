@@ -49,16 +49,21 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
   /// Entry currently open in the in-tab detail view.
   GlobalActivityEntry? _selected;
 
-  /// When true, ignore the contextual asset filter (user pressed View All).
-  bool _showAllContext = false;
+  /// The asset id the user pressed "View All Activities" for. Contextual
+  /// mode is suppressed only for THIS asset — selecting a different crop/
+  /// livestock re-arms the filter so the journal shows that asset again.
+  String? _viewAllForAssetId;
 
   @override
   void didUpdateWidget(covariant ActivitiesPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Mirrors _backToList (the detail view's own back arrow). No setState
-    // needed — the element rebuilds right after this callback.
+    // Re-tap of the active Activity Logs tab returns the journal to its
+    // home: close any open detail and re-arm the contextual filter (so a
+    // still-selected asset is shown again rather than a stale "view all").
+    // No setState needed — the element rebuilds right after this callback.
     if (widget.resetToken != oldWidget.resetToken) {
       _selected = null;
+      _viewAllForAssetId = null;
     }
   }
 
@@ -70,8 +75,8 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
     setState(() => _selected = null);
   }
 
-  void _viewAllActivities() {
-    setState(() => _showAllContext = true);
+  void _viewAllActivities(String assetId) {
+    setState(() => _viewAllForAssetId = assetId);
   }
 
   void _openAsset(GlobalActivityEntry entry) {
@@ -96,10 +101,12 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
   @override
   Widget build(BuildContext context) {
     final hierarchy = ref.watch(hierarchyProvider);
-    final contextualAssetId =
-        (hierarchy.cropOrLivestock != null && !_showAllContext)
-            ? hierarchy.cropOrLivestockId
-            : null;
+    final currentAssetId = hierarchy.cropOrLivestockId;
+    // Contextual mode is active only while a crop/livestock is selected AND
+    // the user hasn't pressed "View All" for THIS asset.
+    final inContext = hierarchy.cropOrLivestock != null &&
+        _viewAllForAssetId != currentAssetId;
+    final contextualAssetId = inContext ? currentAssetId : null;
 
     if (_selected != null) {
       return _buildDetail(context, _selected!);
@@ -119,6 +126,12 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
         ? null
         : hierarchy.cropOrLivestock;
 
+    final contextLabel = contextualEntry is CropEntity
+        ? contextualEntry.cropName
+        : contextualEntry is LivestockEntity
+            ? contextualEntry.species
+            : null;
+
     return ResponsiveWrapper(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -126,7 +139,9 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
           const SizedBox(height: 4),
           WorkspaceTabHeader(
             title: 'Activity Logs',
-            subtitle: 'All crop & livestock activities across your farms',
+            subtitle: contextualAssetId != null && contextLabel != null
+                ? 'Activities for $contextLabel'
+                : 'All crop & livestock activities across your farms',
             icon: Icons.list_alt,
             color: Colors.blue,
             actions: [
@@ -143,12 +158,8 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
           if (contextualAssetId != null) ...[
             const SizedBox(height: 10),
             _ContextBanner(
-              assetLabel: contextualEntry is CropEntity
-                  ? contextualEntry.cropName
-                  : contextualEntry is LivestockEntity
-                      ? contextualEntry.species
-                      : 'Selected asset',
-              onViewAll: _viewAllActivities,
+              assetLabel: contextLabel ?? 'Selected asset',
+              onViewAll: () => _viewAllActivities(contextualAssetId),
             ),
           ],
           const SizedBox(height: 12),
@@ -172,7 +183,7 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
                     title: 'No activities found',
                     subtitle: 'No activities for this asset yet.',
                     actionLabel: 'View All Activities',
-                    onAction: _viewAllActivities,
+                    onAction: () => _viewAllActivities(contextualAssetId),
                   );
                 }
                 if (entries.isEmpty) {
