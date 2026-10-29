@@ -678,7 +678,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
         return true;
       },
       child: PopScope(
-        canPop: !_hasInternalBackDestination(hierarchy),
+        canPop: kIsWeb || !_hasInternalBackDestination(hierarchy),
         onPopInvokedWithResult: (bool didPop, Object? result) {
           if (didPop) return;
           _handleSystemBack();
