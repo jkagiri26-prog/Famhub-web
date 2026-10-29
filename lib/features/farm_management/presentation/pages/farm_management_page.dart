@@ -90,6 +90,9 @@ Map<String, Object?> _farmHistoryStringMap(Object? value) {
   };
 }
 
+bool _isFarmManagementLocation(Uri uri) =>
+    uri.path == '/' || uri.path == '/farm';
+
 /// ============================================================
 /// FARM MANAGEMENT PAGE (PRIMARY MODULE ENTRY POINT)
 /// ============================================================
@@ -272,7 +275,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     final router = _router;
     if (!kIsWeb || !_historyReady || !mounted || router == null) return;
     final configuration = router.routerDelegate.currentConfiguration;
-    if (configuration.uri.path != '/farm') {
+    if (!_isFarmManagementLocation(configuration.uri)) {
       _historyRestoreGeneration++;
       _restoringHistory = false;
       return;
@@ -293,11 +296,15 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     if (kIsWeb && !_restoringHistory) {
       _historyRestoreGeneration++;
     }
+    final router = _router;
     if (!kIsWeb ||
         !_historyReady ||
+        router == null ||
         _restoringHistory ||
         _historyRecordScheduled ||
-        _router?.routerDelegate.currentConfiguration.uri.path != '/farm') {
+        !_isFarmManagementLocation(
+          router.routerDelegate.currentConfiguration.uri,
+        )) {
       return;
     }
     _historyRecordScheduled = true;
@@ -312,7 +319,9 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     final router = _router;
     if (!kIsWeb ||
         router == null ||
-        router.routerDelegate.currentConfiguration.uri.path != '/farm') {
+        !_isFarmManagementLocation(
+          router.routerDelegate.currentConfiguration.uri,
+        )) {
       return;
     }
     final snapshot = _browserHistorySnapshot();
@@ -625,7 +634,10 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !kIsWeb) return;
       final configuration = _router?.routerDelegate.currentConfiguration;
-      if (configuration == null || configuration.uri.path != '/farm') return;
+      if (configuration == null ||
+          !_isFarmManagementLocation(configuration.uri)) {
+        return;
+      }
       final extra = _farmHistoryStringMap(configuration.extra);
       final rawSnapshot = extra[_farmManagementHistoryExtraKey];
       if (rawSnapshot is Map) {
