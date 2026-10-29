@@ -139,6 +139,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
   String? _lastHistorySnapshot;
   String? _activitySelectionId;
   int _historyRestoreGeneration = 0;
+  final List<Map<String, Object?>> _systemBackHistory = [];
 
   /// Bumped when the user re-taps the active Activity Logs tab so the
   /// page (whose detail view lives in local state) returns to its
@@ -293,19 +294,32 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     if (kIsWeb && !_restoringHistory) {
       _historyRestoreGeneration++;
     }
-    if (!kIsWeb ||
-        !_historyReady ||
+    if (!_historyReady ||
         _restoringHistory ||
         _historyRecordScheduled ||
-        _router?.routerDelegate.currentConfiguration.uri.path != '/farm') {
+        (kIsWeb &&
+            _router?.routerDelegate.currentConfiguration.uri.path != '/farm')) {
       return;
     }
     _historyRecordScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _historyRecordScheduled = false;
       if (!mounted || _restoringHistory) return;
-      _writeBrowserHistory();
+      if (kIsWeb) {
+        _writeBrowserHistory();
+      } else {
+        _recordSystemBackSnapshot();
+      }
     });
+  }
+
+  void _recordSystemBackSnapshot() {
+    final snapshot = _browserHistorySnapshot();
+    if (_systemBackHistory.isNotEmpty &&
+        mapEquals(_systemBackHistory.last, snapshot)) {
+      return;
+    }
+    _systemBackHistory.add(snapshot);
   }
 
   void _writeBrowserHistory({bool replace = false}) {
@@ -484,6 +498,10 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
       } else {
         _lastHistorySnapshot = encodedTarget;
       }
+      if (!kIsWeb && _systemBackHistory.isNotEmpty) {
+        _systemBackHistory[_systemBackHistory.length - 1] =
+            _browserHistorySnapshot();
+      }
     } finally {
       if (generation == _historyRestoreGeneration) {
         _restoringHistory = false;
@@ -512,6 +530,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
   /// Only checked at this page's own route: pushed forms/dialogs sit on
   /// top of it and consult their own routes first.
   bool _hasInternalBackDestination(HierarchySelectionState hierarchy) {
+    if (!kIsWeb && _systemBackHistory.length > 1) return true;
     if (_tabController.index != FarmManagementTab.overview) return true;
     return _activityDetailOpen || hierarchy.cropOrLivestock != null;
   }
@@ -523,6 +542,12 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
   /// Each branch mirrors the tab's visible back-arrow semantics so the
   /// system back button and the on-screen arrows stay consistent.
   void _handleSystemBack() {
+    if (!kIsWeb && _systemBackHistory.length > 1) {
+      _systemBackHistory.removeLast();
+      unawaited(_restoreBrowserHistory(_systemBackHistory.last));
+      return;
+    }
+
     final notifier = ref.read(hierarchyProvider.notifier);
     final hierarchy = ref.read(hierarchyProvider);
 
@@ -622,6 +647,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     await coordinator.bootstrapModule();
     if (!mounted) return;
     _historyReady = true;
+    if (!kIsWeb) _recordSystemBackSnapshot();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !kIsWeb) return;
       final configuration = _router?.routerDelegate.currentConfiguration;

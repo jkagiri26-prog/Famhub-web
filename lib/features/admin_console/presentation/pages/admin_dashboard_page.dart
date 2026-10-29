@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -151,9 +152,9 @@ class _AdminDrillBackGateState extends ConsumerState<_AdminDrillBackGate> {
         final bool hasDrill = controller.index == widget.systemTabIndex &&
             drill.hasActiveDrill;
         return PopScope(
-          canPop: !hasDrill,
+          canPop: kIsWeb || !hasDrill,
           onPopInvokedWithResult: (bool didPop, Object? result) {
-            if (didPop) return;
+            if (didPop || kIsWeb) return;
             ref.read(adminDrillProvider.notifier).unwindActive();
           },
           child: widget.child,
