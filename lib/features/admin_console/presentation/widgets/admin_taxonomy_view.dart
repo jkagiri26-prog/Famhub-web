@@ -18,8 +18,10 @@ library;
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:famhub_app/features/admin_console/application/providers/admin_capability_provider.dart';
 import 'package:famhub_app/features/admin_console/application/providers/admin_drill_provider.dart';
@@ -94,6 +96,8 @@ class _AdminTaxonomyViewState extends ConsumerState<AdminTaxonomyView> {
   AdminTaxonomyNode? _item;
 
   TabController? _sectionController;
+  GoRouter? _router;
+  int _restoreGeneration = 0;
 
   int get _depth {
     if (_domain == null) return 0;
@@ -110,12 +114,18 @@ class _AdminTaxonomyViewState extends ConsumerState<AdminTaxonomyView> {
     _sectionController?.removeListener(_sync);
     _sectionController = controller;
     controller.addListener(_sync);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _sync());
+    _router = GoRouter.of(context);
+    _router!.routerDelegate.addListener(_onRouterChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _sync();
+      _restoreFromRoute();
+    });
   }
 
   @override
   void dispose() {
     _sectionController?.removeListener(_sync);
+    _router?.routerDelegate.removeListener(_onRouterChanged);
     super.dispose();
   }
 
@@ -142,6 +152,92 @@ class _AdminTaxonomyViewState extends ConsumerState<AdminTaxonomyView> {
       }
     });
     _sync();
+  }
+
+  void _onRouterChanged() => _restoreFromRoute();
+
+  Future<AdminTaxonomyNode?> _resolveNode(
+    TaxonomyLevel level,
+    String? parentId,
+    Object? snapshot,
+  ) async {
+    if (snapshot is! Map ||
+        snapshot['id'] is! String ||
+        snapshot['name'] is! String) {
+      return null;
+    }
+    final id = snapshot['id']! as String;
+    final name = snapshot['name']! as String;
+    final page = await ref.read(
+      adminTaxonomyListProvider(
+        AdminTaxonomyListKey(
+          level: level,
+          parentId: parentId,
+          query: AdminTaxonomyQuery(search: name, pageSize: 100),
+        ),
+      ).future,
+    );
+    for (final node in page.items) {
+      if (node.id == id) return node;
+    }
+    return null;
+  }
+
+  Future<void> _restoreFromRoute() async {
+    final router = _router;
+    if (!mounted || router == null) return;
+    final history = adminDrillHistoryFromExtra(
+      router.routerDelegate.currentConfiguration.extra,
+    );
+    final raw = history['taxonomy'];
+    final snapshot = raw is Map ? raw : const <Object?, Object?>{};
+    final generation = ++_restoreGeneration;
+    final domain = await _resolveNode(
+      TaxonomyLevel.domain,
+      null,
+      snapshot['domain'],
+    );
+    final category = domain == null
+        ? null
+        : await _resolveNode(
+            TaxonomyLevel.category,
+            domain.id,
+            snapshot['category'],
+          );
+    final item = category == null
+        ? null
+        : await _resolveNode(
+            TaxonomyLevel.item,
+            category.id,
+            snapshot['item'],
+          );
+    if (!mounted || generation != _restoreGeneration) return;
+    setState(() {
+      _domain = domain;
+      _category = category;
+      _item = item;
+    });
+    _sync();
+  }
+
+  void _recordBrowserHistory() {
+    final router = _router;
+    if (!kIsWeb || router == null) return;
+    final extra = updateAdminDrillHistoryExtra(
+      router.routerDelegate.currentConfiguration.extra,
+      section: 'taxonomy',
+      selection: {
+        'domain': _domain == null
+            ? null
+            : {'id': _domain!.id, 'name': _domain!.name},
+        'category': _category == null
+            ? null
+            : {'id': _category!.id, 'name': _category!.name},
+        'item': _item == null ? null : {'id': _item!.id, 'name': _item!.name},
+      },
+    );
+    final uri = router.routeInformationProvider.value.uri;
+    Router.navigate(context, () => router.go(uri.toString(), extra: extra));
   }
 
   @override
@@ -199,6 +295,7 @@ class _AdminTaxonomyViewState extends ConsumerState<AdminTaxonomyView> {
               _item = null;
             });
             _sync();
+            _recordBrowserHistory();
           },
         ),
         _TaxonomyContainer(
@@ -222,6 +319,7 @@ class _AdminTaxonomyViewState extends ConsumerState<AdminTaxonomyView> {
               _item = null;
             });
             _sync();
+            _recordBrowserHistory();
           },
         ),
         _TaxonomyContainer(
@@ -245,6 +343,7 @@ class _AdminTaxonomyViewState extends ConsumerState<AdminTaxonomyView> {
               _item = node;
             });
             _sync();
+            _recordBrowserHistory();
           },
         ),
         _TaxonomyContainer(

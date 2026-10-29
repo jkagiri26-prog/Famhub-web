@@ -29,9 +29,11 @@ library;
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:famhub_app/features/admin_console/application/providers/admin_capability_provider.dart';
 import 'package:famhub_app/features/admin_console/application/providers/admin_drill_provider.dart';
@@ -133,6 +135,8 @@ class _AdminLocationsViewState extends ConsumerState<AdminLocationsView> {
   final Map<String, AdminLocation> _selected = {};
 
   TabController? _sectionController;
+  GoRouter? _router;
+  int _restoreGeneration = 0;
 
   int get _depth => (_countryId == null ? 0 : 1) + _selected.length;
 
@@ -144,12 +148,18 @@ class _AdminLocationsViewState extends ConsumerState<AdminLocationsView> {
     _sectionController?.removeListener(_sync);
     _sectionController = controller;
     controller.addListener(_sync);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _sync());
+    _router = GoRouter.of(context);
+    _router!.routerDelegate.addListener(_onRouterChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _sync();
+      _restoreFromRoute();
+    });
   }
 
   @override
   void dispose() {
     _sectionController?.removeListener(_sync);
+    _router?.routerDelegate.removeListener(_onRouterChanged);
     super.dispose();
   }
 
@@ -190,6 +200,119 @@ class _AdminLocationsViewState extends ConsumerState<AdminLocationsView> {
     _sync();
   }
 
+  void _onRouterChanged() => _restoreFromRoute();
+
+  Future<void> _restoreFromRoute() async {
+    final router = _router;
+    if (!mounted || router == null) return;
+    final history = adminDrillHistoryFromExtra(
+      router.routerDelegate.currentConfiguration.extra,
+    );
+    final raw = history['locations'];
+    final snapshot = raw is Map ? raw : const <Object?, Object?>{};
+    final countryId = snapshot['countryId'] is String
+        ? snapshot['countryId']! as String
+        : null;
+    final selectedSnapshots = snapshot['selected'] is Map
+        ? snapshot['selected']! as Map
+        : const <Object?, Object?>{};
+    final generation = ++_restoreGeneration;
+
+    String? validCountryId;
+    if (countryId != null) {
+      final countries = await ref.read(adminCountriesProvider.future);
+      if (countries.any((country) => country.id == countryId)) {
+        validCountryId = countryId;
+      }
+    }
+
+    final restored = <String, AdminLocation>{};
+    if (validCountryId != null) {
+      final levels = _sortedLevels(
+        await ref.read(adminGeographyLevelsProvider(validCountryId).future),
+      );
+      final hasCountryLevel =
+          levels.isNotEmpty && _isCountryLevel(levels.first);
+      final countryLevel = hasCountryLevel ? levels.first : null;
+      final manageLevels = hasCountryLevel ? levels.sublist(1) : levels;
+
+      String? parentId;
+      if (countryLevel != null) {
+        final countryLocations = await ref.read(
+          adminParentCandidatesProvider((
+            countryId: validCountryId,
+            levelId: countryLevel.id,
+            parentId: null,
+          )).future,
+        );
+        if (countryLocations.isNotEmpty) {
+          parentId = countryLocations.first.id;
+        }
+      }
+
+      for (var i = 0; i < manageLevels.length; i++) {
+        final level = manageLevels[i];
+        final selection = selectedSnapshots[level.id];
+        if (selection is! Map ||
+            selection['id'] is! String ||
+            selection['name'] is! String ||
+            (i == 0 && countryLevel != null && parentId == null)) {
+          break;
+        }
+        final id = selection['id']! as String;
+        final name = selection['name']! as String;
+        final page = await ref.read(
+          adminLocationsProvider(
+            AdminLocationsQuery(
+              countryId: validCountryId,
+              levelId: level.id,
+              parentId: parentId,
+              search: name,
+              pageSize: 100,
+            ),
+          ).future,
+        );
+        AdminLocation? match;
+        for (final location in page.items) {
+          if (location.id == id) {
+            match = location;
+            break;
+          }
+        }
+        if (match == null) break;
+        restored[level.id] = match;
+        parentId = match.id;
+      }
+    }
+
+    if (!mounted || generation != _restoreGeneration) return;
+    setState(() {
+      _countryId = validCountryId;
+      _selected
+        ..clear()
+        ..addAll(restored);
+    });
+    _sync();
+  }
+
+  void _recordBrowserHistory() {
+    final router = _router;
+    if (!kIsWeb || router == null) return;
+    final extra = updateAdminDrillHistoryExtra(
+      router.routerDelegate.currentConfiguration.extra,
+      section: 'locations',
+      selection: {
+        'countryId': _countryId,
+        'selected': {
+          for (final entry in _selected.entries)
+            entry.key: {'id': entry.value.id, 'name': entry.value.name},
+        },
+      },
+    );
+    final uri = router.routeInformationProvider.value.uri;
+    Router.navigate(context, () => router.go(uri.toString(), extra: extra));
+  }
+
   void _onCountrySelected(AdminCountry country) {
     setState(() {
       _countryId = country.id;
@@ -197,6 +320,7 @@ class _AdminLocationsViewState extends ConsumerState<AdminLocationsView> {
       _selected.clear();
     });
     _sync();
+    _recordBrowserHistory();
   }
 
   void _onLevelSelected(AdminGeographyLevel level, AdminLocation? location) {
@@ -215,6 +339,7 @@ class _AdminLocationsViewState extends ConsumerState<AdminLocationsView> {
       }
     });
     _sync();
+    _recordBrowserHistory();
   }
 
   AdminCountry? _countryById(List<AdminCountry> countries, String? id) {

@@ -2,6 +2,34 @@ import 'package:flutter/foundation.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+const adminDrillHistoryExtraKey = '_adminDrillHistory';
+
+Map<String, Object?> adminDrillHistoryFromExtra(Object? extra) {
+  final routeExtra = _stringKeyedMap(extra);
+  return _stringKeyedMap(routeExtra[adminDrillHistoryExtraKey]);
+}
+
+Map<String, Object?> updateAdminDrillHistoryExtra(
+  Object? extra, {
+  required String section,
+  required Object? selection,
+}) {
+  final routeExtra = _stringKeyedMap(extra);
+  final history = adminDrillHistoryFromExtra(routeExtra);
+  return {
+    ...routeExtra,
+    adminDrillHistoryExtraKey: {...history, section: selection},
+  };
+}
+
+Map<String, Object?> _stringKeyedMap(Object? value) {
+  if (value is! Map) return const {};
+  return {
+    for (final entry in value.entries)
+      if (entry.key is String) entry.key as String: entry.value,
+  };
+}
+
 class AdminDrillState {
   const AdminDrillState({
     this.taxonomyActive = false,
