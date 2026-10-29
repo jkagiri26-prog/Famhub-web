@@ -32,8 +32,13 @@
 /// ============================================================
 library;
 
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:famhub_app/core/session/session_provider.dart';
 import 'package:famhub_app/core/dashboard_engine/presentation/builders/widget_registry.dart';
@@ -56,6 +61,12 @@ import 'package:famhub_app/features/farm_management/application/providers/farm_s
 import 'package:famhub_app/features/farm_management/application/providers/farm_tab_navigation_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_onboarding_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/fields_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/crops_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/livestock_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/activities_provider.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/farm_entity.dart';
+import 'package:famhub_app/features/farm_management/domain/entities/field_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/crop_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/livestock_entity.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/add_farm_page.dart';
@@ -68,6 +79,16 @@ import 'package:famhub_app/features/farm_management/presentation/pages/crops_pag
 import 'package:famhub_app/features/farm_management/presentation/pages/livestock_page.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/activities_page.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/reports_page.dart';
+
+const _farmManagementHistoryExtraKey = '_farmManagementHistory';
+
+Map<String, Object?> _farmHistoryStringMap(Object? value) {
+  if (value is! Map) return const {};
+  return {
+    for (final entry in value.entries)
+      if (entry.key is String) entry.key as String: entry.value,
+  };
+}
 
 /// ============================================================
 /// FARM MANAGEMENT PAGE (PRIMARY MODULE ENTRY POINT)
@@ -110,7 +131,14 @@ class FarmManagementPage extends ConsumerStatefulWidget {
 class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     with SingleTickerProviderStateMixin {
   bool _bootstrapped = false;
+  bool _historyReady = false;
+  bool _restoringHistory = false;
+  bool _historyRecordScheduled = false;
   late TabController _tabController;
+  GoRouter? _router;
+  String? _lastHistorySnapshot;
+  String? _activitySelectionId;
+  int _historyRestoreGeneration = 0;
 
   /// Bumped when the user re-taps the active Activity Logs tab so the
   /// page (whose detail view lives in local state) returns to its
@@ -151,9 +179,21 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
 
   @override
   void dispose() {
+    _historyRestoreGeneration++;
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
+    _router?.routerDelegate.removeListener(_onRouterChanged);
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final router = GoRouter.of(context);
+    if (identical(router, _router)) return;
+    _router?.routerDelegate.removeListener(_onRouterChanged);
+    _router = router;
+    router.routerDelegate.addListener(_onRouterChanged);
   }
 
   /// Keep the active tab fully visible in the (scrollable) tab strip,
@@ -166,6 +206,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
       _settledTabIndex = _tabController.index;
       if (mounted) setState(() {});
     }
+    _scheduleBrowserHistoryRecord();
     final key = _tabKeys[_tabController.index].currentContext;
     if (key == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -203,6 +244,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
         if (state.cropOrLivestockType == 'livestock') notifier.clearToField();
       case 4: // Activity Logs → journal (detail lives in ActivitiesPage)
         setState(() => _activitiesResetToken++);
+        _activitySelectionId = null;
       case 5: // Reports → global report (ReportsPage._resetToGlobal)
         if (state.hasEntity || state.cropOrLivestock != null) {
           notifier.reset();
@@ -210,6 +252,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
       default: // Overview (0) — the dashboard is already home.
         break;
     }
+    _scheduleBrowserHistoryRecord();
   }
 
   /// Callback from ActivitiesPage reporting whether its in-tab detail view
@@ -217,6 +260,235 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
   void _onActivityDetailChanged(bool open) {
     if (!mounted || _activityDetailOpen == open) return;
     setState(() => _activityDetailOpen = open);
+  }
+
+  void _onActivitySelectionChanged(String? activityId) {
+    if (_activitySelectionId == activityId) return;
+    setState(() => _activitySelectionId = activityId);
+    _scheduleBrowserHistoryRecord();
+  }
+
+  void _onRouterChanged() {
+    final router = _router;
+    if (!kIsWeb || !_historyReady || !mounted || router == null) return;
+    final configuration = router.routerDelegate.currentConfiguration;
+    if (configuration.uri.path != '/farm') {
+      _historyRestoreGeneration++;
+      _restoringHistory = false;
+      return;
+    }
+
+    final routeExtra = _farmHistoryStringMap(configuration.extra);
+    final rawSnapshot = routeExtra[_farmManagementHistoryExtraKey];
+    if (rawSnapshot is! Map) return;
+    final snapshot = _farmHistoryStringMap(rawSnapshot);
+    final encoded = jsonEncode(snapshot);
+    if (encoded == _lastHistorySnapshot) return;
+
+    _lastHistorySnapshot = encoded;
+    unawaited(_restoreBrowserHistory(snapshot));
+  }
+
+  void _scheduleBrowserHistoryRecord() {
+    if (kIsWeb && !_restoringHistory) {
+      _historyRestoreGeneration++;
+    }
+    if (!kIsWeb ||
+        !_historyReady ||
+        _restoringHistory ||
+        _historyRecordScheduled ||
+        _router?.routerDelegate.currentConfiguration.uri.path != '/farm') {
+      return;
+    }
+    _historyRecordScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _historyRecordScheduled = false;
+      if (!mounted || _restoringHistory) return;
+      _writeBrowserHistory();
+    });
+  }
+
+  void _writeBrowserHistory({bool replace = false}) {
+    final router = _router;
+    if (!kIsWeb ||
+        router == null ||
+        router.routerDelegate.currentConfiguration.uri.path != '/farm') {
+      return;
+    }
+    final snapshot = _browserHistorySnapshot();
+    final encoded = jsonEncode(snapshot);
+    if (!replace && encoded == _lastHistorySnapshot) return;
+
+    final configuration = router.routerDelegate.currentConfiguration;
+    final routeExtra = _farmHistoryStringMap(configuration.extra);
+    final extra = {
+      ...routeExtra,
+      _farmManagementHistoryExtraKey: snapshot,
+    };
+    _lastHistorySnapshot = encoded;
+    final uri = configuration.uri;
+    if (replace) {
+      Router.neglect(context, () => router.go(uri.toString(), extra: extra));
+    } else {
+      Router.navigate(context, () => router.go(uri.toString(), extra: extra));
+    }
+  }
+
+  Map<String, Object?> _browserHistorySnapshot() {
+    final hierarchy = ref.read(hierarchyProvider);
+    return {
+      'tabIndex': _tabController.index,
+      'entityId': hierarchy.entityId,
+      'fieldId': hierarchy.fieldId,
+      'assetId': hierarchy.cropOrLivestockId,
+      'assetType': hierarchy.cropOrLivestockType,
+      'activityId': _activitySelectionId,
+    };
+  }
+
+  Future<void> _restoreBrowserHistory(Map<String, Object?> snapshot) async {
+    final generation = ++_historyRestoreGeneration;
+    _restoringHistory = true;
+    final encodedTarget = jsonEncode(snapshot);
+    try {
+      final tabIndex = snapshot['tabIndex'] is int
+          ? snapshot['tabIndex']! as int
+          : FarmManagementTab.overview;
+      final entityId = snapshot['entityId'] is String
+          ? snapshot['entityId']! as String
+          : null;
+      final fieldId = snapshot['fieldId'] is String
+          ? snapshot['fieldId']! as String
+          : null;
+      final assetId = snapshot['assetId'] is String
+          ? snapshot['assetId']! as String
+          : null;
+      final assetType = snapshot['assetType'] is String
+          ? snapshot['assetType']! as String
+          : null;
+      final activityId = snapshot['activityId'] is String
+          ? snapshot['activityId']! as String
+          : null;
+
+      var farms = ref.read(farmSelectorProvider).farms;
+      if (farms.isEmpty) {
+        await ref.read(farmSelectorProvider.notifier).loadFarms();
+        if (!mounted || generation != _historyRestoreGeneration) return;
+        farms = ref.read(farmSelectorProvider).farms;
+      }
+      FarmEntity? farm;
+      for (final candidate in farms) {
+        if (candidate.id == entityId) {
+          farm = candidate;
+          break;
+        }
+      }
+      if (farm == null && entityId != null) {
+        await ref.read(farmSelectorProvider.notifier).loadFarms();
+        if (!mounted || generation != _historyRestoreGeneration) return;
+        farms = ref.read(farmSelectorProvider).farms;
+        for (final candidate in farms) {
+          if (candidate.id == entityId) {
+            farm = candidate;
+            break;
+          }
+        }
+      }
+
+      final hierarchy = ref.read(hierarchyProvider.notifier);
+      FieldEntity? field;
+      Object? asset;
+      if (farm == null) {
+        hierarchy.reset();
+      } else {
+        hierarchy.selectEntity(farm);
+        hierarchy.clearToEntity();
+        if (fieldId != null) {
+          await ref.read(fieldsProvider.notifier).loadFields(farmId: farm.id);
+          if (!mounted || generation != _historyRestoreGeneration) return;
+          final fieldState = ref.read(fieldsProvider);
+          if (fieldState.errorMessage == null) {
+            for (final candidate in fieldState.fields) {
+              if (candidate.id == fieldId && candidate.farmId == farm.id) {
+                field = candidate;
+                break;
+              }
+            }
+          }
+          if (field != null) {
+            hierarchy.selectField(field);
+            if (assetId != null && assetType == 'crop') {
+              await ref
+                  .read(cropsProvider.notifier)
+                  .loadCrops(farmId: farm.id, fieldId: field.id);
+              if (!mounted || generation != _historyRestoreGeneration) return;
+              final cropState = ref.read(cropsProvider);
+              if (cropState.errorMessage == null) {
+                for (final candidate in cropState.crops) {
+                  if (candidate.id == assetId &&
+                      candidate.farmId == farm.id &&
+                      candidate.fieldId == field.id) {
+                    asset = candidate;
+                    break;
+                  }
+                }
+              }
+              if (asset is CropEntity) {
+                hierarchy.selectCrop(asset);
+              }
+            } else if (assetId != null && assetType == 'livestock') {
+              await ref
+                  .read(livestockProvider.notifier)
+                  .loadLivestock(farmId: farm.id, fieldId: field.id);
+              if (!mounted || generation != _historyRestoreGeneration) return;
+              final livestockState = ref.read(livestockProvider);
+              if (livestockState.errorMessage == null) {
+                for (final candidate in livestockState.livestock) {
+                  if (candidate.id == assetId &&
+                      candidate.farmId == farm.id &&
+                      candidate.fieldId == field.id) {
+                    asset = candidate;
+                    break;
+                  }
+                }
+              }
+              if (asset is LivestockEntity) {
+                hierarchy.selectLivestock(asset);
+              }
+            }
+          }
+        }
+      }
+
+      String? restoredActivityId;
+      if (activityId != null) {
+        final activities = await ref.read(allUserActivitiesProvider.future);
+        if (!mounted || generation != _historyRestoreGeneration) return;
+        if (activities.any((entry) => entry.activity.id == activityId)) {
+          restoredActivityId = activityId;
+        }
+      }
+
+      if (!mounted || generation != _historyRestoreGeneration) return;
+      setState(() {
+        _activitySelectionId = restoredActivityId;
+        if (tabIndex >= 0 && tabIndex < _tabDefs.length) {
+          _tabController.animateTo(tabIndex);
+        }
+      });
+
+      final restoredSnapshot = _browserHistorySnapshot();
+      if (jsonEncode(restoredSnapshot) != encodedTarget) {
+        _lastHistorySnapshot = null;
+        _writeBrowserHistory(replace: true);
+      } else {
+        _lastHistorySnapshot = encodedTarget;
+      }
+    } finally {
+      if (generation == _historyRestoreGeneration) {
+        _restoringHistory = false;
+      }
+    }
   }
 
   /// Whether the current view has an internal destination that Android
@@ -289,6 +561,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
         // token is the page's existing "return to home" path.
         if (_activityDetailOpen) {
           setState(() => _activitiesResetToken++);
+          _activitySelectionId = null;
           return;
         }
         // Contextual journal opened from an asset → back to that asset's
@@ -347,12 +620,40 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     // Bootstrap the entire module lifecycle
     final coordinator = ref.read(farmModuleBootstrapCoordinatorProvider);
     await coordinator.bootstrapModule();
+    if (!mounted) return;
+    _historyReady = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !kIsWeb) return;
+      final configuration = _router?.routerDelegate.currentConfiguration;
+      if (configuration == null || configuration.uri.path != '/farm') return;
+      final extra = _farmHistoryStringMap(configuration.extra);
+      final rawSnapshot = extra[_farmManagementHistoryExtraKey];
+      if (rawSnapshot is Map) {
+        final snapshot = _farmHistoryStringMap(rawSnapshot);
+        _lastHistorySnapshot = jsonEncode(snapshot);
+        unawaited(_restoreBrowserHistory(snapshot));
+      } else {
+        _lastHistorySnapshot = null;
+        _writeBrowserHistory(replace: true);
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final selectorState = ref.watch(farmSelectorProvider);
     final hierarchy = ref.watch(hierarchyProvider);
+    ref.listen(hierarchyProvider, (previous, next) {
+      if (!_restoringHistory &&
+          previous != null &&
+          (previous.entityId != next.entityId ||
+              previous.fieldId != next.fieldId ||
+              previous.cropOrLivestockId != next.cropOrLivestockId ||
+              previous.cropOrLivestockType != next.cropOrLivestockType)) {
+        _activitySelectionId = null;
+      }
+      _scheduleBrowserHistoryRecord();
+    });
 
     // Tab-switch requests from dashboard widgets (e.g. the farm selector's
     // "Open" action opens a farm inside the My Farms tab).
@@ -441,6 +742,8 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
                     onOpenLivestock: () => _tabController.animateTo(3),
                     resetToken: _activitiesResetToken,
                     onDetailOpenChanged: _onActivityDetailChanged,
+                    restoredActivityId: _activitySelectionId,
+                    onActivitySelectionChanged: _onActivitySelectionChanged,
                   ),
 
                   // 6. Reports — reporting workspace

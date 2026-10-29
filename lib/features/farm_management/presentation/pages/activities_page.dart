@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -35,6 +37,8 @@ class ActivitiesPage extends ConsumerStatefulWidget {
   /// system-back (PopScope) handler needs it to unwind detail → list
   /// instead of treating the journal as the tab's home.
   final ValueChanged<bool>? onDetailOpenChanged;
+  final String? restoredActivityId;
+  final ValueChanged<String?>? onActivitySelectionChanged;
 
   const ActivitiesPage({
     super.key,
@@ -42,6 +46,8 @@ class ActivitiesPage extends ConsumerStatefulWidget {
     this.onOpenLivestock,
     this.resetToken = 0,
     this.onDetailOpenChanged,
+    this.restoredActivityId,
+    this.onActivitySelectionChanged,
   });
 
   @override
@@ -76,14 +82,38 @@ class _ActivitiesPageState extends ConsumerState<ActivitiesPage> {
       _selected = null;
       _viewAllForAssetId = null;
     }
+    if (widget.restoredActivityId != oldWidget.restoredActivityId) {
+      _restoreActivity(widget.restoredActivityId);
+    }
   }
 
   void _openDetail(GlobalActivityEntry entry) {
     setState(() => _selected = entry);
+    widget.onActivitySelectionChanged?.call(entry.activity.id);
   }
 
   void _backToList() {
     setState(() => _selected = null);
+    widget.onActivitySelectionChanged?.call(null);
+  }
+
+  void _restoreActivity(String? activityId) {
+    if (activityId == null) {
+      if (_selected != null) setState(() => _selected = null);
+      return;
+    }
+    unawaited(() async {
+      final entries = await ref.read(allUserActivitiesProvider.future);
+      if (!mounted || widget.restoredActivityId != activityId) return;
+      GlobalActivityEntry? restored;
+      for (final entry in entries) {
+        if (entry.activity.id == activityId) {
+          restored = entry;
+          break;
+        }
+      }
+      setState(() => _selected = restored);
+    }());
   }
 
   /// Keep the parent's system-back state in sync with this page's local
