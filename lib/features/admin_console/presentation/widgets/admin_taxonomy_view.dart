@@ -22,6 +22,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/features/admin_console/application/providers/admin_capability_provider.dart';
+import 'package:famhub_app/features/admin_console/application/providers/admin_drill_provider.dart';
 import 'package:famhub_app/features/admin_console/application/providers/admin_taxonomy_provider.dart';
 import 'package:famhub_app/features/admin_console/domain/models/admin_taxonomy.dart';
 import 'package:famhub_app/features/admin_console/domain/permissions/permissions.dart';
@@ -79,7 +80,9 @@ AdminTaxonomyNode _withActive(AdminTaxonomyNode node, bool isActive) =>
 // ============================================================
 
 class AdminTaxonomyView extends ConsumerStatefulWidget {
-  const AdminTaxonomyView({super.key});
+  const AdminTaxonomyView({super.key, required this.tabIndex});
+
+  final int tabIndex;
 
   @override
   ConsumerState<AdminTaxonomyView> createState() => _AdminTaxonomyViewState();
@@ -89,6 +92,57 @@ class _AdminTaxonomyViewState extends ConsumerState<AdminTaxonomyView> {
   AdminTaxonomyNode? _domain;
   AdminTaxonomyNode? _category;
   AdminTaxonomyNode? _item;
+
+  TabController? _sectionController;
+
+  int get _depth {
+    if (_domain == null) return 0;
+    if (_category == null) return 1;
+    if (_item == null) return 2;
+    return 3;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final TabController controller = DefaultTabController.of(context);
+    if (identical(controller, _sectionController)) return;
+    _sectionController?.removeListener(_sync);
+    _sectionController = controller;
+    controller.addListener(_sync);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _sync());
+  }
+
+  @override
+  void dispose() {
+    _sectionController?.removeListener(_sync);
+    super.dispose();
+  }
+
+  void _sync() {
+    if (!mounted || _sectionController == null) return;
+    final bool active = _sectionController!.index == widget.tabIndex;
+    ref.read(adminDrillProvider.notifier).setTaxonomy(
+          active: active,
+          depth: active ? _depth : 0,
+          unwind: active && _depth > 0 ? _unwindOne : null,
+        );
+  }
+
+  void _unwindOne() {
+    setState(() {
+      if (_item != null) {
+        _item = null;
+      } else if (_category != null) {
+        _category = null;
+      } else {
+        _domain = null;
+        _category = null;
+        _item = null;
+      }
+    });
+    _sync();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -138,11 +192,14 @@ class _AdminTaxonomyViewState extends ConsumerState<AdminTaxonomyView> {
           showSource: false,
           manage: canManage,
           selected: _domain,
-          onSelect: (node) => setState(() {
-            _domain = node;
-            _category = null;
-            _item = null;
-          }),
+          onSelect: (node) {
+            setState(() {
+              _domain = node;
+              _category = null;
+              _item = null;
+            });
+            _sync();
+          },
         ),
         _TaxonomyContainer(
           key: ValueKey('taxonomy:category:${_domain?.id}'),
@@ -159,10 +216,13 @@ class _AdminTaxonomyViewState extends ConsumerState<AdminTaxonomyView> {
           showSource: false,
           manage: canManage,
           selected: _category,
-          onSelect: (node) => setState(() {
-            _category = node;
-            _item = null;
-          }),
+          onSelect: (node) {
+            setState(() {
+              _category = node;
+              _item = null;
+            });
+            _sync();
+          },
         ),
         _TaxonomyContainer(
           key: ValueKey('taxonomy:item:${_category?.id}'),
@@ -180,9 +240,12 @@ class _AdminTaxonomyViewState extends ConsumerState<AdminTaxonomyView> {
           showSource: false,
           manage: canManage,
           selected: _item,
-          onSelect: (node) => setState(() {
-            _item = node;
-          }),
+          onSelect: (node) {
+            setState(() {
+              _item = node;
+            });
+            _sync();
+          },
         ),
         _TaxonomyContainer(
           key: ValueKey('taxonomy:variant:${_item?.id}'),

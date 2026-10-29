@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/features/admin_console/application/providers/admin_capability_provider.dart';
+import 'package:famhub_app/features/admin_console/application/providers/admin_drill_provider.dart';
 import 'package:famhub_app/features/admin_console/domain/models/admin_capability.dart';
 import 'package:famhub_app/features/admin_console/presentation/widgets/admin_capability_card_widget.dart';
 import 'package:famhub_app/features/admin_console/presentation/widgets/admin_overview_dashboard.dart';
@@ -54,7 +55,9 @@ class AdminDashboardPage extends ConsumerWidget {
 
     return DefaultTabController(
       length: _topTabs.length,
-      child: ResponsiveWrapper(
+      child: _AdminDrillBackGate(
+        systemTabIndex: _topTabs.indexOf('System'),
+        child: ResponsiveWrapper(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,7 +84,81 @@ class AdminDashboardPage extends ConsumerWidget {
             ),
           ],
         ),
+        ),
       ),
+    );
+  }
+}
+
+class _AdminDrillBackGate extends ConsumerStatefulWidget {
+  const _AdminDrillBackGate({
+    required this.systemTabIndex,
+    required this.child,
+  });
+
+  final int systemTabIndex;
+  final Widget child;
+
+  @override
+  ConsumerState<_AdminDrillBackGate> createState() =>
+      _AdminDrillBackGateState();
+}
+
+class _AdminDrillBackGateState extends ConsumerState<_AdminDrillBackGate> {
+  TabController? _controller;
+  bool _clearScheduled = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final TabController controller = DefaultTabController.of(context);
+    if (identical(controller, _controller)) return;
+    _controller?.removeListener(_onTabChanged);
+    _controller = controller;
+    controller.addListener(_onTabChanged);
+  }
+
+  @override
+  void dispose() {
+    _controller?.removeListener(_onTabChanged);
+    super.dispose();
+  }
+
+  /// Leaving the System tab destroys its section (and the drill views), so
+  /// release the stale depths/callbacks after the frame. Provider writes are
+  /// illegal inside widget life-cycles, hence the post-frame callback.
+  void _onTabChanged() {
+    final TabController? controller = _controller;
+    if (controller == null || controller.index == widget.systemTabIndex) {
+      return;
+    }
+    if (_clearScheduled) return;
+    _clearScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _clearScheduled = false;
+      if (!mounted) return;
+      ref.read(adminDrillProvider.notifier).clearAll();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final AdminDrillState drill = ref.watch(adminDrillProvider);
+    final TabController controller = DefaultTabController.of(context);
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (BuildContext context, Widget? _) {
+        final bool hasDrill = controller.index == widget.systemTabIndex &&
+            drill.hasActiveDrill;
+        return PopScope(
+          canPop: !hasDrill,
+          onPopInvokedWithResult: (bool didPop, Object? result) {
+            if (didPop) return;
+            ref.read(adminDrillProvider.notifier).unwindActive();
+          },
+          child: widget.child,
+        );
+      },
     );
   }
 }

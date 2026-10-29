@@ -34,6 +34,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/features/admin_console/application/providers/admin_capability_provider.dart';
+import 'package:famhub_app/features/admin_console/application/providers/admin_drill_provider.dart';
 import 'package:famhub_app/features/admin_console/application/providers/admin_locations_provider.dart';
 import 'package:famhub_app/features/admin_console/domain/models/admin_location.dart';
 import 'package:famhub_app/features/admin_console/presentation/widgets/admin_user_list_widgets.dart';
@@ -117,7 +118,9 @@ AdminLocation _withLocationFields(
 // ============================================================
 
 class AdminLocationsView extends ConsumerStatefulWidget {
-  const AdminLocationsView({super.key});
+  const AdminLocationsView({super.key, required this.tabIndex});
+
+  final int tabIndex;
 
   @override
   ConsumerState<AdminLocationsView> createState() => _AdminLocationsViewState();
@@ -129,12 +132,71 @@ class _AdminLocationsViewState extends ConsumerState<AdminLocationsView> {
   /// levelId → the location selected in that container.
   final Map<String, AdminLocation> _selected = {};
 
+  TabController? _sectionController;
+
+  int get _depth => (_countryId == null ? 0 : 1) + _selected.length;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final TabController controller = DefaultTabController.of(context);
+    if (identical(controller, _sectionController)) return;
+    _sectionController?.removeListener(_sync);
+    _sectionController = controller;
+    controller.addListener(_sync);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _sync());
+  }
+
+  @override
+  void dispose() {
+    _sectionController?.removeListener(_sync);
+    super.dispose();
+  }
+
+  void _sync() {
+    if (!mounted || _sectionController == null) return;
+    final bool active = _sectionController!.index == widget.tabIndex;
+    ref.read(adminDrillProvider.notifier).setLocations(
+          active: active,
+          depth: active ? _depth : 0,
+          unwind: active && _depth > 0 ? _unwindOne : null,
+        );
+  }
+
+  void _unwindOne() {
+    if (_selected.isNotEmpty) {
+      final levels = _sortedLevels(
+        ref.read(adminGeographyLevelsProvider(_countryId)).value ??
+            const <AdminGeographyLevel>[],
+      );
+      String? deepestId;
+      var deepestOrder = -1;
+      for (final level in levels) {
+        if (_selected.containsKey(level.id) && level.order > deepestOrder) {
+          deepestOrder = level.order;
+          deepestId = level.id;
+        }
+      }
+      setState(() {
+        if (deepestId != null) {
+          _selected.remove(deepestId);
+        } else {
+          _selected.remove(_selected.keys.first);
+        }
+      });
+    } else if (_countryId != null) {
+      setState(() => _countryId = null);
+    }
+    _sync();
+  }
+
   void _onCountrySelected(AdminCountry country) {
     setState(() {
       _countryId = country.id;
       // Changing the active country invalidates the whole hierarchy below.
       _selected.clear();
     });
+    _sync();
   }
 
   void _onLevelSelected(AdminGeographyLevel level, AdminLocation? location) {
@@ -152,6 +214,7 @@ class _AdminLocationsViewState extends ConsumerState<AdminLocationsView> {
         if (candidate.order > level.order) _selected.remove(candidate.id);
       }
     });
+    _sync();
   }
 
   AdminCountry? _countryById(List<AdminCountry> countries, String? id) {

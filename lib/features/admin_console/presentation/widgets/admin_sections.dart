@@ -474,8 +474,8 @@ class AdminSystemSection extends StatelessWidget {
               'Platform health metrics are not available yet. Module '
               'maintenance status is visible under Modules → Maintenance.',
         ),
-        AdminLocationsView(),
-        AdminTaxonomyView(),
+        AdminLocationsView(tabIndex: 1),
+        AdminTaxonomyView(tabIndex: 2),
         AdminPlaceholder(
           icon: Icons.account_tree_outlined,
           title: 'Workflows',
