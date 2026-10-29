@@ -294,22 +294,23 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     if (kIsWeb && !_restoringHistory) {
       _historyRestoreGeneration++;
     }
+    if (!kIsWeb) {
+      if (_historyReady && !_restoringHistory) {
+        _recordSystemBackSnapshot();
+      }
+      return;
+    }
     if (!_historyReady ||
         _restoringHistory ||
         _historyRecordScheduled ||
-        (kIsWeb &&
-            _router?.routerDelegate.currentConfiguration.uri.path != '/farm')) {
+        _router?.routerDelegate.currentConfiguration.uri.path != '/farm') {
       return;
     }
     _historyRecordScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _historyRecordScheduled = false;
       if (!mounted || _restoringHistory) return;
-      if (kIsWeb) {
-        _writeBrowserHistory();
-      } else {
-        _recordSystemBackSnapshot();
-      }
+      _writeBrowserHistory();
     });
   }
 
