@@ -139,7 +139,6 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
   String? _lastHistorySnapshot;
   String? _activitySelectionId;
   int _historyRestoreGeneration = 0;
-  final List<Map<String, Object?>> _systemBackHistory = [];
 
   /// Bumped when the user re-taps the active Activity Logs tab so the
   /// page (whose detail view lives in local state) returns to its
@@ -294,13 +293,8 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     if (kIsWeb && !_restoringHistory) {
       _historyRestoreGeneration++;
     }
-    if (!kIsWeb) {
-      if (_historyReady && !_restoringHistory) {
-        _recordSystemBackSnapshot();
-      }
-      return;
-    }
-    if (!_historyReady ||
+    if (!kIsWeb ||
+        !_historyReady ||
         _restoringHistory ||
         _historyRecordScheduled ||
         _router?.routerDelegate.currentConfiguration.uri.path != '/farm') {
@@ -312,15 +306,6 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
       if (!mounted || _restoringHistory) return;
       _writeBrowserHistory();
     });
-  }
-
-  void _recordSystemBackSnapshot() {
-    final snapshot = _browserHistorySnapshot();
-    if (_systemBackHistory.isNotEmpty &&
-        mapEquals(_systemBackHistory.last, snapshot)) {
-      return;
-    }
-    _systemBackHistory.add(snapshot);
   }
 
   void _writeBrowserHistory({bool replace = false}) {
@@ -499,10 +484,6 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
       } else {
         _lastHistorySnapshot = encodedTarget;
       }
-      if (!kIsWeb && _systemBackHistory.isNotEmpty) {
-        _systemBackHistory[_systemBackHistory.length - 1] =
-            _browserHistorySnapshot();
-      }
     } finally {
       if (generation == _historyRestoreGeneration) {
         _restoringHistory = false;
@@ -531,7 +512,6 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
   /// Only checked at this page's own route: pushed forms/dialogs sit on
   /// top of it and consult their own routes first.
   bool _hasInternalBackDestination(HierarchySelectionState hierarchy) {
-    if (!kIsWeb && _systemBackHistory.length > 1) return true;
     if (_tabController.index != FarmManagementTab.overview) return true;
     return _activityDetailOpen || hierarchy.cropOrLivestock != null;
   }
@@ -543,12 +523,6 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
   /// Each branch mirrors the tab's visible back-arrow semantics so the
   /// system back button and the on-screen arrows stay consistent.
   void _handleSystemBack() {
-    if (!kIsWeb && _systemBackHistory.length > 1) {
-      _systemBackHistory.removeLast();
-      unawaited(_restoreBrowserHistory(_systemBackHistory.last));
-      return;
-    }
-
     final notifier = ref.read(hierarchyProvider.notifier);
     final hierarchy = ref.read(hierarchyProvider);
 
@@ -648,7 +622,6 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     await coordinator.bootstrapModule();
     if (!mounted) return;
     _historyReady = true;
-    if (!kIsWeb) _recordSystemBackSnapshot();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !kIsWeb) return;
       final configuration = _router?.routerDelegate.currentConfiguration;
@@ -695,13 +668,22 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     // bubbling to the root navigator and closing the app (the tab views are
     // local/provider state, not routes, so the router has nothing to pop).
     // Pushed forms and dialogs sit on top of this route and are unaffected.
-    return PopScope(
-      canPop: !_hasInternalBackDestination(hierarchy),
-      onPopInvokedWithResult: (bool didPop, Object? result) {
-        if (didPop) return;
+    return BackButtonListener(
+      onBackButtonPressed: () async {
+        if (kIsWeb || Navigator.of(context).canPop()) return false;
+        if (!_hasInternalBackDestination(ref.read(hierarchyProvider))) {
+          return false;
+        }
         _handleSystemBack();
+        return true;
       },
-      child: ShellPageContent(
+      child: PopScope(
+        canPop: !_hasInternalBackDestination(hierarchy),
+        onPopInvokedWithResult: (bool didPop, Object? result) {
+          if (didPop) return;
+          _handleSystemBack();
+        },
+        child: ShellPageContent(
       title: 'Farm Management',
       subtitle: hierarchy.hasEntity
           ? hierarchy.entity!.farmName
@@ -784,6 +766,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
             ),
           ],
         ),
+      ),
       ),
       ),
     );
