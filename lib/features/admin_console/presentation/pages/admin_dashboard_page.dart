@@ -152,7 +152,7 @@ class _AdminDrillBackGateState extends ConsumerState<_AdminDrillBackGate> {
         final bool hasDrill = controller.index == widget.systemTabIndex &&
             drill.hasActiveDrill;
         return PopScope(
-          canPop: kIsWeb || !hasDrill,
+          canPop: !hasDrill,
           onPopInvokedWithResult: (bool didPop, Object? result) {
             if (didPop || kIsWeb) return;
             ref.read(adminDrillProvider.notifier).unwindActive();
