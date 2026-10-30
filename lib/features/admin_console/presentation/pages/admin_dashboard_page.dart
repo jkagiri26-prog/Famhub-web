@@ -146,6 +146,7 @@ class _AdminDrillBackGateState extends ConsumerState<_AdminDrillBackGate> {
   Widget build(BuildContext context) {
     final AdminDrillState drill = ref.watch(adminDrillProvider);
     final TabController controller = DefaultTabController.of(context);
+    if (kIsWeb) return widget.child;
     return ListenableBuilder(
       listenable: controller,
       builder: (BuildContext context, Widget? _) {
@@ -154,7 +155,7 @@ class _AdminDrillBackGateState extends ConsumerState<_AdminDrillBackGate> {
         return PopScope(
           canPop: !hasDrill,
           onPopInvokedWithResult: (bool didPop, Object? result) {
-            if (didPop || kIsWeb) return;
+            if (didPop) return;
             ref.read(adminDrillProvider.notifier).unwindActive();
           },
           child: widget.child,

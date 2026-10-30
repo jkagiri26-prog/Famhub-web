@@ -680,22 +680,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     // bubbling to the root navigator and closing the app (the tab views are
     // local/provider state, not routes, so the router has nothing to pop).
     // Pushed forms and dialogs sit on top of this route and are unaffected.
-    return BackButtonListener(
-      onBackButtonPressed: () async {
-        if (kIsWeb || Navigator.of(context).canPop()) return false;
-        if (!_hasInternalBackDestination(ref.read(hierarchyProvider))) {
-          return false;
-        }
-        _handleSystemBack();
-        return true;
-      },
-      child: PopScope(
-        canPop: !_hasInternalBackDestination(hierarchy),
-        onPopInvokedWithResult: (bool didPop, Object? result) {
-          if (didPop) return;
-          _handleSystemBack();
-        },
-        child: ShellPageContent(
+    final page = ShellPageContent(
       title: 'Farm Management',
       subtitle: hierarchy.hasEntity
           ? hierarchy.entity!.farmName
@@ -779,7 +764,24 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
           ],
         ),
       ),
-      ),
+    );
+    if (kIsWeb) return page;
+    return BackButtonListener(
+      onBackButtonPressed: () async {
+        if (Navigator.of(context).canPop()) return false;
+        if (!_hasInternalBackDestination(ref.read(hierarchyProvider))) {
+          return false;
+        }
+        _handleSystemBack();
+        return true;
+      },
+      child: PopScope(
+        canPop: !_hasInternalBackDestination(hierarchy),
+        onPopInvokedWithResult: (bool didPop, Object? result) {
+          if (didPop) return;
+          _handleSystemBack();
+        },
+        child: page,
       ),
     );
   }
