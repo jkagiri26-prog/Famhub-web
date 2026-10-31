@@ -10,9 +10,18 @@ library;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
+import 'package:famhub_app/core/composition/providers/composition_providers.dart';
+import 'package:famhub_app/core/providers/module_provider.dart';
+import 'package:famhub_app/core/session/app_session.dart';
+import 'package:famhub_app/core/session/session_provider.dart';
 import 'package:famhub_app/core/shell/presentation/layouts/common/shell_not_found.dart';
+import 'package:famhub_app/core/workspace/application/active_workspace_provider.dart';
+import 'package:famhub_app/core/workspace/application/workspace_catalog_provider.dart';
+import 'package:famhub_app/core/workspace/application/workspace_dashboard_provider.dart';
 
 import 'package:famhub_app/core/composition/domain/models/runtime_module.dart';
 import 'package:famhub_app/core/router/route_names.dart';
@@ -20,6 +29,7 @@ import 'package:famhub_app/system/registry/module_registry.dart';
 import 'package:famhub_app/core/shell/presentation/pages/new_unified_app_shell.dart';
 import 'package:famhub_app/core/shell/presentation/regions/unified_dashboard_host.dart';
 import 'package:famhub_app/core/composition/domain/models/composition_metrics.dart';
+import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
 
 // ── Module Page Imports ──
 import 'package:famhub_app/features/farm_management/presentation/pages/farm_management_page.dart'
@@ -99,16 +109,17 @@ class DynamicRouteRegistrar {
     List<RuntimeModule> enabledModules,
   ) {
     final signature = <(String, String)>[];
-    var hasTraderRoute = false;
+    final workspaceBuilders = _workspaceBuilders(enabledModules);
     for (final module in enabledModules) {
-      if (module.maintenanceMode ||
+      if (!module.isEnabled ||
+          module.maintenanceMode ||
           ModulePageRegistry.resolve(module.moduleId) == null) {
         continue;
       }
+      if (_canonicalWorkspaceKey(module.moduleId) != null) continue;
       final path =
           ModuleRegistry.byId(module.moduleId)?.entryRoute ?? module.route;
       signature.add((module.moduleId, path));
-      if (module.moduleId == 'trader') hasTraderRoute = true;
       if (module.moduleId == 'finance') {
         signature
           ..add((AppRoutes.financingCatalogName, AppRoutes.financingCatalog))
@@ -123,7 +134,14 @@ class DynamicRouteRegistrar {
           );
       }
     }
-    if (!hasTraderRoute) signature.add(('trader', '/trader'));
+    for (final key in _workspaceKeys) {
+      if (workspaceBuilders.containsKey(key)) {
+        signature.add(_workspaceRoute(key));
+      }
+    }
+    if (!workspaceBuilders.containsKey('trader')) {
+      signature.add(_workspaceRoute('trader'));
+    }
     return signature;
   }
 
@@ -169,9 +187,11 @@ class DynamicRouteRegistrar {
 
   static List<RouteBase> _buildRoutes(List<RuntimeModule> enabledModules) {
     final moduleRoutes = <GoRoute>[];
+    final workspaceBuilders = _workspaceBuilders(enabledModules);
 
     for (final module in enabledModules) {
-      if (module.maintenanceMode) continue;
+      if (!module.isEnabled || module.maintenanceMode) continue;
+      if (_canonicalWorkspaceKey(module.moduleId) != null) continue;
       final builder = ModulePageRegistry.resolve(module.moduleId);
       if (builder == null) {
         debugPrint(
@@ -219,15 +239,24 @@ class DynamicRouteRegistrar {
       }
     }
 
-    // First-class module routes that must always resolve even before a
-    // matching `system.modules` row enables them. The Trader module is the
-    // trader/supplier workspace landing, so its route is always present.
-    if (!moduleRoutes.any((r) => r.name == 'trader')) {
+    // Workspace route identities are canonical and appear once, independently
+    // of the runtime module route loop. Farm/Admin require an eligible runtime
+    // module; Trader retains its legacy fallback only when no eligible Trader
+    // builder is present. The route gate rejects configured-but-ineligible
+    // Trader modules rather than bypassing enablement or maintenance.
+    for (final key in _workspaceKeys) {
+      final builder = workspaceBuilders[key] ??
+          (key == 'trader' ? ModulePageRegistry.resolve('trader') : null);
+      if (builder == null) continue;
+      final (name, path) = _workspaceRoute(key);
       moduleRoutes.add(
         GoRoute(
-          path: '/trader',
-          name: 'trader',
-          builder: (context, state) => const TraderWorkspaceGate(),
+          path: path,
+          name: name,
+          builder: (context, state) => _WorkspaceLandingRoute(
+            workspaceKey: key,
+            builder: builder,
+          ),
         ),
       );
     }
@@ -295,6 +324,192 @@ class DynamicRouteRegistrar {
 
   static GoRouter rebuildRouter(List<RuntimeModule> enabledModules) {
     return buildRouter(enabledModules);
+  }
+
+  static const _workspaceKeys = [
+    'farm_management',
+    'admin_console',
+    'trader',
+  ];
+
+  static Map<String, ModulePageBuilder> _workspaceBuilders(
+    List<RuntimeModule> modules,
+  ) {
+    final builders = <String, ModulePageBuilder>{};
+    for (final module in modules) {
+      if (!module.isEnabled || module.maintenanceMode) continue;
+      final key = _canonicalWorkspaceKey(module.moduleId);
+      if (key == null) continue;
+      final builder = _workspacePageBuilder(module.moduleId);
+      if (builder == null) continue;
+      if (!builders.containsKey(key) || module.moduleId == key) {
+        builders[key] = builder;
+      }
+    }
+    return builders;
+  }
+
+  static String? _canonicalWorkspaceKey(String moduleId) {
+    if (_workspaceKeys.contains(moduleId)) return moduleId;
+    return moduleId == 'commerce' ? 'trader' : null;
+  }
+
+  static ModulePageBuilder? _workspacePageBuilder(String moduleId) =>
+      ModulePageRegistry.resolve(moduleId) ??
+      (moduleId == 'commerce' ? ModulePageRegistry.resolve('trader') : null);
+
+  static (String, String) _workspaceRoute(String key) {
+    switch (key) {
+      case 'farm_management':
+        return (AppRoutes.farmName, AppRoutes.farm);
+      case 'admin_console':
+        return (AppRoutes.adminName, AppRoutes.admin);
+      case 'trader':
+        return (AppRoutes.traderName, AppRoutes.trader);
+      default:
+        throw ArgumentError.value(key, 'key', 'Unknown workspace route');
+    }
+  }
+}
+
+class _WorkspaceLandingRoute extends ConsumerWidget {
+  const _WorkspaceLandingRoute({
+    required this.workspaceKey,
+    required this.builder,
+  });
+
+  final String workspaceKey;
+  final ModulePageBuilder builder;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(sessionProvider);
+    if (session is! AuthenticatedSession || !session.hasProfile) {
+      return const ErrorStateWidget(
+        title: 'Workspace unavailable',
+        message: 'An authenticated profile is required to open this workspace.',
+      );
+    }
+
+    final entityContext = ref.watch(contextProvider);
+    if (entityContext.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (entityContext.isGuest ||
+        entityContext.entityId == null ||
+        entityContext.entityId!.isEmpty) {
+      return ErrorStateWidget(
+        title: 'Workspace context unavailable',
+        message:
+            'Select or restore an active entity before opening this workspace.',
+        retryLabel: 'Retry',
+        onRetry: () => ref.read(contextProvider.notifier).init(),
+      );
+    }
+
+    final activeWorkspace = ref.watch(activeWorkspaceProvider);
+    if (!session.workspaceIds.contains(activeWorkspace.workspaceId)) {
+      return const ErrorStateWidget(
+        title: 'Workspace unavailable',
+        message: 'This workspace is not available in the authenticated session.',
+      );
+    }
+
+    final catalog = ref.watch(workspaceCatalogProvider);
+    if (catalog.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (catalog.hasError) {
+      return ErrorStateWidget(
+        title: 'Workspace unavailable',
+        message: 'The available workspaces could not be loaded.',
+        retryLabel: 'Retry',
+        onRetry: () => ref.invalidate(workspaceCatalogProvider),
+      );
+    }
+
+    final activeWorkspaceEntries = catalog.requireValue
+        .where((workspace) => workspace.id == activeWorkspace.workspaceId)
+        .toList();
+    if (activeWorkspaceEntries.length != 1) {
+      return const ErrorStateWidget(
+        title: 'Workspace unavailable',
+        message: 'The active workspace could not be resolved.',
+      );
+    }
+    final rawType = (activeWorkspaceEntries.single.category ??
+            activeWorkspaceEntries.single.name)
+        .trim();
+    final activeType = WorkspaceDashboardCatalog.normalizeType(rawType);
+    final expectedType = switch (workspaceKey) {
+      'farm_management' => 'farmer',
+      'admin_console' => 'admin',
+      'trader' => 'trader',
+      _ => null,
+    };
+    if (activeType == null || activeType != expectedType) {
+      return const ErrorStateWidget(
+        title: 'Workspace context mismatch',
+        message:
+            'The requested workspace does not match the currently selected workspace.',
+      );
+    }
+
+    final modules = ref.watch(moduleProvider);
+    if (modules.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (modules.hasError) {
+      return ErrorStateWidget(
+        title: 'Workspace unavailable',
+        message: 'Module availability could not be confirmed.',
+        retryLabel: 'Retry',
+        onRetry: () => ref.invalidate(moduleProvider),
+      );
+    }
+
+    final moduleKeys = workspaceKey == 'trader'
+        ? const {'trader', 'commerce'}
+        : {workspaceKey};
+    final configuredModules = modules.requireValue
+        .where((module) => moduleKeys.contains(module.moduleKey))
+        .toList();
+    if (configuredModules.length > 1) {
+      return const ErrorStateWidget(
+        title: 'Workspace unavailable',
+        message:
+            'Multiple module registrations make this workspace ambiguous.',
+      );
+    }
+    if (configuredModules.isNotEmpty &&
+        (!configuredModules.single.isEnabled ||
+            configuredModules.single.maintenanceMode)) {
+      return const ErrorStateWidget(
+        title: 'Workspace unavailable',
+        message: 'This workspace module is disabled or under maintenance.',
+      );
+    }
+    if (configuredModules.isEmpty && workspaceKey != 'trader') {
+      return const ErrorStateWidget(
+        title: 'Workspace unavailable',
+        message: 'This workspace module is not configured.',
+      );
+    }
+
+    final runtimeModules = ref.watch(runtimeModuleRegistryProvider);
+    final availableRuntimeModules = runtimeModules
+        .where((module) => moduleKeys.contains(module.moduleId))
+        .where((module) => module.isEnabled && !module.maintenanceMode)
+        .toList();
+    if (configuredModules.isNotEmpty && availableRuntimeModules.isEmpty) {
+      return const ErrorStateWidget(
+        title: 'Workspace unavailable',
+        message:
+            'The active entity context does not have access to this workspace.',
+      );
+    }
+
+    return builder(context);
   }
 }
 

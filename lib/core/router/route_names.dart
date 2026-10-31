@@ -124,6 +124,10 @@ class AppRoutes {
   static const admin = '/admin';
   static const adminName = 'admin';
 
+  /// Trader workspace module
+  static const trader = '/trader';
+  static const traderName = 'trader';
+
   /// Guest page
   static const guest = '/guest';
   static const guestName = 'guest';
