@@ -25,6 +25,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:famhub_app/core/composition/router/dynamic_route_registrar.dart';
 import 'package:famhub_app/core/composition/providers/composition_providers.dart';
+import 'package:famhub_app/core/workspace/application/workspace_history_restore_coordinator.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final enabledModules = ref.read(runtimeModuleRegistryProvider);
@@ -33,6 +34,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     DynamicRouteRegistrar.buildRoutingConfig(enabledModules),
   );
   final router = DynamicRouteRegistrar.buildRouterWithConfig(routingConfig);
+  final historyCoordinator =
+      ref.read(workspaceHistoryRestoreCoordinatorProvider);
+  historyCoordinator.attach(router);
 
   ref.listen(runtimeModuleRegistryProvider, (_, enabledModules) {
     final nextSignature =
@@ -44,6 +48,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   });
 
   ref.onDispose(() {
+    historyCoordinator.detach();
     router.dispose();
     routingConfig.dispose();
   });

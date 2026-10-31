@@ -341,15 +341,18 @@ class ContextController extends Notifier<EntityContext> {
   ///   → validate entity/role
   ///   → applySelectionContext
   ///
-  /// Used for same-workspace ENTITY switching (Business Hub). Returns the
-  /// applied authoritative context, or null on failure. The previous context
-  /// is hidden while activation is pending and is never restored unverified.
+  /// Used for same-workspace entity switching and guarded workspace-history
+  /// restoration. Returns the applied authoritative context, or null on
+  /// failure. The previous context is hidden while activation is pending and
+  /// is never restored unverified.
   Future<Map<String, dynamic>?> activateContextRow({
     required String workspaceId,
     required String entityId,
     required String roleId,
     required String activeMode,
     String? businessProfileId,
+    int? expectedGeneration,
+    bool commitWorkspaceSelection = false,
   }) async {
     final session = ref.read(sessionProvider);
     final userId = session is AuthenticatedSession ? session.userId : null;
@@ -363,11 +366,19 @@ class ContextController extends Notifier<EntityContext> {
         profileId.isEmpty) {
       return null;
     }
-    final generation = beginSelectionOperation(
-      userId: userId,
-      profileId: profileId,
-    );
-    if (generation < 0) return null;
+    final generation = expectedGeneration ??
+        beginSelectionOperation(
+          userId: userId,
+          profileId: profileId,
+        );
+    if (generation < 0 ||
+        !selectionOperationIsCurrent(
+          generation: generation,
+          userId: userId,
+          profileId: profileId,
+        )) {
+      return null;
+    }
     if (!markSelectionPending(
       generation: generation,
       userId: userId,
@@ -468,6 +479,39 @@ class ContextController extends Notifier<EntityContext> {
       return null;
     }
 
+    if (commitWorkspaceSelection) {
+      try {
+        await ref
+            .read(activeWorkspaceProvider.notifier)
+            .switchWorkspace(workspaceId);
+      } catch (e) {
+        debugPrint('[ContextActivate] workspace commit failed: $e');
+        if (selectionOperationIsCurrent(
+          generation: generation,
+          userId: userId,
+          profileId: profileId,
+        )) {
+          await init();
+        }
+        return null;
+      }
+      if (!selectionOperationIsCurrent(
+            generation: generation,
+            userId: userId,
+            profileId: profileId,
+          ) ||
+          ref.read(activeWorkspaceProvider).workspaceId != workspaceId) {
+        if (selectionOperationIsCurrent(
+          generation: generation,
+          userId: userId,
+          profileId: profileId,
+        )) {
+          await init();
+        }
+        return null;
+      }
+    }
+
     final applied = await applySelectionContext(
       userId: userId,
       profileId: activeProfileId,
@@ -478,7 +522,16 @@ class ContextController extends Notifier<EntityContext> {
       businessProfileId: activeBusinessProfileId,
       expectedGeneration: generation,
     );
-    if (!applied) return null;
+    if (!applied) {
+      if (selectionOperationIsCurrent(
+        generation: generation,
+        userId: userId,
+        profileId: profileId,
+      )) {
+        await init();
+      }
+      return null;
+    }
 
     return authoritative;
   }

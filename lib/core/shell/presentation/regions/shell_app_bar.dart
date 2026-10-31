@@ -30,12 +30,14 @@ import '../../../providers/notification_count_provider.dart';
 import '../../../workspace/application/active_workspace_provider.dart';
 import '../../../workspace/application/workspace_catalog_provider.dart';
 import '../../../workspace/application/workspace_dashboard_provider.dart';
+import '../../../workspace/application/workspace_history_restore_coordinator.dart';
 import '../../../workspace/domain/workspace_catalog_item.dart';
 import '../../../context_engine/providers/context_provider.dart';
 import '../../../context_engine/providers/context_storage_service_provider.dart';
 import '../../../workspace/application/current_workspace_contexts_provider.dart';
 import '../../../../core/session/app_session.dart';
 import '../../../../core/session/session_provider.dart';
+import '../../../../core/router/route_names.dart';
 import '../../../../features/workspace_context/application/entity_context_refresh.dart';
 
 /// TEMPORARY (remove after verification): provisioned Administration
@@ -608,7 +610,21 @@ class _ContextSelector extends ConsumerWidget {
     if (alreadyCorrect) {
       debugPrint('[WorkspaceSwitch] already active workspace+context — '
           'no activation required');
-      if (context.mounted) context.go(landingRoute);
+      if (context.mounted) {
+        if (landingRoute == AppRoutes.root) {
+          context.go(landingRoute);
+        } else {
+          final router = GoRouter.of(context);
+          final extra = ref
+              .read(workspaceHistoryRestoreCoordinatorProvider)
+              .createHistoryExtra(
+                router.routerDelegate.currentConfiguration.extra,
+                workspaceId: workspaceId,
+                context: currentContext,
+              );
+          context.go(landingRoute, extra: extra);
+        }
+      }
       return;
     }
 
@@ -869,7 +885,19 @@ class _ContextSelector extends ConsumerWidget {
 
     final tNav = Stopwatch()..start();
     if (context.mounted) {
-      context.go(landingRoute);
+      if (landingRoute == AppRoutes.root) {
+        context.go(landingRoute);
+      } else {
+        final router = GoRouter.of(context);
+        final extra = ref
+            .read(workspaceHistoryRestoreCoordinatorProvider)
+            .createHistoryExtra(
+              router.routerDelegate.currentConfiguration.extra,
+              workspaceId: workspaceId,
+              context: applied,
+            );
+        context.go(landingRoute, extra: extra);
+      }
     }
     tNav.stop();
     totalSw.stop();

@@ -22,6 +22,7 @@ import 'package:famhub_app/core/shell/presentation/layouts/common/shell_not_foun
 import 'package:famhub_app/core/workspace/application/active_workspace_provider.dart';
 import 'package:famhub_app/core/workspace/application/workspace_catalog_provider.dart';
 import 'package:famhub_app/core/workspace/application/workspace_dashboard_provider.dart';
+import 'package:famhub_app/core/workspace/application/workspace_history_restore_coordinator.dart';
 import 'package:famhub_app/core/workspace/application/current_workspace_contexts_provider.dart';
 
 import 'package:famhub_app/core/composition/domain/models/runtime_module.dart';
@@ -386,12 +387,76 @@ class _WorkspaceLandingRouteState
     extends ConsumerState<_WorkspaceLandingRoute> {
   bool _refreshing = true;
   bool _refreshFailed = false;
+  bool _historyRestoreFailed = false;
+  String? _historyRestoreMessage;
   int _refreshGeneration = 0;
+  bool _initialRefreshStarted = false;
+  GoRouter? _router;
 
   @override
-  void initState() {
-    super.initState();
-    _refreshActiveContext();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final router = GoRouter.of(context);
+    if (!identical(router, _router)) {
+      _router?.routerDelegate.removeListener(_onRouterChanged);
+      _router = router;
+      router.routerDelegate.addListener(_onRouterChanged);
+    }
+    if (_initialRefreshStarted) return;
+    _initialRefreshStarted = true;
+    final restore = _restoreCurrentBrowserEntry(router);
+    if (restore == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _refreshActiveContext();
+      });
+    } else {
+      _observeHistoryRestore(restore);
+    }
+  }
+
+  @override
+  void dispose() {
+    _router?.routerDelegate.removeListener(_onRouterChanged);
+    super.dispose();
+  }
+
+  Future<WorkspaceHistoryRestoreResult>? _restoreCurrentBrowserEntry(
+    GoRouter router,
+  ) {
+    final route = router.routerDelegate.currentConfiguration;
+    return ref
+        .read(workspaceHistoryRestoreCoordinatorProvider)
+        .restoreCurrentBrowserEntry(
+          uri: route.uri,
+          extra: route.extra,
+          workspaceKey: widget.workspaceKey,
+        );
+  }
+
+  void _onRouterChanged() {
+    final router = _router;
+    if (router == null) return;
+    final restore = _restoreCurrentBrowserEntry(router);
+    if (restore != null) _observeHistoryRestore(restore);
+  }
+
+  void _observeHistoryRestore(
+    Future<WorkspaceHistoryRestoreResult> restore,
+  ) {
+    if (mounted) {
+      _refreshing = true;
+      _refreshFailed = false;
+      _historyRestoreFailed = false;
+      _historyRestoreMessage = null;
+    }
+    restore.then((result) {
+      if (!mounted) return;
+      setState(() {
+        _refreshing = false;
+        _historyRestoreFailed = !result.restored;
+        _historyRestoreMessage = result.message;
+      });
+    });
   }
 
   Future<void> _refreshActiveContext() async {
@@ -399,6 +464,8 @@ class _WorkspaceLandingRouteState
     setState(() {
       _refreshing = true;
       _refreshFailed = false;
+      _historyRestoreFailed = false;
+      _historyRestoreMessage = null;
     });
     ref.invalidate(currentWorkspaceContextsProvider);
     try {
@@ -426,6 +493,15 @@ class _WorkspaceLandingRouteState
         message: 'The active workspace context could not be refreshed.',
         retryLabel: 'Retry',
         onRetry: _refreshActiveContext,
+      );
+    }
+    if (_historyRestoreFailed) {
+      final message = _historyRestoreMessage ??
+          'The recorded workspace context could not be restored.';
+      return ErrorStateWidget(
+        title: 'Workspace history unavailable',
+        message:
+            '$message\n\nSelect a workspace from the app bar to continue.',
       );
     }
 
