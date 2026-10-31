@@ -343,12 +343,82 @@ class SessionController extends Notifier<AppSession> {
       );
     }
 
-    final result = await _authService.selectWorkspaces(
-      workspaceIds: workspaces,
+    final initiatingUserId = current.userId;
+    final initiatingProfileId = current.profile?['id']?.toString();
+    if (initiatingUserId == null ||
+        initiatingUserId.isEmpty ||
+        initiatingProfileId == null ||
+        initiatingProfileId.isEmpty) {
+      return const WorkspaceSelectionResult(
+        success: false,
+        error: 'Your signed-in profile could not be confirmed. Please try again.',
+      );
+    }
+
+    final contextController = ref.read(contextProvider.notifier);
+    final operationGeneration = contextController.beginSelectionOperation(
+      userId: initiatingUserId,
+      profileId: initiatingProfileId,
     );
+    if (operationGeneration < 0 ||
+        !contextController.markSelectionPending(
+          generation: operationGeneration,
+          userId: initiatingUserId,
+          profileId: initiatingProfileId,
+        )) {
+      return const WorkspaceSelectionResult(
+        success: false,
+        error: 'Your session changed. Please try again.',
+      );
+    }
+
+    bool isCurrentOperation() {
+      final activeSession = state;
+      return activeSession is AuthenticatedSession &&
+          activeSession.userId == initiatingUserId &&
+          activeSession.profile?['id']?.toString() == initiatingProfileId &&
+          SupabaseService.instance.currentUserId == initiatingUserId &&
+          contextController.selectionOperationIsCurrent(
+            generation: operationGeneration,
+            userId: initiatingUserId,
+            profileId: initiatingProfileId,
+          );
+    }
+
+    Future<void> refreshContextIfCurrent() async {
+      if (isCurrentOperation()) {
+        await contextController.init();
+      }
+    }
+
+    WorkspaceSelectionResult staleResult() => const WorkspaceSelectionResult(
+          success: false,
+          error: 'Your session or workspace selection changed. Please try again.',
+        );
+
+    WorkspaceSelectionResult result;
+    try {
+      result = await _authService.selectWorkspaces(
+        workspaceIds: workspaces,
+      );
+    } catch (error, stackTrace) {
+      debugPrint('[SessionController.selectWorkspaces] failed: $error');
+      debugPrintStack(
+        stackTrace: stackTrace,
+        label: '[SessionController.selectWorkspaces]',
+        maxFrames: 4,
+      );
+      await refreshContextIfCurrent();
+      return const WorkspaceSelectionResult(
+        success: false,
+        error: 'Could not save workspaces. Please try again.',
+      );
+    }
+    if (!isCurrentOperation()) return staleResult();
     if (!result.success) {
       debugPrint('[SessionController.selectWorkspaces] Edge Function failed: '
           '${result.error}');
+      await refreshContextIfCurrent();
       return result;
     }
 
@@ -363,11 +433,8 @@ class SessionController extends Notifier<AppSession> {
     // source of truth. Fall back to the profile echoed by the response.
     Map<String, dynamic>? profile = result.profile ?? current.profile;
     try {
-      final userId = current.userId;
-      if (userId != null) {
-        final fresh = await _loadProfile(userId);
-        if (fresh != null) profile = fresh;
-      }
+      final fresh = await _loadProfile(initiatingUserId);
+      if (fresh != null) profile = fresh;
     } on Exception catch (e, st) {
       debugPrint('[SessionController.selectWorkspaces] profile refresh failed: $e');
       debugPrintStack(
@@ -376,13 +443,29 @@ class SessionController extends Notifier<AppSession> {
         maxFrames: 4,
       );
     }
+    if (!isCurrentOperation()) return staleResult();
+    if (profile?['id']?.toString() != initiatingProfileId ||
+        (result.profileId != null &&
+            result.profileId != initiatingProfileId)) {
+      debugPrint('[SessionController.selectWorkspaces] profile identity '
+          'mismatch; refusing to publish workspace selection');
+      await refreshContextIfCurrent();
+      return staleResult();
+    }
 
     debugPrint('[SESSION-DIAG] selectWorkspaces publishing state — '
         'hasProfile=${current.hasProfile} (unchanged), '
         'workspaceIds=$persistedIds, default=$defaultWorkspaceId, '
         'hasCompletedOnboarding=${persistedIds.isNotEmpty}, '
         'profile=${profile == null ? 'NULL' : 'VALID'}');
-    state = current.copyWith(
+    if (!isCurrentOperation()) return staleResult();
+    final activeSession = state;
+    if (activeSession is! AuthenticatedSession ||
+        activeSession.userId != initiatingUserId ||
+        activeSession.profile?['id']?.toString() != initiatingProfileId) {
+      return staleResult();
+    }
+    state = activeSession.copyWith(
       selectedRoles: persistedIds,
       profile: profile,
       workspaceIds: persistedIds,
@@ -394,16 +477,33 @@ class SessionController extends Notifier<AppSession> {
     // (users.complete_workspace_selection) into the EXISTING context
     // provider. No new provider/identity system is created. Only
     // non-null backend values are applied.
-    if (result.entityId != null ||
-        result.profileId != null ||
-        result.roleId != null) {
-      await ref.read(contextProvider.notifier).applySelectionContext(
-            profileId: result.profileId,
-            entityId: result.entityId,
-            roleId: result.roleId,
-            role: result.activeMode,
-            businessProfileId: result.businessProfileId,
-          );
+    final activeWorkspaceId = result.activeWorkspaceId;
+    final entityId = result.entityId;
+    final roleId = result.roleId;
+    final activeMode = result.activeMode;
+    final profileId = result.profileId;
+    if (profileId == initiatingProfileId &&
+        activeWorkspaceId != null &&
+        activeWorkspaceId.isNotEmpty &&
+        entityId != null &&
+        entityId.isNotEmpty &&
+        roleId != null &&
+        roleId.isNotEmpty &&
+        activeMode != null &&
+        activeMode.isNotEmpty) {
+      final applied = await contextController.applySelectionContext(
+        userId: initiatingUserId,
+        profileId: profileId,
+        activeWorkspaceId: activeWorkspaceId,
+        entityId: entityId,
+        roleId: roleId,
+        role: activeMode,
+        businessProfileId: result.businessProfileId,
+        expectedGeneration: operationGeneration,
+      );
+      if (!applied) return staleResult();
+    } else {
+      await refreshContextIfCurrent();
     }
 
     return WorkspaceSelectionResult(

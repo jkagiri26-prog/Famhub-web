@@ -574,9 +574,21 @@ class _ContextSelector extends ConsumerWidget {
     // UI workspace alone is not sufficient (UI=Admin + backend=Farmer must
     // still activate).
     final currentContext = ref.read(contextProvider);
+    final activeSession = ref.read(sessionProvider);
+    final currentAuthenticatedUserId =
+        activeSession is AuthenticatedSession ? activeSession.userId : null;
+    final currentAuthenticatedProfileId = activeSession is AuthenticatedSession
+        ? activeSession.profile?['id']?.toString()
+        : null;
     final alreadyCorrect = workspaceId == currentWorkspaceId &&
+        currentContext.userId == currentAuthenticatedUserId &&
+        currentContext.profileId == currentAuthenticatedProfileId &&
+        currentContext.activeWorkspaceId == workspaceId &&
         currentContext.entityId == chosenEntityId &&
-        currentContext.roleId == chosenRoleId;
+        currentContext.roleId == chosenRoleId &&
+        currentContext.role == chosen['active_mode']?.toString() &&
+        currentContext.businessProfileId ==
+            chosen['business_profile_id']?.toString();
     if (alreadyCorrect) {
       debugPrint('[WorkspaceSwitch] already active workspace+context — '
           'no activation required');
@@ -585,6 +597,37 @@ class _ContextSelector extends ConsumerWidget {
     }
 
     // ── Backend activation (authoritative) ──
+    final initiatingSession = ref.read(sessionProvider);
+    final initiatingUserId = initiatingSession is AuthenticatedSession
+        ? initiatingSession.userId
+        : null;
+    final initiatingProfileId = initiatingSession is AuthenticatedSession
+        ? initiatingSession.profile?['id']?.toString()
+        : null;
+    if (initiatingUserId == null ||
+        initiatingUserId.isEmpty ||
+        initiatingProfileId == null ||
+        initiatingProfileId.isEmpty) {
+      if (context.mounted) {
+        _showSnack(context,
+            'Could not confirm the signed-in profile. Please try again.');
+      }
+      return;
+    }
+    final contextController = ref.read(contextProvider.notifier);
+    final activationGeneration = contextController.beginSelectionOperation(
+      userId: initiatingUserId,
+      profileId: initiatingProfileId,
+    );
+    if (activationGeneration < 0) return;
+    if (!contextController.markSelectionPending(
+      generation: activationGeneration,
+      userId: initiatingUserId,
+      profileId: initiatingProfileId,
+    )) {
+      return;
+    }
+
     Map<String, dynamic>? activated;
     final tActivate = Stopwatch()..start();
     try {
@@ -596,6 +639,13 @@ class _ContextSelector extends ConsumerWidget {
       );
     } catch (e) {
       debugPrint('[WorkspaceSwitch] activation failed: $e');
+      if (contextController.selectionOperationIsCurrent(
+        generation: activationGeneration,
+        userId: initiatingUserId,
+        profileId: initiatingProfileId,
+      )) {
+        await contextController.init();
+      }
       if (context.mounted) {
         _showSnack(context,
             'Could not activate this workspace context. Please try again.');
@@ -624,10 +674,24 @@ class _ContextSelector extends ConsumerWidget {
         '${tAuthoritative.elapsedMilliseconds}ms reRead=${activated == null}');
 
     if (authoritative == null) {
+      if (contextController.selectionOperationIsCurrent(
+        generation: activationGeneration,
+        userId: initiatingUserId,
+        profileId: initiatingProfileId,
+      )) {
+        await contextController.init();
+      }
       if (context.mounted) {
         _showSnack(context,
             'Could not confirm this workspace context. Please try again.');
       }
+      return;
+    }
+    if (!contextController.selectionOperationIsCurrent(
+      generation: activationGeneration,
+      userId: initiatingUserId,
+      profileId: initiatingProfileId,
+    )) {
       return;
     }
 
@@ -636,13 +700,67 @@ class _ContextSelector extends ConsumerWidget {
     final activeRoleId = authoritative['role_id']?.toString() ??
         authoritative['roleId']?.toString();
 
-    if (activeEntityId != chosenEntityId || activeRoleId != chosenRoleId) {
+    final activeWorkspaceId = authoritative['workspace_id']?.toString() ??
+        authoritative['workspaceId']?.toString();
+    if (activeWorkspaceId == null ||
+        activeWorkspaceId != workspaceId ||
+        activeEntityId == null ||
+        activeEntityId.isEmpty ||
+        activeEntityId != chosenEntityId ||
+        activeRoleId == null ||
+        activeRoleId.isEmpty ||
+        activeRoleId != chosenRoleId) {
       debugPrint('[WorkspaceSwitch] activation mismatch — '
-          'expected entity=$chosenEntityId role=$chosenRoleId, '
-          'got entity=$activeEntityId role=$activeRoleId');
+          'expected workspace=$workspaceId entity=$chosenEntityId '
+          'role=$chosenRoleId, got workspace=$activeWorkspaceId '
+          'entity=$activeEntityId role=$activeRoleId');
       if (context.mounted) {
         _showSnack(context,
             'Could not activate this workspace context. Please try again.');
+      }
+      if (contextController.selectionOperationIsCurrent(
+        generation: activationGeneration,
+        userId: initiatingUserId,
+        profileId: initiatingProfileId,
+      )) {
+        await contextController.init();
+      }
+      return;
+    }
+    final activeProfileId = (authoritative['profile_id'] ??
+            authoritative['profileId'])
+        ?.toString();
+    final activeMode = (authoritative['active_mode'] ??
+            authoritative['role'])
+        ?.toString();
+    final activeUserId = ref.read(sessionProvider).userId;
+    final expectedMode = chosen['active_mode']?.toString();
+    final expectedBusinessProfileId =
+        chosen['business_profile_id']?.toString();
+    final activeBusinessProfileId = (authoritative['business_profile_id'] ??
+            authoritative['businessProfileId'])
+        ?.toString();
+    if (activeProfileId != initiatingProfileId ||
+        activeMode == null ||
+        activeMode.isEmpty ||
+        activeMode != expectedMode ||
+        activeBusinessProfileId != expectedBusinessProfileId ||
+        activeUserId != initiatingUserId ||
+        !contextController.selectionOperationIsCurrent(
+          generation: activationGeneration,
+          userId: initiatingUserId,
+          profileId: initiatingProfileId,
+        )) {
+      if (context.mounted) {
+        _showSnack(context,
+            'Could not confirm this workspace context. Please try again.');
+      }
+      if (contextController.selectionOperationIsCurrent(
+        generation: activationGeneration,
+        userId: initiatingUserId,
+        profileId: initiatingProfileId,
+      )) {
+        await contextController.init();
       }
       return;
     }
@@ -661,35 +779,49 @@ class _ContextSelector extends ConsumerWidget {
     // `users.activate_workspace_context` above and re-read/validated before
     // this point. The workspace list/default is a separate onboarding/profile
     // concern and is not touched by ordinary switching.
-    final activeBusinessProfileId = (authoritative['business_profile_id'] ??
-            authoritative['businessProfileId'])
-        ?.toString();
-
-    // Apply the authoritative backend context locally (existing owner — no
-    // second provider).
-    final tApply = Stopwatch()..start();
-    await ref.read(contextProvider.notifier).applySelectionContext(
-          profileId: (authoritative['profile_id'] ??
-                  authoritative['profileId'])
-              ?.toString(),
-          entityId: activeEntityId,
-          roleId: activeRoleId,
-          role: (authoritative['active_mode'] ?? authoritative['role'])
-              ?.toString(),
-          businessProfileId: activeBusinessProfileId,
-        );
-    tApply.stop();
-    debugPrint('[WorkspaceSwitch] timing apply='
-        '${tApply.elapsedMilliseconds}ms');
-
-    // Commit the workspace UI only AFTER successful backend activation.
     final tSwitch = Stopwatch()..start();
-    await ref
-        .read(activeWorkspaceProvider.notifier)
-        .switchWorkspace(workspaceId);
+    try {
+      await ref
+          .read(activeWorkspaceProvider.notifier)
+          .switchWorkspace(workspaceId);
+    } catch (error) {
+      debugPrint('[WorkspaceSwitch] local workspace commit failed: $error');
+      if (contextController.selectionOperationIsCurrent(
+        generation: activationGeneration,
+        userId: initiatingUserId,
+        profileId: initiatingProfileId,
+      )) {
+        await contextController.init();
+      }
+      return;
+    }
     tSwitch.stop();
     debugPrint('[WorkspaceSwitch] timing switch='
         '${tSwitch.elapsedMilliseconds}ms');
+    if (!contextController.selectionOperationIsCurrent(
+          generation: activationGeneration,
+          userId: initiatingUserId,
+          profileId: initiatingProfileId,
+        ) ||
+        ref.read(activeWorkspaceProvider).workspaceId != workspaceId) {
+      return;
+    }
+
+    final tApply = Stopwatch()..start();
+    final appliedContext = await contextController.applySelectionContext(
+      userId: initiatingUserId,
+      profileId: initiatingProfileId,
+      activeWorkspaceId: activeWorkspaceId!,
+      entityId: activeEntityId,
+      roleId: activeRoleId,
+      role: activeMode,
+      businessProfileId: activeBusinessProfileId,
+      expectedGeneration: activationGeneration,
+    );
+    tApply.stop();
+    debugPrint('[WorkspaceSwitch] timing apply='
+        '${tApply.elapsedMilliseconds}ms');
+    if (!appliedContext) return;
 
     // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression):
     // final applied context after activation.
@@ -1040,6 +1172,7 @@ class _EntitySelector extends ConsumerWidget {
           workspaceId: workspaceId,
           entityId: entityId,
           roleId: roleId,
+          activeMode: c['active_mode']?.toString() ?? '',
           businessProfileId: c['business_profile_id']?.toString(),
         );
     if (applied == null) return false;

@@ -46,6 +46,7 @@ import 'package:famhub_app/core/workspace/application/workspace_engine.dart';
 import 'package:famhub_app/core/workspace/application/workspace_provider.dart';
 import 'package:famhub_app/core/session/app_session.dart';
 import 'package:famhub_app/core/session/session_provider.dart';
+import 'package:famhub_app/core/services/supabase_service.dart';
 
 /// ============================================================
 /// ACTIVE WORKSPACE NOTIFIER
@@ -55,6 +56,9 @@ import 'package:famhub_app/core/session/session_provider.dart';
 /// mutations to the WorkspaceEngine.
 /// ============================================================
 class ActiveWorkspaceNotifier extends Notifier<Workspace> {
+  int _reconciliationGeneration = 0;
+  int _selectionGeneration = 0;
+
   @override
   Workspace build() {
     // Start with the persisted default workspace (users.profiles
@@ -155,8 +159,29 @@ class ActiveWorkspaceNotifier extends Notifier<Workspace> {
   /// SWITCH WORKSPACE
   /// ============================================================
   Future<void> switchWorkspace(String workspaceId) async {
+    final request = ++_selectionGeneration;
+    _reconciliationGeneration++;
+    final session = ref.read(sessionProvider);
+    final wasAuthenticated = session is AuthenticatedSession;
+    final userId = wasAuthenticated ? session.userId : null;
+    final profileId = wasAuthenticated
+        ? session.profile?['id']?.toString()
+        : null;
+    final authUserId = SupabaseService.instance.currentUserId;
+    if (wasAuthenticated && (userId == null || userId.isEmpty)) {
+      return;
+    }
+
     final engine = ref.read(workspaceEngineProvider);
-    state = await engine.switchWorkspace(state, workspaceId);
+    final next = await engine.switchWorkspace(state, workspaceId);
+    if (request != _selectionGeneration ||
+        (wasAuthenticated
+            ? !_sameAuthenticatedIdentity(userId!, profileId)
+            : ref.read(sessionProvider) is AuthenticatedSession ||
+                SupabaseService.instance.currentUserId != authUserId)) {
+      return;
+    }
+    state = next;
   }
 
   /// ============================================================
@@ -171,15 +196,59 @@ class ActiveWorkspaceNotifier extends Notifier<Workspace> {
   ///    `complete_workspace_selection`, or `save_user_workspaces`, and does
   ///    not create/expire/reorder any context session.
   ///
-  /// Matching rules:
-  ///   - exact entity + role match → select that workspace
-  ///   - exactly one entity-only match (role unavailable/ambiguous) → select it
-  ///   - ambiguous or no match → retain the current (safe/default) workspace
-  Future<void> reconcileWithActiveContext({
+  /// Requires one authorized choice matching the complete active context.
+  /// A failed or ambiguous match clears the displayed workspace.
+  Future<bool> reconcileWithActiveContext({
+    String? workspaceId,
     String? entityId,
     String? roleId,
+    String? activeMode,
+    String? businessProfileId,
+    String? authenticatedUserId,
+    String? profileId,
+    bool Function()? isCurrent,
   }) async {
-    if (entityId == null || entityId.isEmpty) return;
+    final request = ++_reconciliationGeneration;
+    final selectionRequest = _selectionGeneration;
+    final session = ref.read(sessionProvider);
+    final sessionUserId =
+        session is AuthenticatedSession ? session.userId : null;
+    final sessionProfileId = session is AuthenticatedSession
+        ? session.profile?['id']?.toString()
+        : null;
+
+    bool requestIsCurrent() =>
+        request == _reconciliationGeneration &&
+        selectionRequest == _selectionGeneration &&
+        (isCurrent == null || isCurrent()) &&
+        (sessionUserId == null
+            ? ref.read(sessionProvider) is! AuthenticatedSession
+            : _sameAuthenticatedIdentity(sessionUserId, sessionProfileId));
+
+    void clearDisplayedWorkspace() {
+      if (requestIsCurrent()) state = state.copyWith(workspaceId: '');
+    }
+
+    if (workspaceId == null ||
+        workspaceId.isEmpty ||
+        entityId == null ||
+        entityId.isEmpty ||
+        roleId == null ||
+        roleId.isEmpty ||
+        activeMode == null ||
+        activeMode.isEmpty ||
+        authenticatedUserId == null ||
+        authenticatedUserId.isEmpty ||
+        profileId == null ||
+        profileId.isEmpty ||
+        session is! AuthenticatedSession ||
+        session.userId != authenticatedUserId ||
+        sessionProfileId != profileId ||
+        !session.workspaceIds.contains(workspaceId) ||
+        SupabaseService.instance.currentUserId != authenticatedUserId) {
+      clearDisplayedWorkspace();
+      return false;
+    }
 
     final authService = ref.read(authServiceProvider);
 
@@ -187,56 +256,49 @@ class ActiveWorkspaceNotifier extends Notifier<Workspace> {
     try {
       contexts = await authService.getAvailableWorkspaceContexts();
     } catch (e) {
-      debugPrint('[WorkspaceReconcile] read failed — retaining workspace: $e');
-      return;
+      debugPrint('[WorkspaceReconcile] read failed — clearing workspace: $e');
+      clearDisplayedWorkspace();
+      return false;
     }
 
-    final entityMatches = contexts
-        .where((c) => c['entity_id']?.toString() == entityId)
+    if (!requestIsCurrent()) return false;
+
+    final matches = contexts
+        .where((c) =>
+            c['workspace_id']?.toString() == workspaceId &&
+            c['entity_id']?.toString() == entityId &&
+            c['role_id']?.toString() == roleId &&
+            c['active_mode']?.toString() == activeMode &&
+            c['business_profile_id']?.toString() == businessProfileId)
         .toList();
-
-    if (entityMatches.isEmpty) {
-      debugPrint('[WorkspaceReconcile] no workspace for active entity '
-          'entity_id=$entityId — retaining workspace ${state.workspaceId}');
-      return;
+    if (matches.length != 1) {
+      debugPrint('[WorkspaceReconcile] active context has '
+          '${matches.length} authorized matches — clearing workspace');
+      clearDisplayedWorkspace();
+      return false;
     }
 
-    Map<String, dynamic>? matched;
-
-    if (roleId != null && roleId.isNotEmpty) {
-      final exactMatches = entityMatches
-          .where((c) => c['role_id']?.toString() == roleId)
-          .toList();
-      if (exactMatches.length == 1) {
-        matched = exactMatches.first;
-      } else if (exactMatches.length > 1) {
-        debugPrint('[WorkspaceReconcile] ambiguous entity+role match '
-            '(count=${exactMatches.length}) — retaining workspace '
-            '${state.workspaceId}');
-        return;
-      }
-    }
-
-    // Role info unavailable/unmatched → only accept an unambiguous entity match.
-    if (matched == null) {
-      if (entityMatches.length == 1) {
-        matched = entityMatches.first;
-      } else {
-        debugPrint('[WorkspaceReconcile] ambiguous entity match '
-            '(count=${entityMatches.length}) — retaining workspace '
-            '${state.workspaceId}');
-        return;
-      }
-    }
-
-    final workspaceId = matched['workspace_id']?.toString();
-    if (workspaceId == null || workspaceId.isEmpty) return;
-
+    if (!requestIsCurrent()) return false;
     if (state.workspaceId != workspaceId) {
       debugPrint('[WorkspaceReconcile] workspace ${state.workspaceId} → '
-          '$workspaceId for active entity=$entityId role=$roleId');
+          '$workspaceId for active entity=$entityId role=$roleId '
+          'mode=$activeMode businessProfile=$businessProfileId');
       state = state.copyWith(workspaceId: workspaceId);
     }
+    return true;
+  }
+
+  bool _sameAuthenticatedIdentity(String userId, String? profileId) {
+    final session = ref.read(sessionProvider);
+    if (session is! AuthenticatedSession ||
+        session.userId != userId ||
+        SupabaseService.instance.currentUserId != userId) {
+      return false;
+    }
+    final currentProfileId = session.profile?['id']?.toString();
+    return profileId == null ||
+        profileId.isEmpty ||
+        currentProfileId == profileId;
   }
 
   /// ============================================================
@@ -251,14 +313,35 @@ class ActiveWorkspaceNotifier extends Notifier<Workspace> {
   /// RESTORE WORKSPACE
   /// ============================================================
   Future<void> restoreWorkspace(String workspaceId) async {
+    final request = ++_selectionGeneration;
+    _reconciliationGeneration++;
+    final session = ref.read(sessionProvider);
+    final wasAuthenticated = session is AuthenticatedSession;
+    final userId = wasAuthenticated ? session.userId : null;
+    final profileId = wasAuthenticated
+        ? session.profile?['id']?.toString()
+        : null;
+    final authUserId = SupabaseService.instance.currentUserId;
+    if (wasAuthenticated && (userId == null || userId.isEmpty)) {
+      return;
+    }
     final engine = ref.read(workspaceEngineProvider);
-    state = await engine.restoreWorkspace(state, workspaceId);
+    final next = await engine.restoreWorkspace(state, workspaceId);
+    if (request == _selectionGeneration &&
+        (wasAuthenticated
+            ? _sameAuthenticatedIdentity(userId!, profileId)
+            : ref.read(sessionProvider) is! AuthenticatedSession &&
+                SupabaseService.instance.currentUserId == authUserId)) {
+      state = next;
+    }
   }
 
   /// ============================================================
   /// CLEAR WORKSPACE
   /// ============================================================
   void clearWorkspace() {
+    _selectionGeneration++;
+    _reconciliationGeneration++;
     final engine = ref.read(workspaceEngineProvider);
     state = engine.clearWorkspace(state);
   }

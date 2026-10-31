@@ -119,7 +119,9 @@ class _CreateBusinessPageState extends ConsumerState<CreateBusinessPage> {
   /// (`ContextController.init`). Nothing is fabricated.
   Future<void> _establishActiveContext(String entityId) async {
     final workspaceId = ref.read(activeWorkspaceProvider).workspaceId;
-    final roleId = ref.read(contextProvider).roleId;
+    final entityContext = ref.read(contextProvider);
+    final roleId = entityContext.roleId;
+    final activeMode = entityContext.role;
 
     var profileId = ref
         .read(businessProfileSetupControllerProvider)
@@ -132,13 +134,18 @@ class _CreateBusinessPageState extends ConsumerState<CreateBusinessPage> {
       'profile=$profileId',
     );
 
-    if (workspaceId.isNotEmpty && roleId != null && roleId.isNotEmpty) {
+    if (workspaceId.isNotEmpty &&
+        roleId != null &&
+        roleId.isNotEmpty &&
+        activeMode != null &&
+        activeMode.isNotEmpty) {
       await ref
           .read(contextProvider.notifier)
           .activateContextRow(
             workspaceId: workspaceId,
             entityId: entityId,
             roleId: roleId,
+            activeMode: activeMode,
             businessProfileId: profileId,
           );
       if ((ref.read(contextProvider).businessProfileId ?? '').isNotEmpty) {

@@ -22,6 +22,7 @@ import 'package:famhub_app/core/shell/presentation/layouts/common/shell_not_foun
 import 'package:famhub_app/core/workspace/application/active_workspace_provider.dart';
 import 'package:famhub_app/core/workspace/application/workspace_catalog_provider.dart';
 import 'package:famhub_app/core/workspace/application/workspace_dashboard_provider.dart';
+import 'package:famhub_app/core/workspace/application/current_workspace_contexts_provider.dart';
 
 import 'package:famhub_app/core/composition/domain/models/runtime_module.dart';
 import 'package:famhub_app/core/router/route_names.dart';
@@ -372,7 +373,7 @@ class DynamicRouteRegistrar {
   }
 }
 
-class _WorkspaceLandingRoute extends ConsumerWidget {
+class _WorkspaceLandingRoute extends ConsumerStatefulWidget {
   const _WorkspaceLandingRoute({
     required this.workspaceKey,
     required this.builder,
@@ -382,7 +383,57 @@ class _WorkspaceLandingRoute extends ConsumerWidget {
   final ModulePageBuilder builder;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_WorkspaceLandingRoute> createState() =>
+      _WorkspaceLandingRouteState();
+}
+
+class _WorkspaceLandingRouteState
+    extends ConsumerState<_WorkspaceLandingRoute> {
+  bool _refreshing = true;
+  bool _refreshFailed = false;
+  int _refreshGeneration = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshActiveContext();
+  }
+
+  Future<void> _refreshActiveContext() async {
+    final generation = ++_refreshGeneration;
+    setState(() {
+      _refreshing = true;
+      _refreshFailed = false;
+    });
+    ref.invalidate(currentWorkspaceContextsProvider);
+    try {
+      await ref.read(contextProvider.notifier).init();
+      if (!mounted || generation != _refreshGeneration) return;
+      setState(() => _refreshing = false);
+    } catch (error) {
+      if (!mounted || generation != _refreshGeneration) return;
+      debugPrint('[WorkspaceRoute] active context refresh failed: $error');
+      setState(() {
+        _refreshing = false;
+        _refreshFailed = true;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_refreshing) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_refreshFailed) {
+      return ErrorStateWidget(
+        title: 'Workspace context unavailable',
+        message: 'The active workspace context could not be refreshed.',
+        retryLabel: 'Retry',
+        onRetry: _refreshActiveContext,
+      );
+    }
+
     final session = ref.watch(sessionProvider);
     if (session is! AuthenticatedSession || !session.hasProfile) {
       return const ErrorStateWidget(
@@ -395,9 +446,21 @@ class _WorkspaceLandingRoute extends ConsumerWidget {
     if (entityContext.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
+    final entityId = entityContext.entityId;
+    final roleId = entityContext.roleId;
+    final sessionUserId = session.userId;
+    final sessionProfileId = session.profile?['id']?.toString();
     if (entityContext.isGuest ||
-        entityContext.entityId == null ||
-        entityContext.entityId!.isEmpty) {
+        sessionUserId == null ||
+        sessionUserId.isEmpty ||
+        entityContext.userId != sessionUserId ||
+        sessionProfileId == null ||
+        sessionProfileId.isEmpty ||
+        entityContext.profileId != sessionProfileId ||
+        entityId == null ||
+        entityId.isEmpty ||
+        roleId == null ||
+        roleId.isEmpty) {
       return ErrorStateWidget(
         title: 'Workspace context unavailable',
         message:
@@ -408,10 +471,51 @@ class _WorkspaceLandingRoute extends ConsumerWidget {
     }
 
     final activeWorkspace = ref.watch(activeWorkspaceProvider);
-    if (!session.workspaceIds.contains(activeWorkspace.workspaceId)) {
-      return const ErrorStateWidget(
+    final workspaceId = activeWorkspace.workspaceId;
+    if (workspaceId.isEmpty ||
+        !session.workspaceIds.contains(workspaceId) ||
+        entityContext.activeWorkspaceId == null ||
+        entityContext.activeWorkspaceId != workspaceId) {
+      return ErrorStateWidget(
         title: 'Workspace unavailable',
-        message: 'This workspace is not available in the authenticated session.',
+        message:
+            'The active workspace does not match the authenticated context.',
+        retryLabel: 'Retry',
+        onRetry: _refreshActiveContext,
+      );
+    }
+
+    final authorizedContexts = ref.watch(currentWorkspaceContextsProvider);
+    if (authorizedContexts.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (authorizedContexts.hasError) {
+      return ErrorStateWidget(
+        title: 'Workspace context unavailable',
+        message: 'Authorized workspace contexts could not be confirmed.',
+        retryLabel: 'Retry',
+        onRetry: () => ref.invalidate(currentWorkspaceContextsProvider),
+      );
+    }
+    final matchingContexts = authorizedContexts.requireValue.where((record) {
+      if (record['workspace_id']?.toString() != workspaceId ||
+          record['entity_id']?.toString() != entityId ||
+          record['role_id']?.toString() != roleId ||
+          record['business_profile_id']?.toString() !=
+              entityContext.businessProfileId ||
+          record['active_mode']?.toString() != entityContext.role) {
+        return false;
+      }
+      final recordProfileId = record['profile_id']?.toString();
+      return recordProfileId == null ||
+          recordProfileId.isEmpty ||
+          recordProfileId == entityContext.profileId;
+    }).toList();
+    if (matchingContexts.length != 1) {
+      return const ErrorStateWidget(
+        title: 'Workspace context unavailable',
+        message:
+            'The active entity and role do not resolve to one authorized workspace context.',
       );
     }
 
@@ -441,7 +545,7 @@ class _WorkspaceLandingRoute extends ConsumerWidget {
             activeWorkspaceEntries.single.name)
         .trim();
     final activeType = WorkspaceDashboardCatalog.normalizeType(rawType);
-    final expectedType = switch (workspaceKey) {
+    final expectedType = switch (widget.workspaceKey) {
       'farm_management' => 'farmer',
       'admin_console' => 'admin',
       'trader' => 'trader',
@@ -468,48 +572,48 @@ class _WorkspaceLandingRoute extends ConsumerWidget {
       );
     }
 
-    final moduleKeys = workspaceKey == 'trader'
-        ? const {'trader', 'commerce'}
-        : {workspaceKey};
-    final configuredModules = modules.requireValue
-        .where((module) => moduleKeys.contains(module.moduleKey))
-        .toList();
-    if (configuredModules.length > 1) {
-      return const ErrorStateWidget(
-        title: 'Workspace unavailable',
-        message:
-            'Multiple module registrations make this workspace ambiguous.',
-      );
-    }
-    if (configuredModules.isNotEmpty &&
-        (!configuredModules.single.isEnabled ||
-            configuredModules.single.maintenanceMode)) {
-      return const ErrorStateWidget(
-        title: 'Workspace unavailable',
-        message: 'This workspace module is disabled or under maintenance.',
-      );
-    }
-    if (configuredModules.isEmpty && workspaceKey != 'trader') {
-      return const ErrorStateWidget(
-        title: 'Workspace unavailable',
-        message: 'This workspace module is not configured.',
-      );
-    }
-
     final runtimeModules = ref.watch(runtimeModuleRegistryProvider);
-    final availableRuntimeModules = runtimeModules
-        .where((module) => moduleKeys.contains(module.moduleId))
-        .where((module) => module.isEnabled && !module.maintenanceMode)
-        .toList();
-    if (configuredModules.isNotEmpty && availableRuntimeModules.isEmpty) {
+    final moduleKeyPriority = widget.workspaceKey == 'trader'
+        ? const ['trader', 'commerce']
+        : [widget.workspaceKey];
+    String? selectedModuleKey;
+    for (final key in moduleKeyPriority) {
+      final configured = modules.requireValue
+          .where((module) => module.moduleKey == key)
+          .toList();
+      if (configured.isEmpty) continue;
+      if (configured.length != 1) {
+        return const ErrorStateWidget(
+          title: 'Workspace unavailable',
+          message: 'The workspace module configuration is ambiguous.',
+        );
+      }
+      if (!configured.single.isEnabled || configured.single.maintenanceMode) {
+        continue;
+      }
+      final available = runtimeModules
+          .where((module) => module.moduleId == key)
+          .where((module) => module.isEnabled && !module.maintenanceMode)
+          .toList();
+      if (available.length > 1) {
+        return const ErrorStateWidget(
+          title: 'Workspace unavailable',
+          message: 'The runtime workspace module is ambiguous.',
+        );
+      }
+      if (available.length == 1) {
+        selectedModuleKey = key;
+        break;
+      }
+    }
+    if (selectedModuleKey == null) {
       return const ErrorStateWidget(
         title: 'Workspace unavailable',
-        message:
-            'The active entity context does not have access to this workspace.',
+        message: 'This workspace module is not configured or available.',
       );
     }
 
-    return builder(context);
+    return widget.builder(context);
   }
 }
 

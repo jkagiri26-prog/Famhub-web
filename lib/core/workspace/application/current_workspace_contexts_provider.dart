@@ -19,9 +19,12 @@ import 'package:famhub_app/core/workspace/application/active_workspace_provider.
 
 final currentWorkspaceContextsProvider =
     FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final userId = ref.watch(sessionProvider.select((session) => session.userId));
   final workspaceId =
       ref.watch(activeWorkspaceProvider.select((w) => w.workspaceId));
-  if (workspaceId.isEmpty) return const [];
+  if (userId == null || userId.isEmpty || workspaceId.isEmpty) {
+    return const [];
+  }
 
   final authService = ref.read(authServiceProvider);
   final all = await authService.getAvailableWorkspaceContexts();

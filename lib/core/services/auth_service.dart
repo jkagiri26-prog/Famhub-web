@@ -77,6 +77,9 @@ class WorkspaceSelectionResult {
   /// users.profiles.id
   final String? profileId;
 
+  /// Workspace ID from the activated entity-context session.
+  final String? activeWorkspaceId;
+
   /// core.entities.id (the personal operating entity ensured by the backend)
   final String? entityId;
 
@@ -97,6 +100,7 @@ class WorkspaceSelectionResult {
     this.workspaces = const [],
     this.profile,
     this.profileId,
+    this.activeWorkspaceId,
     this.entityId,
     this.roleId,
     this.activeMode,
@@ -413,6 +417,7 @@ class AuthService {
         workspaces: workspaces,
         profile: profile,
         profileId: entityContext?['profile_id']?.toString(),
+        activeWorkspaceId: entityContext?['workspace_id']?.toString(),
         entityId: entityContext?['entity_id']?.toString(),
         roleId: entityContext?['role_id']?.toString(),
         activeMode: entityContext?['active_mode']?.toString(),

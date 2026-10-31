@@ -5,6 +5,9 @@ class EntityContext {
   /// users.profiles.id — distinct from userId (auth.users.id)
   final String? profileId;
 
+  /// Workspace ID from the active core.entity_context_sessions row.
+  final String? activeWorkspaceId;
+
   /// core.entities.id — the active entity. Null when unavailable; never
   /// fabricated.
   final String? entityId;
@@ -25,6 +28,7 @@ class EntityContext {
   const EntityContext({
     this.userId,
     this.profileId,
+    this.activeWorkspaceId,
     this.entityId,
     this.roleId,
     this.businessProfileId,
@@ -37,6 +41,7 @@ class EntityContext {
   EntityContext copyWith({
     String? userId,
     String? profileId,
+    String? activeWorkspaceId,
     String? entityId,
     String? roleId,
     String? businessProfileId,
@@ -46,6 +51,7 @@ class EntityContext {
     bool? isLoading,
     bool clearUserId = false,
     bool clearProfileId = false,
+    bool clearActiveWorkspaceId = false,
     bool clearEntityId = false,
     bool clearRoleId = false,
     bool clearBusinessProfileId = false,
@@ -54,6 +60,9 @@ class EntityContext {
     return EntityContext(
       userId: clearUserId ? null : userId ?? this.userId,
       profileId: clearProfileId ? null : profileId ?? this.profileId,
+      activeWorkspaceId: clearActiveWorkspaceId
+          ? null
+          : activeWorkspaceId ?? this.activeWorkspaceId,
       entityId: clearEntityId ? null : entityId ?? this.entityId,
       roleId: clearRoleId ? null : roleId ?? this.roleId,
       businessProfileId: clearBusinessProfileId
