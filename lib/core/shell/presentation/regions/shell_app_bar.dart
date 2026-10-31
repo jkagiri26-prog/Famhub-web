@@ -577,9 +577,11 @@ class _ContextSelector extends ConsumerWidget {
     final activeSession = ref.read(sessionProvider);
     final currentAuthenticatedUserId =
         activeSession is AuthenticatedSession ? activeSession.userId : null;
-    final currentAuthenticatedProfileId = activeSession is AuthenticatedSession
-        ? activeSession.profile?['id']?.toString()
-        : null;
+    String? currentAuthenticatedProfileId;
+    if (activeSession is AuthenticatedSession) {
+      currentAuthenticatedProfileId =
+          activeSession.profile?['id']?.toString();
+    }
     final alreadyCorrect = workspaceId == currentWorkspaceId &&
         currentContext.userId == currentAuthenticatedUserId &&
         currentContext.profileId == currentAuthenticatedProfileId &&
@@ -601,9 +603,10 @@ class _ContextSelector extends ConsumerWidget {
     final initiatingUserId = initiatingSession is AuthenticatedSession
         ? initiatingSession.userId
         : null;
-    final initiatingProfileId = initiatingSession is AuthenticatedSession
-        ? initiatingSession.profile?['id']?.toString()
-        : null;
+    String? initiatingProfileId;
+    if (initiatingSession is AuthenticatedSession) {
+      initiatingProfileId = initiatingSession.profile?['id']?.toString();
+    }
     if (initiatingUserId == null ||
         initiatingUserId.isEmpty ||
         initiatingProfileId == null ||

@@ -164,9 +164,10 @@ class ActiveWorkspaceNotifier extends Notifier<Workspace> {
     final session = ref.read(sessionProvider);
     final wasAuthenticated = session is AuthenticatedSession;
     final userId = wasAuthenticated ? session.userId : null;
-    final profileId = wasAuthenticated
-        ? session.profile?['id']?.toString()
-        : null;
+    String? profileId;
+    if (session is AuthenticatedSession) {
+      profileId = session.profile?['id']?.toString();
+    }
     final authUserId = SupabaseService.instance.currentUserId;
     if (wasAuthenticated && (userId == null || userId.isEmpty)) {
       return;
@@ -213,9 +214,10 @@ class ActiveWorkspaceNotifier extends Notifier<Workspace> {
     final session = ref.read(sessionProvider);
     final sessionUserId =
         session is AuthenticatedSession ? session.userId : null;
-    final sessionProfileId = session is AuthenticatedSession
-        ? session.profile?['id']?.toString()
-        : null;
+    String? sessionProfileId;
+    if (session is AuthenticatedSession) {
+      sessionProfileId = session.profile?['id']?.toString();
+    }
 
     bool requestIsCurrent() =>
         request == _reconciliationGeneration &&
@@ -318,9 +320,10 @@ class ActiveWorkspaceNotifier extends Notifier<Workspace> {
     final session = ref.read(sessionProvider);
     final wasAuthenticated = session is AuthenticatedSession;
     final userId = wasAuthenticated ? session.userId : null;
-    final profileId = wasAuthenticated
-        ? session.profile?['id']?.toString()
-        : null;
+    String? profileId;
+    if (session is AuthenticatedSession) {
+      profileId = session.profile?['id']?.toString();
+    }
     final authUserId = SupabaseService.instance.currentUserId;
     if (wasAuthenticated && (userId == null || userId.isEmpty)) {
       return;

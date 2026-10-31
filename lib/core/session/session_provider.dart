@@ -482,7 +482,8 @@ class SessionController extends Notifier<AppSession> {
     final roleId = result.roleId;
     final activeMode = result.activeMode;
     final profileId = result.profileId;
-    if (profileId == initiatingProfileId &&
+    if (profileId != null &&
+        profileId == initiatingProfileId &&
         activeWorkspaceId != null &&
         activeWorkspaceId.isNotEmpty &&
         entityId != null &&

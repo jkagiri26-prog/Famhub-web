@@ -7,6 +7,7 @@ import 'package:famhub_app/core/context_engine/providers/context_storage_service
 import 'package:famhub_app/core/context_engine/services/context_storage_service.dart';
 import 'package:famhub_app/core/context_engine/services/context_sync_service.dart';
 import 'package:famhub_app/core/services/supabase_service.dart';
+import 'package:famhub_app/core/session/app_session.dart';
 import 'package:famhub_app/core/session/session_provider.dart';
 import 'package:famhub_app/core/workspace/application/active_workspace_provider.dart';
 
@@ -82,9 +83,10 @@ class ContextController extends Notifier<EntityContext> {
     final isAuthenticated = ref.read(isAuthenticatedProvider);
     final initiatingUserId = SupabaseService.instance.currentUserId;
     final initiatingSession = ref.read(sessionProvider);
-    final initiatingProfileId = initiatingSession is AuthenticatedSession
-        ? initiatingSession.profile?['id']?.toString()
-        : null;
+    String? initiatingProfileId;
+    if (initiatingSession is AuthenticatedSession) {
+      initiatingProfileId = initiatingSession.profile?['id']?.toString();
+    }
 
     bool isCurrentUserRequest() {
       if (generation != _refreshGeneration ||
@@ -351,9 +353,10 @@ class ContextController extends Notifier<EntityContext> {
   }) async {
     final session = ref.read(sessionProvider);
     final userId = session is AuthenticatedSession ? session.userId : null;
-    final profileId = session is AuthenticatedSession
-        ? session.profile?['id']?.toString()
-        : null;
+    String? profileId;
+    if (session is AuthenticatedSession) {
+      profileId = session.profile?['id']?.toString();
+    }
     if (userId == null ||
         userId.isEmpty ||
         profileId == null ||
