@@ -4,10 +4,11 @@
 ///
 /// Routes come from Module Registry, not hardcoded.
 /// Disabled modules don't even register routes.
-/// Router auto-rebuilds when runtime registry changes.
+/// The route table updates when runtime module availability changes.
 /// ============================================================
 library;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -94,11 +95,79 @@ class ModulePageRegistry {
 /// Only enabled, non-maintenance modules get routes registered.
 /// ============================================================
 class DynamicRouteRegistrar {
+  static List<(String, String)> routeSignature(
+    List<RuntimeModule> enabledModules,
+  ) {
+    final signature = <(String, String)>[];
+    var hasTraderRoute = false;
+    for (final module in enabledModules) {
+      if (module.maintenanceMode ||
+          ModulePageRegistry.resolve(module.moduleId) == null) {
+        continue;
+      }
+      final path =
+          ModuleRegistry.byId(module.moduleId)?.entryRoute ?? module.route;
+      signature.add((module.moduleId, path));
+      if (module.moduleId == 'trader') hasTraderRoute = true;
+      if (module.moduleId == 'finance') {
+        signature
+          ..add((AppRoutes.financingCatalogName, AppRoutes.financingCatalog))
+          ..add(
+            (AppRoutes.financingManagementName, AppRoutes.financingManagement),
+          )
+          ..add(
+            (
+              AppRoutes.financingProviderDetailName,
+              AppRoutes.financingProviderDetail,
+            ),
+          );
+      }
+    }
+    if (!hasTraderRoute) signature.add(('trader', '/trader'));
+    return signature;
+  }
+
   static GoRouter buildRouter(
     List<RuntimeModule> enabledModules, {
     CompositionMetricsCollector? metrics,
   }) {
     final stopwatch = Stopwatch()..start();
+    final routes = _buildRoutes(enabledModules);
+
+    final router = GoRouter(
+      initialLocation: AppRoutes.root,
+      routes: routes,
+      errorBuilder: (context, state) => const ShellNotFound(),
+    );
+
+    stopwatch.stop();
+    metrics?.recordRouteRegistrationDuration(stopwatch.elapsedMilliseconds);
+
+    return router;
+  }
+
+  static RoutingConfig buildRoutingConfig(
+    List<RuntimeModule> enabledModules, {
+    CompositionMetricsCollector? metrics,
+  }) {
+    final stopwatch = Stopwatch()..start();
+    final config = RoutingConfig(routes: _buildRoutes(enabledModules));
+    stopwatch.stop();
+    metrics?.recordRouteRegistrationDuration(stopwatch.elapsedMilliseconds);
+    return config;
+  }
+
+  static GoRouter buildRouterWithConfig(
+    ValueListenable<RoutingConfig> routingConfig,
+  ) {
+    return GoRouter.routingConfig(
+      routingConfig: routingConfig,
+      initialLocation: AppRoutes.root,
+      errorBuilder: (context, state) => const ShellNotFound(),
+    );
+  }
+
+  static List<RouteBase> _buildRoutes(List<RuntimeModule> enabledModules) {
     final moduleRoutes = <GoRoute>[];
 
     for (final module in enabledModules) {
@@ -163,74 +232,65 @@ class DynamicRouteRegistrar {
       );
     }
 
-    final router = GoRouter(
-      initialLocation: AppRoutes.root,
-      routes: [
-        ShellRoute(
-          builder: (context, state, child) => UnifiedAppShellV2(child: child),
-          routes: [
-            GoRoute(
-              path: AppRoutes.root,
-              name: AppRoutes.rootName,
-              builder: (context, state) => const UnifiedDashboardHost(),
-            ),
-            GoRoute(
-              path: AppRoutes.home,
-              name: AppRoutes.homeName,
-              builder: (context, state) => const FamhubHomePage(inShell: true),
-            ),
-            GoRoute(
-              path: AppRoutes.search,
-              name: AppRoutes.searchName,
-              builder: (context, state) => const GlobalSearchPage(),
-            ),
-            GoRoute(
-              path: AppRoutes.notifications,
-              name: AppRoutes.notificationsName,
-              builder: (context, state) => const NotificationCenterPage(),
-            ),
-            GoRoute(
-              path: AppRoutes.reports,
-              name: AppRoutes.reportsName,
-              builder: (context, state) => const ReportsCenterPage(),
-            ),
-            GoRoute(
-              path: AppRoutes.runtimeSettings,
-              name: AppRoutes.runtimeSettingsName,
-              builder: (context, state) => const RuntimeSettingsPage(),
-            ),
-            GoRoute(
-              path: AppRoutes.aiAssistant,
-              name: AppRoutes.aiAssistantName,
-              builder: (context, state) =>
-                  const FarmerAdvisorPage(initialRoute: AppRoutes.aiAssistant),
-            ),
-            GoRoute(
-              path: AppRoutes.weather,
-              name: AppRoutes.weatherName,
-              builder: (context, state) => const WeatherPage(),
-            ),
-            GoRoute(
-              path: AppRoutes.guest,
-              name: AppRoutes.guestName,
-              builder: (context, state) => const FamhubHomePage(),
-            ),
-            GoRoute(
-              path: AppRoutes.settings,
-              name: AppRoutes.settingsName,
-              builder: (context, state) => const SettingsPage(),
-            ),
-            ...moduleRoutes,
-          ],
-        ),
-      ],
-      errorBuilder: (context, state) => const ShellNotFound(),
-    );
-
-    stopwatch.stop();
-    metrics?.recordRouteRegistrationDuration(stopwatch.elapsedMilliseconds);
-
-    return router;
+    return [
+      ShellRoute(
+        builder: (context, state, child) => UnifiedAppShellV2(child: child),
+        routes: [
+          GoRoute(
+            path: AppRoutes.root,
+            name: AppRoutes.rootName,
+            builder: (context, state) => const UnifiedDashboardHost(),
+          ),
+          GoRoute(
+            path: AppRoutes.home,
+            name: AppRoutes.homeName,
+            builder: (context, state) => const FamhubHomePage(inShell: true),
+          ),
+          GoRoute(
+            path: AppRoutes.search,
+            name: AppRoutes.searchName,
+            builder: (context, state) => const GlobalSearchPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.notifications,
+            name: AppRoutes.notificationsName,
+            builder: (context, state) => const NotificationCenterPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.reports,
+            name: AppRoutes.reportsName,
+            builder: (context, state) => const ReportsCenterPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.runtimeSettings,
+            name: AppRoutes.runtimeSettingsName,
+            builder: (context, state) => const RuntimeSettingsPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.aiAssistant,
+            name: AppRoutes.aiAssistantName,
+            builder: (context, state) =>
+                const FarmerAdvisorPage(initialRoute: AppRoutes.aiAssistant),
+          ),
+          GoRoute(
+            path: AppRoutes.weather,
+            name: AppRoutes.weatherName,
+            builder: (context, state) => const WeatherPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.guest,
+            name: AppRoutes.guestName,
+            builder: (context, state) => const FamhubHomePage(),
+          ),
+          GoRoute(
+            path: AppRoutes.settings,
+            name: AppRoutes.settingsName,
+            builder: (context, state) => const SettingsPage(),
+          ),
+          ...moduleRoutes,
+        ],
+      ),
+    ];
   }
 
   static GoRouter rebuildRouter(List<RuntimeModule> enabledModules) {

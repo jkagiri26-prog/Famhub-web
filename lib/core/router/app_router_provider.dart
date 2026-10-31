@@ -19,6 +19,7 @@
 ///   - Import registries
 /// ============================================================
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -26,7 +27,26 @@ import 'package:famhub_app/core/composition/router/dynamic_route_registrar.dart'
 import 'package:famhub_app/core/composition/providers/composition_providers.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final enabledModules = ref.watch(runtimeModuleRegistryProvider);
-  return DynamicRouteRegistrar.buildRouter(enabledModules);
-});
+  final enabledModules = ref.read(runtimeModuleRegistryProvider);
+  var routeSignature = DynamicRouteRegistrar.routeSignature(enabledModules);
+  final routingConfig = ValueNotifier(
+    DynamicRouteRegistrar.buildRoutingConfig(enabledModules),
+  );
+  final router = DynamicRouteRegistrar.buildRouterWithConfig(routingConfig);
 
+  ref.listen(runtimeModuleRegistryProvider, (_, enabledModules) {
+    final nextSignature =
+        DynamicRouteRegistrar.routeSignature(enabledModules);
+    if (listEquals(routeSignature, nextSignature)) return;
+    routeSignature = nextSignature;
+    routingConfig.value =
+        DynamicRouteRegistrar.buildRoutingConfig(enabledModules);
+  });
+
+  ref.onDispose(() {
+    router.dispose();
+    routingConfig.dispose();
+  });
+
+  return router;
+});
