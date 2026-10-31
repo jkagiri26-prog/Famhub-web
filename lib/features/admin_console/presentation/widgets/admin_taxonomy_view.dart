@@ -23,6 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:famhub_app/core/workspace/application/active_workspace_provider.dart';
 import 'package:famhub_app/features/admin_console/application/providers/admin_capability_provider.dart';
 import 'package:famhub_app/features/admin_console/application/providers/admin_drill_provider.dart';
 import 'package:famhub_app/features/admin_console/application/providers/admin_taxonomy_provider.dart';
@@ -189,7 +190,10 @@ class _AdminTaxonomyViewState extends ConsumerState<AdminTaxonomyView> {
     final history = adminDrillHistoryFromExtra(
       router.routerDelegate.currentConfiguration.extra,
     );
-    final raw = history['taxonomy'];
+    final currentWorkspaceId = ref.read(activeWorkspaceProvider).workspaceId;
+    final raw = history['workspaceId'] == currentWorkspaceId
+        ? history['taxonomy']
+        : null;
     final snapshot = raw is Map ? raw : const <Object?, Object?>{};
     final generation = ++_restoreGeneration;
     final domain = await _resolveNode(
@@ -225,6 +229,7 @@ class _AdminTaxonomyViewState extends ConsumerState<AdminTaxonomyView> {
     if (!kIsWeb || router == null) return;
     final extra = updateAdminDrillHistoryExtra(
       router.routerDelegate.currentConfiguration.extra,
+      workspaceId: ref.read(activeWorkspaceProvider).workspaceId,
       section: 'taxonomy',
       selection: {
         'domain': _domain == null

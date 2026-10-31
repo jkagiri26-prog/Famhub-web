@@ -35,6 +35,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:famhub_app/core/workspace/application/active_workspace_provider.dart';
 import 'package:famhub_app/features/admin_console/application/providers/admin_capability_provider.dart';
 import 'package:famhub_app/features/admin_console/application/providers/admin_drill_provider.dart';
 import 'package:famhub_app/features/admin_console/application/providers/admin_locations_provider.dart';
@@ -208,7 +209,10 @@ class _AdminLocationsViewState extends ConsumerState<AdminLocationsView> {
     final history = adminDrillHistoryFromExtra(
       router.routerDelegate.currentConfiguration.extra,
     );
-    final raw = history['locations'];
+    final currentWorkspaceId = ref.read(activeWorkspaceProvider).workspaceId;
+    final raw = history['workspaceId'] == currentWorkspaceId
+        ? history['locations']
+        : null;
     final snapshot = raw is Map ? raw : const <Object?, Object?>{};
     final countryId = snapshot['countryId'] is String
         ? snapshot['countryId']! as String
@@ -300,6 +304,7 @@ class _AdminLocationsViewState extends ConsumerState<AdminLocationsView> {
     if (!kIsWeb || router == null) return;
     final extra = updateAdminDrillHistoryExtra(
       router.routerDelegate.currentConfiguration.extra,
+      workspaceId: ref.read(activeWorkspaceProvider).workspaceId,
       section: 'locations',
       selection: {
         'countryId': _countryId,

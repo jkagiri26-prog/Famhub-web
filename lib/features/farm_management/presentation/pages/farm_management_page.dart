@@ -45,6 +45,7 @@ import 'package:famhub_app/core/dashboard_engine/presentation/builders/widget_re
 import 'package:famhub_app/core/composition/providers/descriptor_providers.dart';
 import 'package:famhub_app/core/composition/domain/models/module_descriptor.dart';
 import 'package:famhub_app/core/navigation/resize_optimizer.dart';
+import 'package:famhub_app/core/workspace/application/active_workspace_provider.dart';
 
 import 'package:famhub_app/shared/layouts/shell_page_content.dart';
 import 'package:famhub_app/shared/layouts/dashboard_section_widget.dart';
@@ -283,8 +284,23 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
 
     final routeExtra = _farmHistoryStringMap(configuration.extra);
     final rawSnapshot = routeExtra[_farmManagementHistoryExtraKey];
-    if (rawSnapshot is! Map) return;
+    final currentWorkspaceId = ref.read(activeWorkspaceProvider).workspaceId;
+    if (rawSnapshot is! Map) {
+      _lastHistorySnapshot = jsonEncode(const <String, Object?>{});
+      unawaited(_restoreBrowserHistory(const <String, Object?>{}));
+      return;
+    }
     final snapshot = _farmHistoryStringMap(rawSnapshot);
+    if (snapshot['workspaceId'] is! String) {
+      _lastHistorySnapshot = jsonEncode(const <String, Object?>{});
+      unawaited(_restoreBrowserHistory(const <String, Object?>{}));
+      return;
+    }
+    if (snapshot['workspaceId'] != currentWorkspaceId) {
+      _historyRestoreGeneration++;
+      _restoringHistory = false;
+      return;
+    }
     final encoded = jsonEncode(snapshot);
     if (encoded == _lastHistorySnapshot) return;
 
@@ -346,6 +362,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
   Map<String, Object?> _browserHistorySnapshot() {
     final hierarchy = ref.read(hierarchyProvider);
     return {
+      'workspaceId': ref.read(activeWorkspaceProvider).workspaceId,
       'tabIndex': _tabController.index,
       'entityId': hierarchy.entityId,
       'fieldId': hierarchy.fieldId,
@@ -642,8 +659,14 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
       final rawSnapshot = extra[_farmManagementHistoryExtraKey];
       if (rawSnapshot is Map) {
         final snapshot = _farmHistoryStringMap(rawSnapshot);
-        _lastHistorySnapshot = jsonEncode(snapshot);
-        unawaited(_restoreBrowserHistory(snapshot));
+        if (snapshot['workspaceId'] ==
+            ref.read(activeWorkspaceProvider).workspaceId) {
+          _lastHistorySnapshot = jsonEncode(snapshot);
+          unawaited(_restoreBrowserHistory(snapshot));
+        } else {
+          _lastHistorySnapshot = null;
+          _writeBrowserHistory(replace: true);
+        }
       } else {
         _lastHistorySnapshot = null;
         _writeBrowserHistory(replace: true);

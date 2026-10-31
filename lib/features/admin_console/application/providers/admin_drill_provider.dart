@@ -11,14 +11,22 @@ Map<String, Object?> adminDrillHistoryFromExtra(Object? extra) {
 
 Map<String, Object?> updateAdminDrillHistoryExtra(
   Object? extra, {
+  required String workspaceId,
   required String section,
   required Object? selection,
 }) {
   final routeExtra = _stringKeyedMap(extra);
-  final history = adminDrillHistoryFromExtra(routeExtra);
+  final previousHistory = adminDrillHistoryFromExtra(routeExtra);
+  final history = previousHistory['workspaceId'] == workspaceId
+      ? previousHistory
+      : const <String, Object?>{};
   return {
     ...routeExtra,
-    adminDrillHistoryExtraKey: {...history, section: selection},
+    adminDrillHistoryExtraKey: {
+      ...history,
+      'workspaceId': workspaceId,
+      section: selection,
+    },
   };
 }
 
