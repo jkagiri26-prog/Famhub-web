@@ -28,6 +28,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/navigation/nav_config.dart';
 import 'package:famhub_app/core/navigation/nav_item.dart';
+import 'package:famhub_app/core/router/route_names.dart';
 import 'package:famhub_app/core/workspace/application/active_workspace_provider.dart';
 import 'package:famhub_app/core/workspace/application/workspace_catalog_provider.dart';
 import 'package:famhub_app/core/workspace/domain/workspace_catalog_item.dart';
@@ -108,6 +109,26 @@ class WorkspaceDashboardCatalog {
   static String? primaryModuleKeyFor(String? workspaceType) {
     final keys = moduleKeysFor(workspaceType);
     return keys.isEmpty ? null : keys.first;
+  }
+
+  /// Route registered for a workspace module, if it has a canonical landing.
+  static (String, String)? workspaceRouteForModuleKey(String moduleKey) {
+    return switch (moduleKey) {
+      'farm_management' => (AppRoutes.farmName, AppRoutes.farm),
+      'admin_console' => (AppRoutes.adminName, AppRoutes.admin),
+      'trader' => (AppRoutes.traderName, AppRoutes.trader),
+      _ => null,
+    };
+  }
+
+  /// Canonical landing route for workspace types with dedicated routes.
+  /// Other workspace types continue to use the root dashboard dispatcher.
+  static String landingRouteFor(String? rawWorkspaceType) {
+    final workspaceType = normalizeType(rawWorkspaceType);
+    final primaryModuleKey = primaryModuleKeyFor(workspaceType);
+    return primaryModuleKey == null
+        ? AppRoutes.root
+        : workspaceRouteForModuleKey(primaryModuleKey)?.$2 ?? AppRoutes.root;
   }
 
   /// Normalize a raw workspace type/category label into a stable key.

@@ -360,16 +360,11 @@ class DynamicRouteRegistrar {
       (moduleId == 'commerce' ? ModulePageRegistry.resolve('trader') : null);
 
   static (String, String) _workspaceRoute(String key) {
-    switch (key) {
-      case 'farm_management':
-        return (AppRoutes.farmName, AppRoutes.farm);
-      case 'admin_console':
-        return (AppRoutes.adminName, AppRoutes.admin);
-      case 'trader':
-        return (AppRoutes.traderName, AppRoutes.trader);
-      default:
-        throw ArgumentError.value(key, 'key', 'Unknown workspace route');
+    final route = WorkspaceDashboardCatalog.workspaceRouteForModuleKey(key);
+    if (route == null) {
+      throw ArgumentError.value(key, 'key', 'Unknown workspace route');
     }
+    return route;
   }
 }
 

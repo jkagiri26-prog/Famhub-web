@@ -468,7 +468,16 @@ class _ContextSelector extends ConsumerWidget {
       // BEFORE committing the workspace UI or navigating. The reconcile guard
       // inside decides whether an activation RPC is actually required.
       if (context.mounted) {
-        await _resolveAndActivateContext(context, ref, selected);
+        final selectedWorkspace =
+            items.firstWhere((workspace) => workspace.id == selected);
+        await _resolveAndActivateContext(
+          context,
+          ref,
+          selected,
+          landingRoute: WorkspaceDashboardCatalog.landingRouteFor(
+            selectedWorkspace.category ?? selectedWorkspace.name,
+          ),
+        );
       }
     }
   }
@@ -483,12 +492,17 @@ class _ContextSelector extends ConsumerWidget {
   ///     → many       : user selects an entity/role context
   ///   → validate entity/role → activate_workspace_context
   ///   → authoritative context (returned row, or re-read for void)
-  ///   → validate match → apply locally → commit workspace → navigate
+  ///   → validate match → apply locally → commit workspace → navigate to
+  ///     the selected workspace's canonical landing route
   ///
   /// On any failure the previous workspace + EntityContext are retained and
   /// no navigation occurs.
   Future<void> _resolveAndActivateContext(
-      BuildContext context, WidgetRef ref, String workspaceId) async {
+    BuildContext context,
+    WidgetRef ref,
+    String workspaceId, {
+    required String landingRoute,
+  }) async {
     final authService = ref.read(authServiceProvider);
     // TEMPORARY DIAGNOSTIC (Phase 5I-W.8 latency — remove after): per-stage
     // timings. No behavior change, no personal data.
@@ -594,7 +608,7 @@ class _ContextSelector extends ConsumerWidget {
     if (alreadyCorrect) {
       debugPrint('[WorkspaceSwitch] already active workspace+context — '
           'no activation required');
-      if (context.mounted) context.go('/');
+      if (context.mounted) context.go(landingRoute);
       return;
     }
 
@@ -802,11 +816,14 @@ class _ContextSelector extends ConsumerWidget {
     debugPrint('[WorkspaceSwitch] timing switch='
         '${tSwitch.elapsedMilliseconds}ms');
     if (!contextController.selectionOperationIsCurrent(
-          generation: activationGeneration,
-          userId: initiatingUserId,
-          profileId: initiatingProfileId,
-        ) ||
-        ref.read(activeWorkspaceProvider).workspaceId != workspaceId) {
+      generation: activationGeneration,
+      userId: initiatingUserId,
+      profileId: initiatingProfileId,
+    )) {
+      return;
+    }
+    if (ref.read(activeWorkspaceProvider).workspaceId != workspaceId) {
+      await contextController.init();
       return;
     }
 
@@ -824,7 +841,16 @@ class _ContextSelector extends ConsumerWidget {
     tApply.stop();
     debugPrint('[WorkspaceSwitch] timing apply='
         '${tApply.elapsedMilliseconds}ms');
-    if (!appliedContext) return;
+    if (!appliedContext) {
+      if (contextController.selectionOperationIsCurrent(
+        generation: activationGeneration,
+        userId: initiatingUserId,
+        profileId: initiatingProfileId,
+      )) {
+        await contextController.init();
+      }
+      return;
+    }
 
     // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression):
     // final applied context after activation.
@@ -843,7 +869,7 @@ class _ContextSelector extends ConsumerWidget {
 
     final tNav = Stopwatch()..start();
     if (context.mounted) {
-      context.go('/');
+      context.go(landingRoute);
     }
     tNav.stop();
     totalSw.stop();
