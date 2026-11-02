@@ -18,8 +18,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
+import 'package:famhub_app/features/farm_management/application/providers/farm_tab_navigation_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/field_entity.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/activity_creation_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/add_crop_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/add_livestock_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/assets_page.dart';
+import 'package:famhub_app/features/farm_management/presentation/pages/production_page.dart';
 
 /// Ensure a Field/Block is selected in the hierarchy, then open a
 /// field-scoped page (Add Crop / Add Livestock).
@@ -83,4 +89,64 @@ void _push(BuildContext context, WidgetBuilder pageBuilder) {
   Navigator.of(context).push(
     MaterialPageRoute(builder: pageBuilder),
   );
+}
+
+Future<void> openFarmActionRoute(
+  BuildContext context,
+  WidgetRef ref,
+  String route,
+) async {
+  switch (route) {
+    case '/farm/activities':
+      ref
+          .read(farmTabNavigationProvider.notifier)
+          .goTo(FarmManagementTab.activityLogs);
+      return;
+    case '/farm/reports':
+    case '/farm/reports/generate':
+    case '/farm/reports/history':
+    case '/farm/production':
+      ref
+          .read(farmTabNavigationProvider.notifier)
+          .goTo(FarmManagementTab.reports);
+      return;
+    case '/farm/harvest':
+      ref
+          .read(farmTabNavigationProvider.notifier)
+          .goTo(FarmManagementTab.crops);
+      return;
+    case '/farm/setup':
+      ref
+          .read(farmTabNavigationProvider.notifier)
+          .goTo(FarmManagementTab.overview);
+      return;
+    case '/farm/activities/create':
+    case '/farm/activities/record':
+      _push(context, (_) => const ActivityCreationPage());
+      return;
+    case '/farm/assets':
+      _push(context, (_) => const AssetsPage());
+      return;
+    case '/farm/crops/create':
+      await ensureFieldSelectedAndOpen(
+        context,
+        ref,
+        (_) => const AddCropPage(),
+      );
+      return;
+    case '/farm/livestock/create':
+      await ensureFieldSelectedAndOpen(
+        context,
+        ref,
+        (_) => const AddLivestockPage(),
+      );
+      return;
+    case '/farm/production/record':
+      _push(context, (_) => const ProductionRecordingPage());
+      return;
+    default:
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This action is not available yet.')),
+      );
+  }
 }

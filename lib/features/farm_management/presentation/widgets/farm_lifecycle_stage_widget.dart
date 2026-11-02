@@ -23,6 +23,7 @@ import 'package:famhub_app/features/farm_management/application/providers/farm_l
 import 'package:famhub_app/features/farm_management/application/providers/farm_season_provider.dart';
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/services/farm_health_score_service.dart';
+import 'package:famhub_app/features/farm_management/presentation/navigation/farm_action_navigation.dart';
 
 /// Displays the current lifecycle progress with stage, health, and next action.
 class FarmLifecycleStageWidget extends ConsumerWidget {
@@ -196,8 +197,7 @@ class FarmLifecycleStageWidget extends ConsumerWidget {
         onTap: () {
           final route = lifecycle.nextActionRoute;
           if (route != null) {
-            // Use go_router or Navigator
-            Navigator.of(context).pushNamed(route);
+            openFarmActionRoute(context, ref, route);
           }
         },
         borderRadius: BorderRadius.circular(10),

@@ -13,7 +13,6 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/hierarchy_provider.dart';
 import 'package:famhub_app/features/farm_management/presentation/navigation/farm_action_navigation.dart';
@@ -56,11 +55,16 @@ class QuickActionsWidget extends ConsumerWidget {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: actions.map((action) => _buildActionChip(
-              context,
-              action: action,
-              hierarchy: hierarchy,
-            )).toList(),
+            children: actions
+                .map(
+                  (action) => _buildActionChip(
+                    context,
+                    ref: ref,
+                    action: action,
+                    hierarchy: hierarchy,
+                  ),
+                )
+                .toList(),
           ),
         ],
       ),
@@ -203,6 +207,7 @@ class QuickActionsWidget extends ConsumerWidget {
 
   Widget _buildActionChip(
     BuildContext context, {
+    required WidgetRef ref,
     required _QuickAction action,
     required HierarchySelectionState hierarchy,
   }) {
@@ -213,7 +218,8 @@ class QuickActionsWidget extends ConsumerWidget {
         style: const TextStyle(fontSize: 11, color: Colors.white),
       ),
       backgroundColor: action.color,
-      onPressed: action.open ?? () => context.push(action.route),
+      onPressed: action.open ??
+          () => openFarmActionRoute(context, ref, action.route),
       padding: const EdgeInsets.symmetric(horizontal: 4),
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       shape: RoundedRectangleBorder(

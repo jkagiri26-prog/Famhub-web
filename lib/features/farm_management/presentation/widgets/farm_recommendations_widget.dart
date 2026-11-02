@@ -17,6 +17,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/features/farm_management/application/providers/farm_lifecycle_provider.dart';
 import 'package:famhub_app/features/farm_management/domain/services/farm_recommendation_engine.dart';
+import 'package:famhub_app/features/farm_management/presentation/navigation/farm_action_navigation.dart';
 
 /// Dashboard widget that shows contextual recommendations.
 class FarmRecommendationsWidget extends ConsumerWidget {
@@ -75,7 +76,9 @@ class FarmRecommendationsWidget extends ConsumerWidget {
           const SizedBox(height: 12),
 
           // ── Recommendation Items ──
-          ...topRecommendations.map((r) => _buildRecommendationItem(context, r, theme)),
+          ...topRecommendations.map(
+            (r) => _buildRecommendationItem(context, ref, r, theme),
+          ),
         ],
       ),
     );
@@ -83,6 +86,7 @@ class FarmRecommendationsWidget extends ConsumerWidget {
 
   Widget _buildRecommendationItem(
     BuildContext context,
+    WidgetRef ref,
     FarmRecommendation recommendation,
     ThemeData theme,
   ) {
@@ -97,7 +101,11 @@ class FarmRecommendationsWidget extends ConsumerWidget {
         ),
         child: InkWell(
           onTap: recommendation.actionRoute != null
-              ? () => Navigator.of(context).pushNamed(recommendation.actionRoute!)
+              ? () => openFarmActionRoute(
+                    context,
+                    ref,
+                    recommendation.actionRoute!,
+                  )
               : null,
           borderRadius: BorderRadius.circular(10),
           child: Row(
