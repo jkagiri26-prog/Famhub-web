@@ -298,6 +298,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     DashboardDiagnosticLog.record(
       '[FarmerDashboardDiagnostic] browser_history_route '
       'path=${configuration.uri.path} tab=${_tabController.index} '
+      'browserPath=${Uri.base.path} hashPresent=${Uri.base.hasFragment} '
       'restoring=$_restoringHistory',
     );
     if (!_isFarmManagementLocation(configuration.uri)) {

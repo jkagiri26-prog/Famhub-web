@@ -128,6 +128,12 @@ void main() async {
 /// CORE BOOTSTRAP — Runs inside runZonedGuarded()
 /// ─────────────────────────────────────────────────────────────
 Future<void> _bootstrap() async {
+  unawaited(DashboardDiagnosticLog.initialize());
+  DashboardDiagnosticLog.record(
+    '[DiagnosticSession] app_started '
+    'path=${Uri.base.path} hashPresent=${Uri.base.hasFragment}',
+  );
+
   // ─────────────────────────────────────────────────────────────
   // PHASE 1: Validate configuration before any initialization
   // ─────────────────────────────────────────────────────────────

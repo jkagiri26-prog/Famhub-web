@@ -1,16 +1,60 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DashboardDiagnosticLog {
   DashboardDiagnosticLog._();
 
   static const _maxEntries = 120;
   static const _maxEntryLength = 2400;
+  static const _storageKey = 'temporary_dashboard_diagnostics_v1';
   static final ValueNotifier<List<String>> entries =
       ValueNotifier<List<String>>([]);
+  static final ValueNotifier<String?> persistenceError =
+      ValueNotifier<String?>(null);
   static List<String> _latestEntries = [];
   static bool _notificationScheduled = false;
+  static bool _persistenceScheduled = false;
+  static bool _discardPersistedEntries = false;
+  static SharedPreferences? _preferences;
+  static Future<void>? _initializeFuture;
+  static Future<void> _writeQueue = Future<void>.value();
+
+  static Future<void> initialize() =>
+      _initializeFuture ??= _loadPersistedEntries();
+
+  static Future<void> _loadPersistedEntries() async {
+    try {
+      final preferences = await SharedPreferences.getInstance();
+      _preferences = preferences;
+      final encoded = preferences.getString(_storageKey);
+      if (encoded != null && !_discardPersistedEntries) {
+        final decoded = jsonDecode(encoded);
+        if (decoded is List) {
+          final persisted = decoded.whereType<String>().toList();
+          _latestEntries = [
+            ...persisted,
+            ..._latestEntries,
+          ];
+          if (_latestEntries.length > _maxEntries) {
+            _latestEntries.removeRange(
+              0,
+              _latestEntries.length - _maxEntries,
+            );
+          }
+        }
+      }
+      _discardPersistedEntries = false;
+      persistenceError.value = null;
+      _scheduleNotification();
+    } catch (error) {
+      persistenceError.value = error.runtimeType.toString();
+    }
+  }
 
   static void record(
     String message, {
@@ -35,6 +79,7 @@ class DashboardDiagnosticLog {
     }
     _latestEntries = next;
     _scheduleNotification();
+    _schedulePersistence();
 
     debugPrint(message);
     if (stackTrace != null) {
@@ -48,7 +93,35 @@ class DashboardDiagnosticLog {
 
   static void clear() {
     _latestEntries = [];
+    _discardPersistedEntries = true;
     _scheduleNotification();
+    _schedulePersistence();
+  }
+
+  static void _schedulePersistence() {
+    if (_persistenceScheduled) return;
+    _persistenceScheduled = true;
+    unawaited(Future<void>.delayed(const Duration(milliseconds: 250), () async {
+      _persistenceScheduled = false;
+      await _persistEntries();
+    }));
+  }
+
+  static Future<void> _persistEntries() async {
+    await initialize();
+    _discardPersistedEntries = false;
+    final preferences = _preferences;
+    if (preferences == null) return;
+    final encoded = jsonEncode(_latestEntries);
+    _writeQueue = _writeQueue.then((_) async {
+      try {
+        await preferences.setString(_storageKey, encoded);
+        persistenceError.value = null;
+      } catch (error) {
+        persistenceError.value = error.runtimeType.toString();
+      }
+    });
+    await _writeQueue;
   }
 
   static void _scheduleNotification() {
@@ -109,6 +182,21 @@ class _DashboardDiagnosticSheet extends StatelessWidget {
             ),
           ),
           const Divider(height: 1),
+          ValueListenableBuilder<String?>(
+            valueListenable: DashboardDiagnosticLog.persistenceError,
+            builder: (context, error, _) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Text(
+                error == null
+                    ? 'Diagnostics are saved on this device until cleared.'
+                    : 'Could not save diagnostics across reloads ($error).',
+                style: TextStyle(
+                  color: error == null ? colors.onSurfaceVariant : colors.error,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
           Expanded(
             child: ValueListenableBuilder<List<String>>(
               valueListenable: DashboardDiagnosticLog.entries,
