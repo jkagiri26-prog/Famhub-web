@@ -211,10 +211,19 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     if (_tabController.index != _settledTabIndex) {
       _settledTabIndex = _tabController.index;
       if (kIsWeb) {
+        final index = _tabController.index;
+        final tabName = switch (index) {
+          FarmManagementTab.overview => 'Overview',
+          FarmManagementTab.myFarms => 'My Farms',
+          FarmManagementTab.crops => 'Crops',
+          FarmManagementTab.livestock => 'Livestock',
+          FarmManagementTab.activityLogs => 'Activity Logs',
+          FarmManagementTab.reports => 'Reports',
+          _ => 'unknown',
+        };
         DashboardDiagnosticLog.record(
           '[FarmerDashboardDiagnostic] tab_settled '
-          'index=${_tabController.index} '
-          'name=${_tabDefs[_tabController.index].$1} '
+          'index=$index name=$tabName '
           'historyRestoring=$_restoringHistory',
         );
       }
