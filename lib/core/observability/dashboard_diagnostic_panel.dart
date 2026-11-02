@@ -16,6 +16,7 @@ class DashboardDiagnosticLog {
       ValueNotifier<List<String>>([]);
   static final ValueNotifier<String?> persistenceError =
       ValueNotifier<String?>(null);
+  static String? diagnosticScope;
   static List<String> _latestEntries = [];
   static bool _notificationScheduled = false;
   static bool _persistenceScheduled = false;
@@ -26,6 +27,10 @@ class DashboardDiagnosticLog {
 
   static Future<void> initialize() =>
       _initializeFuture ??= _loadPersistedEntries();
+
+  static void setDiagnosticScope(String? scope) {
+    diagnosticScope = scope;
+  }
 
   static Future<void> _loadPersistedEntries() async {
     try {

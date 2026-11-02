@@ -220,7 +220,9 @@ void configureGlobalErrorHandling({ErrorHandler? onError}) {
     // Format a clean error message without sensitive details
     final summaryText = exception.toString();
     DashboardDiagnosticLog.record(
-      '[FATAL] FlutterError errorType=${exception.runtimeType} '
+      '[FATAL] FlutterError '
+      'scope=${DashboardDiagnosticLog.diagnosticScope ?? 'none'} '
+      'errorType=${exception.runtimeType} '
       'library=${details.library ?? 'unknown'}',
       stackTrace: stack,
       maxFrames: 20,
@@ -238,7 +240,9 @@ void configureGlobalErrorHandling({ErrorHandler? onError}) {
       PlatformDispatcher.instance.onError;
   PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
     DashboardDiagnosticLog.record(
-      '[FATAL] Platform error errorType=${error.runtimeType}',
+      '[FATAL] Platform error '
+      'scope=${DashboardDiagnosticLog.diagnosticScope ?? 'none'} '
+      'errorType=${error.runtimeType}',
       stackTrace: stack,
       maxFrames: 20,
     );

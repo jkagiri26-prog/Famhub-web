@@ -140,6 +140,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
   bool _restoringHistory = false;
   bool _historyRecordScheduled = false;
   String? _lastDiagnosticSignature;
+  String? _currentDiagnosticScope;
   late TabController _tabController;
   GoRouter? _router;
   String? _lastHistorySnapshot;
@@ -186,6 +187,9 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
   @override
   void dispose() {
     _historyRestoreGeneration++;
+    if (DashboardDiagnosticLog.diagnosticScope == _currentDiagnosticScope) {
+      DashboardDiagnosticLog.setDiagnosticScope(null);
+    }
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _router?.routerDelegate.removeListener(_onRouterChanged);
@@ -204,26 +208,39 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
 
   /// Keep the active tab fully visible in the (scrollable) tab strip,
   /// including when the tab is switched programmatically.
+  String _farmTabName(int index) => switch (index) {
+    FarmManagementTab.overview => 'Overview',
+    FarmManagementTab.myFarms => 'My Farms',
+    FarmManagementTab.crops => 'Crops',
+    FarmManagementTab.livestock => 'Livestock',
+    FarmManagementTab.activityLogs => 'Activity Logs',
+    FarmManagementTab.reports => 'Reports',
+    _ => 'unknown',
+  };
+
+  void _updateDiagnosticScope() {
+    if (!kIsWeb) return;
+    final index = _tabController.index;
+    final routePath =
+        _router?.routerDelegate.currentConfiguration.uri.path ?? 'unknown';
+    _currentDiagnosticScope =
+        'farmer_tab=$index:${_farmTabName(index)} '
+        'restoring=$_restoringHistory route=$routePath';
+    DashboardDiagnosticLog.setDiagnosticScope(_currentDiagnosticScope);
+  }
+
   void _onTabChanged() {
     if (_tabController.indexIsChanging) return;
+    _updateDiagnosticScope();
     // Rebuild once per settled tab switch so PopScope.canPop tracks the
     // tab the user is actually on (the controller notifies at settle).
     if (_tabController.index != _settledTabIndex) {
       _settledTabIndex = _tabController.index;
       if (kIsWeb) {
         final index = _tabController.index;
-        final tabName = switch (index) {
-          FarmManagementTab.overview => 'Overview',
-          FarmManagementTab.myFarms => 'My Farms',
-          FarmManagementTab.crops => 'Crops',
-          FarmManagementTab.livestock => 'Livestock',
-          FarmManagementTab.activityLogs => 'Activity Logs',
-          FarmManagementTab.reports => 'Reports',
-          _ => 'unknown',
-        };
         DashboardDiagnosticLog.record(
           '[FarmerDashboardDiagnostic] tab_settled '
-          'index=$index name=$tabName '
+          'index=$index name=${_farmTabName(index)} '
           'historyRestoring=$_restoringHistory',
         );
       }
@@ -304,6 +321,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     if (!_isFarmManagementLocation(configuration.uri)) {
       _historyRestoreGeneration++;
       _restoringHistory = false;
+      _updateDiagnosticScope();
       return;
     }
 
@@ -324,6 +342,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     if (snapshot['workspaceId'] != currentWorkspaceId) {
       _historyRestoreGeneration++;
       _restoringHistory = false;
+      _updateDiagnosticScope();
       return;
     }
     final encoded = jsonEncode(snapshot);
@@ -404,6 +423,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
         ? snapshot['tabIndex']! as int
         : FarmManagementTab.overview;
     _restoringHistory = true;
+    _updateDiagnosticScope();
     final encodedTarget = jsonEncode(snapshot);
     DashboardDiagnosticLog.record(
       '[FarmerDashboardDiagnostic] browser_history_restore_started '
@@ -556,6 +576,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
       );
       if (generation == _historyRestoreGeneration) {
         _restoringHistory = false;
+        _updateDiagnosticScope();
       }
     }
   }
@@ -772,6 +793,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
 
   @override
   Widget build(BuildContext context) {
+    _updateDiagnosticScope();
     final FarmSelectorState selectorState;
     try {
       selectorState = ref.watch(farmSelectorProvider);
