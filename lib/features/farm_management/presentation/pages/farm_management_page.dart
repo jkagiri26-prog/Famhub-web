@@ -138,6 +138,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
   bool _historyReady = false;
   bool _restoringHistory = false;
   bool _historyRecordScheduled = false;
+  String? _lastDiagnosticSignature;
   late TabController _tabController;
   GoRouter? _router;
   String? _lastHistorySnapshot;
@@ -645,7 +646,36 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
 
     // Bootstrap the entire module lifecycle
     final coordinator = ref.read(farmModuleBootstrapCoordinatorProvider);
-    await coordinator.bootstrapModule();
+    if (kIsWeb) {
+      debugPrint(
+        '[FarmerDashboardDiagnostic] ${DateTime.now().toIso8601String()} '
+        'bootstrap_started',
+      );
+    }
+    try {
+      final result = await coordinator.bootstrapModule();
+      if (kIsWeb) {
+        debugPrint(
+          '[FarmerDashboardDiagnostic] ${DateTime.now().toIso8601String()} '
+          'bootstrap_finished success=${result.success} '
+          'initialized=${result.isInitialized} hasFarms=${result.hasFarms} '
+          'errorPresent=${result.errorMessage != null}',
+        );
+      }
+    } catch (error, stackTrace) {
+      if (kIsWeb) {
+        debugPrint(
+          '[FarmerDashboardDiagnostic] ${DateTime.now().toIso8601String()} '
+          'bootstrap_threw errorType=${error.runtimeType}',
+        );
+        debugPrintStack(
+          stackTrace: stackTrace,
+          label: '[FarmerDashboardDiagnostic] bootstrap stack',
+          maxFrames: 12,
+        );
+      }
+      Error.throwWithStackTrace(error, stackTrace);
+    }
     if (!mounted) return;
     _historyReady = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -676,8 +706,22 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
 
   @override
   Widget build(BuildContext context) {
-    final selectorState = ref.watch(farmSelectorProvider);
-    final hierarchy = ref.watch(hierarchyProvider);
+    final FarmSelectorState selectorState;
+    try {
+      selectorState = ref.watch(farmSelectorProvider);
+    } catch (error, stackTrace) {
+      _logProviderResolutionError('farmSelectorProvider', error, stackTrace);
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+
+    final HierarchySelectionState hierarchy;
+    try {
+      hierarchy = ref.watch(hierarchyProvider);
+    } catch (error, stackTrace) {
+      _logProviderResolutionError('hierarchyProvider', error, stackTrace);
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+    _logInitialProviderState(selectorState, hierarchy);
     ref.listen(hierarchyProvider, (previous, next) {
       if (!_restoringHistory &&
           previous != null &&
@@ -806,6 +850,46 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
         },
         child: page,
       ),
+    );
+  }
+
+  void _logInitialProviderState(
+    FarmSelectorState selectorState,
+    HierarchySelectionState hierarchy,
+  ) {
+    if (!kIsWeb) return;
+    final signature = [
+      selectorState.isLoading,
+      selectorState.errorMessage != null,
+      selectorState.farms.length,
+      hierarchy.hasEntity,
+    ].join('|');
+    if (_lastDiagnosticSignature == signature) return;
+    _lastDiagnosticSignature = signature;
+    debugPrint(
+      '[FarmerDashboardDiagnostic] ${DateTime.now().toIso8601String()} '
+      'initial_providers selectorLoading=${selectorState.isLoading} '
+      'selectorErrorPresent=${selectorState.errorMessage != null} '
+      'farmCount=${selectorState.farms.length} '
+      'hierarchyHasEntity=${hierarchy.hasEntity}',
+    );
+  }
+
+  void _logProviderResolutionError(
+    String provider,
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    if (!kIsWeb) return;
+    debugPrint(
+      '[FarmerDashboardDiagnostic] ${DateTime.now().toIso8601String()} '
+      'provider_resolution_threw provider=$provider '
+      'errorType=${error.runtimeType}',
+    );
+    debugPrintStack(
+      stackTrace: stackTrace,
+      label: '[FarmerDashboardDiagnostic] $provider stack',
+      maxFrames: 12,
     );
   }
 

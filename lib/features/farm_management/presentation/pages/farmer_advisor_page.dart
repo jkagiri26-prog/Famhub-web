@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import 'package:famhub_app/core/router/route_names.dart';
 import 'package:famhub_app/core/services/auth_service.dart';
 import 'package:famhub_app/core/session/session_provider.dart';
 import 'package:famhub_app/core/shell/application/assistant/assistant_context.dart';
@@ -181,7 +183,16 @@ class _FarmerAdvisorPageState extends ConsumerState<FarmerAdvisorPage> {
 
     return Scaffold(
       appBar: AppBar(
-        leading: const BackButton(),
+        leading: BackButton(
+          onPressed: () {
+            final navigator = Navigator.of(context);
+            if (navigator.canPop()) {
+              navigator.maybePop();
+            } else {
+              context.go(AppRoutes.root);
+            }
+          },
+        ),
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[

@@ -15,6 +15,8 @@
 /// ============================================================
 library;
 
+import 'package:flutter/foundation.dart'
+    show debugPrint, debugPrintStack, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
@@ -97,10 +99,22 @@ class FarmSelectorNotifier extends Notifier<FarmSelectorState> {
       if (farms.isNotEmpty) {
         ref.read(hierarchyProvider.notifier).loadFarms(farms);
       }
-    } catch (e) {
+    } catch (error, stackTrace) {
+      if (kIsWeb) {
+        debugPrint(
+          '[FarmerDashboardDiagnostic] ${DateTime.now().toIso8601String()} '
+          'farm_provider_error provider=farmSelectorProvider '
+          'errorType=${error.runtimeType}',
+        );
+        debugPrintStack(
+          stackTrace: stackTrace,
+          label: '[FarmerDashboardDiagnostic] farm provider stack',
+          maxFrames: 12,
+        );
+      }
       state = state.copyWith(
         isLoading: false,
-        errorMessage: e.toString(),
+        errorMessage: error.toString(),
       );
     }
   }

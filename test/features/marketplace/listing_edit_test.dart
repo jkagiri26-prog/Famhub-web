@@ -326,6 +326,16 @@ class _FakeMarketplaceRepository implements MarketplaceRepository {
   }
 
   @override
+  Future<List<({String id, String name})>> searchLocations(String query) async {
+    return const [];
+  }
+
+  @override
+  Future<Map<String, String>> fetchLocationNames(Set<String> locationIds) async {
+    return const {};
+  }
+
+  @override
   Future<void> uploadListingImage({
     required Uint8List bytes,
     required String fileName,

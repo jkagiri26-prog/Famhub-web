@@ -290,32 +290,40 @@ class _SessionGateState extends ConsumerState<SessionGate> {
       theme: shellTheme.toThemeData(ThemeMode.light),
       darkTheme: shellTheme.toThemeData(ThemeMode.dark),
       themeMode: themeMode,
-      home: SignInScreenPage(
-        onAuthenticate: ({
-          required String contact,
-          required String otp,
-        }) async {
-          final success = await _authenticateWithOtp(
-            contact: contact,
-            otp: otp,
-          );
-          if (success && mounted) {
-            setState(() {
-              _restoredOtpSession = false;
-            });
-          }
-          return success;
+      home: PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (bool didPop, Object? result) {
+          if (didPop) return;
+          _dismissRestoredOtpFlow();
         },
-        onBack: () {
-          // User pressed back — clear the restored session flag
-          setState(() {
-            _restoredOtpSession = false;
-          });
-          // Clear any persisted OTP session data
-          OtpSessionStorage.clearSession();
-        },
+        child: SignInScreenPage(
+          onAuthenticate: ({
+            required String contact,
+            required String otp,
+          }) async {
+            final success = await _authenticateWithOtp(
+              contact: contact,
+              otp: otp,
+            );
+            if (success && mounted) {
+              setState(() {
+                _restoredOtpSession = false;
+              });
+            }
+            return success;
+          },
+          onBack: _dismissRestoredOtpFlow,
+        ),
       ),
     );
+  }
+
+  void _dismissRestoredOtpFlow() {
+    if (!mounted) return;
+    setState(() {
+      _restoredOtpSession = false;
+    });
+    OtpSessionStorage.clearSession();
   }
 
   Widget _buildCreateProfile(AppSession session) {

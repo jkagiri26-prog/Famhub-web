@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/material.dart';
 
 /// ============================================================
@@ -71,6 +72,13 @@ class _ModuleErrorBoundaryState extends State<ModuleErrorBoundary> {
       displayName: widget.displayName,
       onError: (error) {
         if (!mounted) return;
+        if (kIsWeb && widget.moduleKey.startsWith('farm_')) {
+          debugPrint(
+            '[FarmerDashboardDiagnostic] ${DateTime.now().toIso8601String()} '
+            'module_boundary_error module=${widget.moduleKey} '
+            'errorType=${error.runtimeType}',
+          );
+        }
         setState(() {
           _hasError = true;
           _errorMessage = error.toString();
@@ -169,6 +177,7 @@ class _ErrorCapturingWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SafeBuilder(
+      moduleKey: moduleKey,
       onError: onError,
       child: child,
     );
@@ -189,11 +198,13 @@ class _ErrorCapturingWidget extends StatelessWidget {
 /// overriding ErrorWidget.builder.
 /// ============================================================
 class SafeBuilder extends StatefulWidget {
+  final String moduleKey;
   final Widget child;
   final void Function(Object error) onError;
 
   const SafeBuilder({
     super.key,
+    required this.moduleKey,
     required this.child,
     required this.onError,
   });
@@ -227,6 +238,7 @@ class _SafeBuilderState extends State<SafeBuilder> {
     }
 
     return _ErrorDetector(
+      moduleKey: widget.moduleKey,
       onError: (error) {
         if (!mounted) return;
         setState(() {
@@ -247,10 +259,12 @@ class _SafeBuilderState extends State<SafeBuilder> {
 /// any synchronous exceptions during the build process.
 /// ============================================================
 class _ErrorDetector extends StatelessWidget {
+  final String moduleKey;
   final Widget child;
   final void Function(Object error) onError;
 
   const _ErrorDetector({
+    required this.moduleKey,
     required this.child,
     required this.onError,
   });
@@ -259,9 +273,21 @@ class _ErrorDetector extends StatelessWidget {
   Widget build(BuildContext context) {
     try {
       return child;
-    } catch (e) {
+    } catch (error, stackTrace) {
       // Synchronous errors during build
-      Future.microtask(() => onError(e));
+      if (kIsWeb && moduleKey.startsWith('farm_')) {
+        debugPrint(
+          '[FarmerDashboardDiagnostic] ${DateTime.now().toIso8601String()} '
+          'module_boundary_build_error module=$moduleKey '
+          'errorType=${error.runtimeType}',
+        );
+        debugPrintStack(
+          stackTrace: stackTrace,
+          label: '[FarmerDashboardDiagnostic] boundary stack',
+          maxFrames: 12,
+        );
+      }
+      Future.microtask(() => onError(error));
       return const SizedBox.shrink();
     }
   }

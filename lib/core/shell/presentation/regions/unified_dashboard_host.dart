@@ -1,8 +1,15 @@
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/composition/router/dynamic_route_registrar.dart';
+import 'package:famhub_app/core/context_engine/domain/models/entity_context.dart';
 import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
+import 'package:famhub_app/core/session/app_session.dart';
+import 'package:famhub_app/core/session/session_provider.dart';
+import 'package:famhub_app/core/workspace/application/active_workspace_provider.dart';
+import 'package:famhub_app/core/workspace/application/workspace_catalog_provider.dart';
 import 'package:famhub_app/core/workspace/application/workspace_dashboard_provider.dart';
 import 'package:famhub_app/core/dashboard_engine/presentation/renderer/responsive_dashboard_renderer.dart';
 
@@ -31,34 +38,269 @@ import 'package:famhub_app/core/dashboard_engine/presentation/renderer/responsiv
 ///    builders) and the existing workspace type mapping — the shell does
 ///    not import feature modules directly.
 /// ============================================================
-class UnifiedDashboardHost extends ConsumerWidget {
+class UnifiedDashboardHost extends ConsumerStatefulWidget {
   const UnifiedDashboardHost({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<UnifiedDashboardHost> createState() =>
+      _UnifiedDashboardHostState();
+}
+
+class _UnifiedDashboardHostState extends ConsumerState<UnifiedDashboardHost> {
+  String? _lastDiagnosticSignature;
+
+  @override
+  Widget build(BuildContext context) {
+    final session = ref.watch(sessionProvider);
+    final userId = session is AuthenticatedSession ? session.userId : null;
+    final profile = session is AuthenticatedSession ? session.profile : null;
+    final profileId = profile == null ? null : profile['id']?.toString();
+    final activeWorkspace = ref.watch(activeWorkspaceProvider);
+    final catalog = ref.watch(workspaceCatalogProvider);
+    final type = ref.watch(activeWorkspaceTypeProvider);
+    final primaryKey = WorkspaceDashboardCatalog.primaryModuleKeyFor(type);
+    final builder =
+        primaryKey == null ? null : ModulePageRegistry.resolve(primaryKey);
+
     // Do not commit a workspace-dependent dashboard until the authoritative
     // active entity context has resolved (and the workspace has been
     // reconciled against it). Prevents rendering a workspace that does not
     // match the active context on startup.
-    final entityContext = ref.watch(contextProvider);
+    final EntityContext entityContext;
+    try {
+      entityContext = ref.watch(contextProvider);
+    } catch (error, stackTrace) {
+      if (kIsWeb) {
+        debugPrint(
+          '[DashboardDiagnostic] ${DateTime.now().toIso8601String()} '
+          'context_provider_threw errorType=${error.runtimeType} '
+          'session=${session.runtimeType.toString()} '
+          'user=${_abbreviateId(userId)} '
+          'profile=${_abbreviateId(profileId)} '
+          'activeWorkspaceId=${_abbreviateId(activeWorkspace.workspaceId)} '
+          'normalizedWorkspaceType=${type ?? 'null'} '
+          'resolvedPrimaryModuleId=${primaryKey ?? 'null'} '
+          'builderFound=${builder != null}',
+        );
+        debugPrintStack(
+          stackTrace: stackTrace,
+          label: '[DashboardDiagnostic] EntityContext provider stack',
+          maxFrames: 12,
+        );
+      }
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+    _logDashboardState(
+      sessionType: session.runtimeType.toString(),
+      userId: userId,
+      profileId: profileId,
+      entityContext: entityContext,
+      workspaceId: activeWorkspace.workspaceId,
+      workspaceType: type,
+      primaryModuleId: primaryKey,
+      builderFound: builder != null,
+      catalogState: catalog.isLoading
+          ? 'loading'
+          : catalog.hasError
+              ? 'error:${catalog.error.runtimeType}'
+              : 'data',
+    );
     if (entityContext.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    // Resolve the active workspace type. Null while the catalog loads;
-    // the fallback renderer shows its own loading state meanwhile.
-    final type = ref.watch(activeWorkspaceTypeProvider);
-    final primaryKey = WorkspaceDashboardCatalog.primaryModuleKeyFor(type);
-    final builder = primaryKey == null
-        ? null
-        : ModulePageRegistry.resolve(primaryKey);
-
     if (builder != null) {
       // Render the existing module landing page directly.
-      return builder(context);
+      if (kIsWeb) {
+        debugPrint(
+          '[DashboardDiagnostic] ${DateTime.now().toIso8601String()} '
+          'module_builder_invoked module=$primaryKey',
+        );
+      }
+      try {
+        final page = builder(context);
+        if (kIsWeb) {
+          debugPrint(
+            '[DashboardDiagnostic] ${DateTime.now().toIso8601String()} '
+            'module_builder_returned module=$primaryKey '
+            'widget=${page.runtimeType}',
+          );
+        }
+        if (primaryKey == 'farm_management') {
+          return _DashboardFirstFrameProbe(
+            moduleId: primaryKey!,
+            child: page,
+          );
+        }
+        return page;
+      } catch (error, stackTrace) {
+        if (kIsWeb) {
+          debugPrint(
+            '[DashboardDiagnostic] ${DateTime.now().toIso8601String()} '
+            'module_builder_threw module=$primaryKey '
+            'errorType=${error.runtimeType}',
+          );
+          debugPrintStack(
+            stackTrace: stackTrace,
+            label: '[DashboardDiagnostic] module builder stack',
+            maxFrames: 12,
+          );
+        }
+        Error.throwWithStackTrace(error, stackTrace);
+      }
     }
 
     // Unknown/unmapped workspace → curated workspace-aware fallback.
     return const ResponsiveDashboardRenderer();
+  }
+
+  void _logDashboardState({
+    required String sessionType,
+    required String? userId,
+    required String? profileId,
+    required EntityContext entityContext,
+    required String workspaceId,
+    required String? workspaceType,
+    required String? primaryModuleId,
+    required bool builderFound,
+    required String catalogState,
+  }) {
+    if (!kIsWeb) return;
+    final contextStatus = entityContext.isLoading
+        ? 'loading'
+        : entityContext.isGuest
+            ? 'guest'
+            : entityContext.userId == null ||
+                    entityContext.profileId == null ||
+                    entityContext.activeWorkspaceId == null ||
+                    entityContext.entityId == null ||
+                    entityContext.roleId == null ||
+                    entityContext.role == null
+                ? 'unavailable'
+                : 'resolved';
+    final contextMatchesWorkspace =
+        entityContext.activeWorkspaceId == workspaceId;
+    final signature = [
+      sessionType,
+      _abbreviateId(userId),
+      _abbreviateId(profileId),
+      contextStatus,
+      _abbreviateId(entityContext.userId),
+      _abbreviateId(entityContext.profileId),
+      _abbreviateId(entityContext.activeWorkspaceId),
+      _abbreviateId(entityContext.entityId),
+      _abbreviateId(entityContext.roleId),
+      _abbreviateId(entityContext.businessProfileId),
+      entityContext.role ?? 'null',
+      contextMatchesWorkspace,
+      _abbreviateId(workspaceId),
+      workspaceType ?? 'null',
+      primaryModuleId ?? 'null',
+      builderFound,
+      catalogState,
+    ].join('|');
+    if (_lastDiagnosticSignature == signature) return;
+    _lastDiagnosticSignature = signature;
+    debugPrint(
+      '[DashboardDiagnostic] ${DateTime.now().toIso8601String()} '
+      'session=$sessionType user=${_abbreviateId(userId)} '
+      'profile=${_abbreviateId(profileId)} context=$contextStatus '
+      'contextError=none '
+      'contextLoading=${entityContext.isLoading} '
+      'contextGuest=${entityContext.isGuest} '
+      'contextUser=${_abbreviateId(entityContext.userId)} '
+      'contextProfile=${_abbreviateId(entityContext.profileId)} '
+      'contextWorkspace=${_abbreviateId(entityContext.activeWorkspaceId)} '
+      'contextMatchesWorkspace=$contextMatchesWorkspace '
+      'entity=${_abbreviateId(entityContext.entityId)} '
+      'roleId=${_abbreviateId(entityContext.roleId)} '
+      'mode=${entityContext.role ?? 'null'} '
+      'businessProfile=${_abbreviateId(entityContext.businessProfileId)} '
+      'activeWorkspaceId=${_abbreviateId(workspaceId)} '
+      'normalizedWorkspaceType=${workspaceType ?? 'null'} '
+      'resolvedPrimaryModuleId=${primaryModuleId ?? 'null'} '
+      'builderFound=$builderFound catalog=$catalogState',
+    );
+  }
+}
+
+String _abbreviateId(String? value) {
+  if (value == null || value.isEmpty) return 'null';
+  if (value.length <= 8) return '[redacted]';
+  return '${value.substring(0, 4)}...${value.substring(value.length - 4)}';
+}
+
+class _DashboardFirstFrameProbe extends SingleChildRenderObjectWidget {
+  const _DashboardFirstFrameProbe({
+    required this.moduleId,
+    required super.child,
+  });
+
+  final String moduleId;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _DashboardFirstFrameRenderProbe(moduleId);
+}
+
+class _DashboardFirstFrameRenderProbe extends RenderProxyBox {
+  _DashboardFirstFrameRenderProbe(this.moduleId);
+
+  final String moduleId;
+  bool _layoutReported = false;
+  bool _paintReported = false;
+
+  @override
+  void performLayout() {
+    try {
+      super.performLayout();
+    } catch (error, stackTrace) {
+      _logRenderFailure('layout', error, stackTrace);
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+    if (kIsWeb && !_layoutReported) {
+      _layoutReported = true;
+      debugPrint(
+        '[DashboardDiagnostic] ${DateTime.now().toIso8601String()} '
+        'module_first_layout module=$moduleId '
+        'size=${size.width}x${size.height} child=${child != null}',
+      );
+    }
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    try {
+      super.paint(context, offset);
+    } catch (error, stackTrace) {
+      _logRenderFailure('paint', error, stackTrace);
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+    if (kIsWeb && !_paintReported) {
+      _paintReported = true;
+      debugPrint(
+        '[DashboardDiagnostic] ${DateTime.now().toIso8601String()} '
+        'module_first_paint module=$moduleId '
+        'size=${size.width}x${size.height} child=${child != null}',
+      );
+    }
+  }
+
+  void _logRenderFailure(
+    String phase,
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    if (!kIsWeb) return;
+    debugPrint(
+      '[DashboardDiagnostic] ${DateTime.now().toIso8601String()} '
+      'module_render_failed module=$moduleId phase=$phase '
+      'errorType=${error.runtimeType}',
+    );
+    debugPrintStack(
+      stackTrace: stackTrace,
+      label: '[DashboardDiagnostic] module $phase stack',
+      maxFrames: 12,
+    );
   }
 }

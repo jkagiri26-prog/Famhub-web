@@ -290,14 +290,21 @@ class _DetailScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ResponsiveWrapper(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _BackBar(),
-          const SizedBox(height: 4),
-          child,
-        ],
+    return PopScope(
+      canPop: Navigator.of(context).canPop(),
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (didPop) return;
+        context.go(AppRoutes.finance);
+      },
+      child: ResponsiveWrapper(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _BackBar(),
+            const SizedBox(height: 4),
+            child,
+          ],
+        ),
       ),
     );
   }

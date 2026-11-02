@@ -4,8 +4,13 @@
 ///
 /// Read/management visibility of the ACTIVE business's Marketplace
 /// listings. Business Hub is the business-level surface; Marketplace
-/// remains the specialized marketplace experience (creation, publishing,
-/// editing and status changes stay in Marketplace).
+/// remains the specialized marketplace experience (publishing, editing
+/// and status changes stay in Marketplace).
+///
+/// This tab also hosts the business-side entry point for the shared
+/// standalone listing form ("List a product without stock") — the same
+/// `CreateListingPage` the farm module uses. No separate business form
+/// or listing service exists; the entry only navigates.
 ///
 /// Data source: canonical `marketplace.listings`, scoped to the active
 /// business entity via the verified `entity_id` → core.entities seller
@@ -23,13 +28,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:famhub_app/features/marketplace/domain/enums/listing_status.dart';
+import 'package:famhub_app/features/marketplace/presentation/pages/create_listing_page.dart';
 import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/loading_state_widget.dart';
 
 import '../../application/providers/active_business_provider.dart';
+import '../../application/providers/inventory_provider.dart';
 import '../../application/providers/listings_provider.dart';
 import '../../domain/entities/business_listing.dart';
+import '../../domain/entities/inventory_item.dart';
 import '../../domain/models/listings_summary.dart';
 
 const List<String> _months = [
@@ -44,6 +52,57 @@ String _formatDate(DateTime? date) {
 
 String _formatQty(double value) =>
     value == value.roundToDouble() ? value.toInt().toString() : value.toStringAsFixed(2);
+
+/// Opens the shared STANDALONE listing form (no stock record) for the
+/// ACTIVE business entity — the same `CreateListingPage` the farm module
+/// uses. No separate business form or listing service is involved.
+///
+/// `entity_id` is never passed here: the shared form resolves it from the
+/// ACTIVE entity context at submit time, so a workspace switch after this
+/// navigation can never leak another entity's identity. Authorization stays
+/// backend-authoritative (can_sell membership / RLS) — this entry performs
+/// no client-side permission check.
+///
+/// Location is prefilled ONLY from a valid configured business location
+/// (an existing `core.locations` id already attached to this business's
+/// inventory or listings — never fabricated). When none is configured the
+/// form's canonical `core.locations` picker is used.
+void _openStandaloneListing(BuildContext context, WidgetRef ref) {
+  String? locationId;
+
+  final inventory = ref.read(activeBusinessInventoryProvider).value;
+  for (final item in inventory ?? const <InventoryItem>[]) {
+    final id = item.locationId;
+    if (id != null && id.isNotEmpty) {
+      locationId = id;
+      break;
+    }
+  }
+
+  if (locationId == null) {
+    final listings = ref.read(activeBusinessListingsProvider).value;
+    for (final listing in listings ?? const <BusinessListing>[]) {
+      final id = listing.locationId;
+      if (id != null && id.isNotEmpty) {
+        locationId = id;
+        break;
+      }
+    }
+  }
+
+  final businessName = ref.read(activeBusinessProvider)?.name;
+
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => CreateListingPage(
+        initialContextLabel: businessName == null
+            ? null
+            : 'Selling as: $businessName',
+        initialLocationId: locationId,
+      ),
+    ),
+  );
+}
 
 class BusinessHubListingsTab extends ConsumerWidget {
   const BusinessHubListingsTab({super.key});
@@ -75,11 +134,14 @@ class BusinessHubListingsTab extends ConsumerWidget {
       ),
       data: (listings) {
         if (listings.isEmpty) {
-          return const EmptyStateWidget(
+          return EmptyStateWidget(
             icon: Icons.storefront_outlined,
             title: 'No listings yet',
             subtitle: 'Listings for this business appear here once items '
-                'are published in Marketplace.',
+                'are published in Marketplace. You can also list a product '
+                'without keeping stock.',
+            actionLabel: 'List a product without stock',
+            onAction: () => _openStandaloneListing(context, ref),
           );
         }
         return _ListingsLoaded(listings: listings);
@@ -104,6 +166,27 @@ class _ListingsLoaded extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── Standalone listing entry (shared Marketplace form) ──
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => _openStandaloneListing(context, ref),
+            icon: const Icon(Icons.add_business_outlined, size: 18),
+            label: const Text('List a product without stock'),
+            style: OutlinedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              foregroundColor: theme.colorScheme.primary,
+              side: BorderSide(
+                color: theme.colorScheme.primary.withValues(alpha: 0.4),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+
         // ── Compact summary chips ──
         Padding(
           padding: const EdgeInsets.only(bottom: 10),
