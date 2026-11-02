@@ -15,11 +15,11 @@
 /// ============================================================
 library;
 
-import 'package:flutter/foundation.dart'
-    show debugPrint, debugPrintStack, kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
+import 'package:famhub_app/core/observability/dashboard_diagnostic_panel.dart';
 import 'package:famhub_app/features/farm_management/domain/entities/farm_entity.dart';
 import 'package:famhub_app/features/farm_management/domain/repositories/farm_repository.dart';
 import 'package:famhub_app/features/farm_management/application/providers/farm_repository_provider.dart';
@@ -101,14 +101,14 @@ class FarmSelectorNotifier extends Notifier<FarmSelectorState> {
       }
     } catch (error, stackTrace) {
       if (kIsWeb) {
-        debugPrint(
+        DashboardDiagnosticLog.record(
           '[FarmerDashboardDiagnostic] ${DateTime.now().toIso8601String()} '
           'farm_provider_error provider=farmSelectorProvider '
           'errorType=${error.runtimeType}',
         );
-        debugPrintStack(
+        DashboardDiagnosticLog.record(
+          '[FarmerDashboardDiagnostic] farm provider stack',
           stackTrace: stackTrace,
-          label: '[FarmerDashboardDiagnostic] farm provider stack',
           maxFrames: 12,
         );
       }

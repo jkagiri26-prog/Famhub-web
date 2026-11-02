@@ -1,5 +1,6 @@
-import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:famhub_app/core/observability/dashboard_diagnostic_panel.dart';
 
 /// ============================================================
 /// MODULE ERROR BOUNDARY
@@ -73,7 +74,7 @@ class _ModuleErrorBoundaryState extends State<ModuleErrorBoundary> {
       onError: (error) {
         if (!mounted) return;
         if (kIsWeb && widget.moduleKey.startsWith('farm_')) {
-          debugPrint(
+          DashboardDiagnosticLog.record(
             '[FarmerDashboardDiagnostic] ${DateTime.now().toIso8601String()} '
             'module_boundary_error module=${widget.moduleKey} '
             'errorType=${error.runtimeType}',
@@ -276,14 +277,14 @@ class _ErrorDetector extends StatelessWidget {
     } catch (error, stackTrace) {
       // Synchronous errors during build
       if (kIsWeb && moduleKey.startsWith('farm_')) {
-        debugPrint(
+        DashboardDiagnosticLog.record(
           '[FarmerDashboardDiagnostic] ${DateTime.now().toIso8601String()} '
           'module_boundary_build_error module=$moduleKey '
           'errorType=${error.runtimeType}',
         );
-        debugPrintStack(
+        DashboardDiagnosticLog.record(
+          '[FarmerDashboardDiagnostic] boundary stack',
           stackTrace: stackTrace,
-          label: '[FarmerDashboardDiagnostic] boundary stack',
           maxFrames: 12,
         );
       }

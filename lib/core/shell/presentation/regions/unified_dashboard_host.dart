@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +12,7 @@ import 'package:famhub_app/core/workspace/application/active_workspace_provider.
 import 'package:famhub_app/core/workspace/application/workspace_catalog_provider.dart';
 import 'package:famhub_app/core/workspace/application/workspace_dashboard_provider.dart';
 import 'package:famhub_app/core/dashboard_engine/presentation/renderer/responsive_dashboard_renderer.dart';
+import 'package:famhub_app/core/observability/dashboard_diagnostic_panel.dart';
 
 /// ============================================================
 /// UNIFIED DASHBOARD HOST — Workspace landing dispatcher
@@ -71,7 +72,7 @@ class _UnifiedDashboardHostState extends ConsumerState<UnifiedDashboardHost> {
       entityContext = ref.watch(contextProvider);
     } catch (error, stackTrace) {
       if (kIsWeb) {
-        debugPrint(
+        DashboardDiagnosticLog.record(
           '[DashboardDiagnostic] ${DateTime.now().toIso8601String()} '
           'context_provider_threw errorType=${error.runtimeType} '
           'session=${session.runtimeType.toString()} '
@@ -82,9 +83,9 @@ class _UnifiedDashboardHostState extends ConsumerState<UnifiedDashboardHost> {
           'resolvedPrimaryModuleId=${primaryKey ?? 'null'} '
           'builderFound=${builder != null}',
         );
-        debugPrintStack(
+        DashboardDiagnosticLog.record(
+          '[DashboardDiagnostic] EntityContext provider stack',
           stackTrace: stackTrace,
-          label: '[DashboardDiagnostic] EntityContext provider stack',
           maxFrames: 12,
         );
       }
@@ -112,7 +113,7 @@ class _UnifiedDashboardHostState extends ConsumerState<UnifiedDashboardHost> {
     if (builder != null) {
       // Render the existing module landing page directly.
       if (kIsWeb) {
-        debugPrint(
+        DashboardDiagnosticLog.record(
           '[DashboardDiagnostic] ${DateTime.now().toIso8601String()} '
           'module_builder_invoked module=$primaryKey',
         );
@@ -120,7 +121,7 @@ class _UnifiedDashboardHostState extends ConsumerState<UnifiedDashboardHost> {
       try {
         final page = builder(context);
         if (kIsWeb) {
-          debugPrint(
+          DashboardDiagnosticLog.record(
             '[DashboardDiagnostic] ${DateTime.now().toIso8601String()} '
             'module_builder_returned module=$primaryKey '
             'widget=${page.runtimeType}',
@@ -135,14 +136,14 @@ class _UnifiedDashboardHostState extends ConsumerState<UnifiedDashboardHost> {
         return page;
       } catch (error, stackTrace) {
         if (kIsWeb) {
-          debugPrint(
+          DashboardDiagnosticLog.record(
             '[DashboardDiagnostic] ${DateTime.now().toIso8601String()} '
             'module_builder_threw module=$primaryKey '
             'errorType=${error.runtimeType}',
           );
-          debugPrintStack(
+          DashboardDiagnosticLog.record(
+            '[DashboardDiagnostic] module builder stack',
             stackTrace: stackTrace,
-            label: '[DashboardDiagnostic] module builder stack',
             maxFrames: 12,
           );
         }
@@ -201,7 +202,7 @@ class _UnifiedDashboardHostState extends ConsumerState<UnifiedDashboardHost> {
     ].join('|');
     if (_lastDiagnosticSignature == signature) return;
     _lastDiagnosticSignature = signature;
-    debugPrint(
+    DashboardDiagnosticLog.record(
       '[DashboardDiagnostic] ${DateTime.now().toIso8601String()} '
       'session=$sessionType user=${_abbreviateId(userId)} '
       'profile=${_abbreviateId(profileId)} context=$contextStatus '
@@ -260,7 +261,7 @@ class _DashboardFirstFrameRenderProbe extends RenderProxyBox {
     }
     if (kIsWeb && !_layoutReported) {
       _layoutReported = true;
-      debugPrint(
+      DashboardDiagnosticLog.record(
         '[DashboardDiagnostic] ${DateTime.now().toIso8601String()} '
         'module_first_layout module=$moduleId '
         'size=${size.width}x${size.height} child=${child != null}',
@@ -278,7 +279,7 @@ class _DashboardFirstFrameRenderProbe extends RenderProxyBox {
     }
     if (kIsWeb && !_paintReported) {
       _paintReported = true;
-      debugPrint(
+      DashboardDiagnosticLog.record(
         '[DashboardDiagnostic] ${DateTime.now().toIso8601String()} '
         'module_first_paint module=$moduleId '
         'size=${size.width}x${size.height} child=${child != null}',
@@ -292,14 +293,14 @@ class _DashboardFirstFrameRenderProbe extends RenderProxyBox {
     StackTrace stackTrace,
   ) {
     if (!kIsWeb) return;
-    debugPrint(
+    DashboardDiagnosticLog.record(
       '[DashboardDiagnostic] ${DateTime.now().toIso8601String()} '
       'module_render_failed module=$moduleId phase=$phase '
       'errorType=${error.runtimeType}',
     );
-    debugPrintStack(
+    DashboardDiagnosticLog.record(
+      '[DashboardDiagnostic] module $phase stack',
       stackTrace: stackTrace,
-      label: '[DashboardDiagnostic] module $phase stack',
       maxFrames: 12,
     );
   }

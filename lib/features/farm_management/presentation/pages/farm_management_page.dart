@@ -46,6 +46,7 @@ import 'package:famhub_app/core/composition/providers/descriptor_providers.dart'
 import 'package:famhub_app/core/composition/domain/models/module_descriptor.dart';
 import 'package:famhub_app/core/navigation/resize_optimizer.dart';
 import 'package:famhub_app/core/workspace/application/active_workspace_provider.dart';
+import 'package:famhub_app/core/observability/dashboard_diagnostic_panel.dart';
 
 import 'package:famhub_app/shared/layouts/shell_page_content.dart';
 import 'package:famhub_app/shared/layouts/dashboard_section_widget.dart';
@@ -209,6 +210,14 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     // tab the user is actually on (the controller notifies at settle).
     if (_tabController.index != _settledTabIndex) {
       _settledTabIndex = _tabController.index;
+      if (kIsWeb) {
+        DashboardDiagnosticLog.record(
+          '[FarmerDashboardDiagnostic] tab_settled '
+          'index=${_tabController.index} '
+          'name=${_tabDefs[_tabController.index].$1} '
+          'historyRestoring=$_restoringHistory',
+        );
+      }
       if (mounted) setState(() {});
     }
     _scheduleBrowserHistoryRecord();
@@ -277,6 +286,11 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     final router = _router;
     if (!kIsWeb || !_historyReady || !mounted || router == null) return;
     final configuration = router.routerDelegate.currentConfiguration;
+    DashboardDiagnosticLog.record(
+      '[FarmerDashboardDiagnostic] browser_history_route '
+      'path=${configuration.uri.path} tab=${_tabController.index} '
+      'restoring=$_restoringHistory',
+    );
     if (!_isFarmManagementLocation(configuration.uri)) {
       _historyRestoreGeneration++;
       _restoringHistory = false;
@@ -375,12 +389,22 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
 
   Future<void> _restoreBrowserHistory(Map<String, Object?> snapshot) async {
     final generation = ++_historyRestoreGeneration;
+    final stopwatch = Stopwatch()..start();
+    final targetTab = snapshot['tabIndex'] is int
+        ? snapshot['tabIndex']! as int
+        : FarmManagementTab.overview;
     _restoringHistory = true;
     final encodedTarget = jsonEncode(snapshot);
+    DashboardDiagnosticLog.record(
+      '[FarmerDashboardDiagnostic] browser_history_restore_started '
+      'generation=$generation targetTab=$targetTab '
+      'currentTab=${_tabController.index} '
+      'hasEntity=${snapshot['entityId'] is String} '
+      'hasField=${snapshot['fieldId'] is String} '
+      'hasAsset=${snapshot['assetId'] is String}',
+    );
     try {
-      final tabIndex = snapshot['tabIndex'] is int
-          ? snapshot['tabIndex']! as int
-          : FarmManagementTab.overview;
+      final tabIndex = targetTab;
       final entityId = snapshot['entityId'] is String
           ? snapshot['entityId']! as String
           : null;
@@ -512,6 +536,14 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
         _lastHistorySnapshot = encodedTarget;
       }
     } finally {
+      stopwatch.stop();
+      DashboardDiagnosticLog.record(
+        '[FarmerDashboardDiagnostic] browser_history_restore_finished '
+        'generation=$generation activeGeneration=$_historyRestoreGeneration '
+        'durationMs=${stopwatch.elapsedMilliseconds} '
+        'currentTab=${_tabController.index} '
+        'status=${generation == _historyRestoreGeneration ? 'current' : 'superseded'}',
+      );
       if (generation == _historyRestoreGeneration) {
         _restoringHistory = false;
       }
@@ -647,7 +679,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     // Bootstrap the entire module lifecycle
     final coordinator = ref.read(farmModuleBootstrapCoordinatorProvider);
     if (kIsWeb) {
-      debugPrint(
+      DashboardDiagnosticLog.record(
         '[FarmerDashboardDiagnostic] ${DateTime.now().toIso8601String()} '
         'bootstrap_started',
       );
@@ -655,7 +687,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     try {
       final result = await coordinator.bootstrapModule();
       if (kIsWeb) {
-        debugPrint(
+        DashboardDiagnosticLog.record(
           '[FarmerDashboardDiagnostic] ${DateTime.now().toIso8601String()} '
           'bootstrap_finished success=${result.success} '
           'initialized=${result.isInitialized} hasFarms=${result.hasFarms} '
@@ -664,13 +696,13 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
       }
     } catch (error, stackTrace) {
       if (kIsWeb) {
-        debugPrint(
+        DashboardDiagnosticLog.record(
           '[FarmerDashboardDiagnostic] ${DateTime.now().toIso8601String()} '
           'bootstrap_threw errorType=${error.runtimeType}',
         );
-        debugPrintStack(
+        DashboardDiagnosticLog.record(
+          '[FarmerDashboardDiagnostic] bootstrap stack',
           stackTrace: stackTrace,
-          label: '[FarmerDashboardDiagnostic] bootstrap stack',
           maxFrames: 12,
         );
       }
@@ -866,7 +898,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     ].join('|');
     if (_lastDiagnosticSignature == signature) return;
     _lastDiagnosticSignature = signature;
-    debugPrint(
+    DashboardDiagnosticLog.record(
       '[FarmerDashboardDiagnostic] ${DateTime.now().toIso8601String()} '
       'initial_providers selectorLoading=${selectorState.isLoading} '
       'selectorErrorPresent=${selectorState.errorMessage != null} '
@@ -881,14 +913,14 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     StackTrace stackTrace,
   ) {
     if (!kIsWeb) return;
-    debugPrint(
+    DashboardDiagnosticLog.record(
       '[FarmerDashboardDiagnostic] ${DateTime.now().toIso8601String()} '
       'provider_resolution_threw provider=$provider '
       'errorType=${error.runtimeType}',
     );
-    debugPrintStack(
+    DashboardDiagnosticLog.record(
+      '[FarmerDashboardDiagnostic] $provider stack',
       stackTrace: stackTrace,
-      label: '[FarmerDashboardDiagnostic] $provider stack',
       maxFrames: 12,
     );
   }

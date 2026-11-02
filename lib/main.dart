@@ -25,6 +25,7 @@ import 'core/events/event_bus_provider.dart';
 
 /// 👁️ Event Observer — system-wide event telemetry
 import 'core/observability/event_observer.dart';
+import 'core/observability/dashboard_diagnostic_panel.dart';
 
 /// 🏪 Provider invalidations for workflow orchestration
 import 'features/farm_management/application/providers/farm_dashboard_provider.dart';
@@ -107,6 +108,11 @@ void main() async {
     // - Wasn't caught by FlutterError.onError (non-Flutter errors)
     // - Wasn't caught by PlatformDispatcher.onError (async gaps)
     // - Happens in timers, raw isolates, or zone-unaware callbacks
+    DashboardDiagnosticLog.record(
+      '[ZONE] Uncaught async error type=${error.runtimeType}',
+      stackTrace: stack,
+      maxFrames: 20,
+    );
     debugPrint('══════════════════════════════════════════════════');
     debugPrint('[ZONE] Uncaught async error in zone: $error');
     debugPrint('══════════════════════════════════════════════════');

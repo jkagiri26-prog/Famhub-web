@@ -16,6 +16,7 @@
 /// ============================================================
 library;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -39,6 +40,7 @@ import '../../../../core/session/app_session.dart';
 import '../../../../core/session/session_provider.dart';
 import '../../../../core/router/route_names.dart';
 import '../../../../features/workspace_context/application/entity_context_refresh.dart';
+import '../../../observability/dashboard_diagnostic_panel.dart';
 
 /// TEMPORARY (remove after verification): provisioned Administration
 /// workspace id for the add_workspace_membership test path.
@@ -81,6 +83,8 @@ class ShellAppBar extends ConsumerWidget {
               constraints.maxWidth < ResponsiveBreakpoints.mobile;
 
           final leftChildren = <Widget>[
+            if (kIsWeb && isNarrow) _buildDiagnosticButton(context),
+
             // ── Left: Workspace + Entity switchers (adjacent controls) ──
             if (config.showContextSelector)
               _ContextSelector(palette: palette),
@@ -105,6 +109,8 @@ class ShellAppBar extends ConsumerWidget {
 
           final rightChildren = <Widget>[
             // ── Right: Actions ──
+
+            if (kIsWeb && !isNarrow) _buildDiagnosticButton(context),
 
             // Custom actions
             ...config.customActions.map((action) => _buildCustomAction(action, palette)),
@@ -225,6 +231,12 @@ class ShellAppBar extends ConsumerWidget {
       splashRadius: 20,
     );
   }
+
+  Widget _buildDiagnosticButton(BuildContext context) => IconButton(
+        tooltip: 'Open temporary diagnostics',
+        onPressed: () => DashboardDiagnosticLog.open(context),
+        icon: const Icon(Icons.bug_report_outlined),
+      );
 }
 
 /// ============================================================

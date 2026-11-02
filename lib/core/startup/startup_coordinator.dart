@@ -27,6 +27,7 @@ library;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter/material.dart' show Icons;  
+import '../observability/dashboard_diagnostic_panel.dart';
 
 /// Startup stages for tracing
 enum BootStage {
@@ -218,6 +219,12 @@ void configureGlobalErrorHandling({ErrorHandler? onError}) {
 
     // Format a clean error message without sensitive details
     final summaryText = exception.toString();
+    DashboardDiagnosticLog.record(
+      '[FATAL] FlutterError errorType=${exception.runtimeType} '
+      'library=${details.library ?? 'unknown'}',
+      stackTrace: stack,
+      maxFrames: 20,
+    );
 
     debugPrint('══════════════════════════════════════════════════');
     debugPrint('[FATAL] FlutterError caught: $summaryText');
@@ -230,6 +237,11 @@ void configureGlobalErrorHandling({ErrorHandler? onError}) {
   final previousPlatformErrorHandler =
       PlatformDispatcher.instance.onError;
   PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+    DashboardDiagnosticLog.record(
+      '[FATAL] Platform error errorType=${error.runtimeType}',
+      stackTrace: stack,
+      maxFrames: 20,
+    );
     debugPrint('══════════════════════════════════════════════════');
     debugPrint('[FATAL] Platform error caught: $error');
     debugPrint('══════════════════════════════════════════════════');
@@ -256,4 +268,3 @@ void _defaultErrorHandler(Object error, StackTrace stack) {
     maxFrames: 20,
   );
 }
-
