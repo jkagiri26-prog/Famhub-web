@@ -746,6 +746,30 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     });
   }
 
+  Widget _buildFarmTab(int index) {
+    try {
+      final definition = _tabDefs[index];
+      return Tab(
+        key: _tabKeys[index],
+        text: definition.$1,
+        icon: Icon(definition.$2, size: 18),
+      );
+    } catch (error, stackTrace) {
+      if (kIsWeb) {
+        DashboardDiagnosticLog.record(
+          '[FarmerDashboardDiagnostic] tab_definition_build_threw '
+          'index=$index errorType=${error.runtimeType}',
+        );
+        DashboardDiagnosticLog.record(
+          '[FarmerDashboardDiagnostic] tab definition stack',
+          stackTrace: stackTrace,
+          maxFrames: 12,
+        );
+      }
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final FarmSelectorState selectorState;
@@ -806,14 +830,11 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
                 controller: _tabController,
                 isScrollable: true,
                 onTap: _onTabTapped,
-                tabs: [
-                  for (var i = 0; i < _tabDefs.length; i++)
-                    Tab(
-                      key: _tabKeys[i],
-                      text: _tabDefs[i].$1,
-                      icon: Icon(_tabDefs[i].$2, size: 18),
-                    ),
-                ],
+                tabs: List<Widget>.generate(
+                  _tabDefs.length,
+                  _buildFarmTab,
+                  growable: false,
+                ),
                 indicatorColor: Theme.of(context).colorScheme.primary,
                 labelColor: Theme.of(context).colorScheme.primary,
                 unselectedLabelColor: Colors.grey.shade600,
