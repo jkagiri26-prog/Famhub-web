@@ -281,6 +281,18 @@ class _ContextSelector extends ConsumerWidget {
     );
   }
 
+  Future<bool> _persistDefaultWorkspace(
+    WidgetRef ref,
+    String workspaceId,
+  ) async {
+    final result =
+        await ref.read(authServiceProvider).addWorkspaceMembership(
+              workspaceId: workspaceId,
+              makeDefault: true,
+            );
+    return result.success;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final workspaceName =
@@ -622,20 +634,27 @@ class _ContextSelector extends ConsumerWidget {
     if (alreadyCorrect) {
       debugPrint('[WorkspaceSwitch] already active workspace+context — '
           'no activation required');
-      if (context.mounted) {
-        if (landingRoute == AppRoutes.root) {
-          context.go(landingRoute);
-        } else {
-          final router = GoRouter.of(context);
-          final extra = ref
-              .read(workspaceHistoryRestoreCoordinatorProvider)
-              .createHistoryExtra(
-                router.routerDelegate.currentConfiguration.extra,
-                workspaceId: workspaceId,
-                context: currentContext,
-              );
-          context.go(landingRoute, extra: extra);
-        }
+      final defaultSaved = await _persistDefaultWorkspace(ref, workspaceId);
+      if (!context.mounted) return;
+      if (!defaultSaved) {
+        _showSnack(
+          context,
+          'Workspace changed, but could not save it as your default. '
+          'Please try again.',
+        );
+      }
+      if (landingRoute == AppRoutes.root) {
+        context.go(landingRoute);
+      } else {
+        final router = GoRouter.of(context);
+        final extra = ref
+            .read(workspaceHistoryRestoreCoordinatorProvider)
+            .createHistoryExtra(
+              router.routerDelegate.currentConfiguration.extra,
+              workspaceId: workspaceId,
+              context: currentContext,
+            );
+        context.go(landingRoute, extra: extra);
       }
       return;
     }
@@ -859,7 +878,7 @@ class _ContextSelector extends ConsumerWidget {
     final appliedContext = await contextController.applySelectionContext(
       userId: initiatingUserId,
       profileId: initiatingProfileId,
-      activeWorkspaceId: activeWorkspaceId!,
+      activeWorkspaceId: activeWorkspaceId,
       entityId: activeEntityId,
       roleId: activeRoleId,
       role: activeMode,
@@ -877,6 +896,22 @@ class _ContextSelector extends ConsumerWidget {
       )) {
         await contextController.init();
       }
+      return;
+    }
+    final defaultSaved = await _persistDefaultWorkspace(ref, workspaceId);
+    if (!context.mounted) return;
+    if (!defaultSaved) {
+      _showSnack(
+        context,
+        'Workspace changed, but could not save it as your default. '
+        'Please try again.',
+      );
+    }
+    if (!contextController.selectionOperationIsCurrent(
+          generation: activationGeneration,
+          userId: initiatingUserId,
+          profileId: initiatingProfileId,
+        )) {
       return;
     }
 
