@@ -95,6 +95,13 @@ Map<String, Object?> _farmHistoryStringMap(Object? value) {
 bool _isFarmManagementLocation(Uri uri) =>
     uri.path == '/' || uri.path == '/farm';
 
+class _FarmTabDefinition {
+  const _FarmTabDefinition(this.label, this.icon);
+
+  final String label;
+  final IconData icon;
+}
+
 /// ============================================================
 /// FARM MANAGEMENT PAGE (PRIMARY MODULE ENTRY POINT)
 /// ============================================================
@@ -165,13 +172,13 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
   late final List<GlobalKey> _tabKeys;
 
   /// 🏗️ Farm Workspace Tabs
-  static const _tabDefs = <(String, IconData)>[
-    ('Overview', Icons.dashboard),
-    ('My Farms', Icons.agriculture),
-    ('Crops', Icons.eco),
-    ('Livestock', Icons.pets),
-    ('Activity Logs', Icons.list_alt),
-    ('Reports', Icons.description),
+  static const _tabDefs = <_FarmTabDefinition>[
+    _FarmTabDefinition('Overview', Icons.dashboard),
+    _FarmTabDefinition('My Farms', Icons.agriculture),
+    _FarmTabDefinition('Crops', Icons.eco),
+    _FarmTabDefinition('Livestock', Icons.pets),
+    _FarmTabDefinition('Activity Logs', Icons.list_alt),
+    _FarmTabDefinition('Reports', Icons.description),
   ];
 
   @override
@@ -772,8 +779,8 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
       final definition = _tabDefs[index];
       return Tab(
         key: _tabKeys[index],
-        text: definition.$1,
-        icon: Icon(definition.$2, size: 18),
+        text: definition.label,
+        icon: Icon(definition.icon, size: 18),
       );
     } catch (error, stackTrace) {
       if (kIsWeb) {
