@@ -108,7 +108,12 @@ class SystemModule {
       requiresFarm: map['requires_farm'] ?? false,
       requiresBusiness: map['requires_business'] ?? false,
       requiresVerification: map['requires_verification'] ?? false,
-      displayOrder: map['display_order'] ?? 999,
+      // Live `system.modules` exposes `sort_order`; `display_order` is kept
+      // for forward compatibility. Ordering: display_order -> sort_order -> 999.
+      displayOrder:
+          (map['display_order'] as num?)?.toInt() ??
+          (map['sort_order'] as num?)?.toInt() ??
+          999,
       badgeText: map['badge_text']?.toString(),
       badgeColor: map['badge_color']?.toString(),
       notificationCountSource: map['notification_count_source']?.toString(),
