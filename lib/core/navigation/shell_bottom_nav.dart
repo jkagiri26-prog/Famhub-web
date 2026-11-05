@@ -60,7 +60,8 @@ class ShellBottomNav extends ConsumerWidget {
     //   4. Traceability (global)  → /traceability
     //   5. More (global)          → sheet of remaining modules
     final wsType = ref.watch(activeWorkspaceTypeProvider);
-    final workspaceItem = _workspaceNavItem(wsType);
+    final workspaceName = ref.watch(activeWorkspaceNameProvider);
+    final workspaceItem = _workspaceNavItem(wsType, workspaceName);
 
     final fixedItems = [
       const NavItem(
@@ -138,44 +139,66 @@ class ShellBottomNav extends ConsumerWidget {
   /// Home is NOT the workspace dashboard. The third position is the
   /// workspace dashboard ('/'), rendered through the existing dynamic
   /// dashboard architecture (UnifiedDashboardHost).
-  NavItem _workspaceNavItem(String? wsType) {
+  ///
+  /// The label follows the active workspace name (same as the desktop
+  /// sidebar and tablet rail), falling back to the previous type label
+  /// while the workspace catalog is unresolved.
+  NavItem _workspaceNavItem(String? wsType, String? workspaceName) {
+    final name = workspaceName?.trim();
+    final label = (name == null || name.isEmpty)
+        ? _fallbackWorkspaceLabel(wsType)
+        : name;
+
     switch (wsType) {
       case 'farmer':
-        return const NavItem(
+        return NavItem(
           moduleKey: 'farm_management',
-          displayName: 'Farm',
+          displayName: label,
           route: '/',
           icon: Icons.agriculture_outlined,
           displayOrder: 2,
           bottomNavVisible: true,
         );
       case 'trader':
-        return const NavItem(
+        return NavItem(
           moduleKey: 'trader',
-          displayName: 'Trader',
+          displayName: label,
           route: '/',
           icon: Icons.business_outlined,
           displayOrder: 2,
           bottomNavVisible: true,
         );
       case 'institution':
-        return const NavItem(
+        return NavItem(
           moduleKey: 'finance',
-          displayName: 'Institutions',
+          displayName: label,
           route: '/',
           icon: Icons.account_balance_outlined,
           displayOrder: 2,
           bottomNavVisible: true,
         );
       default:
-        return const NavItem(
+        return NavItem(
           moduleKey: 'dashboard',
-          displayName: 'Dashboard',
+          displayName: label,
           route: '/',
           icon: Icons.dashboard_outlined,
           displayOrder: 2,
           bottomNavVisible: true,
         );
+    }
+  }
+
+  String _fallbackWorkspaceLabel(String? wsType) {
+    switch (wsType) {
+      case 'farmer':
+        return 'Farm';
+      case 'trader':
+        return 'Trader';
+      case 'institution':
+        return 'Institutions';
+      default:
+        return 'Dashboard';
     }
   }
 
