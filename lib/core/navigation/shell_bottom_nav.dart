@@ -57,11 +57,31 @@ class ShellBottomNav extends ConsumerWidget {
     //   1. Home (global)          → /home
     //   2. Marketplace (global)   → /marketplace
     //   3. Workspace Dashboard    → '/'  (dynamic, follows active workspace)
-    //   4. Traceability (global)  → /traceability
+    //   4. Farmer: Connect → /connect; others: Traceability → /traceability
     //   5. More (global)          → sheet of remaining modules
     final wsType = ref.watch(activeWorkspaceTypeProvider);
     final workspaceName = ref.watch(activeWorkspaceNameProvider);
     final workspaceItem = _workspaceNavItem(wsType, workspaceName);
+
+    // Farmer workspace exposes Agri Connect in the fixed navigation in place
+    // of Traceability. Traceability remains available through "More".
+    final fourthItem = wsType == 'farmer'
+        ? const NavItem(
+            moduleKey: 'agri_connect',
+            displayName: 'Connect',
+            route: '/connect',
+            icon: Icons.people_outline,
+            displayOrder: 3,
+            bottomNavVisible: true,
+          )
+        : const NavItem(
+            moduleKey: 'traceability',
+            displayName: 'Traceability',
+            route: '/traceability',
+            icon: Icons.qr_code,
+            displayOrder: 3,
+            bottomNavVisible: true,
+          );
 
     final fixedItems = [
       const NavItem(
@@ -81,14 +101,7 @@ class ShellBottomNav extends ConsumerWidget {
         bottomNavVisible: true,
       ),
       workspaceItem,
-      const NavItem(
-        moduleKey: 'traceability',
-        displayName: 'Traceability',
-        route: '/traceability',
-        icon: Icons.qr_code,
-        displayOrder: 3,
-        bottomNavVisible: true,
-      ),
+      fourthItem,
     ];
 
     // Everything else (modules not pinned globally and not the current
@@ -96,10 +109,10 @@ class ShellBottomNav extends ConsumerWidget {
     // Opening a module from More NEVER switches the workspace/context.
     final excluded = <String>{
       'marketplace',
-      'traceability',
       // Shared platform capability — never replaced by a module entry.
       'weather',
       workspaceItem.moduleKey,
+      fourthItem.moduleKey,
     };
     final extraItems = <NavItem>[
       // Shared platform capability (not a workspace module).
