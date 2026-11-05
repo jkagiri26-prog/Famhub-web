@@ -37,10 +37,18 @@ import 'package:famhub_app/features/farm_management/domain/repositories/assistan
 /// markup and never presented as a confirmed diagnosis.
 /// ============================================================
 class FarmerAdvisorPage extends ConsumerStatefulWidget {
-  const FarmerAdvisorPage({super.key, required this.initialRoute});
+  const FarmerAdvisorPage({
+    super.key,
+    required this.initialRoute,
+    this.isPanel = false,
+  });
 
   /// Router path captured by the shell when the assistant was opened.
   final String initialRoute;
+
+  /// When true the advisor is rendered inside the desktop side panel, so the
+  /// leading action is a close button instead of a back button.
+  final bool isPanel;
 
   @override
   ConsumerState<FarmerAdvisorPage> createState() => _FarmerAdvisorPageState();
@@ -183,16 +191,22 @@ class _FarmerAdvisorPageState extends ConsumerState<FarmerAdvisorPage> {
 
     return Scaffold(
       appBar: AppBar(
-        leading: BackButton(
-          onPressed: () {
-            final navigator = Navigator.of(context);
-            if (navigator.canPop()) {
-              navigator.maybePop();
-            } else {
-              context.go(AppRoutes.root);
-            }
-          },
-        ),
+        leading: widget.isPanel
+            ? IconButton(
+                tooltip: 'Close assistant',
+                icon: const Icon(Icons.close_rounded),
+                onPressed: () => Navigator.of(context).maybePop(),
+              )
+            : BackButton(
+                onPressed: () {
+                  final navigator = Navigator.of(context);
+                  if (navigator.canPop()) {
+                    navigator.maybePop();
+                  } else {
+                    context.go(AppRoutes.root);
+                  }
+                },
+              ),
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[

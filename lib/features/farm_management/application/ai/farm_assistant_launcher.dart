@@ -22,9 +22,12 @@
 /// ============================================================
 library;
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:famhub_app/core/navigation/resize_optimizer.dart';
 import 'package:famhub_app/core/shell/application/assistant/assistant_launcher_registry.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/farmer_advisor_page.dart';
 
@@ -44,13 +47,67 @@ void registerFarmAssistantLauncher() {
   }
 }
 
-/// Opens the assistant on the existing navigator so shell navigation,
-/// breakpoints and routing behaviour are untouched.
+/// Opens the assistant.
+///
+/// Desktop/ultraWide: a right-side slide-over panel that leaves the current
+/// page in place and can be dismissed with its close button or the barrier.
+/// Tablet/mobile: the existing full-page push.
 void _openFarmerAdvisor(BuildContext context, WidgetRef ref, String route) {
+  final String deviceType = ref.read(breakpointProvider).deviceType;
+  final bool isDesktop =
+      deviceType == 'desktop' || deviceType == 'ultraWide';
+
+  if (isDesktop) {
+    _showDesktopAssistantPanel(context, route);
+    return;
+  }
+
   Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
       fullscreenDialog: false,
       builder: (_) => FarmerAdvisorPage(initialRoute: route),
     ),
+  );
+}
+
+/// Right-side, non-full-page assistant for desktop and ultra-wide.
+void _showDesktopAssistantPanel(BuildContext context, String route) {
+  final double screenWidth = MediaQuery.sizeOf(context).width;
+  final double panelWidth =
+      math.min(460.0, math.max(380.0, screenWidth * 0.38));
+
+  showGeneralDialog<void>(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: 'Close AI assistant',
+    barrierColor: Colors.black.withValues(alpha: 0.28),
+    transitionDuration: const Duration(milliseconds: 220),
+    pageBuilder: (dialogContext, animation, secondaryAnimation) {
+      return Align(
+        alignment: Alignment.centerRight,
+        child: Material(
+          elevation: 16,
+          clipBehavior: Clip.antiAlias,
+          borderRadius:
+              const BorderRadius.horizontal(left: Radius.circular(20)),
+          child: SizedBox(
+            width: panelWidth,
+            height: double.infinity,
+            child: FarmerAdvisorPage(initialRoute: route, isPanel: true),
+          ),
+        ),
+      );
+    },
+    transitionBuilder: (dialogContext, animation, secondaryAnimation, child) {
+      final curved =
+          CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+      return SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(1, 0),
+          end: Offset.zero,
+        ).animate(curved),
+        child: FadeTransition(opacity: curved, child: child),
+      );
+    },
   );
 }
