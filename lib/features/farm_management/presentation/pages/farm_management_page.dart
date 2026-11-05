@@ -1623,24 +1623,54 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
             ),
           )
         else
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: widgetEntries.map((entry) {
-              final width = breakpoint.deviceType == 'tablet'
-                  ? (MediaQuery.of(context).size.width - 44) / 2
-                  : (MediaQuery.of(context).size.width - 56) / 3;
-              return SizedBox(
-                width: width,
-                child: _DashboardWidgetCard(
-                  descriptor: entry.descriptor,
-                  child: entry.widget,
-                ),
-              );
-            }).toList(),
+          _buildDashboardGrid(
+            context,
+            widgetEntries
+                .map(
+                  (entry) => _DashboardWidgetCard(
+                    descriptor: entry.descriptor,
+                    child: entry.widget,
+                  ),
+                )
+                .toList(),
           ),
         const SizedBox(height: 8),
       ],
+    );
+  }
+
+  /// Width-aware dashboard grid.
+  ///
+  /// Sizes cards from the actual width available to the dashboard
+  /// (after the shell sidebar, workspace section navigation, dividers and
+  /// padding) instead of the full browser viewport. Cards keep a minimum
+  /// readable width and the number of columns grows as space allows.
+  Widget _buildDashboardGrid(BuildContext context, List<Widget> cards) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 12.0;
+        const minCardWidth = 340.0;
+
+        final columns = ((constraints.maxWidth + spacing) /
+                (minCardWidth + spacing))
+            .floor()
+            .clamp(1, 6);
+
+        final cardWidth =
+            (constraints.maxWidth - spacing * (columns - 1)) / columns;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: 12,
+          children: [
+            for (final card in cards)
+              SizedBox(
+                width: cardWidth,
+                child: card,
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -1707,18 +1737,11 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
             ),
           )
         else
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: resolvedWidgets.map((w) {
-              final width = breakpoint.deviceType == 'tablet'
-                  ? (MediaQuery.of(context).size.width - 44) / 2
-                  : (MediaQuery.of(context).size.width - 56) / 3;
-              return SizedBox(
-                width: width,
-                child: _DashboardWidgetCardFallback(child: w),
-              );
-            }).toList(),
+          _buildDashboardGrid(
+            context,
+            resolvedWidgets
+                .map((w) => _DashboardWidgetCardFallback(child: w))
+                .toList(),
           ),
         const SizedBox(height: 8),
       ],
