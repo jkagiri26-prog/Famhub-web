@@ -23,6 +23,7 @@ import 'package:go_router/go_router.dart';
 import '../theme/shell_theme.dart';
 import '../theme/shell_theme_provider.dart';
 import '../shell/application/controllers/sidebar_controller.dart';
+import '../workspace/application/workspace_dashboard_provider.dart';
 import 'nav_item.dart';
 import 'nav_config.dart';
 import 'shell_nav_item.dart';
@@ -49,12 +50,15 @@ class ShellSidebar extends ConsumerWidget {
     final location = GoRouterState.of(context).uri.toString();
     final brandName = ref.watch(shellThemeProvider).brand.name;
     final sidebarItems = ref.watch(sidebarNavItemsProvider);
+    final workspaceName = ref.watch(activeWorkspaceNameProvider);
 
-    // Build all items with Dashboard first
+    // Build all items with the workspace dashboard first. The static entry
+    // keeps the canonical '/' route but is labelled with the active
+    // workspace name so it reflects the destination it opens.
     final allItems = [
-      const NavItem(
+      NavItem(
         moduleKey: 'dashboard',
-        displayName: 'Dashboard',
+        displayName: workspaceName ?? 'Dashboard',
         route: '/',
         icon: Icons.dashboard_rounded,
         displayOrder: 0,

@@ -22,6 +22,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../theme/shell_theme.dart';
+import '../workspace/application/workspace_dashboard_provider.dart';
 import 'nav_item.dart';
 import 'nav_config.dart';
 
@@ -47,12 +48,14 @@ class ShellNavigationRail extends ConsumerWidget {
         ShellTheme.defaultLight;
     final location = GoRouterState.of(context).uri.toString();
     final navItems = ref.watch(sidebarNavItemsProvider);
+    final workspaceName = ref.watch(activeWorkspaceNameProvider);
 
-    // Build all items with Dashboard first (matching ShellSidebar behavior)
+    // Build all items with the active workspace's dashboard first
+    // (matching ShellSidebar behavior). The '/' route is unchanged.
     final allItems = [
-      const NavItem(
+      NavItem(
         moduleKey: 'dashboard',
-        displayName: 'Dashboard',
+        displayName: workspaceName ?? 'Dashboard',
         route: '/',
         icon: Icons.dashboard_rounded,
         displayOrder: 0,
