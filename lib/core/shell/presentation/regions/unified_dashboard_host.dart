@@ -12,6 +12,7 @@ import 'package:famhub_app/core/session/session_provider.dart';
 import 'package:famhub_app/core/workspace/application/active_workspace_provider.dart';
 import 'package:famhub_app/core/workspace/application/workspace_catalog_provider.dart';
 import 'package:famhub_app/core/workspace/application/workspace_dashboard_provider.dart';
+import 'package:famhub_app/core/workspace/application/workspace_history_restore_coordinator.dart';
 import 'package:famhub_app/core/dashboard_engine/presentation/renderer/responsive_dashboard_renderer.dart';
 import 'package:famhub_app/core/observability/dashboard_diagnostic_panel.dart';
 
@@ -132,7 +133,13 @@ class _UnifiedDashboardHostState extends ConsumerState<UnifiedDashboardHost> {
       if (router.routerDelegate.currentConfiguration.uri.path == '/') {
         _pendingLandingRoute = canonicalLandingRoute;
         final workspaceId = activeWorkspace.workspaceId;
-        final extra = router.routerDelegate.currentConfiguration.extra;
+        final extra = ref
+            .read(workspaceHistoryRestoreCoordinatorProvider)
+            .createHistoryExtra(
+              router.routerDelegate.currentConfiguration.extra,
+              workspaceId: workspaceId,
+              context: entityContext,
+            );
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           final router = GoRouter.of(context);
