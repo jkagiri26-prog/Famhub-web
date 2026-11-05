@@ -42,11 +42,14 @@
 /// ============================================================
 library;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:famhub_app/core/capabilities/application/capability_profile_provider.dart';
 import 'package:famhub_app/core/capabilities/domain/capability.dart';
+import 'package:famhub_app/core/workspace/application/active_workspace_provider.dart';
 import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
 import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
 import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
@@ -86,6 +89,16 @@ class BusinessHubTabSpec {
     this.capability,
     required this.blurb,
   });
+}
+
+const _traderHistoryExtraKey = '_traderHistory';
+
+Map<String, Object?> _stringKeyedMap(Object? value) {
+  if (value is! Map) return const {};
+  return {
+    for (final entry in value.entries)
+      if (entry.key is String) entry.key as String: entry.value,
+  };
 }
 
 const List<BusinessHubTabSpec> _tabSpecs = [
@@ -158,18 +171,131 @@ class BusinessHubPage extends ConsumerStatefulWidget {
 class _BusinessHubPageState extends ConsumerState<BusinessHubPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  GoRouter? _router;
+  bool _historyReady = false;
+  bool _restoringHistory = false;
+  bool _historyRecordScheduled = false;
+  int _historyRestoreGeneration = 0;
+  int? _lastHistoryTab;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: _tabSpecs.length, vsync: this);
+    _tabController.addListener(_onTabChanged);
     ref.invalidate(myBusinessesProvider);
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final router = GoRouter.of(context);
+    if (!identical(router, _router)) {
+      _router?.routerDelegate.removeListener(_onRouterChanged);
+      _router = router;
+      router.routerDelegate.addListener(_onRouterChanged);
+    }
+    if (_historyReady) return;
+    _historyReady = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _restoreFromRoute(initial: true);
+    });
+  }
+
+  @override
   void dispose() {
+    _historyRestoreGeneration++;
+    _router?.routerDelegate.removeListener(_onRouterChanged);
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _onRouterChanged() => _restoreFromRoute();
+
+  void _onTabChanged() {
+    if (_tabController.indexIsChanging) return;
+    _scheduleBrowserHistoryRecord();
+  }
+
+  void _scheduleBrowserHistoryRecord() {
+    if (!kIsWeb ||
+        !_historyReady ||
+        _restoringHistory ||
+        _historyRecordScheduled) {
+      return;
+    }
+    _historyRecordScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _historyRecordScheduled = false;
+      if (!mounted || _restoringHistory) return;
+      _writeBrowserHistory();
+    });
+  }
+
+  void _writeBrowserHistory({bool replace = false}) {
+    final router = _router;
+    if (!kIsWeb ||
+        !_historyReady ||
+        router == null ||
+        router.routerDelegate.currentConfiguration.uri.path != '/trader') {
+      return;
+    }
+    final tabIndex = _tabController.index;
+    if (!replace && _lastHistoryTab == tabIndex) return;
+
+    final configuration = router.routerDelegate.currentConfiguration;
+    final routeExtra = _stringKeyedMap(configuration.extra);
+    final extra = {
+      ...routeExtra,
+      _traderHistoryExtraKey: {
+        'workspaceId': ref.read(activeWorkspaceProvider).workspaceId,
+        'tabIndex': tabIndex,
+      },
+    };
+    _lastHistoryTab = tabIndex;
+    final uri = configuration.uri;
+    if (replace) {
+      Router.neglect(context, () => router.go(uri.toString(), extra: extra));
+    } else {
+      Router.navigate(context, () => router.go(uri.toString(), extra: extra));
+    }
+  }
+
+  void _restoreFromRoute({bool initial = false}) {
+    final router = _router;
+    if (!kIsWeb ||
+        !_historyReady ||
+        !mounted ||
+        router == null ||
+        router.routerDelegate.currentConfiguration.uri.path != '/trader') {
+      return;
+    }
+    final configuration = router.routerDelegate.currentConfiguration;
+    final routeExtra = _stringKeyedMap(configuration.extra);
+    final snapshot = _stringKeyedMap(routeExtra[_traderHistoryExtraKey]);
+    final workspaceId = ref.read(activeWorkspaceProvider).workspaceId;
+    if (snapshot['workspaceId'] != workspaceId) {
+      if (initial) _writeBrowserHistory(replace: true);
+      return;
+    }
+    final targetTab = snapshot['tabIndex'] is int
+        ? snapshot['tabIndex']! as int
+        : 0;
+    if (targetTab < 0 || targetTab >= _tabSpecs.length) return;
+    if (targetTab == _tabController.index) {
+      _lastHistoryTab = targetTab;
+      return;
+    }
+    final generation = ++_historyRestoreGeneration;
+    _restoringHistory = true;
+    _lastHistoryTab = targetTab;
+    _tabController.animateTo(targetTab);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || generation != _historyRestoreGeneration) return;
+      _restoringHistory = false;
+    });
   }
 
   @override
