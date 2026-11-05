@@ -196,6 +196,30 @@ class _AdminTaxonomyViewState extends ConsumerState<AdminTaxonomyView> {
         : null;
     final snapshot = raw is Map ? raw : const <Object?, Object?>{};
     final generation = ++_restoreGeneration;
+
+    bool matchesNode(AdminTaxonomyNode? current, Object? snap) {
+      if (snap == null) return true;
+      if (snap is! Map || snap['id'] is! String || snap['name'] is! String) {
+        return false;
+      }
+      return current != null &&
+          current.id == snap['id'] &&
+          current.name == snap['name'];
+    }
+
+    if (matchesNode(_domain, snapshot['domain']) &&
+        matchesNode(_category, snapshot['category']) &&
+        matchesNode(_item, snapshot['item'])) {
+      if (!mounted || generation != _restoreGeneration) return;
+      setState(() {
+        _domain = snapshot['domain'] == null ? null : _domain;
+        _category = snapshot['category'] == null ? null : _category;
+        _item = snapshot['item'] == null ? null : _item;
+      });
+      _sync();
+      return;
+    }
+
     final domain = await _resolveNode(
       TaxonomyLevel.domain,
       null,

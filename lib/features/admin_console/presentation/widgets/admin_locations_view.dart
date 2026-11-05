@@ -222,6 +222,42 @@ class _AdminLocationsViewState extends ConsumerState<AdminLocationsView> {
         : const <Object?, Object?>{};
     final generation = ++_restoreGeneration;
 
+    if (countryId == _countryId) {
+      final fastSelections = <String, AdminLocation>{};
+      var canFastRestore = true;
+      for (final entry in selectedSnapshots.entries) {
+        final levelId = entry.key;
+        final selection = entry.value;
+        if (levelId is! String || selection is! Map) {
+          canFastRestore = false;
+          break;
+        }
+        final id = selection['id'];
+        final name = selection['name'];
+        final current = _selected[levelId];
+        if (id is! String ||
+            name is! String ||
+            current == null ||
+            current.id != id ||
+            current.name != name) {
+          canFastRestore = false;
+          break;
+        }
+        fastSelections[levelId] = current;
+      }
+      if (canFastRestore) {
+        if (!mounted || generation != _restoreGeneration) return;
+        setState(() {
+          _countryId = countryId;
+          _selected
+            ..clear()
+            ..addAll(fastSelections);
+        });
+        _sync();
+        return;
+      }
+    }
+
     String? validCountryId;
     if (countryId != null) {
       final countries = await ref.read(adminCountriesProvider.future);
