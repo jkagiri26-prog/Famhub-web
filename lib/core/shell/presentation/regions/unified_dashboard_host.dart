@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:famhub_app/core/composition/router/dynamic_route_registrar.dart';
 import 'package:famhub_app/core/context_engine/domain/models/entity_context.dart';
@@ -49,6 +50,7 @@ class UnifiedDashboardHost extends ConsumerStatefulWidget {
 
 class _UnifiedDashboardHostState extends ConsumerState<UnifiedDashboardHost> {
   String? _lastDiagnosticSignature;
+  String? _pendingLandingRoute;
 
   @override
   Widget build(BuildContext context) {
@@ -108,6 +110,42 @@ class _UnifiedDashboardHostState extends ConsumerState<UnifiedDashboardHost> {
     );
     if (entityContext.isLoading) {
       return const Center(child: CircularProgressIndicator());
+    }
+
+    final canonicalLandingRoute = primaryKey == null
+        ? null
+        : WorkspaceDashboardCatalog.workspaceRouteForModuleKey(primaryKey)?.$2;
+    final hasResolvedWorkspaceContext =
+        session is AuthenticatedSession &&
+        session.hasProfile &&
+        !entityContext.isGuest &&
+        entityContext.activeWorkspaceId == activeWorkspace.workspaceId &&
+        entityContext.entityId != null &&
+        entityContext.entityId!.isNotEmpty &&
+        entityContext.roleId != null &&
+        entityContext.roleId!.isNotEmpty;
+    if (canonicalLandingRoute != null &&
+        builder != null &&
+        hasResolvedWorkspaceContext &&
+        _pendingLandingRoute != canonicalLandingRoute) {
+      final router = GoRouter.of(context);
+      if (router.routerDelegate.currentConfiguration.uri.path == '/') {
+        _pendingLandingRoute = canonicalLandingRoute;
+        final workspaceId = activeWorkspace.workspaceId;
+        final extra = router.routerDelegate.currentConfiguration.extra;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final router = GoRouter.of(context);
+          if (router.routerDelegate.currentConfiguration.uri.path != '/' ||
+              ref.read(activeWorkspaceProvider).workspaceId != workspaceId) {
+            return;
+          }
+          Router.neglect(
+            context,
+            () => router.go(canonicalLandingRoute, extra: extra),
+          );
+        });
+      }
     }
 
     if (builder != null) {

@@ -504,23 +504,17 @@ class _MyAppState extends ConsumerState<MyApp> {
     // settings state change.
     ref.listen(settingsProvider, (_, __) {});
 
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: shellTheme.toThemeData(ThemeMode.light),
-      darkTheme: shellTheme.toThemeData(ThemeMode.dark),
-      themeMode: themeMode,
-      home: SessionGate(
-        authenticatedBuilder: () {
-          final router = ref.watch(appRouterProvider);
-          return MaterialApp.router(
-            routerConfig: router,
-            debugShowCheckedModeBanner: false,
-            theme: shellTheme.toThemeData(ThemeMode.light),
-            darkTheme: shellTheme.toThemeData(ThemeMode.dark),
-            themeMode: themeMode,
-          );
-        },
-      ),
+    return SessionGate(
+      authenticatedBuilder: () {
+        final router = ref.watch(appRouterProvider);
+        return MaterialApp.router(
+          routerConfig: router,
+          debugShowCheckedModeBanner: false,
+          theme: shellTheme.toThemeData(ThemeMode.light),
+          darkTheme: shellTheme.toThemeData(ThemeMode.dark),
+          themeMode: themeMode,
+        );
+      },
     );
   }
 }

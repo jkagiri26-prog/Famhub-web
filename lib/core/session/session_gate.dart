@@ -108,10 +108,22 @@ class _SessionGateState extends ConsumerState<SessionGate> {
     }
   }
 
+  Widget _buildAppShell(Widget home) {
+    final shellTheme = ref.watch(shellThemeProvider);
+    final themeMode = ref.watch(themeModeProvider);
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: shellTheme.toThemeData(ThemeMode.light),
+      darkTheme: shellTheme.toThemeData(ThemeMode.dark),
+      themeMode: themeMode,
+      home: home,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_initialized) {
-      return const SplashScreenPage();
+      return _buildAppShell(const SplashScreenPage());
     }
 
     final session = ref.watch(sessionProvider);
@@ -127,7 +139,7 @@ class _SessionGateState extends ConsumerState<SessionGate> {
       // the provider briefly looks like "no profile" and the gate opens
       // Create Profile before the backend query finishes.
       case SessionDestination.splash:
-        return const SplashScreenPage();
+        return _buildAppShell(const SplashScreenPage());
 
       // ── Restoration failed (network / database error) ──
       // NOT the same as "no profile" or "no session". Show a retry state.
@@ -135,7 +147,7 @@ class _SessionGateState extends ConsumerState<SessionGate> {
         if (session is SessionFailure) {
           return _buildErrorState(session.message);
         }
-        return const SplashScreenPage();
+        return _buildAppShell(const SplashScreenPage());
 
       // ── OTP SESSION RESTORED ──
       // If there's a valid persisted OTP session and we're unauthenticated,
@@ -147,12 +159,16 @@ class _SessionGateState extends ConsumerState<SessionGate> {
         if (_continueExploring) {
           return _FamhubHomeFlow();
         }
-        return _AuthFlow(
-          onSignIn: () => _showSignIn(),
-          onCreateAccount: () => _showSignUp(),
-          onContinueExploring: () {
-            setState(() => _continueExploring = true);
-          },
+        return _buildAppShell(
+          Builder(
+            builder: (context) => _AuthFlow(
+              onSignIn: () => _showSignIn(context),
+              onCreateAccount: () => _showSignUp(context),
+              onContinueExploring: () {
+                setState(() => _continueExploring = true);
+              },
+            ),
+          ),
         );
 
       // Authenticated, no profile → Create Profile.
@@ -174,14 +190,16 @@ class _SessionGateState extends ConsumerState<SessionGate> {
   Widget _buildErrorState(String message) {
     final shellTheme = ref.watch(shellThemeProvider);
     final themeMode = ref.watch(themeModeProvider);
-    final cs = Theme.of(context).colorScheme;
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: shellTheme.toThemeData(ThemeMode.light),
       darkTheme: shellTheme.toThemeData(ThemeMode.dark),
       themeMode: themeMode,
-      home: Scaffold(
+      home: Builder(
+        builder: (context) {
+          final cs = Theme.of(context).colorScheme;
+          return Scaffold(
         body: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -275,6 +293,8 @@ class _SessionGateState extends ConsumerState<SessionGate> {
             ),
           ),
         ),
+      );
+        },
       ),
     );
   }
@@ -397,7 +417,7 @@ class _SessionGateState extends ConsumerState<SessionGate> {
     }
   }
 
-  void _showSignIn() {
+  void _showSignIn(BuildContext context) {
     final navigator = Navigator.of(context);
     navigator.push(
       MaterialPageRoute(
@@ -421,7 +441,7 @@ class _SessionGateState extends ConsumerState<SessionGate> {
     );
   }
 
-  void _showSignUp() {
+  void _showSignUp(BuildContext context) {
     final navigator = Navigator.of(context);
     navigator.push(
       MaterialPageRoute(
