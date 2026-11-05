@@ -327,7 +327,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     );
     if (!_isFarmManagementLocation(configuration.uri)) {
       _historyRestoreGeneration++;
-      _restoringHistory = false;
+      _setRestoringHistory(false);
       _updateDiagnosticScope();
       return;
     }
@@ -348,7 +348,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     }
     if (snapshot['workspaceId'] != currentWorkspaceId) {
       _historyRestoreGeneration++;
-      _restoringHistory = false;
+      _setRestoringHistory(false);
       _updateDiagnosticScope();
       return;
     }
@@ -423,13 +423,22 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     };
   }
 
+  void _setRestoringHistory(bool restoring) {
+    if (_restoringHistory == restoring) return;
+    if (mounted) {
+      setState(() => _restoringHistory = restoring);
+    } else {
+      _restoringHistory = restoring;
+    }
+  }
+
   Future<void> _restoreBrowserHistory(Map<String, Object?> snapshot) async {
     final generation = ++_historyRestoreGeneration;
     final stopwatch = Stopwatch()..start();
     final targetTab = snapshot['tabIndex'] is int
         ? snapshot['tabIndex']! as int
         : FarmManagementTab.overview;
-    _restoringHistory = true;
+    _setRestoringHistory(true);
     _updateDiagnosticScope();
     final encodedTarget = jsonEncode(snapshot);
     DashboardDiagnosticLog.record(
@@ -582,7 +591,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
         'status=${generation == _historyRestoreGeneration ? 'current' : 'superseded'}',
       );
       if (generation == _historyRestoreGeneration) {
-        _restoringHistory = false;
+        _setRestoringHistory(false);
         _updateDiagnosticScope();
       }
     }
@@ -877,7 +886,9 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
 
             // ── Tab Content ──
             Expanded(
-              child: TabBarView(
+              child: Stack(
+                children: [
+                  TabBarView(
                 controller: _tabController,
                 children: [
                   // 1. Overview — full farm dashboard
@@ -917,6 +928,19 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
                     onOpenLivestock: () => _tabController.animateTo(3),
                     onOpenActivities: () => _tabController.animateTo(4),
                   ),
+                    ],
+                  ),
+                  if (_restoringHistory)
+                    Positioned.fill(
+                      child: AbsorbPointer(
+                        child: Material(
+                          color: Theme.of(context).scaffoldBackgroundColor,
+                          child: const LoadingStateWidget(
+                            message: 'Restoring workspace...',
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
