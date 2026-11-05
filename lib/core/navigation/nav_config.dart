@@ -76,6 +76,28 @@ List<NavItem> _scopeToWorkspace(List<NavItem> items, String? workspaceType) {
   ];
 }
 
+/// Removes the active workspace's primary dashboard module from the
+/// primary sidebar: that destination is already reachable through the
+/// static Dashboard item and the canonical workspace route.
+///
+/// `commerce` remains the backend key for the Trader workspace until the
+/// separate commerce -> trader identity fix lands.
+List<NavItem> _excludeWorkspaceDashboard(
+  List<NavItem> items,
+  String? workspaceType,
+) {
+  final primaryKey =
+      WorkspaceDashboardCatalog.primaryModuleKeyFor(workspaceType);
+  if (primaryKey == null) return items;
+
+  return [
+    for (final item in items)
+      if (item.moduleKey != primaryKey &&
+          !(primaryKey == 'trader' && item.moduleKey == 'commerce'))
+        item,
+  ];
+}
+
 /// ============================================================
 /// PROVIDER: SIDEBAR NAVIGATION ITEMS
 /// ============================================================
@@ -89,9 +111,13 @@ final sidebarNavItemsProvider = Provider<List<NavItem>>((ref) {
   final workspaceType = ref.watch(activeWorkspaceTypeProvider);
 
   return modulesAsync.when(
-    data: (modules) => _scopeToWorkspace(
+    data: (modules) => _excludeWorkspaceDashboard(
+      _scopeToWorkspace(
         _buildNavItems(modules, context, forSidebar: true),
-        workspaceType),
+        workspaceType,
+      ),
+      workspaceType,
+    ),
     loading: () => [],
     error: (_, __) => [],
   );
