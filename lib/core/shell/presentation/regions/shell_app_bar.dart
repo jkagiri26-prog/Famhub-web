@@ -901,17 +901,20 @@ class _ContextSelector extends ConsumerWidget {
       }
       return;
     }
-    if (!contextController.selectionOperationIsCurrent(
-          generation: activationGeneration,
-          userId: initiatingUserId,
-          profileId: initiatingProfileId,
-        )) {
+    // applySelectionContext advances the controller generation itself, so
+    // the original activation generation is intentionally no longer current.
+    // Validate the applied context instead of rechecking that stale token.
+    final applied = ref.read(contextProvider);
+    if (applied.activeWorkspaceId != workspaceId ||
+        applied.entityId != activeEntityId ||
+        applied.roleId != activeRoleId ||
+        applied.role != activeMode ||
+        applied.businessProfileId != activeBusinessProfileId) {
       return;
     }
 
     // TEMPORARY DIAGNOSTIC (remove after the Farmer-context regression):
     // final applied context after activation.
-    final applied = ref.read(contextProvider);
     debugPrint('[WorkspaceSwitch] SEQUENCE step=applied '
         'selected_context_workspace_id=$workspaceId '
         'selected_context_entity_id=${applied.entityId} '
