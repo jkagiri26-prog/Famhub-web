@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import 'package:famhub_app/core/workspace/application/active_workspace_provider.dart';
 import 'package:famhub_app/features/admin_console/application/providers/admin_capability_provider.dart';
 import 'package:famhub_app/features/admin_console/application/providers/admin_drill_provider.dart';
 import 'package:famhub_app/features/admin_console/domain/models/admin_capability.dart';
@@ -107,38 +109,135 @@ class _AdminDrillBackGate extends ConsumerStatefulWidget {
 
 class _AdminDrillBackGateState extends ConsumerState<_AdminDrillBackGate> {
   TabController? _controller;
+  GoRouter? _router;
   bool _clearScheduled = false;
+  bool _historyReady = false;
+  bool _restoringHistory = false;
+  bool _historyRecordScheduled = false;
+  int _historyRestoreGeneration = 0;
+  int? _lastTopTab;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final TabController controller = DefaultTabController.of(context);
-    if (identical(controller, _controller)) return;
-    _controller?.removeListener(_onTabChanged);
-    _controller = controller;
-    controller.addListener(_onTabChanged);
+    if (!identical(controller, _controller)) {
+      _controller?.removeListener(_onTabChanged);
+      _controller = controller;
+      controller.addListener(_onTabChanged);
+    }
+    final router = GoRouter.of(context);
+    if (!identical(router, _router)) {
+      _router?.routerDelegate.removeListener(_onRouterChanged);
+      _router = router;
+      router.routerDelegate.addListener(_onRouterChanged);
+    }
+    if (_historyReady) return;
+    _historyReady = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _restoreFromRoute();
+    });
   }
 
   @override
   void dispose() {
+    _historyRestoreGeneration++;
     _controller?.removeListener(_onTabChanged);
+    _router?.routerDelegate.removeListener(_onRouterChanged);
     super.dispose();
   }
 
-  /// Leaving the System tab destroys its section (and the drill views), so
-  /// release the stale depths/callbacks after the frame. Provider writes are
-  /// illegal inside widget life-cycles, hence the post-frame callback.
+  void _onRouterChanged() => _restoreFromRoute();
+
   void _onTabChanged() {
     final TabController? controller = _controller;
-    if (controller == null || controller.index == widget.systemTabIndex) {
-      return;
-    }
+    if (controller == null || controller.indexIsChanging) return;
+    _scheduleBrowserHistoryRecord();
+    if (controller.index == widget.systemTabIndex) return;
     if (_clearScheduled) return;
     _clearScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _clearScheduled = false;
       if (!mounted) return;
       ref.read(adminDrillProvider.notifier).clearAll();
+    });
+  }
+
+  void _scheduleBrowserHistoryRecord() {
+    if (!kIsWeb ||
+        !_historyReady ||
+        _restoringHistory ||
+        _historyRecordScheduled) {
+      return;
+    }
+    _historyRecordScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _historyRecordScheduled = false;
+      if (!mounted || _restoringHistory) return;
+      _writeBrowserHistory();
+    });
+  }
+
+  void _writeBrowserHistory({bool replace = false}) {
+    final router = _router;
+    final controller = _controller;
+    if (!kIsWeb ||
+        !_historyReady ||
+        router == null ||
+        controller == null ||
+        router.routerDelegate.currentConfiguration.uri.path != '/admin') {
+      return;
+    }
+    final tabIndex = controller.index;
+    if (!replace && _lastTopTab == tabIndex) return;
+    final configuration = router.routerDelegate.currentConfiguration;
+    final extra = updateAdminTabHistoryExtra(
+      configuration.extra,
+      workspaceId: ref.read(activeWorkspaceProvider).workspaceId,
+      topTabIndex: tabIndex,
+    );
+    _lastTopTab = tabIndex;
+    final uri = configuration.uri;
+    if (replace) {
+      Router.neglect(context, () => router.go(uri.toString(), extra: extra));
+    } else {
+      Router.navigate(context, () => router.go(uri.toString(), extra: extra));
+    }
+  }
+
+  void _restoreFromRoute() {
+    final router = _router;
+    final controller = _controller;
+    if (!kIsWeb ||
+        !_historyReady ||
+        !mounted ||
+        router == null ||
+        controller == null ||
+        router.routerDelegate.currentConfiguration.uri.path != '/admin') {
+      return;
+    }
+    final configuration = router.routerDelegate.currentConfiguration;
+    final history = adminDrillHistoryFromExtra(configuration.extra);
+    if (history['workspaceId'] !=
+        ref.read(activeWorkspaceProvider).workspaceId) {
+      return;
+    }
+    final targetTab = history['topTabIndex'] is int
+        ? history['topTabIndex']! as int
+        : 0;
+    if (targetTab < 0 || targetTab >= AdminDashboardPage._topTabs.length) return;
+    if (targetTab == controller.index) {
+      _lastTopTab = targetTab;
+      return;
+    }
+    final generation = ++_historyRestoreGeneration;
+    _restoringHistory = true;
+    _lastTopTab = targetTab;
+    controller.animateTo(targetTab);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || generation != _historyRestoreGeneration) return;
+      _restoringHistory = false;
     });
   }
 

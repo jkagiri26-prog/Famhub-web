@@ -30,6 +30,33 @@ Map<String, Object?> updateAdminDrillHistoryExtra(
   };
 }
 
+Map<String, Object?> updateAdminTabHistoryExtra(
+  Object? extra, {
+  required String workspaceId,
+  int? topTabIndex,
+  String? sectionKey,
+  int? sectionTabIndex,
+}) {
+  final routeExtra = _stringKeyedMap(extra);
+  final previousHistory = adminDrillHistoryFromExtra(routeExtra);
+  final history = previousHistory['workspaceId'] == workspaceId
+      ? previousHistory
+      : const <String, Object?>{};
+  final sectionTabs = _stringKeyedMap(history['sectionTabs']);
+  if (sectionKey != null && sectionTabIndex != null) {
+    sectionTabs[sectionKey] = sectionTabIndex;
+  }
+  return {
+    ...routeExtra,
+    adminDrillHistoryExtraKey: {
+      ...history,
+      'workspaceId': workspaceId,
+      if (topTabIndex != null) 'topTabIndex': topTabIndex,
+      if (sectionKey != null) 'sectionTabs': sectionTabs,
+    },
+  };
+}
+
 Map<String, Object?> _stringKeyedMap(Object? value) {
   if (value is! Map) return const {};
   return {
