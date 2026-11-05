@@ -49,8 +49,10 @@ import 'package:go_router/go_router.dart';
 
 import 'package:famhub_app/core/capabilities/application/capability_profile_provider.dart';
 import 'package:famhub_app/core/capabilities/domain/capability.dart';
+import 'package:famhub_app/core/navigation/resize_optimizer.dart';
 import 'package:famhub_app/core/workspace/application/active_workspace_provider.dart';
 import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
+import 'package:famhub_app/shared/layouts/workspace_section_nav.dart';
 import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
 import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
@@ -359,6 +361,20 @@ class _BusinessHubPageState extends ConsumerState<BusinessHubPage>
       return profile?.hasCapability(capability.id) ?? false;
     }
 
+    // Desktop/ultraWide: secondary vertical section navigation. Tablet/
+    // mobile: the existing horizontal TabBar. Both drive the SAME
+    // TabController, so history behaviour is unchanged.
+    final deviceType = ref.watch(breakpointProvider).deviceType;
+    final isDesktop = deviceType == 'desktop' || deviceType == 'ultraWide';
+
+    final tabView = TabBarView(
+      controller: _tabController,
+      children: [
+        for (var i = 0; i < _tabSpecs.length; i++)
+          _buildTabContent(_tabSpecs[i], i),
+      ],
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -369,38 +385,57 @@ class _BusinessHubPageState extends ConsumerState<BusinessHubPage>
         const _BusinessIdentityLine(),
         const SizedBox(height: 12),
 
-        // ── Top tab navigation (stable) ──
-        SizedBox(
-          width: double.infinity,
-          child: TabBar(
-            controller: _tabController,
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            indicatorColor: Theme.of(context).colorScheme.primary,
-            labelColor: Theme.of(context).colorScheme.primary,
-            unselectedLabelColor: Colors.grey.shade600,
-            labelStyle: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+        if (isDesktop)
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                WorkspaceSectionNav(
+                  controller: _tabController,
+                  sections: [
+                    for (final spec in _tabSpecs)
+                      WorkspaceSectionNavItem(
+                        label: spec.label,
+                        icon: spec.icon,
+                        enabled: capabilityEnabled(spec.capability),
+                      ),
+                  ],
+                ),
+                VerticalDivider(
+                  width: 1,
+                  thickness: 1,
+                  color: Theme.of(context).dividerColor,
+                ),
+                Expanded(child: tabView),
+              ],
             ),
-            tabs: [
-              for (var i = 0; i < _tabSpecs.length; i++)
-                Tab(child: _buildTabLabel(i, capabilityEnabled)),
-            ],
+          )
+        else ...[
+          // ── Top tab navigation (stable) ──
+          SizedBox(
+            width: double.infinity,
+            child: TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              indicatorColor: Theme.of(context).colorScheme.primary,
+              labelColor: Theme.of(context).colorScheme.primary,
+              unselectedLabelColor: Colors.grey.shade600,
+              labelStyle: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+              tabs: [
+                for (var i = 0; i < _tabSpecs.length; i++)
+                  Tab(child: _buildTabLabel(i, capabilityEnabled)),
+              ],
+            ),
           ),
-        ),
-        const Divider(height: 1),
+          const Divider(height: 1),
 
-        // ── Tab content ──
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              for (var i = 0; i < _tabSpecs.length; i++)
-                _buildTabContent(_tabSpecs[i], i),
-            ],
-          ),
-        ),
+          // ── Tab content ──
+          Expanded(child: tabView),
+        ],
       ],
     );
   }

@@ -49,6 +49,7 @@ import 'package:famhub_app/core/workspace/application/active_workspace_provider.
 import 'package:famhub_app/core/observability/dashboard_diagnostic_panel.dart';
 
 import 'package:famhub_app/shared/layouts/shell_page_content.dart';
+import 'package:famhub_app/shared/layouts/workspace_section_nav.dart';
 import 'package:famhub_app/shared/layouts/dashboard_section_widget.dart';
 import 'package:famhub_app/shared/layouts/app_spacing_widget.dart';
 import 'package:famhub_app/shared/widgets/module_error_boundary.dart';
@@ -948,6 +949,84 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     // bubbling to the root navigator and closing the app (the tab views are
     // local/provider state, not routes, so the router has nothing to pop).
     // Pushed forms and dialogs sit on top of this route and are unaffected.
+
+    // Desktop/ultraWide shows the workspace sections as a secondary
+    // vertical navigation. Tablet/mobile keep the existing horizontal
+    // TabBar. Both branches drive the SAME TabController and TabBarView,
+    // so history recording/restoration is untouched.
+    final deviceType = ref.watch(breakpointProvider).deviceType;
+    final isDesktop = deviceType == 'desktop' || deviceType == 'ultraWide';
+
+    final sectionNav = WorkspaceSectionNav(
+      controller: _tabController,
+      onSectionTap: _onTabTapped,
+      sections: [
+        for (final definition in _tabDefs)
+          WorkspaceSectionNavItem(
+            label: definition.label,
+            icon: definition.icon,
+          ),
+      ],
+    );
+
+    final tabContent = Stack(
+      children: [
+        TabBarView(
+          controller: _tabController,
+          children: [
+            // 1. Overview — full farm dashboard
+            _buildOverviewTab(context, selectorState),
+
+            // 2. My Farms — hierarchy workspace (farm → field → asset)
+            FarmsPage(
+              onOpenCrops: () => _tabController.animateTo(2),
+              onOpenLivestock: () => _tabController.animateTo(3),
+            ),
+
+            // 3. Crops — global crop workspace (list ↔ in-tab details)
+            CropsPage(
+              onOpenActivities: () => _tabController.animateTo(4),
+              onGoToMyFarms: () => _tabController.animateTo(1),
+            ),
+
+            // 4. Livestock — global livestock workspace
+            LivestockPage(
+              onOpenActivities: () => _tabController.animateTo(4),
+              onGoToMyFarms: () => _tabController.animateTo(1),
+            ),
+
+            // 5. Activity Logs — global activity journal
+            ActivitiesPage(
+              onOpenCrops: () => _tabController.animateTo(2),
+              onOpenLivestock: () => _tabController.animateTo(3),
+              resetToken: _activitiesResetToken,
+              onDetailOpenChanged: _onActivityDetailChanged,
+              restoredActivityId: _activitySelectionId,
+              onActivitySelectionChanged: _onActivitySelectionChanged,
+            ),
+
+            // 6. Reports — reporting workspace
+            ReportsPage(
+              onOpenCrops: () => _tabController.animateTo(2),
+              onOpenLivestock: () => _tabController.animateTo(3),
+              onOpenActivities: () => _tabController.animateTo(4),
+            ),
+          ],
+        ),
+        if (_restoringHistory)
+          Positioned.fill(
+            child: AbsorbPointer(
+              child: Material(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                child: const LoadingStateWidget(
+                  message: 'Restoring workspace...',
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+
     final page = ShellPageContent(
       title: 'Farm Management',
       subtitle: hierarchy.hasEntity
@@ -955,94 +1034,49 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
           : 'Manage your farms, fields, crops, and livestock',
       scrollable: false,
       child: Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Tab Bar ──
-            SizedBox(
-              width: double.infinity,
-              child: TabBar(
-                controller: _tabController,
-                isScrollable: true,
-                onTap: _onTabTapped,
-                tabs: List<Widget>.generate(
-                  _tabDefs.length,
-                  _buildFarmTab,
-                  growable: false,
-                ),
-                indicatorColor: Theme.of(context).colorScheme.primary,
-                labelColor: Theme.of(context).colorScheme.primary,
-                unselectedLabelColor: Colors.grey.shade600,
-                labelStyle: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const Divider(height: 1),
-
-            // ── Tab Content ──
-            Expanded(
-              child: Stack(
+        child: isDesktop
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TabBarView(
-                controller: _tabController,
+                  sectionNav,
+                  VerticalDivider(
+                    width: 1,
+                    thickness: 1,
+                    color: Theme.of(context).dividerColor,
+                  ),
+                  Expanded(child: tabContent),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 1. Overview — full farm dashboard
-                  _buildOverviewTab(context, selectorState),
-
-                  // 2. My Farms — hierarchy workspace (farm → field → asset)
-                  FarmsPage(
-                    onOpenCrops: () => _tabController.animateTo(2),
-                    onOpenLivestock: () => _tabController.animateTo(3),
-                  ),
-
-                  // 3. Crops — global crop workspace (list ↔ in-tab details)
-                  CropsPage(
-                    onOpenActivities: () => _tabController.animateTo(4),
-                    onGoToMyFarms: () => _tabController.animateTo(1),
-                  ),
-
-                  // 4. Livestock — global livestock workspace
-                  LivestockPage(
-                    onOpenActivities: () => _tabController.animateTo(4),
-                    onGoToMyFarms: () => _tabController.animateTo(1),
-                  ),
-
-                  // 5. Activity Logs — global activity journal
-                  ActivitiesPage(
-                    onOpenCrops: () => _tabController.animateTo(2),
-                    onOpenLivestock: () => _tabController.animateTo(3),
-                    resetToken: _activitiesResetToken,
-                    onDetailOpenChanged: _onActivityDetailChanged,
-                    restoredActivityId: _activitySelectionId,
-                    onActivitySelectionChanged: _onActivitySelectionChanged,
-                  ),
-
-                  // 6. Reports — reporting workspace
-                  ReportsPage(
-                    onOpenCrops: () => _tabController.animateTo(2),
-                    onOpenLivestock: () => _tabController.animateTo(3),
-                    onOpenActivities: () => _tabController.animateTo(4),
-                  ),
-                    ],
-                  ),
-                  if (_restoringHistory)
-                    Positioned.fill(
-                      child: AbsorbPointer(
-                        child: Material(
-                          color: Theme.of(context).scaffoldBackgroundColor,
-                          child: const LoadingStateWidget(
-                            message: 'Restoring workspace...',
-                          ),
-                        ),
+                  // ── Tab Bar ──
+                  SizedBox(
+                    width: double.infinity,
+                    child: TabBar(
+                      controller: _tabController,
+                      isScrollable: true,
+                      onTap: _onTabTapped,
+                      tabs: List<Widget>.generate(
+                        _tabDefs.length,
+                        _buildFarmTab,
+                        growable: false,
+                      ),
+                      indicatorColor: Theme.of(context).colorScheme.primary,
+                      labelColor: Theme.of(context).colorScheme.primary,
+                      unselectedLabelColor: Colors.grey.shade600,
+                      labelStyle: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
+                  ),
+                  const Divider(height: 1),
+
+                  // ── Tab Content ──
+                  Expanded(child: tabContent),
                 ],
               ),
-            ),
-          ],
-        ),
       ),
     );
     if (kIsWeb) return page;
@@ -1157,9 +1191,13 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
           SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _SkeletonBlock(width: double.infinity, height: 100)),
+              Expanded(
+                child: _SkeletonBlock(width: double.infinity, height: 100),
+              ),
               SizedBox(width: 12),
-              Expanded(child: _SkeletonBlock(width: double.infinity, height: 100)),
+              Expanded(
+                child: _SkeletonBlock(width: double.infinity, height: 100),
+              ),
             ],
           ),
           SizedBox(height: 12),
@@ -1178,7 +1216,8 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
   Widget _buildErrorState(BuildContext context, String error) {
     return ErrorStateWidget(
       title: 'Unable to Load Farms',
-      message: 'We encountered a problem loading your farm data. '
+      message:
+          'We encountered a problem loading your farm data. '
           'Please check your connection and try again.',
       retryLabel: 'Retry',
       onRetry: () {
@@ -1268,11 +1307,9 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
             width: 240,
             child: FilledButton.icon(
               onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const AddFarmPage(),
-                  ),
-                );
+                Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const AddFarmPage()));
               },
               icon: const Icon(Icons.add_circle_outline, size: 20),
               label: const Text('Create Your First Farm'),
@@ -1510,21 +1547,25 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
   ) {
     final theme = Theme.of(context);
     final breakpoint = ref.watch(breakpointProvider);
-    final isMobile = breakpoint.deviceType == 'compactXs' || breakpoint.deviceType == 'mobile';
+    final isMobile =
+        breakpoint.deviceType == 'compactXs' ||
+        breakpoint.deviceType == 'mobile';
 
     // Resolve widgets from registry
     final widgetEntries = <_WidgetEntry>[];
     for (final desc in descriptors) {
       final builder = WidgetRegistry.resolve(desc.widgetKey);
       if (builder != null) {
-        widgetEntries.add(_WidgetEntry(
-          descriptor: desc,
-          widget: ModuleErrorBoundary(
-            moduleKey: desc.widgetKey,
-            displayName: desc.displayName,
-            child: builder(),
+        widgetEntries.add(
+          _WidgetEntry(
+            descriptor: desc,
+            widget: ModuleErrorBoundary(
+              moduleKey: desc.widgetKey,
+              displayName: desc.displayName,
+              child: builder(),
+            ),
           ),
-        ));
+        );
       }
     }
 
@@ -1554,7 +1595,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
       );
     }
 
-        // 🐛 FIXED: No SingleChildScrollView — ShellPageContent handles scrolling.
+    // 🐛 FIXED: No SingleChildScrollView — ShellPageContent handles scrolling.
     // Just return the Column of widgets.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1572,13 +1613,15 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
         const SizedBox(height: 4),
         // Widget flow — single Column on mobile, Wrap on tablet/desktop
         if (isMobile)
-          ...widgetEntries.map((entry) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _DashboardWidgetCard(
-              descriptor: entry.descriptor,
-              child: entry.widget,
+          ...widgetEntries.map(
+            (entry) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _DashboardWidgetCard(
+                descriptor: entry.descriptor,
+                child: entry.widget,
+              ),
             ),
-          ))
+          )
         else
           Wrap(
             spacing: 12,
@@ -1630,13 +1673,16 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
       return const EmptyStateWidget(
         icon: Icons.agriculture,
         title: 'Farm Dashboard',
-        subtitle: 'Farm management widgets are not available. '
+        subtitle:
+            'Farm management widgets are not available. '
             'Please check your connection and try again.',
       );
     }
 
     final breakpoint = ref.watch(breakpointProvider);
-    final isMobile = breakpoint.deviceType == 'compactXs' || breakpoint.deviceType == 'mobile';
+    final isMobile =
+        breakpoint.deviceType == 'compactXs' ||
+        breakpoint.deviceType == 'mobile';
 
     // 🐛 FIXED: No SingleChildScrollView — ShellPageContent handles scrolling.
     return Column(
@@ -1654,10 +1700,12 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
 
         const SizedBox(height: 4),
         if (isMobile)
-          ...resolvedWidgets.map((w) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _DashboardWidgetCardFallback(child: w),
-          ))
+          ...resolvedWidgets.map(
+            (w) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _DashboardWidgetCardFallback(child: w),
+            ),
+          )
         else
           Wrap(
             spacing: 12,
@@ -1685,10 +1733,7 @@ class _DashboardWidgetCard extends StatelessWidget {
   final DashboardWidgetDescriptor descriptor;
   final Widget child;
 
-  const _DashboardWidgetCard({
-    required this.descriptor,
-    required this.child,
-  });
+  const _DashboardWidgetCard({required this.descriptor, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -1740,10 +1785,7 @@ class _SkeletonBlock extends StatelessWidget {
   final double width;
   final double height;
 
-  const _SkeletonBlock({
-    required this.width,
-    required this.height,
-  });
+  const _SkeletonBlock({required this.width, required this.height});
 
   @override
   Widget build(BuildContext context) {
@@ -1831,10 +1873,7 @@ class _WidgetEntry {
   final DashboardWidgetDescriptor descriptor;
   final Widget widget;
 
-  const _WidgetEntry({
-    required this.descriptor,
-    required this.widget,
-  });
+  const _WidgetEntry({required this.descriptor, required this.widget});
 }
 
 /// @deprecated Use [FarmManagementPage] instead.

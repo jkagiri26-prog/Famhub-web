@@ -102,7 +102,10 @@ class ShellSidebar extends ConsumerWidget {
                       );
                     }),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 8,
+                      ),
                       child: Divider(height: 1, color: palette.divider),
                     ),
                   ],
@@ -152,10 +155,31 @@ class ShellSidebar extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 8),
               children: [
-                // ── Pinned section ──
-                if (showPinnedSection && pinnedItems.isNotEmpty && isExpanded) ...[
-                  _SectionLabel('Pinned', palette),
-                  ...pinnedItems.map((item) {
+                if (isExpanded) ...[
+                  // ── Pinned section ──
+                  if (showPinnedSection && pinnedItems.isNotEmpty) ...[
+                    _SectionLabel('Pinned', palette),
+                    ...pinnedItems.map((item) {
+                      final idx = allItems.indexOf(item);
+                      return _SidebarItem(
+                        item: item,
+                        isSelected: idx == selectedIndex,
+                        isExpanded: isExpanded,
+                        palette: palette,
+                        onTap: () => _onNavigate(context, item),
+                      );
+                    }),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 8,
+                      ),
+                      child: Divider(height: 1, color: palette.divider),
+                    ),
+                  ],
+
+                  // ── Regular items ──
+                  ...regularItems.map((item) {
                     final idx = allItems.indexOf(item);
                     return _SidebarItem(
                       item: item,
@@ -165,26 +189,8 @@ class ShellSidebar extends ConsumerWidget {
                       onTap: () => _onNavigate(context, item),
                     );
                   }),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                    child: Divider(height: 1, color: palette.divider),
-                  ),
-                ],
-
-                // ── Regular items ──
-                ...regularItems.map((item) {
-                  final idx = allItems.indexOf(item);
-                  return _SidebarItem(
-                    item: item,
-                    isSelected: idx == selectedIndex,
-                    isExpanded: isExpanded,
-                    palette: palette,
-                    onTap: () => _onNavigate(context, item),
-                  );
-                }),
-
-                // ── Collapsed items (show all as icons) ──
-                if (!isExpanded) ...[
+                ] else ...[
+                  // ── Collapsed: every item exactly once (icons only) ──
                   ...pinnedItems.map((item) {
                     final idx = allItems.indexOf(item);
                     return _SidebarItem(
@@ -408,7 +414,10 @@ class _SidebarItem extends StatelessWidget {
           isMaintenance: item.maintenanceMode,
           onTap: (item.isEnabled && !item.maintenanceMode) ? onTap : null,
           padding: const EdgeInsets.symmetric(vertical: 12),
-          width: 72,
+          // Keep the icon centered inside the 72px collapsed rail without
+          // the default 12px horizontal margin squeezing the tap target.
+          margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          width: SidebarState.collapsedWidth - 12,
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -515,7 +524,8 @@ class _CollapseToggle extends ConsumerWidget {
               onTap: () =>
                   ref.read(sidebarControllerProvider.notifier).expand(),
               padding: const EdgeInsets.symmetric(vertical: 10),
-              width: 72,
+              margin: EdgeInsets.zero,
+              width: SidebarState.collapsedWidth - 24,
               child: Center(
                 child: Icon(
                   Icons.menu_rounded,

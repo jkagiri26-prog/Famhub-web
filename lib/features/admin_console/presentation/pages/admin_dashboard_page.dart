@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:famhub_app/core/navigation/resize_optimizer.dart';
 import 'package:famhub_app/core/workspace/application/active_workspace_provider.dart';
 import 'package:famhub_app/features/admin_console/application/providers/admin_capability_provider.dart';
 import 'package:famhub_app/features/admin_console/application/providers/admin_drill_provider.dart';
@@ -14,6 +15,7 @@ import 'package:famhub_app/features/admin_console/presentation/widgets/admin_sec
 import 'package:famhub_app/shared/layouts/adaptive_content_grid.dart';
 import 'package:famhub_app/shared/layouts/dashboard_section_widget.dart';
 import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
+import 'package:famhub_app/shared/layouts/workspace_section_nav.dart';
 import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
 import 'package:famhub_app/shared/widgets/states/states.dart';
 
@@ -52,29 +54,37 @@ class AdminDashboardPage extends ConsumerWidget {
     'System',
   ];
 
+  /// Icons for the desktop section navigation (same order as [_topTabs]).
+  static const List<IconData> _topTabIcons = [
+    Icons.dashboard_outlined,
+    Icons.people_outline,
+    Icons.business_outlined,
+    Icons.widgets_outlined,
+    Icons.lock_outline,
+    Icons.settings_outlined,
+  ];
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final access = ref.watch(adminDashboardAccessProvider);
+
+    // Desktop/ultraWide: secondary vertical section navigation. Tablet/
+    // mobile: the existing AdminSubTabBar. Both drive the SAME
+    // DefaultTabController, so top-tab history is untouched.
+    final deviceType = ref.watch(breakpointProvider).deviceType;
+    final isDesktop = deviceType == 'desktop' || deviceType == 'ultraWide';
 
     return DefaultTabController(
       length: _topTabs.length,
       child: _AdminDrillBackGate(
         systemTabIndex: _topTabs.indexOf('System'),
         child: ResponsiveWrapper(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const ModuleHeaderWidget(
-              title: 'Administration',
-              subtitle: 'Platform and organisation administration',
-              trailingIcon: Icons.admin_panel_settings_outlined,
-            ),
-            const SizedBox(height: 8),
-            const AdminSubTabBar(tabs: _topTabs),
-            const Divider(height: 1),
-            Expanded(
-              child: TabBarView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Builder(
+            builder: (context) {
+              final controller = DefaultTabController.of(context);
+              final tabView = TabBarView(
+                controller: controller,
                 children: [
                   _AdminOverviewTab(access: access),
                   const AdminUsersSection(),
@@ -83,10 +93,50 @@ class AdminDashboardPage extends ConsumerWidget {
                   const AdminAccessSection(),
                   const AdminSystemSection(),
                 ],
-              ),
-            ),
-          ],
-        ),
+              );
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const ModuleHeaderWidget(
+                    title: 'Administration',
+                    subtitle: 'Platform and organisation administration',
+                    trailingIcon: Icons.admin_panel_settings_outlined,
+                  ),
+                  const SizedBox(height: 8),
+                  if (isDesktop)
+                    Expanded(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          WorkspaceSectionNav(
+                            controller: controller,
+                            sections: [
+                              for (var i = 0; i < _topTabs.length; i++)
+                                WorkspaceSectionNavItem(
+                                  label: _topTabs[i],
+                                  icon: _topTabIcons[i],
+                                ),
+                            ],
+                          ),
+                          VerticalDivider(
+                            width: 1,
+                            thickness: 1,
+                            color: Theme.of(context).dividerColor,
+                          ),
+                          Expanded(child: tabView),
+                        ],
+                      ),
+                    )
+                  else ...[
+                    const AdminSubTabBar(tabs: _topTabs),
+                    const Divider(height: 1),
+                    Expanded(child: tabView),
+                  ],
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
