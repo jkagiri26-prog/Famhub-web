@@ -389,7 +389,8 @@ class _WorkspaceLandingRouteState
   bool _refreshFailed = false;
   bool _historyRestoreFailed = false;
   String? _historyRestoreMessage;
-  int _refreshGeneration = 0;
+  int _uiGeneration = 0;
+  bool _historyRestoreOwnsUi = false;
   bool _initialRefreshStarted = false;
   GoRouter? _router;
 
@@ -437,12 +438,18 @@ class _WorkspaceLandingRouteState
     final router = _router;
     if (router == null) return;
     final restore = _restoreCurrentBrowserEntry(router);
-    if (restore != null) _observeHistoryRestore(restore);
+    if (restore != null) {
+      _observeHistoryRestore(restore);
+      return;
+    }
+    _invalidateHistoryRestore();
   }
 
   void _observeHistoryRestore(
     Future<WorkspaceHistoryRestoreResult> restore,
   ) {
+    final generation = ++_uiGeneration;
+    _historyRestoreOwnsUi = true;
     if (mounted) {
       _refreshing = true;
       _refreshFailed = false;
@@ -450,7 +457,8 @@ class _WorkspaceLandingRouteState
       _historyRestoreMessage = null;
     }
     restore.then((result) {
-      if (!mounted) return;
+      if (!mounted || generation != _uiGeneration) return;
+      _historyRestoreOwnsUi = false;
       setState(() {
         _refreshing = false;
         _historyRestoreFailed = !result.restored;
@@ -459,8 +467,19 @@ class _WorkspaceLandingRouteState
     });
   }
 
+  void _invalidateHistoryRestore() {
+    if (!_historyRestoreOwnsUi) return;
+    final generation = ++_uiGeneration;
+    _historyRestoreOwnsUi = false;
+    if (!mounted || generation != _uiGeneration) return;
+    _refreshing = false;
+    _historyRestoreFailed = false;
+    _historyRestoreMessage = null;
+  }
+
   Future<void> _refreshActiveContext() async {
-    final generation = ++_refreshGeneration;
+    final generation = ++_uiGeneration;
+    _historyRestoreOwnsUi = false;
     setState(() {
       _refreshing = true;
       _refreshFailed = false;
@@ -470,10 +489,10 @@ class _WorkspaceLandingRouteState
     ref.invalidate(currentWorkspaceContextsProvider);
     try {
       await ref.read(contextProvider.notifier).init();
-      if (!mounted || generation != _refreshGeneration) return;
+      if (!mounted || generation != _uiGeneration) return;
       setState(() => _refreshing = false);
     } catch (error) {
-      if (!mounted || generation != _refreshGeneration) return;
+      if (!mounted || generation != _uiGeneration) return;
       debugPrint('[WorkspaceRoute] active context refresh failed: $error');
       setState(() {
         _refreshing = false;
