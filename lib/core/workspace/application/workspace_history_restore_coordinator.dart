@@ -205,6 +205,22 @@ class WorkspaceHistoryRestoreCoordinator {
       );
     }
 
+    final currentWorkspaceId = _ref.read(activeWorkspaceProvider).workspaceId;
+    final currentContext = _ref.read(contextProvider);
+    if (currentWorkspaceId == workspaceId &&
+        _matchesContext(
+          currentContext,
+          userId: userId,
+          profileId: profileId,
+          workspaceId: workspaceId,
+          entityId: entityId,
+          roleId: roleId,
+          activeMode: activeMode,
+          businessProfileId: businessProfileId,
+        )) {
+      return const WorkspaceHistoryRestoreResult.restored();
+    }
+
     final contextController = _ref.read(contextProvider.notifier);
     final generation = contextController.beginSelectionOperation(
       userId: userId,

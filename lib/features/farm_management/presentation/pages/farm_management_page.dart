@@ -438,7 +438,6 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     final targetTab = snapshot['tabIndex'] is int
         ? snapshot['tabIndex']! as int
         : FarmManagementTab.overview;
-    _setRestoringHistory(true);
     _updateDiagnosticScope();
     final encodedTarget = jsonEncode(snapshot);
     DashboardDiagnosticLog.record(
@@ -468,6 +467,96 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
           : null;
 
       var farms = ref.read(farmSelectorProvider).farms;
+      FarmEntity? cachedFarm;
+      var cachedFarmResolved = entityId == null;
+      if (entityId != null) {
+        for (final candidate in farms) {
+          if (candidate.id == entityId) {
+            cachedFarm = candidate;
+            cachedFarmResolved = true;
+            break;
+          }
+        }
+      }
+      FieldEntity? cachedField;
+      Object? cachedAsset;
+      var cachedTargetComplete = cachedFarmResolved && activityId == null;
+      if (cachedTargetComplete && fieldId != null) {
+        if (cachedFarm == null) {
+          cachedTargetComplete = false;
+        } else {
+          for (final candidate in ref.read(fieldsProvider).fields) {
+            if (candidate.id == fieldId &&
+                candidate.farmId == cachedFarm.id) {
+              cachedField = candidate;
+              break;
+            }
+          }
+          if (cachedField == null) cachedTargetComplete = false;
+        }
+      }
+      if (cachedTargetComplete && assetId != null) {
+        if (cachedField == null) {
+          cachedTargetComplete = false;
+        } else if (assetType == 'crop') {
+          for (final candidate in ref.read(cropsProvider).crops) {
+            if (candidate.id == assetId &&
+                candidate.farmId == cachedFarm?.id &&
+                candidate.fieldId == cachedField.id) {
+              cachedAsset = candidate;
+              break;
+            }
+          }
+          if (cachedAsset == null) cachedTargetComplete = false;
+        } else if (assetType == 'livestock') {
+          for (final candidate in ref.read(livestockProvider).livestock) {
+            if (candidate.id == assetId &&
+                candidate.farmId == cachedFarm?.id &&
+                candidate.fieldId == cachedField.id) {
+              cachedAsset = candidate;
+              break;
+            }
+          }
+          if (cachedAsset == null) cachedTargetComplete = false;
+        } else {
+          cachedTargetComplete = false;
+        }
+      }
+      if (cachedTargetComplete) {
+        _setRestoringHistory(false);
+        final hierarchy = ref.read(hierarchyProvider.notifier);
+        if (cachedFarm == null) {
+          hierarchy.reset();
+        } else {
+          hierarchy.selectEntity(cachedFarm);
+          hierarchy.clearToEntity();
+          if (cachedField != null) {
+            hierarchy.selectField(cachedField);
+            if (cachedAsset is CropEntity) {
+              hierarchy.selectCrop(cachedAsset);
+            } else if (cachedAsset is LivestockEntity) {
+              hierarchy.selectLivestock(cachedAsset);
+            }
+          }
+        }
+        if (!mounted || generation != _historyRestoreGeneration) return;
+        setState(() {
+          _activitySelectionId = null;
+          if (tabIndex >= 0 && tabIndex < _tabDefs.length) {
+            _tabController.animateTo(tabIndex);
+          }
+        });
+        final restoredSnapshot = _browserHistorySnapshot();
+        if (jsonEncode(restoredSnapshot) != encodedTarget) {
+          _lastHistorySnapshot = null;
+          _writeBrowserHistory(replace: true);
+        } else {
+          _lastHistorySnapshot = encodedTarget;
+        }
+        return;
+      }
+
+      _setRestoringHistory(true);
       if (farms.isEmpty) {
         await ref.read(farmSelectorProvider.notifier).loadFarms();
         if (!mounted || generation != _historyRestoreGeneration) return;
