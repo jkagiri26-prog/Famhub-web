@@ -480,7 +480,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
       }
       FieldEntity? cachedField;
       Object? cachedAsset;
-      var cachedTargetComplete = cachedFarmResolved && activityId == null;
+      var cachedTargetComplete = cachedFarmResolved;
       if (cachedTargetComplete && fieldId != null) {
         if (cachedFarm == null) {
           cachedTargetComplete = false;
@@ -522,8 +522,15 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
           cachedTargetComplete = false;
         }
       }
+      if (cachedTargetComplete && activityId != null) {
+        final activities = ref.read(allUserActivitiesProvider).value;
+        if (activities == null ||
+            !activities.any((entry) => entry.activity.id == activityId)) {
+          cachedTargetComplete = false;
+        }
+      }
       if (cachedTargetComplete) {
-        _setRestoringHistory(false);
+        _restoringHistory = true;
         final hierarchy = ref.read(hierarchyProvider.notifier);
         if (cachedFarm == null) {
           hierarchy.reset();
@@ -541,7 +548,8 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
         }
         if (!mounted || generation != _historyRestoreGeneration) return;
         setState(() {
-          _activitySelectionId = null;
+          _restoringHistory = false;
+          _activitySelectionId = activityId;
           if (tabIndex >= 0 && tabIndex < _tabDefs.length) {
             _tabController.animateTo(tabIndex);
           }
