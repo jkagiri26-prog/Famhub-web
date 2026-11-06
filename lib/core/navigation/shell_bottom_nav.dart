@@ -113,6 +113,8 @@ class ShellBottomNav extends ConsumerWidget {
       'weather',
       workspaceItem.moduleKey,
       fourthItem.moduleKey,
+      // Trader's dashboard row is stored under the legacy `commerce` key.
+      if (workspaceItem.moduleKey == 'trader') 'commerce',
     };
     final extraItems = <NavItem>[
       // Shared platform capability (not a workspace module).
@@ -187,6 +189,15 @@ class ShellBottomNav extends ConsumerWidget {
           displayName: label,
           route: '/',
           icon: Icons.account_balance_outlined,
+          displayOrder: 2,
+          bottomNavVisible: true,
+        );
+      case 'admin':
+        return const NavItem(
+          moduleKey: 'admin_console',
+          displayName: 'Admin',
+          route: '/',
+          icon: Icons.admin_panel_settings_outlined,
           displayOrder: 2,
           bottomNavVisible: true,
         );
