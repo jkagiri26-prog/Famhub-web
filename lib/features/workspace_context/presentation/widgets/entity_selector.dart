@@ -29,6 +29,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
 import 'package:famhub_app/core/theme/shell_theme.dart';
 import 'package:famhub_app/core/workspace/application/current_workspace_contexts_provider.dart';
+import 'package:famhub_app/core/workspace/application/workspace_dashboard_provider.dart';
 import 'package:famhub_app/features/workspace_context/application/entity_context_refresh.dart';
 
 /// Compact active-entity chip for page headers.
@@ -62,75 +63,60 @@ class EntitySelector extends ConsumerWidget {
     final label =
         activeContext != null ? _entityLabel(activeContext) : 'Entity';
     final canSwitch = contexts.length > 1;
-    final subtitle = activeContext == null ? null : _entitySubtitle(activeContext);
+    final relationship = activeContext == null
+        ? null
+        : _relationshipLabel(activeContext);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Align(
-        alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: Colors.transparent,
         child: InkWell(
           onTap: canSwitch
               ? () => _openEntitySwitcher(context, ref, palette)
               : null,
-          borderRadius: BorderRadius.circular(10),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: palette.surface,
-              border: Border.all(color: palette.border),
-              borderRadius: BorderRadius.circular(10),
-            ),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
             child: Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: palette.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Icon(
-                    Icons.business_outlined,
-                    size: 16,
-                    color: palette.primary,
-                  ),
+                Icon(
+                  _workspaceIcon(ref.watch(activeWorkspaceTypeProvider)),
+                  size: 18,
+                  color: palette.primary,
                 ),
                 const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: palette.primaryText,
-                      ),
+                Flexible(
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: label,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: palette.primaryText,
+                          ),
+                        ),
+                        if (relationship != null && relationship.isNotEmpty)
+                          TextSpan(
+                            text: '  ·  $relationship',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w400,
+                              color: palette.secondaryText,
+                            ),
+                          ),
+                      ],
                     ),
-                    if (subtitle != null && subtitle.isNotEmpty)
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: palette.secondaryText,
-                        ),
-                      )
-                    else if (canSwitch)
-                      Text(
-                        'Switch entity',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: palette.secondaryText,
-                        ),
-                      ),
-                  ],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 if (canSwitch) ...[
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 6),
                   Icon(
-                    Icons.arrow_drop_down,
+                    Icons.expand_more,
                     size: 18,
                     color: palette.secondaryText,
                   ),
@@ -141,6 +127,33 @@ class EntitySelector extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  IconData _workspaceIcon(String? workspaceType) {
+    switch (workspaceType) {
+      case 'farmer':
+        return Icons.agriculture_outlined;
+      case 'trader':
+        return Icons.business_outlined;
+      case 'institution':
+        return Icons.account_balance_outlined;
+      case 'admin':
+        return Icons.admin_panel_settings_outlined;
+      default:
+        return Icons.business_outlined;
+    }
+  }
+
+  /// Human-readable relationship for the active context.
+  ///
+  /// Uses the role attached to the selected entity/context, falling back to
+  /// the active mode and finally to the generic "Operating entity".
+  String _relationshipLabel(Map<String, dynamic> c) {
+    final role = (c['role_name'] ?? c['active_mode'])?.toString().trim();
+    if (role == null || role.isEmpty) return 'Operating entity';
+    final humanized = role.replaceAll('_', ' ').trim();
+    if (humanized.isEmpty) return 'Operating entity';
+    return humanized[0].toUpperCase() + humanized.substring(1);
   }
 
   Future<void> _openEntitySwitcher(
