@@ -35,8 +35,10 @@ import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
 import 'package:famhub_app/core/session/app_session.dart';
 import 'package:famhub_app/core/session/session_provider.dart';
 import 'package:famhub_app/core/theme/shell_theme_provider.dart';
+import 'package:famhub_app/core/workspace/application/workspace_catalog_provider.dart';
 import 'package:famhub_app/core/workspace/application/workspace_dashboard_provider.dart';
 import 'package:famhub_app/core/workspace/application/workspace_history_restore_coordinator.dart';
+import 'package:famhub_app/core/workspace/domain/workspace_catalog_item.dart';
 import 'package:famhub_app/features/workspace_context/application/entity_context_refresh.dart';
 import 'package:famhub_app/shared/demo/demo_banner_widget.dart';
 import 'package:famhub_app/features/auth/presentation/widgets/split_screen_hero.dart';
@@ -1485,19 +1487,30 @@ class FamhubHomePage extends ConsumerWidget {
     }
     if (!context.mounted) return;
 
-    // Prefer the canonical Trader workspace key; fall back to the
-    // trader-family normalization (supplier, agrovet, etc.).
-    final exact =
-        contexts.where((c) => c['workspace_key']?.toString() == 'trader');
-    final traderContexts = exact.isNotEmpty
-        ? exact.toList()
-        : contexts
-            .where((c) =>
-                WorkspaceDashboardCatalog.normalizeType(
-                  c['workspace_name']?.toString(),
-                ) ==
-                'trader')
-            .toList();
+    // The context rows do not carry workspace_key/workspace_name, so resolve
+    // the Trader workspace id(s) from the workspace catalog (same source as
+    // the workspace switcher), then filter contexts by that id.
+    List<WorkspaceCatalogItem> catalog = const [];
+    try {
+      catalog = await ref.read(workspaceCatalogProvider.future);
+    } catch (_) {
+      catalog = const [];
+    }
+    if (!context.mounted) return;
+
+    final traderWorkspaceIds = catalog
+        .where((w) =>
+            WorkspaceDashboardCatalog.normalizeType(w.name) == 'trader' ||
+            (w.category != null &&
+                WorkspaceDashboardCatalog.normalizeType(w.category) ==
+                    'trader'))
+        .map((w) => w.id)
+        .toSet();
+
+    final traderContexts = contexts
+        .where((c) =>
+            traderWorkspaceIds.contains(c['workspace_id']?.toString()))
+        .toList();
 
     if (traderContexts.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
