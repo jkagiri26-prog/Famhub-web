@@ -50,7 +50,10 @@ class ShellSidebar extends ConsumerWidget {
     final location = GoRouterState.of(context).uri.toString();
     final brandName = ref.watch(shellThemeProvider).brand.name;
     final sidebarItems = ref.watch(sidebarNavItemsProvider);
+    final workspaceType = ref.watch(activeWorkspaceTypeProvider);
     final workspaceName = ref.watch(activeWorkspaceNameProvider);
+    final dashboardLabel =
+        workspaceType == 'admin' ? 'Admin' : (workspaceName ?? 'Dashboard');
 
     // Build all items with the workspace dashboard first. The static entry
     // keeps the canonical '/' route but is labelled with the active
@@ -58,7 +61,7 @@ class ShellSidebar extends ConsumerWidget {
     final allItems = [
       NavItem(
         moduleKey: 'dashboard',
-        displayName: workspaceName ?? 'Dashboard',
+        displayName: dashboardLabel,
         route: '/',
         icon: Icons.dashboard_rounded,
         displayOrder: 0,

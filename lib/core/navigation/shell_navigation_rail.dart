@@ -48,14 +48,17 @@ class ShellNavigationRail extends ConsumerWidget {
         ShellTheme.defaultLight;
     final location = GoRouterState.of(context).uri.toString();
     final navItems = ref.watch(sidebarNavItemsProvider);
+    final workspaceType = ref.watch(activeWorkspaceTypeProvider);
     final workspaceName = ref.watch(activeWorkspaceNameProvider);
+    final dashboardLabel =
+        workspaceType == 'admin' ? 'Admin' : (workspaceName ?? 'Dashboard');
 
     // Build all items with the active workspace's dashboard first
     // (matching ShellSidebar behavior). The '/' route is unchanged.
     final allItems = [
       NavItem(
         moduleKey: 'dashboard',
-        displayName: workspaceName ?? 'Dashboard',
+        displayName: dashboardLabel,
         route: '/',
         icon: Icons.dashboard_rounded,
         displayOrder: 0,
