@@ -49,6 +49,14 @@ import 'package:famhub_app/features/opportunities/presentation/pages/opportuniti
 import 'package:famhub_app/features/agribusiness/presentation/pages/agribusiness_page.dart';
 import 'package:famhub_app/features/agri_connect/presentation/pages/agri_connect_page.dart';
 import 'package:famhub_app/features/analytics/presentation/pages/analytics_page.dart';
+import 'package:famhub_app/features/marketplace/presentation/pages/market_prices_page.dart';
+import 'package:famhub_app/features/weather/presentation/pages/weather_page.dart';
+import 'package:famhub_app/features/traceability/presentation/pages/traceability_page.dart';
+import 'package:famhub_app/features/carbon_credit/presentation/pages/carbon_credit_page.dart';
+import 'package:famhub_app/features/extension_services/presentation/pages/extension_services_page.dart';
+import 'package:famhub_app/features/agri_tech_lab/presentation/pages/agri_tech_lab_page.dart';
+import 'package:famhub_app/features/refferal_hub/presentation/pages/referral_hub_page.dart';
+import 'package:famhub_app/features/reports/presentation/pages/reports_center_page.dart';
 
 /// Module card data for the FAMHUB Home ecosystem showcase
 class _ModuleCardData {
@@ -176,14 +184,6 @@ const List<_ModuleCardData> _allModuleCards = [
     color: Color(0xFF7C3AED),
   ),
   _ModuleCardData(
-    id: 'community',
-    title: 'Community',
-    description:
-        'Connect with farmers, traders, agronomists, buyers, and experts across the entire agricultural ecosystem.',
-    icon: Icons.people_outline,
-    color: Color(0xFF0891B2),
-  ),
-  _ModuleCardData(
     id: 'opportunities',
     title: 'Opportunities',
     description:
@@ -203,7 +203,7 @@ const List<_ModuleCardData> _allModuleCards = [
     id: 'agri_connect',
     title: 'AgriConnect',
     description:
-        'Network with stakeholders across the ecosystem — cooperatives, processors, exporters, and service providers.',
+        'Join communities and connect with farmers, traders, agronomists, buyers, cooperatives, processors, exporters, and service providers across the ecosystem.',
     icon: Icons.hub_outlined,
     color: Color(0xFFDC2626),
   ),
@@ -221,6 +221,46 @@ const List<_ModuleCardData> _allModuleCards = [
     description:
         'Local forecasts, historical climate data, and agricultural alerts to support planning across all operations.',
     icon: Icons.wb_sunny_outlined,
+    color: FamhubBrandTokens.orange,
+  ),
+  _ModuleCardData(
+    id: 'traceability',
+    title: 'Traceability',
+    description:
+        'Track products from farm to table with verifiable records and certification. Build trust with buyers, regulators, and export markets.',
+    icon: Icons.qr_code_2_outlined,
+    color: Color(0xFF0891B2),
+  ),
+  _ModuleCardData(
+    id: 'carbon_credit',
+    title: 'Carbon Credit',
+    description:
+        'Measure, verify, and trade carbon credits from sustainable farming practices. Useful for farmers, cooperatives, and climate-focused investors.',
+    icon: Icons.eco_outlined,
+    color: Color(0xFF059669),
+  ),
+  _ModuleCardData(
+    id: 'extension_services',
+    title: 'Extension Services',
+    description:
+        'Access advisory support, field guidance, and technical assistance from extension officers and agronomy experts.',
+    icon: Icons.support_agent_outlined,
+    color: Color(0xFF7C3AED),
+  ),
+  _ModuleCardData(
+    id: 'agri_tech_lab',
+    title: 'AgriTech Lab',
+    description:
+        'Explore and pilot agricultural technology innovations, tools, and experiments for modern farming operations.',
+    icon: Icons.science_outlined,
+    color: Color(0xFF0891B2),
+  ),
+  _ModuleCardData(
+    id: 'referral_hub',
+    title: 'Referral Hub',
+    description:
+        'Invite others to the ecosystem and track referrals and rewards from your network.',
+    icon: Icons.card_giftcard_outlined,
     color: FamhubBrandTokens.orange,
   ),
   _ModuleCardData(
@@ -1270,78 +1310,23 @@ class FamhubHomePage extends ConsumerWidget {
   void _openModule(BuildContext context, _ModuleCardData card) {
     switch (card.id) {
       case 'farm_management':
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => Scaffold(
-              appBar: AppBar(
-                title: const Text('Farm Management'),
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-              ),
-              body: const FarmManagementPage(),
-            ),
-          ),
-        );
+        _pushModule(context, 'Farm Management', const FarmManagementPage());
         break;
 
       case 'marketplace':
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => Scaffold(
-              appBar: AppBar(
-                title: const Text('Marketplace'),
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-              ),
-              body: const MarketplacePage(),
-            ),
-          ),
-        );
+        _pushModule(context, 'Marketplace', const MarketplacePage());
         break;
 
       case 'knowledge':
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => Scaffold(
-              appBar: AppBar(
-                title: const Text('Knowledge Link'),
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-              ),
-              body: const KnowledgeLinkPage(),
-            ),
-          ),
-        );
+        _pushModule(context, 'Knowledge Link', const KnowledgeLinkPage());
         break;
 
       case 'finance':
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => Scaffold(
-              appBar: AppBar(
-                title: const Text('Finance'),
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-              ),
-              body: const FinancingPage(),
-            ),
-          ),
-        );
+        _pushModule(context, 'Finance', const FinancingPage());
         break;
 
       case 'logistics':
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => Scaffold(
-              appBar: AppBar(
-                title: const Text('Logistics'),
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-              ),
-              body: const LogisticsPage(),
-            ),
-          ),
-        );
+        _pushModule(context, 'Logistics', const LogisticsPage());
         break;
 
       case 'ai_assistant':
@@ -1356,48 +1341,55 @@ class FamhubHomePage extends ConsumerWidget {
         break;
 
       case 'opportunities':
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => Scaffold(
-              appBar: AppBar(
-                title: const Text('Opportunities'),
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-              ),
-              body: const OpportunitiesPage(),
-            ),
-          ),
-        );
+        _pushModule(context, 'Opportunities', const OpportunitiesPage());
         break;
 
       case 'agribusiness':
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => Scaffold(
-              appBar: AppBar(
-                title: const Text('Agribusiness'),
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-              ),
-              body: const AgribusinessPage(),
-            ),
-          ),
-        );
+        _pushModule(context, 'Agribusiness', const AgribusinessPage());
         break;
 
       case 'analytics':
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => Scaffold(
-              appBar: AppBar(
-                title: const Text('Analytics'),
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-              ),
-              body: const AnalyticsPage(),
-            ),
-          ),
+        _pushModule(context, 'Analytics', const AnalyticsPage());
+        break;
+
+      case 'market_prices':
+        _pushModule(context, 'Market Prices', const MarketPricesPage());
+        break;
+
+      case 'agri_connect':
+        _pushModule(context, 'AgriConnect', const AgriConnectPage());
+        break;
+
+      case 'weather':
+        _pushModule(context, 'Weather', const WeatherPage());
+        break;
+
+      case 'traceability':
+        _pushModule(context, 'Traceability', const TraceabilityPage());
+        break;
+
+      case 'carbon_credit':
+        _pushModule(context, 'Carbon Credit', const CarbonCreditPage());
+        break;
+
+      case 'extension_services':
+        _pushModule(
+          context,
+          'Extension Services',
+          const ExtensionServicesPage(),
         );
+        break;
+
+      case 'agri_tech_lab':
+        _pushModule(context, 'AgriTech Lab', const AgriTechLabPage());
+        break;
+
+      case 'referral_hub':
+        _pushModule(context, 'Referral Hub', const ReferralHubPage());
+        break;
+
+      case 'reports':
+        _pushModule(context, 'Reports & Insights', const ReportsCenterPage());
         break;
 
       default:
@@ -1412,6 +1404,21 @@ class FamhubHomePage extends ConsumerWidget {
         );
         break;
     }
+  }
+
+  void _pushModule(BuildContext context, String title, Widget page) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(
+            title: Text(title),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+          ),
+          body: page,
+        ),
+      ),
+    );
   }
 }
 
