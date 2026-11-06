@@ -139,7 +139,14 @@ class ShellBottomNav extends ConsumerWidget {
         ),
     ];
 
-    final selectedIndex = _resolveFixedIndex(location, fixedItems, extraItems);
+    final workspaceDashboardRoute =
+        WorkspaceDashboardCatalog.dashboardEntryRouteFor(wsType);
+    final selectedIndex = _resolveFixedIndex(
+      location,
+      fixedItems,
+      extraItems,
+      workspaceDashboardRoute: workspaceDashboardRoute,
+    );
 
     return _buildNavBar(
       context, palette, fixedItems, selectedIndex,
@@ -231,10 +238,17 @@ class ShellBottomNav extends ConsumerWidget {
   int _resolveFixedIndex(
     String location,
     List<NavItem> fixedItems,
-    List<NavItem> extraItems,
-  ) {
+    List<NavItem> extraItems, {
+    String? workspaceDashboardRoute,
+  }) {
     for (int i = 0; i < fixedItems.length; i++) {
       final item = fixedItems[i];
+      if (item.route == '/' &&
+          workspaceDashboardRoute != null &&
+          (location == workspaceDashboardRoute ||
+              location.startsWith('$workspaceDashboardRoute/'))) {
+        return i;
+      }
       if (_matchesRoute(location, item.route)) return i;
     }
     for (final item in extraItems) {

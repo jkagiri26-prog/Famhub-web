@@ -73,7 +73,13 @@ class ShellNavigationRail extends ConsumerWidget {
       ...navItems,
     ];
 
-    final selectedIndex = _resolveIndex(location, allItems);
+    final workspaceDashboardRoute =
+        WorkspaceDashboardCatalog.dashboardEntryRouteFor(workspaceType);
+    final selectedIndex = _resolveIndex(
+      location,
+      allItems,
+      workspaceDashboardRoute: workspaceDashboardRoute,
+    );
 
     return Container(
       color: palette.navigationBg,
@@ -219,15 +225,28 @@ class ShellNavigationRail extends ConsumerWidget {
   /// Identical logic to ShellSidebar._resolveIndex.
   /// Does NOT introduce new routing logic.
   /// ============================================================
-  int _resolveIndex(String location, List<NavItem> items) {
+  int _resolveIndex(
+    String location,
+    List<NavItem> items, {
+    String? workspaceDashboardRoute,
+  }) {
     for (int i = 0; i < items.length; i++) {
       if (items[i].route == '/') {
-        if (location == '/' || location == '') return i;
+        if (location == '/' ||
+            location.isEmpty ||
+            _isWorkspaceDashboardLocation(location, workspaceDashboardRoute)) {
+          return i;
+        }
       } else if (location.startsWith(items[i].route)) {
         return i;
       }
     }
     return 0;
+  }
+
+  bool _isWorkspaceDashboardLocation(String location, String? route) {
+    return route != null &&
+        (location == route || location.startsWith('$route/'));
   }
 
   /// ============================================================

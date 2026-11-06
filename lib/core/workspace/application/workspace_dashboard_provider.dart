@@ -111,6 +111,17 @@ class WorkspaceDashboardCatalog {
     return keys.isEmpty ? null : keys.first;
   }
 
+  /// Entry route of the active workspace's primary dashboard module.
+  ///
+  /// Used by navigation selection so the workspace dashboard tab is
+  /// highlighted on its canonical route (e.g. `/farm`, `/trader`,
+  /// `/admin`, `/finance`) and not on `/home`.
+  static String? dashboardEntryRouteFor(String? workspaceType) {
+    final primaryKey = primaryModuleKeyFor(workspaceType);
+    if (primaryKey == null) return null;
+    return workspaceRouteForModuleKey(primaryKey)?.$2 ?? '/$primaryKey';
+  }
+
   /// Route registered for a workspace module, if it has a canonical landing.
   static (String, String)? workspaceRouteForModuleKey(String moduleKey) {
     return switch (moduleKey) {

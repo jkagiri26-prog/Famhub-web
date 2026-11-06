@@ -1594,7 +1594,14 @@ class _HorizontalScrollAreaState extends State<_HorizontalScrollArea> {
 
     return Stack(
       children: [
-        widget.builder(_controller),
+        // Reserve gutters for the arrows so they never cover card content
+        // (including the first card's title).
+        Padding(
+          padding: widget.showArrows
+              ? const EdgeInsets.symmetric(horizontal: 40)
+              : EdgeInsets.zero,
+          child: widget.builder(_controller),
+        ),
         if (widget.showArrows) ...[
           Positioned(
             left: 0,
