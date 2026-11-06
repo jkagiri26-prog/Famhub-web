@@ -31,8 +31,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:famhub_app/core/router/route_names.dart';
+import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
+import 'package:famhub_app/core/session/app_session.dart';
 import 'package:famhub_app/core/session/session_provider.dart';
 import 'package:famhub_app/core/theme/shell_theme_provider.dart';
+import 'package:famhub_app/core/workspace/application/workspace_dashboard_provider.dart';
+import 'package:famhub_app/core/workspace/application/workspace_history_restore_coordinator.dart';
+import 'package:famhub_app/features/workspace_context/application/entity_context_refresh.dart';
 import 'package:famhub_app/shared/demo/demo_banner_widget.dart';
 import 'package:famhub_app/features/auth/presentation/widgets/split_screen_hero.dart';
 import 'package:famhub_app/features/weather/application/providers/weather_location_provider.dart';
@@ -442,6 +447,7 @@ class FamhubHomePage extends ConsumerWidget {
                 // ════════════════════════════════════════════
                 _buildFamhubModulesSection(
                   context,
+                  ref,
                   theme,
                   colorScheme,
                   isMobile,
@@ -452,7 +458,7 @@ class FamhubHomePage extends ConsumerWidget {
                 // ════════════════════════════════════════════
                 // SECTION 4: MARKETPLACE LISTINGS PREVIEW
                 // ════════════════════════════════════════════
-                _buildMarketplacePreview(context, colorScheme, isMobile),
+                _buildMarketplacePreview(context, ref, colorScheme, isMobile),
 
                 // ════════════════════════════════════════════
                 // SECTION 5: WHY CHOOSE FAMHUB
@@ -632,6 +638,7 @@ class FamhubHomePage extends ConsumerWidget {
   /// The rest are shown in a horizontally scrollable row with compact cards.
   Widget _buildFamhubModulesSection(
     BuildContext context,
+    WidgetRef ref,
     ThemeData theme,
     ColorScheme colorScheme,
     bool isMobile,
@@ -713,7 +720,7 @@ class FamhubHomePage extends ConsumerWidget {
                 card: card,
                 colorScheme: colorScheme,
                 theme: theme,
-                onTap: () => _openModule(context, card),
+                onTap: () => _openModule(context, card, ref),
               ),
             ),
           ),
@@ -752,7 +759,7 @@ class FamhubHomePage extends ConsumerWidget {
                       card: card,
                       colorScheme: colorScheme,
                       theme: theme,
-                      onTap: () => _openModule(context, card),
+                      onTap: () => _openModule(context, card, ref),
                     ),
                   );
                 },
@@ -767,6 +774,7 @@ class FamhubHomePage extends ConsumerWidget {
   /// ── SECTION 4: MARKETPLACE LISTINGS PREVIEW ──
   Widget _buildMarketplacePreview(
     BuildContext context,
+    WidgetRef ref,
     ColorScheme colorScheme,
     bool isMobile,
   ) {
@@ -819,6 +827,7 @@ class FamhubHomePage extends ConsumerWidget {
                 onPressed: () => _openModule(
                   context,
                   _allModuleCards.firstWhere((c) => c.id == 'marketplace'),
+                  ref,
                 ),
                 style: TextButton.styleFrom(
                   foregroundColor: colorScheme.primary,
@@ -1343,7 +1352,11 @@ class FamhubHomePage extends ConsumerWidget {
 
   /// Navigate to the appropriate module page.
   /// Visitors open the real modules — only the data source differs.
-  void _openModule(BuildContext context, _ModuleCardData card) {
+  Future<void> _openModule(
+    BuildContext context,
+    _ModuleCardData card,
+    WidgetRef ref,
+  ) async {
     switch (card.id) {
       case 'farm_management':
         _pushModule(context, 'Farm Management', const FarmManagementPage());
@@ -1362,7 +1375,7 @@ class FamhubHomePage extends ConsumerWidget {
         break;
 
       case 'trader':
-        _pushModule(context, 'Trader', const TraderWorkspaceGate());
+        await _openTraderWorkspace(context, ref);
         break;
 
       case 'logistics':
@@ -1443,6 +1456,131 @@ class FamhubHomePage extends ConsumerWidget {
           ),
         );
         break;
+    }
+  }
+
+  /// Opens the Trader workspace through the canonical context path.
+  ///
+  /// The HOME page is global, so the active context may belong to another
+  /// workspace (e.g. Farmer). Pushing the Trader gate with that context made
+  /// it look like the user had no business profile. This activates a Trader
+  /// workspace context (same path as the workspace switcher) before opening
+  /// the Trader landing.
+  Future<void> _openTraderWorkspace(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final session = ref.read(sessionProvider);
+    if (session is! AuthenticatedSession) {
+      _pushModule(context, 'Trader', const TraderWorkspaceGate());
+      return;
+    }
+
+    List<Map<String, dynamic>> contexts;
+    try {
+      contexts =
+          await ref.read(authServiceProvider).getAvailableWorkspaceContexts();
+    } catch (_) {
+      contexts = const [];
+    }
+    if (!context.mounted) return;
+
+    // Prefer the canonical Trader workspace key; fall back to the
+    // trader-family normalization (supplier, agrovet, etc.).
+    final exact =
+        contexts.where((c) => c['workspace_key']?.toString() == 'trader');
+    final traderContexts = exact.isNotEmpty
+        ? exact.toList()
+        : contexts
+            .where((c) =>
+                WorkspaceDashboardCatalog.normalizeType(
+                  c['workspace_name']?.toString(),
+                ) ==
+                'trader')
+            .toList();
+
+    if (traderContexts.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No Trader workspace is available for this account.'),
+        ),
+      );
+      return;
+    }
+
+    final active = ref.read(contextProvider);
+    bool hasBusiness(Map<String, dynamic> c) =>
+        (c['business_profile_id']?.toString() ?? '').isNotEmpty;
+    bool matchesActiveWorkspace(Map<String, dynamic> c) =>
+        c['workspace_id']?.toString() == active.activeWorkspaceId;
+
+    // Prefer the active Trader context with a linked business profile, then
+    // any Trader context with a business profile, then the active workspace.
+    final chosen = traderContexts.firstWhere(
+      (c) => matchesActiveWorkspace(c) && hasBusiness(c),
+      orElse: () => traderContexts.firstWhere(
+        hasBusiness,
+        orElse: () => traderContexts.firstWhere(
+          matchesActiveWorkspace,
+          orElse: () => traderContexts.first,
+        ),
+      ),
+    );
+
+    final workspaceId = chosen['workspace_id']?.toString();
+    final entityId = chosen['entity_id']?.toString();
+    final roleId = chosen['role_id']?.toString();
+    final activeMode = chosen['active_mode']?.toString() ?? '';
+    if (workspaceId == null ||
+        workspaceId.isEmpty ||
+        entityId == null ||
+        entityId.isEmpty ||
+        roleId == null ||
+        roleId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Trader workspace context is incomplete.'),
+        ),
+      );
+      return;
+    }
+
+    final applied =
+        await ref.read(contextProvider.notifier).activateContextRow(
+              workspaceId: workspaceId,
+              entityId: entityId,
+              roleId: roleId,
+              activeMode: activeMode,
+              businessProfileId: chosen['business_profile_id']?.toString(),
+              commitWorkspaceSelection: true,
+            );
+    if (!context.mounted) return;
+
+    if (applied == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not open the Trader workspace. Please try again.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    refreshEntityScopedProviders(ref);
+
+    if (inShell) {
+      final router = GoRouter.of(context);
+      final extra = ref
+          .read(workspaceHistoryRestoreCoordinatorProvider)
+          .createHistoryExtra(
+            router.routerDelegate.currentConfiguration.extra,
+            workspaceId: workspaceId,
+            context: ref.read(contextProvider),
+          );
+      context.go(AppRoutes.trader, extra: extra);
+    } else {
+      _pushModule(context, 'Trader', const TraderWorkspaceGate());
     }
   }
 
