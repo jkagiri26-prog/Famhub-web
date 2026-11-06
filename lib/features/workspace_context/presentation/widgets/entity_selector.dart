@@ -27,11 +27,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
-import 'package:famhub_app/core/providers/user_provider.dart';
 import 'package:famhub_app/core/theme/shell_theme.dart';
 import 'package:famhub_app/core/workspace/application/current_workspace_contexts_provider.dart';
 import 'package:famhub_app/core/workspace/application/workspace_dashboard_provider.dart';
 import 'package:famhub_app/features/workspace_context/application/entity_context_refresh.dart';
+import 'package:famhub_app/features/workspace_context/application/entity_identity_provider.dart';
 
 /// Compact active-entity chip for page headers.
 ///
@@ -43,7 +43,19 @@ class EntitySelector extends ConsumerWidget {
   /// the context's generic entity name.
   final String? primaryLabel;
 
-  const EntitySelector({super.key, this.primaryLabel});
+  /// Selected farm id (farmer workspace) used to resolve the farm location.
+  final String? farmId;
+
+  /// Active business profile id (trader/institution) used to resolve the
+  /// business location.
+  final String? businessProfileId;
+
+  const EntitySelector({
+    super.key,
+    this.primaryLabel,
+    this.farmId,
+    this.businessProfileId,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -65,26 +77,39 @@ class EntitySelector extends ConsumerWidget {
       }
     }
 
+    final workspaceType = ref.watch(activeWorkspaceTypeProvider);
+    final entityId = activeContext?['entity_id']?.toString() ??
+        activeEntityId ??
+        '';
+
+    final identity = ref
+            .watch(entityIdentityProvider((
+              entityId: entityId,
+              workspaceType: workspaceType,
+              farmId: farmId,
+              businessProfileId: businessProfileId,
+            )))
+            .value ??
+        const EntityIdentity();
+
     final override = primaryLabel?.trim();
-    final entityName = activeContext != null ? _entityLabel(activeContext) : 'Entity';
-    final label = (override != null && override.isNotEmpty)
-        ? override
-        : entityName;
+    final entityName =
+        activeContext != null ? _entityLabel(activeContext) : 'Entity';
+    final label =
+        (override != null && override.isNotEmpty) ? override : entityName;
     final canSwitch = contexts.length > 1;
 
-    final userName = ref
-        .watch(userProvider.select((u) => u.displayName))
-        .trim();
-    final safeUserName =
-        userName.isEmpty || userName.contains('@') ? null : userName;
+    final location = identity.location?.trim();
+    final ownerName = identity.ownerName?.trim();
     final relationship = activeContext == null
         ? null
         : _relationshipLabel(activeContext);
-    final identityParts = <String>[
-      if (safeUserName != null) safeUserName,
-      if (relationship != null) relationship,
+    final secondLineParts = <String>[
+      if (ownerName != null && ownerName.isNotEmpty) ownerName,
+      if (relationship != null && relationship.isNotEmpty) relationship,
     ];
-    final identity = identityParts.isEmpty ? null : identityParts.join(' · ');
+    final secondLine =
+        secondLineParts.isEmpty ? null : secondLineParts.join(' · ');
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -97,49 +122,69 @@ class EntitySelector extends ConsumerWidget {
           borderRadius: BorderRadius.circular(8),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  _workspaceIcon(ref.watch(activeWorkspaceTypeProvider)),
-                  size: 18,
-                  color: palette.primary,
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(
-                          text: label,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: palette.primaryText,
-                          ),
-                        ),
-                        if (identity != null)
-                          TextSpan(
-                            text: ' — $identity',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w400,
-                              color: palette.secondaryText,
-                            ),
-                          ),
-                      ],
+                Row(
+                  children: [
+                    Icon(
+                      _workspaceIcon(workspaceType),
+                      size: 18,
+                      color: palette.primary,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: label,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: palette.primaryText,
+                              ),
+                            ),
+                            if (location != null && location.isNotEmpty)
+                              TextSpan(
+                                text: ' — $location',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w400,
+                                  color: palette.secondaryText,
+                                ),
+                              ),
+                          ],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (canSwitch) ...[
+                      const SizedBox(width: 6),
+                      Icon(
+                        Icons.expand_more,
+                        size: 18,
+                        color: palette.secondaryText,
+                      ),
+                    ],
+                  ],
                 ),
-                if (canSwitch) ...[
-                  const SizedBox(width: 6),
-                  Icon(
-                    Icons.expand_more,
-                    size: 18,
-                    color: palette.secondaryText,
+                if (secondLine != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 26, top: 2),
+                    child: Text(
+                      secondLine,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        height: 1.1,
+                        color: palette.secondaryText,
+                      ),
+                    ),
                   ),
-                ],
               ],
             ),
           ),

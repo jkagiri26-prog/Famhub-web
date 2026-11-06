@@ -1037,6 +1037,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
       headerExtra: EntitySelector(
         primaryLabel:
             hierarchy.hasEntity ? hierarchy.entity!.farmName : null,
+        farmId: hierarchy.entity?.id,
       ),
       child: Expanded(
         child: isDesktop

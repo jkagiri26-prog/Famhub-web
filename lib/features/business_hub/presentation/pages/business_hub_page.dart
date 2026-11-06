@@ -321,7 +321,10 @@ class _BusinessHubPageState extends ConsumerState<BusinessHubPage>
           const SizedBox(height: 12),
           const ModuleHeaderWidget(title: 'Trader'),
           const SizedBox(height: 12),
-          EntitySelector(primaryLabel: businessName),
+          EntitySelector(
+            primaryLabel: businessName,
+            businessProfileId: activeProfile?.id,
+          ),
           Expanded(
             child: businessesAsync.when(
               loading: () =>
