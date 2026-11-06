@@ -50,6 +50,7 @@ import 'package:famhub_app/core/observability/dashboard_diagnostic_panel.dart';
 
 import 'package:famhub_app/shared/layouts/shell_page_content.dart';
 import 'package:famhub_app/shared/layouts/workspace_section_nav.dart';
+import 'package:famhub_app/features/workspace_context/presentation/widgets/entity_selector.dart';
 import 'package:famhub_app/shared/layouts/dashboard_section_widget.dart';
 import 'package:famhub_app/shared/layouts/app_spacing_widget.dart';
 import 'package:famhub_app/shared/widgets/module_error_boundary.dart';
@@ -1033,6 +1034,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
           ? hierarchy.entity!.farmName
           : 'Manage your farms, fields, crops, and livestock',
       scrollable: false,
+      headerExtra: const EntitySelector(),
       child: Expanded(
         child: isDesktop
             ? Row(

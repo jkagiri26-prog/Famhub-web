@@ -53,6 +53,7 @@ import 'package:famhub_app/core/navigation/resize_optimizer.dart';
 import 'package:famhub_app/core/workspace/application/active_workspace_provider.dart';
 import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
 import 'package:famhub_app/shared/layouts/workspace_section_nav.dart';
+import 'package:famhub_app/features/workspace_context/presentation/widgets/entity_selector.dart';
 import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
 import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
@@ -322,6 +323,7 @@ class _BusinessHubPageState extends ConsumerState<BusinessHubPage>
           const SizedBox(height: 12),
           ModuleHeaderWidget(title: 'Trader', subtitle: headerSubtitle),
           const SizedBox(height: 12),
+          const EntitySelector(),
           Expanded(
             child: businessesAsync.when(
               loading: () =>

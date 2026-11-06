@@ -36,6 +36,7 @@ import 'package:famhub_app/features/financing/domain/repositories/financing_cata
 import 'package:famhub_app/features/financing/presentation/widgets/financing_product_card_widget.dart';
 import 'package:famhub_app/features/financing/presentation/widgets/financing_provider_card_widget.dart';
 import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
+import 'package:famhub_app/features/workspace_context/presentation/widgets/entity_selector.dart';
 import 'package:famhub_app/features/financing/presentation/widgets/financing_hub_widgets.dart';
 import 'package:famhub_app/shared/widgets/headers/section_header_widget.dart';
 import 'package:famhub_app/shared/widgets/states/states.dart';
@@ -130,6 +131,7 @@ class _FinancingPageState extends ConsumerState<FinancingPage>
                 'from verified financial partners. Everything listed is '
                 'approved and published.',
           ),
+          const EntitySelector(),
           const SizedBox(height: 14),
           _HubSearchField(
             controller: _searchController,

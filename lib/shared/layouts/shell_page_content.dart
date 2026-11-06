@@ -71,6 +71,10 @@ class ShellPageContent extends StatelessWidget {
   /// Optional subtitle text style override
   final TextStyle? subtitleStyle;
 
+  /// Optional widget rendered immediately below the page header, e.g. the
+  /// active-entity selector. The widget should own its bottom spacing.
+  final Widget? headerExtra;
+
   const ShellPageContent({
     super.key,
     this.title,
@@ -81,6 +85,7 @@ class ShellPageContent extends StatelessWidget {
     this.padding,
     this.titleStyle,
     this.subtitleStyle,
+    this.headerExtra,
   });
 
   @override
@@ -105,7 +110,9 @@ class ShellPageContent extends StatelessWidget {
     // Build header if title or actions provided
     final Widget header = (title != null || actions != null)
         ? Padding(
-            padding: const EdgeInsets.only(bottom: 16.0),
+            padding: EdgeInsets.only(
+              bottom: headerExtra == null ? 16.0 : 8.0,
+            ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -148,6 +155,7 @@ class ShellPageContent extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             header,
+            if (headerExtra != null) headerExtra!,
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
@@ -165,6 +173,7 @@ class ShellPageContent extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           header,
+          if (headerExtra != null) headerExtra!,
           child,
         ],
       ),
