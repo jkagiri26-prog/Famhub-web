@@ -311,19 +311,17 @@ class _BusinessHubPageState extends ConsumerState<BusinessHubPage>
     final activeProfile = activeBusiness == null
         ? null
         : ref.watch(businessProfileProvider(activeBusiness.id)).value;
-    final headerSubtitle =
-        activeProfile?.displayName ??
-        activeBusiness?.name ??
-        'Manage your trading business entities';
+    final businessName =
+        activeProfile?.displayName ?? activeBusiness?.name;
 
     return ResponsiveWrapper(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 12),
-          ModuleHeaderWidget(title: 'Trader', subtitle: headerSubtitle),
+          const ModuleHeaderWidget(title: 'Trader'),
           const SizedBox(height: 12),
-          const EntitySelector(),
+          EntitySelector(primaryLabel: businessName),
           Expanded(
             child: businessesAsync.when(
               loading: () =>

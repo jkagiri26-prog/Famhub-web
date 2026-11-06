@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 
 class ModuleHeaderWidget extends StatelessWidget {
   final String title;
-  final String subtitle;
+  final String? subtitle;
   final IconData? trailingIcon;
   final VoidCallback? onTrailingTap;
 
   const ModuleHeaderWidget({
     super.key,
     required this.title,
-    required this.subtitle,
+    this.subtitle,
     this.trailingIcon,
     this.onTrailingTap,
   });
@@ -32,14 +32,16 @@ class ModuleHeaderWidget extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
+            if (subtitle != null && subtitle!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                subtitle!,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                ),
               ),
-            ),
+            ],
           ],
         ),
 

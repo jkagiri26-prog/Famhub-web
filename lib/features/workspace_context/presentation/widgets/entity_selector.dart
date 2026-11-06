@@ -27,6 +27,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
+import 'package:famhub_app/core/providers/user_provider.dart';
 import 'package:famhub_app/core/theme/shell_theme.dart';
 import 'package:famhub_app/core/workspace/application/current_workspace_contexts_provider.dart';
 import 'package:famhub_app/core/workspace/application/workspace_dashboard_provider.dart';
@@ -38,7 +39,11 @@ import 'package:famhub_app/features/workspace_context/application/entity_context
 /// no entity contexts (e.g. global/platform pages). Includes its own bottom
 /// spacing so callers can place it directly under a page title.
 class EntitySelector extends ConsumerWidget {
-  const EntitySelector({super.key});
+  /// Optional page-provided name (farm / business profile) to show instead of
+  /// the context's generic entity name.
+  final String? primaryLabel;
+
+  const EntitySelector({super.key, this.primaryLabel});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -60,12 +65,26 @@ class EntitySelector extends ConsumerWidget {
       }
     }
 
-    final label =
-        activeContext != null ? _entityLabel(activeContext) : 'Entity';
+    final override = primaryLabel?.trim();
+    final entityName = activeContext != null ? _entityLabel(activeContext) : 'Entity';
+    final label = (override != null && override.isNotEmpty)
+        ? override
+        : entityName;
     final canSwitch = contexts.length > 1;
+
+    final userName = ref
+        .watch(userProvider.select((u) => u.displayName))
+        .trim();
+    final safeUserName =
+        userName.isEmpty || userName.contains('@') ? null : userName;
     final relationship = activeContext == null
         ? null
         : _relationshipLabel(activeContext);
+    final identityParts = <String>[
+      if (safeUserName != null) safeUserName,
+      if (relationship != null) relationship,
+    ];
+    final identity = identityParts.isEmpty ? null : identityParts.join(' · ');
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -98,9 +117,9 @@ class EntitySelector extends ConsumerWidget {
                             color: palette.primaryText,
                           ),
                         ),
-                        if (relationship != null && relationship.isNotEmpty)
+                        if (identity != null)
                           TextSpan(
-                            text: '  ·  $relationship',
+                            text: ' — $identity',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w400,

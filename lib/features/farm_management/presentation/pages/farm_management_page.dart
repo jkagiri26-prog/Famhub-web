@@ -1031,10 +1031,13 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
     final page = ShellPageContent(
       title: 'Farm Management',
       subtitle: hierarchy.hasEntity
-          ? hierarchy.entity!.farmName
+          ? null
           : 'Manage your farms, fields, crops, and livestock',
       scrollable: false,
-      headerExtra: const EntitySelector(),
+      headerExtra: EntitySelector(
+        primaryLabel:
+            hierarchy.hasEntity ? hierarchy.entity!.farmName : null,
+      ),
       child: Expanded(
         child: isDesktop
             ? Row(
