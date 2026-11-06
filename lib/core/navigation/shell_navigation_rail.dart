@@ -53,9 +53,16 @@ class ShellNavigationRail extends ConsumerWidget {
     final dashboardLabel =
         workspaceType == 'admin' ? 'Admin' : (workspaceName ?? 'Dashboard');
 
-    // Build all items with the active workspace's dashboard first
+    // Build all items with Home and the active workspace's dashboard first
     // (matching ShellSidebar behavior). The '/' route is unchanged.
     final allItems = [
+      const NavItem(
+        moduleKey: 'home',
+        displayName: 'Home',
+        route: '/home',
+        icon: Icons.home_rounded,
+        displayOrder: -1,
+      ),
       NavItem(
         moduleKey: 'dashboard',
         displayName: dashboardLabel,

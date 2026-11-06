@@ -55,10 +55,17 @@ class ShellSidebar extends ConsumerWidget {
     final dashboardLabel =
         workspaceType == 'admin' ? 'Admin' : (workspaceName ?? 'Dashboard');
 
-    // Build all items with the workspace dashboard first. The static entry
-    // keeps the canonical '/' route but is labelled with the active
-    // workspace name so it reflects the destination it opens.
+    // Build all items with Home and the workspace dashboard first. The
+    // dashboard entry keeps the canonical '/' route but is labelled with the
+    // active workspace name so it reflects the destination it opens.
     final allItems = [
+      const NavItem(
+        moduleKey: 'home',
+        displayName: 'Home',
+        route: '/home',
+        icon: Icons.home_rounded,
+        displayOrder: -1,
+      ),
       NavItem(
         moduleKey: 'dashboard',
         displayName: dashboardLabel,
