@@ -40,6 +40,7 @@ import 'package:famhub_app/features/weather/presentation/widgets/weather_card.da
 
 // Module page imports for direct navigation from FAMHUB Home
 import 'package:famhub_app/features/farm_management/presentation/pages/farm_management_page.dart';
+import 'package:famhub_app/features/business_hub/presentation/pages/trader_workspace_gate.dart';
 import 'package:famhub_app/features/marketplace/presentation/pages/marketplace_page.dart';
 import 'package:famhub_app/features/knowledge_link/presentation/pages/knowledge_link_page.dart';
 import 'package:famhub_app/features/financing/presentation/pages/financing_page.dart';
@@ -150,6 +151,14 @@ const List<_ModuleCardData> _allModuleCards = [
         'Access loans, insurance, savings, and financial tools for agricultural enterprises. Designed for farmers, cooperatives, and financial institutions.',
     icon: Icons.account_balance_outlined,
     color: Color(0xFF0891B2),
+  ),
+  _ModuleCardData(
+    id: 'trader',
+    title: 'Trader',
+    description:
+        'Manage your trading business, inventory, orders, and marketplace sales. Built for agrovets, traders, and agricultural enterprises.',
+    icon: Icons.business_center_outlined,
+    color: Color(0xFF7C3AED),
   ),
   _ModuleCardData(
     id: 'logistics',
@@ -631,8 +640,25 @@ class FamhubHomePage extends ConsumerWidget {
   ) {
     // First two modules (featured) — displayed prominently
     final featuredModules = _allModuleCards.take(2).toList();
-    // Remaining modules — shown in horizontal scroll
-    final scrollModules = _allModuleCards.skip(2).toList();
+
+    // Remaining modules — shown in horizontal scroll. The most requested
+    // services lead the row, followed by the rest in their existing order.
+    const moreServicesPriority = <String>[
+      'finance',
+      'trader',
+      'agri_connect',
+      'logistics',
+      'agri_tech_lab',
+      'weather',
+    ];
+    final priorityIds = moreServicesPriority.toSet();
+    final scrollModules = <_ModuleCardData>[
+      for (final id in moreServicesPriority)
+        _allModuleCards.firstWhere((card) => card.id == id),
+      ..._allModuleCards
+          .skip(2)
+          .where((card) => !priorityIds.contains(card.id)),
+    ];
 
     // On mobile, if there are few modules, just show a grid
     final cardWidth = isMobile
@@ -710,23 +736,27 @@ class FamhubHomePage extends ConsumerWidget {
           // ── Scrollable horizontal row ──
           SizedBox(
             height: 132,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: EdgeInsets.zero,
-              itemCount: scrollModules.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (context, index) {
-                final card = scrollModules[index];
-                return SizedBox(
-                  width: cardWidth,
-                  child: _CompactModuleCard(
-                    card: card,
-                    colorScheme: colorScheme,
-                    theme: theme,
-                    onTap: () => _openModule(context, card),
-                  ),
-                );
-              },
+            child: _HorizontalScrollArea(
+              showArrows: !isMobile,
+              builder: (controller) => ListView.separated(
+                controller: controller,
+                scrollDirection: Axis.horizontal,
+                padding: EdgeInsets.zero,
+                itemCount: scrollModules.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (context, index) {
+                  final card = scrollModules[index];
+                  return SizedBox(
+                    width: cardWidth,
+                    child: _CompactModuleCard(
+                      card: card,
+                      colorScheme: colorScheme,
+                      theme: theme,
+                      onTap: () => _openModule(context, card),
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ],
@@ -810,20 +840,24 @@ class FamhubHomePage extends ConsumerWidget {
           SizedBox(height: isMobile ? 16 : 24),
 
           // Preview cards
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            clipBehavior: Clip.none,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (int i = 0; i < _marketplacePreviews.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 12),
-                  _MarketplacePreviewCard(
-                    item: _marketplacePreviews[i],
-                    colorScheme: colorScheme,
-                  ),
+          _HorizontalScrollArea(
+            showArrows: !isMobile,
+            builder: (controller) => SingleChildScrollView(
+              controller: controller,
+              scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.none,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (int i = 0; i < _marketplacePreviews.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 12),
+                    _MarketplacePreviewCard(
+                      item: _marketplacePreviews[i],
+                      colorScheme: colorScheme,
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ],
@@ -997,22 +1031,26 @@ class FamhubHomePage extends ConsumerWidget {
           // Testimonial cards
           SizedBox(
             height: isMobile ? 280 : 240,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              padding: EdgeInsets.zero,
-              itemCount: _testimonials.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 16),
-              itemBuilder: (context, index) {
-                final testimonial = _testimonials[index];
-                return SizedBox(
-                  width: isMobile ? size.width * 0.8 : 380,
-                  child: _TestimonialCard(
-                    testimonial: testimonial,
-                    colorScheme: colorScheme,
-                    theme: theme,
-                  ),
-                );
-              },
+            child: _HorizontalScrollArea(
+              showArrows: !isMobile,
+              builder: (controller) => ListView.separated(
+                controller: controller,
+                scrollDirection: Axis.horizontal,
+                padding: EdgeInsets.zero,
+                itemCount: _testimonials.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 16),
+                itemBuilder: (context, index) {
+                  final testimonial = _testimonials[index];
+                  return SizedBox(
+                    width: isMobile ? size.width * 0.8 : 380,
+                    child: _TestimonialCard(
+                      testimonial: testimonial,
+                      colorScheme: colorScheme,
+                      theme: theme,
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ],
@@ -1274,8 +1312,6 @@ class FamhubHomePage extends ConsumerWidget {
     bool isMobile,
     bool isAuthenticated,
   ) {
-    final size = MediaQuery.of(context).size;
-
     // Compact hero carousel height - fixed for better visual balance
     const heroHeight = 200.0;
 
@@ -1323,6 +1359,10 @@ class FamhubHomePage extends ConsumerWidget {
 
       case 'finance':
         _pushModule(context, 'Finance', const FinancingPage());
+        break;
+
+      case 'trader':
+        _pushModule(context, 'Trader', const TraderWorkspaceGate());
         break;
 
       case 'logistics':
@@ -1478,6 +1518,141 @@ class _ExplorationBanner extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// ── Horizontal scroller with desktop mouse arrows ──
+///
+/// Wraps a horizontal `ListView`/`SingleChildScrollView` and overlays
+/// left/right arrows on wide layouts. Arrows are disabled at the edges.
+class _HorizontalScrollArea extends StatefulWidget {
+  final bool showArrows;
+  final Widget Function(ScrollController controller) builder;
+
+  const _HorizontalScrollArea({
+    required this.builder,
+    this.showArrows = true,
+  });
+
+  @override
+  State<_HorizontalScrollArea> createState() => _HorizontalScrollAreaState();
+}
+
+class _HorizontalScrollAreaState extends State<_HorizontalScrollArea> {
+  final ScrollController _controller = ScrollController();
+  bool _canScrollLeft = false;
+  bool _canScrollRight = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_updateArrows);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateArrows());
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_updateArrows);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _updateArrows() {
+    if (!mounted || !_controller.hasClients) return;
+    final position = _controller.position;
+    final canLeft = position.pixels > position.minScrollExtent + 0.5;
+    final canRight = position.pixels < position.maxScrollExtent - 0.5;
+    if (canLeft != _canScrollLeft || canRight != _canScrollRight) {
+      setState(() {
+        _canScrollLeft = canLeft;
+        _canScrollRight = canRight;
+      });
+    }
+  }
+
+  void _scrollBy(double direction) {
+    if (!_controller.hasClients) return;
+    final position = _controller.position;
+    final delta =
+        position.viewportDimension * 0.8 * direction;
+    final target = (position.pixels + delta)
+        .clamp(position.minScrollExtent, position.maxScrollExtent)
+        .toDouble();
+    _controller.animateTo(
+      target,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Re-evaluate after layout when the viewport or content size changes.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateArrows());
+
+    return Stack(
+      children: [
+        widget.builder(_controller),
+        if (widget.showArrows) ...[
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: _ScrollArrowButton(
+                icon: Icons.chevron_left_rounded,
+                tooltip: 'Scroll left',
+                onPressed: _canScrollLeft ? () => _scrollBy(-1) : null,
+              ),
+            ),
+          ),
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: _ScrollArrowButton(
+                icon: Icons.chevron_right_rounded,
+                tooltip: 'Scroll right',
+                onPressed: _canScrollRight ? () => _scrollBy(1) : null,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ScrollArrowButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+
+  const _ScrollArrowButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: colorScheme.surface.withValues(alpha: 0.92),
+      elevation: 3,
+      shape: const CircleBorder(),
+      child: IconButton(
+        onPressed: onPressed,
+        tooltip: tooltip,
+        icon: Icon(icon, size: 20),
+        color: colorScheme.onSurface,
+        disabledColor: colorScheme.onSurface.withValues(alpha: 0.25),
+        padding: EdgeInsets.zero,
+        visualDensity: VisualDensity.compact,
+        constraints: const BoxConstraints.tightFor(width: 34, height: 34),
       ),
     );
   }
@@ -1644,59 +1819,6 @@ class _CompactModuleCard extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// ─────────────────────────────────────────────────────────────
-/// IMPACT STAT CARD
-/// ─────────────────────────────────────────────────────────────
-class _ImpactStatCard extends StatelessWidget {
-  final _ImpactStat stat;
-  final ColorScheme colorScheme;
-  final ThemeData theme;
-
-  const _ImpactStatCard({
-    required this.stat,
-    required this.colorScheme,
-    required this.theme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
-      decoration: BoxDecoration(
-        color: stat.color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: stat.color.withValues(alpha: 0.15)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(stat.icon, size: 28, color: stat.color),
-          const SizedBox(height: 8),
-          Text(
-            stat.value,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: stat.color,
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            stat.label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
       ),
     );
   }
