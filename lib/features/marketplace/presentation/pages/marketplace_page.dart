@@ -224,18 +224,33 @@ class _MarketplacePageState extends ConsumerState<MarketplacePage> {
   }) {
     if (listings.isEmpty) return const SizedBox.shrink();
     final rows = <Widget>[];
+    // Card width mirrors the responsive shelf sizing below. The shelf height
+    // is derived from the card's image area + compact details block so the
+    // horizontal viewport does not force taller cards (which would leave an
+    // empty band under the details).
+    final bool compact = MediaQuery.sizeOf(context).width < 420;
+    final double cardWidth = compact ? 142.0 : 176.0;
+    final double imageHeight = (cardWidth / 1.35).clamp(108.0, 152.0);
+    final double shelfHeight = imageHeight + 74;
     for (var start = 0; start < listings.length && start < 16; start += 8) {
       final end = start + 8 < listings.length ? start + 8 : listings.length;
       rows.add(
         SizedBox(
-          height: 208,
-          child: ListView.separated(
+          height: shelfHeight,
+          child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            itemCount: end - start,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (_, index) => SizedBox(
-              width: MediaQuery.sizeOf(context).width < 420 ? 142 : 176,
-              child: ListingTile(listing: listings[start + index]),
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = start; i < end; i++) ...[
+                  if (i > start) const SizedBox(width: 12),
+                  SizedBox(
+                    width: cardWidth,
+                    child: ListingTile(listing: listings[i]),
+                  ),
+                ],
+              ],
             ),
           ),
         ),
