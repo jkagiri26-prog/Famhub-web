@@ -203,8 +203,156 @@ class _MarketplacePageState extends ConsumerState<MarketplacePage> {
     return result;
   }
 
+  /// Groups a listing into the Marketplace shelf/tab taxonomy.
+  ///
+  /// Priority:
+  ///   1. The seller-chosen product taxonomy (`core.commodities.category`,
+  ///      resolved variant → item → commodity). This is authoritative.
+  ///   2. Keyword intent from item/variant/title/description for taxonomy
+  ///      rows that are missing or generic ("other").
+  ///   3. The unit of measure — only as a last resort, because it cannot
+  ///      distinguish produce from inputs (milk and pesticide are both sold
+  ///      per litre).
   String _listingCategory(Listing listing) {
-    final unit = (listing.unitName ?? '').toLowerCase();
+    final canonical = _categoryFromCommodity(listing.commodityCategory);
+    if (canonical != null) return canonical;
+
+    final intent = _categoryFromKeywords(listing);
+    if (intent != null) return intent;
+
+    return _categoryFromUnit(listing.unitName);
+  }
+
+  static const List<String> _inputHints = [
+    'fertilizer', 'fertiliser', 'dap', 'npk', 'urea', 'seed', 'seeds',
+    'pesticide', 'herbicide', 'fungicide', 'insecticide', 'nematicide',
+    'agrochemical', 'vaccine', 'veterinary', 'dewormer', 'acaricide',
+    'feed', 'animal feed', 'poultry feed', 'livestock feed', 'fish feed',
+    'feed supplement', 'chemical', 'drug',
+  ];
+
+  static const List<String> _equipmentHints = [
+    'tractor', 'plough', 'plow', 'harrow', 'sprayer', 'pump', 'trailer',
+    'mill', 'chaff cutter', 'chaffcutter', 'machine', 'machinery',
+    'implement', 'tool', 'greenhouse', 'irrigation kit', 'wheelbarrow',
+    'water tank', 'incubator',
+  ];
+
+  static const List<String> _livestockHints = [
+    'cattle', 'cow', 'bull', 'heifer', 'calf', 'goat', 'sheep', 'ram', 'ewe',
+    'pig', 'boar', 'sow', 'chicken', 'hen', 'cock', 'rooster', 'poultry',
+    'duck', 'turkey', 'rabbit', 'donkey', 'camel', 'bee', 'bees', 'fish',
+    'tilapia', 'catfish', 'salmon', 'trout', 'milk', 'cheese',
+    'butter', 'ghee', 'yogurt', 'yoghurt', 'egg', 'honey', 'beef', 'mutton',
+    'pork', 'meat', 'steak',
+  ];
+
+  static const List<String> _cropHints = [
+    'maize', 'corn', 'bean', 'beans', 'rice', 'wheat', 'millet', 'sorghum',
+    'barley', 'potato', 'tomato', 'onion', 'cabbage', 'kale', 'sukuma',
+    'spinach', 'carrot', 'banana', 'mango', 'avocado', 'orange', 'pineapple',
+    'coffee', 'tea', 'sugarcane', 'groundnut', 'simsim', 'soy', 'soya',
+    'cowpea', 'cotton', 'tobacco', 'flower', 'seedling', 'fruit',
+    'vegetable', 'cassava', 'yam', 'arrowroot', 'peas', 'lentil',
+    'chickpea', 'ginger', 'garlic', 'chilli', 'pepper', 'cucumber',
+    'watermelon', 'pumpkin', 'passion', 'strawberry', 'macadamia',
+    'cashew', 'coconut', 'eggplant', 'grape', 'grapes',
+  ];
+
+  /// Word-aware keyword match (`seed` matches "seeds" but not "seedless").
+  bool _matchesAny(String haystack, List<String> needles) {
+    for (final needle in needles) {
+      final pattern = RegExp(
+        '(^|[^a-z0-9])${RegExp.escape(needle)}(s|es)?([^a-z0-9]|\$)',
+      );
+      if (pattern.hasMatch(haystack)) return true;
+    }
+    return false;
+  }
+
+  /// Maps the canonical commodity category to a shelf, or null when the
+  /// category is absent/generic so keyword intent can refine it.
+  String? _categoryFromCommodity(String? raw) {
+    final value = raw?.trim().toLowerCase() ?? '';
+    if (value.isEmpty) return null;
+    switch (value) {
+      case 'crop':
+      case 'crops':
+        return 'Crops';
+      case 'livestock':
+      case 'animal':
+      case 'animals':
+      case 'poultry':
+      case 'dairy':
+      case 'fish':
+      case 'honey':
+        return 'Livestock';
+      case 'input':
+      case 'inputs':
+      case 'seed':
+      case 'seeds':
+        return 'Inputs';
+      case 'equipment':
+      case 'machinery':
+        return 'Equipment';
+      case 'other':
+        return null;
+    }
+    if (_matchesAny(value, _inputHints) || value.contains('input')) {
+      return 'Inputs';
+    }
+    if (_matchesAny(value, _equipmentHints) ||
+        value.contains('equipment') ||
+        value.contains('machin')) {
+      return 'Equipment';
+    }
+    if (value.contains('livestock') ||
+        value.contains('animal') ||
+        value.contains('poultry') ||
+        value.contains('dairy') ||
+        value.contains('fish') ||
+        value.contains('aquacultur') ||
+        value.contains('apicultur') ||
+        value.contains('honey')) {
+      return 'Livestock';
+    }
+    if (value.contains('crop') ||
+        value.contains('produce') ||
+        value.contains('grain') ||
+        value.contains('cereal') ||
+        value.contains('horticult') ||
+        value.contains('vegetable') ||
+        value.contains('fruit') ||
+        value.contains('legume') ||
+        value.contains('tuber')) {
+      return 'Crops';
+    }
+    return null;
+  }
+
+  /// Keyword intent from the seller-chosen item/variant plus the title.
+  String? _categoryFromKeywords(Listing listing) {
+    final haystack = [
+      listing.itemName ?? '',
+      listing.variantName ?? '',
+      listing.title,
+    ].join(' ').toLowerCase();
+
+    if (_matchesAny(haystack, _inputHints)) return 'Inputs';
+    if (_matchesAny(haystack, _equipmentHints)) return 'Equipment';
+    if (_matchesAny(haystack, _livestockHints)) return 'Livestock';
+    if (_matchesAny(haystack, _cropHints)) return 'Crops';
+
+    final description = listing.description?.toLowerCase() ?? '';
+    if (description.isNotEmpty) {
+      if (_matchesAny(description, _inputHints)) return 'Inputs';
+      if (_matchesAny(description, _equipmentHints)) return 'Equipment';
+    }
+    return null;
+  }
+
+  String _categoryFromUnit(String? rawUnit) {
+    final unit = (rawUnit ?? '').toLowerCase().trim();
     if (unit == 'head' || unit == 'animal' || unit == 'livestock') {
       return 'Livestock';
     }
@@ -212,7 +360,6 @@ class _MarketplacePageState extends ConsumerState<MarketplacePage> {
       return 'Equipment';
     }
     if (unit == 'kg' || unit == 'tonne' || unit == 'bag') return 'Crops';
-    if (unit == 'litre' || unit == 'pack' || unit == 'piece') return 'Inputs';
     return 'Other';
   }
 

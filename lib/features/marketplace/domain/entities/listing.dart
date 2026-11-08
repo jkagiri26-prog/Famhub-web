@@ -58,6 +58,14 @@ class Listing {
   final double availableQuantity;
   final double reservedQuantity;
 
+  /// Resolved product taxonomy (from the seller-chosen variant):
+  /// `core.items.name` and `core.commodities.category`
+  /// (crop / livestock / dairy / poultry / fish / honey / other).
+  /// Used for Marketplace grouping — never inferred from the unit.
+  final String? itemName;
+  final String? variantName;
+  final String? commodityCategory;
+
   Listing({
     required this.id,
     required this.title,
@@ -84,6 +92,9 @@ class Listing {
     this.sellerRating,
     this.availableQuantity = 0,
     this.reservedQuantity = 0,
+    this.itemName,
+    this.variantName,
+    this.commodityCategory,
   });
 
   /// True when this listing is stock-backed (has a managed-stock reference).
@@ -130,6 +141,9 @@ class Listing {
     double? sellerRating,
     double? availableQuantity,
     double? reservedQuantity,
+    String? itemName,
+    String? variantName,
+    String? commodityCategory,
   }) {
     return Listing(
       id: id ?? this.id,
@@ -158,6 +172,9 @@ class Listing {
       sellerRating: sellerRating ?? this.sellerRating,
       availableQuantity: availableQuantity ?? this.availableQuantity,
       reservedQuantity: reservedQuantity ?? this.reservedQuantity,
+      itemName: itemName ?? this.itemName,
+      variantName: variantName ?? this.variantName,
+      commodityCategory: commodityCategory ?? this.commodityCategory,
     );
   }
 }

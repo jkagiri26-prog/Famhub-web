@@ -77,6 +77,9 @@ class ListingMapper {
           : null,
       sellerName: json['seller_name']?.toString(),
       sellerRating: (json['seller_rating'] as num?)?.toDouble(),
+      itemName: json['item_name']?.toString(),
+      variantName: json['variant_name']?.toString(),
+      commodityCategory: json['commodity_category']?.toString(),
       availableQuantity:
           (json['available_quantity'] as num?)?.toDouble() ??
           (json['quantity_offered'] as num?)?.toDouble() ??

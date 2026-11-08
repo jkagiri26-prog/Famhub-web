@@ -243,6 +243,80 @@ class MarketplaceRemoteDataSource {
     }
   }
 
+  /// Resolve the canonical product taxonomy for the given variant IDs.
+  ///
+  /// Chain: `core.item_variants.item_id` → `core.items` (name) →
+  /// `core.commodities.item_id` (`category`, e.g. crop / livestock / dairy /
+  /// poultry / fish / honey / other). Used to group Marketplace listings by
+  /// the seller-chosen product taxonomy instead of guessing from the unit of
+  /// measure.
+  ///
+  /// Scalar batched queries only (no FK embeds — the PostgREST schema cache
+  /// may be stale). Best-effort per stage; never throws for a missing stage.
+  Future<
+      Map<
+          String,
+          ({
+            String variantName,
+            String itemName,
+            String commodityCategory,
+          })>> fetchVariantTaxonomyByIds(Set<String> variantIds) async {
+    final ids = variantIds.where((id) => id.isNotEmpty).toList();
+    if (ids.isEmpty) return const {};
+
+    final variantRows = (await _client
+            .schema('core')
+            .from('item_variants')
+            .select('id, name, item_id')
+            .inFilter('id', ids) as List)
+        .cast<Map<String, dynamic>>();
+    if (variantRows.isEmpty) return const {};
+
+    final itemIds = variantRows
+        .map((v) => v['item_id']?.toString())
+        .where((id) => id != null && id.isNotEmpty)
+        .cast<String>()
+        .toSet();
+
+    Map<String, String> itemNames = const {};
+    Map<String, String> commodityCategories = const {};
+    if (itemIds.isNotEmpty) {
+      try {
+        itemNames = await fetchItemsByIds(itemIds);
+      } catch (_) {}
+      try {
+        final commodityRows = (await _client
+                .schema('core')
+                .from('commodities')
+                .select('item_id, category')
+                .inFilter('item_id', itemIds.toList()) as List)
+            .cast<Map<String, dynamic>>();
+        commodityCategories = {
+          for (final row in commodityRows)
+            if (row['item_id'] != null)
+              row['item_id'].toString(): row['category']?.toString() ?? '',
+        };
+      } catch (_) {}
+    }
+
+    final taxonomy = <String, ({
+      String variantName,
+      String itemName,
+      String commodityCategory,
+    })>{};
+    for (final row in variantRows) {
+      final variantId = row['id']?.toString();
+      if (variantId == null || variantId.isEmpty) continue;
+      final itemId = row['item_id']?.toString() ?? '';
+      taxonomy[variantId] = (
+        variantName: row['name']?.toString() ?? '',
+        itemName: itemNames[itemId] ?? '',
+        commodityCategory: commodityCategories[itemId] ?? '',
+      );
+    }
+    return taxonomy;
+  }
+
   // ════════════════════════════════════════════════════════════════
   // MANAGED-STOCK PUBLISHING (PHASE 1)
   // ════════════════════════════════════════════════════════════════

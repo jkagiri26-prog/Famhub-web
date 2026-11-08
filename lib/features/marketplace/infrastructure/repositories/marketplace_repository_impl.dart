@@ -54,6 +54,9 @@ class ListingMapper {
       locationName: json['location_name']?.toString(),
       sellerName: json['seller_name']?.toString(),
       sellerRating: (json['seller_rating'] as num?)?.toDouble(),
+      itemName: json['item_name']?.toString(),
+      variantName: json['variant_name']?.toString(),
+      commodityCategory: json['commodity_category']?.toString(),
       availableQuantity: (json['available_quantity'] as num?)?.toDouble() ??
           (json['quantity_offered'] as num?)?.toDouble() ??
           0,
@@ -132,24 +135,39 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
     final unitIds = <String>{};
     final locationIds = <String>{};
     final stockIds = <String>{};
+    final variantIds = <String>{};
 
     for (final raw in rawListings) {
       final unitId = raw['unit_id']?.toString();
       final locationId = raw['location_id']?.toString();
       final stockId = raw['stock_id']?.toString();
+      final variantId = raw['variant_id']?.toString();
       if (unitId != null && unitId.isNotEmpty) unitIds.add(unitId);
       if (locationId != null && locationId.isNotEmpty) {
         locationIds.add(locationId);
       }
       if (stockId != null && stockId.isNotEmpty) stockIds.add(stockId);
+      if (variantId != null && variantId.isNotEmpty) variantIds.add(variantId);
     }
 
-    if (unitIds.isEmpty && locationIds.isEmpty && stockIds.isEmpty) return;
+    if (unitIds.isEmpty &&
+        locationIds.isEmpty &&
+        stockIds.isEmpty &&
+        variantIds.isEmpty) {
+      return;
+    }
 
     // Independent best-effort lookups — never fail the whole listing load.
     Map<String, String> units = const {};
     Map<String, String> locations = const {};
     Map<String, ({double quantity, double reservedQuantity})> stock = const {};
+    Map<
+        String,
+        ({
+          String variantName,
+          String itemName,
+          String commodityCategory
+        })> taxonomy = const {};
     try {
       units = await dataSource.fetchUnitsByIds(unitIds);
     } catch (_) {}
@@ -158,6 +176,9 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
     } catch (_) {}
     try {
       stock = await dataSource.fetchStockByIds(stockIds);
+    } catch (_) {}
+    try {
+      taxonomy = await dataSource.fetchVariantTaxonomyByIds(variantIds);
     } catch (_) {}
 
     for (final raw in rawListings) {
@@ -173,6 +194,14 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
       if (stockId != null && stock.containsKey(stockId)) {
         raw['available_quantity'] = stock[stockId]!.quantity;
         raw['reserved_quantity'] = stock[stockId]!.reservedQuantity;
+      }
+      final variantId = raw['variant_id']?.toString();
+      final variantTaxonomy =
+          variantId == null ? null : taxonomy[variantId];
+      if (variantTaxonomy != null) {
+        raw['variant_name'] = variantTaxonomy.variantName;
+        raw['item_name'] = variantTaxonomy.itemName;
+        raw['commodity_category'] = variantTaxonomy.commodityCategory;
       }
     }
   }
