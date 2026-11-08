@@ -206,16 +206,24 @@ class _MarketplacePageState extends ConsumerState<MarketplacePage> {
   /// Groups a listing into the Marketplace shelf/tab taxonomy.
   ///
   /// Priority:
-  ///   1. The seller-chosen product taxonomy (`core.commodities.category`,
-  ///      resolved variant → item → commodity). This is authoritative.
-  ///   2. Keyword intent from item/variant/title/description for taxonomy
+  ///   1. The canonical commodity category (`core.commodities.category`,
+  ///      resolved variant → item → commodity).
+  ///   2. The admin taxonomy: the item's `core.domains.name`
+  ///      (crop / livestock / …) then `core.categories.name`.
+  ///   3. Keyword intent from item/variant/title/description for taxonomy
   ///      rows that are missing or generic ("other").
-  ///   3. The unit of measure — only as a last resort, because it cannot
+  ///   4. The unit of measure — only as a last resort, because it cannot
   ///      distinguish produce from inputs (milk and pesticide are both sold
   ///      per litre).
   String _listingCategory(Listing listing) {
     final canonical = _categoryFromCommodity(listing.commodityCategory);
     if (canonical != null) return canonical;
+
+    final domain = _categoryFromCommodity(listing.itemDomain);
+    if (domain != null) return domain;
+
+    final category = _categoryFromCommodity(listing.itemCategory);
+    if (category != null) return category;
 
     final intent = _categoryFromKeywords(listing);
     if (intent != null) return intent;
@@ -242,7 +250,9 @@ class _MarketplacePageState extends ConsumerState<MarketplacePage> {
     'cattle', 'cow', 'bull', 'heifer', 'calf', 'goat', 'sheep', 'ram', 'ewe',
     'pig', 'boar', 'sow', 'chicken', 'hen', 'cock', 'rooster', 'poultry',
     'duck', 'turkey', 'rabbit', 'donkey', 'camel', 'bee', 'bees', 'fish',
-    'tilapia', 'catfish', 'salmon', 'trout', 'milk', 'cheese',
+    'tilapia', 'catfish', 'salmon', 'trout', 'bird', 'birds', 'chick',
+    'kienyeji', 'broiler', 'layer', 'cockerel', 'pullet', 'bantam',
+    'guinea fowl', 'quail', 'goose', 'geese', 'dove', 'milk', 'cheese',
     'butter', 'ghee', 'yogurt', 'yoghurt', 'egg', 'honey', 'beef', 'mutton',
     'pork', 'meat', 'steak',
   ];

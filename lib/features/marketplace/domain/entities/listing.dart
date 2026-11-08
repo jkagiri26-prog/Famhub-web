@@ -66,6 +66,11 @@ class Listing {
   final String? variantName;
   final String? commodityCategory;
 
+  /// Admin taxonomy for the listing's item:
+  /// `core.categories.name` and its `core.domains.name`.
+  final String? itemCategory;
+  final String? itemDomain;
+
   Listing({
     required this.id,
     required this.title,
@@ -95,6 +100,8 @@ class Listing {
     this.itemName,
     this.variantName,
     this.commodityCategory,
+    this.itemCategory,
+    this.itemDomain,
   });
 
   /// True when this listing is stock-backed (has a managed-stock reference).
@@ -144,6 +151,8 @@ class Listing {
     String? itemName,
     String? variantName,
     String? commodityCategory,
+    String? itemCategory,
+    String? itemDomain,
   }) {
     return Listing(
       id: id ?? this.id,
@@ -175,6 +184,8 @@ class Listing {
       itemName: itemName ?? this.itemName,
       variantName: variantName ?? this.variantName,
       commodityCategory: commodityCategory ?? this.commodityCategory,
+      itemCategory: itemCategory ?? this.itemCategory,
+      itemDomain: itemDomain ?? this.itemDomain,
     );
   }
 }

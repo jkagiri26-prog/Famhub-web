@@ -57,6 +57,8 @@ class ListingMapper {
       itemName: json['item_name']?.toString(),
       variantName: json['variant_name']?.toString(),
       commodityCategory: json['commodity_category']?.toString(),
+      itemCategory: json['item_category']?.toString(),
+      itemDomain: json['item_domain']?.toString(),
       availableQuantity: (json['available_quantity'] as num?)?.toDouble() ??
           (json['quantity_offered'] as num?)?.toDouble() ??
           0,
@@ -166,7 +168,9 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
         ({
           String variantName,
           String itemName,
-          String commodityCategory
+          String commodityCategory,
+          String itemCategory,
+          String itemDomain
         })> taxonomy = const {};
     try {
       units = await dataSource.fetchUnitsByIds(unitIds);
@@ -202,6 +206,8 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
         raw['variant_name'] = variantTaxonomy.variantName;
         raw['item_name'] = variantTaxonomy.itemName;
         raw['commodity_category'] = variantTaxonomy.commodityCategory;
+        raw['item_category'] = variantTaxonomy.itemCategory;
+        raw['item_domain'] = variantTaxonomy.itemDomain;
       }
     }
   }

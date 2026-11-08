@@ -245,14 +245,16 @@ class MarketplaceRemoteDataSource {
 
   /// Resolve the canonical product taxonomy for the given variant IDs.
   ///
-  /// Chain: `core.item_variants.item_id` → `core.items` (name) →
-  /// `core.commodities.item_id` (`category`, e.g. crop / livestock / dairy /
-  /// poultry / fish / honey / other). Used to group Marketplace listings by
-  /// the seller-chosen product taxonomy instead of guessing from the unit of
-  /// measure.
+  /// Chain: `core.item_variants.item_id` → `core.items`
+  /// (`name`, `category_id`) →
+  ///   - `core.commodities.item_id` (`category`, e.g. crop / livestock /
+  ///     dairy / poultry / fish / honey / other), and
+  ///   - `core.categories` (`name`, `domain_id`) → `core.domains` (`name`).
   ///
-  /// Scalar batched queries only (no FK embeds — the PostgREST schema cache
-  /// may be stale). Best-effort per stage; never throws for a missing stage.
+  /// Used to group Marketplace listings by the seller-chosen product
+  /// taxonomy instead of guessing from the unit of measure. Every stage is a
+  /// best-effort scalar batch query (no FK embeds — the PostgREST schema
+  /// cache may be stale); a missing stage never fails the listing load.
   Future<
       Map<
           String,
@@ -260,6 +262,8 @@ class MarketplaceRemoteDataSource {
             String variantName,
             String itemName,
             String commodityCategory,
+            String itemCategory,
+            String itemDomain,
           })>> fetchVariantTaxonomyByIds(Set<String> variantIds) async {
     final ids = variantIds.where((id) => id.isNotEmpty).toList();
     if (ids.isEmpty) return const {};
@@ -270,7 +274,6 @@ class MarketplaceRemoteDataSource {
             .select('id, name, item_id')
             .inFilter('id', ids) as List)
         .cast<Map<String, dynamic>>();
-    if (variantRows.isEmpty) return const {};
 
     final itemIds = variantRows
         .map((v) => v['item_id']?.toString())
@@ -278,12 +281,36 @@ class MarketplaceRemoteDataSource {
         .cast<String>()
         .toSet();
 
-    Map<String, String> itemNames = const {};
-    Map<String, String> commodityCategories = const {};
+    // item id → (name, category_id)
+    var itemNames = <String, String>{};
+    var itemCategoryIds = <String, String>{};
+    // item id → commodity category (catalog taxonomy)
+    var commodityCategories = <String, String>{};
+    // category id → (category name, domain id)
+    var categoryNames = <String, String>{};
+    var categoryDomainIds = <String, String>{};
+    // domain id → domain name
+    var domainNames = <String, String>{};
+
     if (itemIds.isNotEmpty) {
       try {
-        itemNames = await fetchItemsByIds(itemIds);
+        final itemRows = (await _client
+                .schema('core')
+                .from('items')
+                .select('id, name, category_id')
+                .inFilter('id', itemIds.toList()) as List)
+            .cast<Map<String, dynamic>>();
+        itemNames = {
+          for (final row in itemRows)
+            if (row['id'] != null) row['id'].toString(): row['name']?.toString() ?? '',
+        };
+        itemCategoryIds = {
+          for (final row in itemRows)
+            if (row['id'] != null && (row['category_id']?.toString().isNotEmpty ?? false))
+              row['id'].toString(): row['category_id'].toString(),
+        };
       } catch (_) {}
+
       try {
         final commodityRows = (await _client
                 .schema('core')
@@ -297,21 +324,67 @@ class MarketplaceRemoteDataSource {
               row['item_id'].toString(): row['category']?.toString() ?? '',
         };
       } catch (_) {}
+
+      final categoryIds = itemCategoryIds.values.toSet().toList();
+      if (categoryIds.isNotEmpty) {
+        try {
+          final categoryRows = (await _client
+                  .schema('core')
+                  .from('categories')
+                  .select('id, name, domain_id')
+                  .inFilter('id', categoryIds) as List)
+              .cast<Map<String, dynamic>>();
+          categoryNames = {
+            for (final row in categoryRows)
+              if (row['id'] != null)
+                row['id'].toString(): row['name']?.toString() ?? '',
+          };
+          categoryDomainIds = {
+            for (final row in categoryRows)
+              if (row['id'] != null &&
+                  (row['domain_id']?.toString().isNotEmpty ?? false))
+                row['id'].toString(): row['domain_id'].toString(),
+          };
+        } catch (_) {}
+
+        final domainIds = categoryDomainIds.values.toSet().toList();
+        if (domainIds.isNotEmpty) {
+          try {
+            final domainRows = (await _client
+                    .schema('core')
+                    .from('domains')
+                    .select('id, name')
+                    .inFilter('id', domainIds) as List)
+                .cast<Map<String, dynamic>>();
+            domainNames = {
+              for (final row in domainRows)
+                if (row['id'] != null)
+                  row['id'].toString(): row['name']?.toString() ?? '',
+            };
+          } catch (_) {}
+        }
+      }
     }
 
     final taxonomy = <String, ({
       String variantName,
       String itemName,
       String commodityCategory,
+      String itemCategory,
+      String itemDomain,
     })>{};
     for (final row in variantRows) {
       final variantId = row['id']?.toString();
       if (variantId == null || variantId.isEmpty) continue;
       final itemId = row['item_id']?.toString() ?? '';
+      final categoryId = itemCategoryIds[itemId] ?? '';
+      final domainId = categoryDomainIds[categoryId] ?? '';
       taxonomy[variantId] = (
         variantName: row['name']?.toString() ?? '',
         itemName: itemNames[itemId] ?? '',
         commodityCategory: commodityCategories[itemId] ?? '',
+        itemCategory: categoryNames[categoryId] ?? '',
+        itemDomain: domainNames[domainId] ?? '',
       );
     }
     return taxonomy;
