@@ -479,9 +479,8 @@ class _ProvidersPreview extends ConsumerWidget {
 
 // ── Quick links ────────────────────────────────────────────────────────────
 
-/// Destinations out of the hub. "My Finance" has no registered route in this
-/// build, so it is rendered as visibly unavailable rather than pointing at an
-/// unrelated screen or inventing an account dashboard.
+/// Destinations out of the hub. "My Finance" opens the read-only Finance
+/// account screen, which is registered under the existing `finance` module.
 class _QuickLinks extends ConsumerWidget {
   const _QuickLinks();
 
@@ -521,10 +520,11 @@ class _QuickLinks extends ConsumerWidget {
           ),
         ],
         const SizedBox(height: 10),
-        const _UnavailableQuickLink(
+        _QuickLinkTile(
           title: 'My Finance',
-          subtitle: 'Accounts and balances are not available yet',
+          subtitle: 'Obligations, payments and payment status',
           icon: Icons.account_balance_wallet_outlined,
+          onTap: () => context.go(AppRoutes.financeAccount),
         ),
       ],
     );
@@ -609,78 +609,6 @@ class _QuickLinkTile extends StatelessWidget {
               const Icon(Icons.chevron_right, size: 20, color: Colors.grey),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Placeholder for a destination that has no route yet. Not tappable, and it
-/// does not navigate anywhere — it exists so the gap is visible rather than
-/// silently omitted.
-class _UnavailableQuickLink extends StatelessWidget {
-  const _UnavailableQuickLink({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final muted = Colors.grey.shade500;
-    return Opacity(
-      opacity: 0.72,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: Icon(icon, size: 20, color: Colors.grey.shade600),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13.5,
-                      color: muted,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      height: 1.3,
-                      color: muted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.lock_outline, size: 18, color: muted),
-          ],
         ),
       ),
     );

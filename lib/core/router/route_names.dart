@@ -57,6 +57,12 @@ class AppRoutes {
   static const financingManagement = '/finance/management';
   static const financingManagementName = 'finance_management';
 
+  /// Finance account — read-only obligations, verified payments and
+  /// payment-attempt status. Registered only while the `finance` module is
+  /// enabled.
+  static const financeAccount = '/finance/account';
+  static const financeAccountName = 'finance_account';
+
   /// Finance module — provider detail.
   ///
   /// `:slug` is the canonical public identifier of a partner
