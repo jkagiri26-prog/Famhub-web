@@ -121,44 +121,47 @@ class _FinancingPageState extends ConsumerState<FinancingPage>
     }
 
     return ResponsiveWrapper(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const FinancingHubHeader(
-            title: 'Agri-Finance Hub',
-            subtitle: 'Loans • Savings • Insurance • Input financing',
-            description: 'Explore funding, savings and protection products '
-                'from verified financial partners. Everything listed is '
-                'approved and published.',
-          ),
-          const EntitySelector(),
-          const SizedBox(height: 14),
-          _HubSearchField(
-            controller: _searchController,
-            onChanged: (value) =>
-                setState(() => _hubQuery = value.trim()),
-            onSubmit: _submitSearch,
-          ),
-          const SizedBox(height: 18),
-          const SectionHeaderWidget(title: 'Explore by category'),
-          const SizedBox(height: 10),
-          const _CategoryGrid(categories: _hubCategories),
-          const SizedBox(height: 20),
-          SectionHeaderWidget(
-            title: _hubQuery.isEmpty ? 'Featured offers' : 'Matching offers',
-          ),
-          const SizedBox(height: 10),
-          _FeaturedOffers(query: _hubQuery),
-          const SizedBox(height: 20),
-          const SectionHeaderWidget(title: 'Verified partners'),
-          const SizedBox(height: 10),
-          const _ProvidersPreview(),
-          const SizedBox(height: 20),
-          const SectionHeaderWidget(title: 'Go to'),
-          const SizedBox(height: 10),
-          const _QuickLinks(),
-          const SizedBox(height: 80),
-        ],
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const FinancingHubHeader(
+              title: 'Agri-Finance Hub',
+              subtitle: 'Loans • Savings • Insurance • Input financing',
+              description: 'Explore funding, savings and protection products '
+                  'from verified financial partners. Everything listed is '
+                  'approved and published.',
+            ),
+            const EntitySelector(),
+            const SizedBox(height: 14),
+            _HubSearchField(
+              controller: _searchController,
+              onChanged: (value) =>
+                  setState(() => _hubQuery = value.trim()),
+              onSubmit: _submitSearch,
+            ),
+            const SizedBox(height: 18),
+            const SectionHeaderWidget(title: 'Explore by category'),
+            const SizedBox(height: 10),
+            const _CategoryGrid(categories: _hubCategories),
+            const SizedBox(height: 20),
+            SectionHeaderWidget(
+              title: _hubQuery.isEmpty ? 'Featured offers' : 'Matching offers',
+            ),
+            const SizedBox(height: 10),
+            _FeaturedOffers(query: _hubQuery),
+            const SizedBox(height: 20),
+            const SectionHeaderWidget(title: 'Verified partners'),
+            const SizedBox(height: 10),
+            const _ProvidersPreview(),
+            const SizedBox(height: 20),
+            const SectionHeaderWidget(title: 'Go to'),
+            const SizedBox(height: 10),
+            const _QuickLinks(),
+            const SizedBox(height: 80),
+          ],
+        ),
       ),
     );
   }
