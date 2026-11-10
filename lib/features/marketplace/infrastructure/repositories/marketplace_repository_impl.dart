@@ -81,37 +81,61 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
   ///
   /// Seller name and rating require a 2-hop join
   /// (entity_id → core.entities → commerce.business_profiles)
-  /// which PostgREST cannot express natively.
+  /// which PostgREST cannot express natively, so it is resolved with ONE
+  /// batched lookup for all distinct seller entities (no per-listing reads).
+  ///
+  /// Referenced-data enrichment and the seller-profile batch are independent
+  /// and run concurrently.
   Future<List<Listing>> _enrichWithSellerProfiles(
       List<Map<String, dynamic>> rawListings) async {
-    await _enrichReferencedData(rawListings);
-    final enriched = <Listing>[];
+    final entityIds = <String>{};
     for (final raw in rawListings) {
       final entityId = raw['entity_id']?.toString();
-      Listing listing;
-      if (entityId != null && entityId.isNotEmpty) {
-        try {
-          final sellerProfile = await dataSource.fetchSellerProfile(entityId);
-          if (sellerProfile != null) {
-            raw['seller_name'] = sellerProfile['supplier_name']?.toString();
-            raw['seller_rating'] = sellerProfile['rating'];
-          }
-        } catch (_) {
-          // Silently continue without seller info
-        }
-      }
-      listing = ListingMapper.fromJson(raw);
-      enriched.add(listing);
+      if (entityId != null && entityId.isNotEmpty) entityIds.add(entityId);
     }
-    return enriched;
+
+    await Future.wait([
+      _enrichReferencedData(rawListings),
+      if (entityIds.isNotEmpty)
+        _stampSellerProfiles(rawListings, entityIds),
+    ]);
+
+    return [for (final raw in rawListings) ListingMapper.fromJson(raw)];
+  }
+
+  /// Stamp `seller_name` / `seller_rating` onto raw listings from a single
+  /// batched `commerce.business_profiles` lookup (best-effort).
+  Future<void> _stampSellerProfiles(
+    List<Map<String, dynamic>> rawListings,
+    Set<String> entityIds,
+  ) async {
+    Map<String, Map<String, dynamic>> profiles = const {};
+    try {
+      profiles = await dataSource.fetchSellerProfilesByIds(entityIds);
+    } catch (_) {
+      // Silently continue without seller info
+    }
+
+    for (final raw in rawListings) {
+      final entityId = raw['entity_id']?.toString();
+      if (entityId == null || entityId.isEmpty) continue;
+      final profile = profiles[entityId];
+      if (profile != null) {
+        raw['seller_name'] = profile['supplier_name']?.toString();
+        raw['seller_rating'] = profile['rating'];
+      }
+    }
   }
 
   /// Enrich a single listing with seller profile data.
+  ///
+  /// The referenced-data enrichment and the seller lookup are independent and
+  /// run concurrently.
   Future<Listing> _enrichSingleSellerProfile(
       Map<String, dynamic> raw) async {
-    await _enrichReferencedData([raw]);
     final entityId = raw['entity_id']?.toString();
-    if (entityId != null && entityId.isNotEmpty) {
+    Future<void> stampSeller() async {
+      if (entityId == null || entityId.isEmpty) return;
       try {
         final sellerProfile = await dataSource.fetchSellerProfile(entityId);
         if (sellerProfile != null) {
@@ -122,6 +146,12 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
         // Silently continue without seller info
       }
     }
+
+    await Future.wait([
+      _enrichReferencedData([raw]),
+      stampSeller(),
+    ]);
+
     return ListingMapper.fromJson(raw);
   }
 
@@ -161,6 +191,7 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
     }
 
     // Independent best-effort lookups — never fail the whole listing load.
+    // They are independent of one another, so they run concurrently.
     Map<String, String> units = const {};
     Map<
         String,
@@ -181,18 +212,29 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
           String itemCategory,
           String itemDomain
         })> taxonomy = const {};
-    try {
-      units = await dataSource.fetchUnitsByIds(unitIds);
-    } catch (_) {}
-    try {
-      locationHierarchies = await dataSource.fetchLocationHierarchies(locationIds);
-    } catch (_) {}
-    try {
-      stock = await dataSource.fetchStockByIds(stockIds);
-    } catch (_) {}
-    try {
-      taxonomy = await dataSource.fetchVariantTaxonomyByIds(variantIds);
-    } catch (_) {}
+    await Future.wait([
+      () async {
+        try {
+          units = await dataSource.fetchUnitsByIds(unitIds);
+        } catch (_) {}
+      }(),
+      () async {
+        try {
+          locationHierarchies =
+              await dataSource.fetchLocationHierarchies(locationIds);
+        } catch (_) {}
+      }(),
+      () async {
+        try {
+          stock = await dataSource.fetchStockByIds(stockIds);
+        } catch (_) {}
+      }(),
+      () async {
+        try {
+          taxonomy = await dataSource.fetchVariantTaxonomyByIds(variantIds);
+        } catch (_) {}
+      }(),
+    ]);
 
     for (final raw in rawListings) {
       final unitId = raw['unit_id']?.toString();

@@ -666,6 +666,34 @@ class MarketplaceRemoteDataSource {
     }
   }
 
+  /// Resolve seller profiles for many entity ids in ONE query
+  /// (entity_id → `{supplier_name, rating}`).
+  ///
+  /// Batched counterpart of [fetchSellerProfile] used by list reads so a
+  /// feed of N listings costs a single lookup instead of N round-trips.
+  Future<Map<String, Map<String, dynamic>>> fetchSellerProfilesByIds(
+    Set<String> entityIds,
+  ) async {
+    final ids = entityIds.where((id) => id.isNotEmpty).toList();
+    if (ids.isEmpty) return const {};
+    try {
+      final response = await _client
+          .schema('commerce')
+          .from('business_profiles')
+          .select('entity_id, supplier_name, rating')
+          .inFilter('entity_id', ids);
+      final rows = (response as List).cast<Map<String, dynamic>>();
+      return {
+        for (final row in rows)
+          if (row['entity_id'] != null) row['entity_id'].toString(): row,
+      };
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to fetch seller profiles: ${e.message}');
+    } catch (e) {
+      throw Exception('Failed to fetch seller profiles: $e');
+    }
+  }
+
   /// Create a new listing.
   Future<Map<String, dynamic>> createListing(
     Map<String, dynamic> payload,
