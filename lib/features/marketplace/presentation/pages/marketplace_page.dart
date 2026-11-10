@@ -30,7 +30,13 @@ class _MarketplacePageState extends ConsumerState<MarketplacePage> {
   @override
   void initState() {
     super.initState();
-    ref.invalidate(marketplaceProvider);
+    // Reuse the cached feed when returning to Marketplace; refetch only when
+    // the cache is missing or stale. Real listing mutations already refresh
+    // the provider (create/update/archive/publish + workflow events), so this
+    // does not make newly published/archived listings linger indefinitely.
+    if (ref.read(marketplaceFeedMetaProvider).isStale) {
+      ref.invalidate(marketplaceProvider);
+    }
   }
 
   @override

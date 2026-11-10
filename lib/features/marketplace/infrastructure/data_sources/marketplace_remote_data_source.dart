@@ -75,6 +75,13 @@ class MarketplaceRemoteDataSource {
   MarketplaceRemoteDataSource({SupabaseClient? client})
     : _client = client ?? Supabase.instance.client;
 
+  /// Session cache of `core.geography_levels.id → level_order`.
+  ///
+  /// Geography levels are static reference data, so reusing them for the
+  /// lifetime of this data source is safe and removes one round trip from
+  /// every location-hierarchy resolution after the first.
+  final Map<String, int> _levelOrderCache = <String, int>{};
+
   /// PostgREST select fragment — scalar columns only, no FK embeds.
   /// (Cross-schema embeds depend on the PostgREST schema cache, which is
   /// stale for these relationships; see the class docs above.)
@@ -188,6 +195,32 @@ class MarketplaceRemoteDataSource {
     final nodes = <String, ({String name, String levelId, String parentId})>{};
     var pending = <String>{...ids};
 
+    // Geography levels are static reference data: reuse cached orders and
+    // fetch only the ids not seen yet. The fetch is started as soon as the
+    // first level ids are known and overlapped with the remaining parent
+    // walk, so it adds no extra sequential round trip.
+    Future<Map<String, int>>? levelOrdersFuture;
+    final requestedLevelIds = <String>{};
+
+    void ensureLevelOrders(Set<String> levelIds) {
+      final missing = levelIds
+          .where((id) =>
+              id.isNotEmpty &&
+              !_levelOrderCache.containsKey(id) &&
+              !requestedLevelIds.contains(id))
+          .toSet();
+      if (missing.isEmpty) return;
+      requestedLevelIds.addAll(missing);
+      final previous = levelOrdersFuture;
+      levelOrdersFuture = () async {
+        final already = previous == null
+            ? const <String, int>{}
+            : await previous;
+        final fetched = await _fetchGeographyLevelOrders(missing);
+        return {...already, ...fetched};
+      }();
+    }
+
     for (var depth = 0; depth < 6 && pending.isNotEmpty; depth++) {
       final batch = pending.take(200).toList();
       pending = <String>{};
@@ -214,29 +247,19 @@ class MarketplaceRemoteDataSource {
       } catch (_) {
         break;
       }
+
+      // Start (or extend) the geography-level fetch while the walk continues.
+      ensureLevelOrders(nodes.values.map((n) => n.levelId).toSet());
     }
 
-    // level id → level_order
-    final levelIds = nodes.values
-        .map((n) => n.levelId)
-        .where((id) => id.isNotEmpty)
-        .toSet();
-    final levelOrders = <String, int>{};
-    if (levelIds.isNotEmpty) {
-      try {
-        final response = (await _client
-                .schema('core')
-                .from('geography_levels')
-                .select('id, level_order')
-                .inFilter('id', levelIds.toList()) as List)
-            .cast<Map<String, dynamic>>();
-        for (final row in response) {
-          final id = row['id']?.toString();
-          final order = (row['level_order'] as num?)?.toInt();
-          if (id != null && order != null) levelOrders[id] = order;
-        }
-      } catch (_) {}
+    // Sweep any level ids discovered after the overlapped fetch was started.
+    ensureLevelOrders(nodes.values.map((n) => n.levelId).toSet());
+
+    final levelOrders = <String, int>{..._levelOrderCache};
+    if (levelOrdersFuture != null) {
+      levelOrders.addAll(await levelOrdersFuture!);
     }
+    _levelOrderCache.addAll(levelOrders);
 
     String nameAtLevel(String startId, int order) {
       var currentId = startId;
@@ -260,6 +283,28 @@ class MarketplaceRemoteDataSource {
           level4: nameAtLevel(id, 4),
         ),
     };
+  }
+
+  /// Fetch `core.geography_levels.id → level_order` for the given level ids.
+  Future<Map<String, int>> _fetchGeographyLevelOrders(
+    Set<String> levelIds,
+  ) async {
+    if (levelIds.isEmpty) return const {};
+    try {
+      final response = (await _client
+              .schema('core')
+              .from('geography_levels')
+              .select('id, level_order')
+              .inFilter('id', levelIds.toList()) as List)
+          .cast<Map<String, dynamic>>();
+      return {
+        for (final row in response)
+          if (row['id'] != null && row['level_order'] != null)
+            row['id'].toString(): (row['level_order'] as num).toInt(),
+      };
+    } catch (_) {
+      return const {};
+    }
   }
 
   /// Resolve stock quantities for the given stock IDs
@@ -345,16 +390,20 @@ class MarketplaceRemoteDataSource {
 
   /// Resolve the canonical product taxonomy for the given variant IDs.
   ///
-  /// Chain: `core.item_variants.item_id` → `core.items`
-  /// (`name`, `category_id`) →
-  ///   - `core.commodities.item_id` (`category`, e.g. crop / livestock /
-  ///     dairy / poultry / fish / honey / other), and
-  ///   - `core.categories` (`name`, `domain_id`) → `core.domains` (`name`).
+  /// Fast path (one request): a nested PostgREST select over same-schema
+  /// `core` foreign keys —
+  ///   `item_variants.item_id`   → `items`
+  ///   `items.category_id`       → `categories` → `domains`
+  ///   `commodities.item_id`     → `commodities` (`category`)
+  /// (cross-schema embeds remain avoided; these FKs are all inside `core`).
   ///
-  /// Used to group Marketplace listings by the seller-chosen product
-  /// taxonomy instead of guessing from the unit of measure. Every stage is a
-  /// best-effort scalar batch query (no FK embeds — the PostgREST schema
-  /// cache may be stale); a missing stage never fails the listing load.
+  /// If the nested select is unavailable (e.g. a stale PostgREST schema
+  /// cache or a relationship changed server-side) it falls back to batched
+  /// scalar lookups. Every stage stays best-effort, so a missing optional
+  /// relationship never fails the listing load.
+  ///
+  /// Output fields are unchanged: variant name, item name, commodity
+  /// category, item category and item domain.
   Future<
       Map<
           String,
@@ -368,6 +417,107 @@ class MarketplaceRemoteDataSource {
     final ids = variantIds.where((id) => id.isNotEmpty).toList();
     if (ids.isEmpty) return const {};
 
+    final nested = await _fetchVariantTaxonomyNested(ids);
+    if (nested != null) return nested;
+
+    return _fetchVariantTaxonomyBatched(ids);
+  }
+
+  /// Single-request taxonomy resolution via same-schema PostgREST embeds.
+  ///
+  /// Returns null when the nested select cannot be used so the caller can
+  /// fall back to batched scalar lookups (schema-cache safety).
+  Future<
+      Map<
+          String,
+          ({
+            String variantName,
+            String itemName,
+            String commodityCategory,
+            String itemCategory,
+            String itemDomain,
+          })>?> _fetchVariantTaxonomyNested(List<String> ids) async {
+    List<Map<String, dynamic>> rows;
+    try {
+      rows = (await _client
+              .schema('core')
+              .from('item_variants')
+              .select(
+                'id,name,item_id,'
+                'items(name,category_id,'
+                'categories(name,domain_id,domains(name)),'
+                'commodities(category))',
+              )
+              .inFilter('id', ids) as List)
+          .cast<Map<String, dynamic>>();
+    } catch (_) {
+      return null;
+    }
+
+    Map<String, dynamic>? asMap(Object? value) {
+      if (value is Map) return value.cast<String, dynamic>();
+      if (value is List && value.isNotEmpty) {
+        final first = value.first;
+        if (first is Map) return first.cast<String, dynamic>();
+      }
+      return null;
+    }
+
+    final taxonomy = <String, ({
+      String variantName,
+      String itemName,
+      String commodityCategory,
+      String itemCategory,
+      String itemDomain,
+    })>{};
+    for (final row in rows) {
+      final variantId = row['id']?.toString();
+      if (variantId == null || variantId.isEmpty) continue;
+
+      final item = asMap(row['items']);
+      final category = item == null ? null : asMap(item['categories']);
+      final domain = category == null ? null : asMap(category['domains']);
+
+      var commodityCategory = '';
+      final commodities = item?['commodities'];
+      if (commodities is List) {
+        for (final commodity in commodities) {
+          final value = commodity is Map
+              ? commodity['category']?.toString() ?? ''
+              : '';
+          if (value.isNotEmpty) {
+            commodityCategory = value;
+            break;
+          }
+        }
+      } else if (commodities is Map) {
+        commodityCategory = commodities['category']?.toString() ?? '';
+      }
+
+      taxonomy[variantId] = (
+        variantName: row['name']?.toString() ?? '',
+        itemName: item?['name']?.toString() ?? '',
+        commodityCategory: commodityCategory,
+        itemCategory: category?['name']?.toString() ?? '',
+        itemDomain: domain?['name']?.toString() ?? '',
+      );
+    }
+    return taxonomy;
+  }
+
+  /// Batched fallback: scalar lookups, with independent stages overlapped.
+  ///
+  /// Request waves: variants → (items ‖ commodities) → categories → domains.
+  Future<
+      Map<
+          String,
+          ({
+            String variantName,
+            String itemName,
+            String commodityCategory,
+            String itemCategory,
+            String itemDomain,
+          })>> _fetchVariantTaxonomyBatched(List<String> ids) async {
     final variantRows = (await _client
             .schema('core')
             .from('item_variants')
@@ -393,37 +543,43 @@ class MarketplaceRemoteDataSource {
     var domainNames = <String, String>{};
 
     if (itemIds.isNotEmpty) {
-      try {
-        final itemRows = (await _client
-                .schema('core')
-                .from('items')
-                .select('id, name, category_id')
-                .inFilter('id', itemIds.toList()) as List)
-            .cast<Map<String, dynamic>>();
-        itemNames = {
-          for (final row in itemRows)
-            if (row['id'] != null) row['id'].toString(): row['name']?.toString() ?? '',
-        };
-        itemCategoryIds = {
-          for (final row in itemRows)
-            if (row['id'] != null && (row['category_id']?.toString().isNotEmpty ?? false))
-              row['id'].toString(): row['category_id'].toString(),
-        };
-      } catch (_) {}
-
-      try {
-        final commodityRows = (await _client
-                .schema('core')
-                .from('commodities')
-                .select('item_id, category')
-                .inFilter('item_id', itemIds.toList()) as List)
-            .cast<Map<String, dynamic>>();
-        commodityCategories = {
-          for (final row in commodityRows)
-            if (row['item_id'] != null)
-              row['item_id'].toString(): row['category']?.toString() ?? '',
-        };
-      } catch (_) {}
+      // Items and commodities are independent once item ids are known.
+      await Future.wait([
+        () async {
+          try {
+            final itemRows = (await _client
+                    .schema('core')
+                    .from('items')
+                    .select('id, name, category_id')
+                    .inFilter('id', itemIds.toList()) as List)
+                .cast<Map<String, dynamic>>();
+            itemNames = {
+              for (final row in itemRows)
+                if (row['id'] != null) row['id'].toString(): row['name']?.toString() ?? '',
+            };
+            itemCategoryIds = {
+              for (final row in itemRows)
+                if (row['id'] != null && (row['category_id']?.toString().isNotEmpty ?? false))
+                  row['id'].toString(): row['category_id'].toString(),
+            };
+          } catch (_) {}
+        }(),
+        () async {
+          try {
+            final commodityRows = (await _client
+                    .schema('core')
+                    .from('commodities')
+                    .select('item_id, category')
+                    .inFilter('item_id', itemIds.toList()) as List)
+                .cast<Map<String, dynamic>>();
+            commodityCategories = {
+              for (final row in commodityRows)
+                if (row['item_id'] != null)
+                  row['item_id'].toString(): row['category']?.toString() ?? '',
+            };
+          } catch (_) {}
+        }(),
+      ]);
 
       final categoryIds = itemCategoryIds.values.toSet().toList();
       if (categoryIds.isNotEmpty) {

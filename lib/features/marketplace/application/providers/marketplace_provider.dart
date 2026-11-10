@@ -32,6 +32,33 @@ final marketplaceRepositoryProvider =
 });
 
 /// ============================================================
+/// MARKETPLACE FEED FRESHNESS (CACHE BOOKKEEPING)
+/// ============================================================
+///
+/// Tracks when the feed was last loaded successfully so the page can reuse
+/// the cached feed when returning to Marketplace and only refetch when that
+/// cache is stale. This is bookkeeping only — the feed itself stays owned by
+/// [marketplaceProvider] (no second cache).
+class MarketplaceFeedMeta {
+  /// How long a loaded feed may be reused before the next open refetches it.
+  static const Duration staleAfter = Duration(minutes: 5);
+
+  /// Last successful feed load time (null when never loaded this session).
+  DateTime? lastLoadedAt;
+
+  /// True when there is no cached feed or it is older than [staleAfter].
+  bool get isStale {
+    final loadedAt = lastLoadedAt;
+    if (loadedAt == null) return true;
+    return DateTime.now().difference(loadedAt) >= staleAfter;
+  }
+}
+
+final marketplaceFeedMetaProvider = Provider<MarketplaceFeedMeta>((ref) {
+  return MarketplaceFeedMeta();
+});
+
+/// ============================================================
 /// MARKETPLACE CONTROLLER (ASYNC NOTIFIER)
 /// ============================================================
 final marketplaceProvider =
@@ -50,7 +77,9 @@ class MarketplaceController extends AsyncNotifier<List<Listing>> {
 
   Future<List<Listing>> _safeFetch() async {
     try {
-      return await _repo.fetchListings();
+      final listings = await _repo.fetchListings();
+      ref.read(marketplaceFeedMetaProvider).lastLoadedAt = DateTime.now();
+      return listings;
     } catch (e, st) {
       state = AsyncError(e, st);
       rethrow;
@@ -62,6 +91,7 @@ class MarketplaceController extends AsyncNotifier<List<Listing>> {
 
     try {
       final data = await _repo.fetchListings();
+      ref.read(marketplaceFeedMetaProvider).lastLoadedAt = DateTime.now();
       state = AsyncValue.data(data);
     } catch (e, st) {
       state = AsyncError(e, st);
