@@ -68,8 +68,6 @@ class ListingCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -186,7 +184,7 @@ class ListingCardWidget extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                     fontSize: 13,
                     height: 1.15,
-                    color: theme.colorScheme.primary,
+                    color: Colors.red.shade700,
                   ),
                 ),
                 const SizedBox(height: 3),

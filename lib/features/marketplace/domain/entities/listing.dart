@@ -127,7 +127,7 @@ class Listing {
 
   /// Display-friendly price string, e.g. "KSh 1,500/kg"
   String get displayPrice =>
-      'KSh ${pricePerUnit.toStringAsFixed(0)}${unitName != null ? '/$unitName' : ''}';
+      'KSh ${_formatAmount(pricePerUnit)}${unitName != null ? '/$unitName' : ''}';
 
   Listing copyWith({
     String? id,
@@ -198,4 +198,21 @@ class Listing {
       itemDomain: itemDomain ?? this.itemDomain,
     );
   }
+}
+
+/// Formats an amount with thousands separators ("1,500" / "1,250.50").
+String _formatAmount(double value) {
+  final isWhole = value == value.roundToDouble();
+  final fixed = isWhole ? value.toStringAsFixed(0) : value.toStringAsFixed(2);
+  final negative = fixed.startsWith('-');
+  final unsigned = negative ? fixed.substring(1) : fixed;
+  final dot = unsigned.indexOf('.');
+  final digits = dot == -1 ? unsigned : unsigned.substring(0, dot);
+  final decimals = dot == -1 ? '' : unsigned.substring(dot);
+  final buffer = StringBuffer();
+  for (var i = 0; i < digits.length; i++) {
+    if (i > 0 && (digits.length - i) % 3 == 0) buffer.write(',');
+    buffer.write(digits[i]);
+  }
+  return '${negative ? '-' : ''}$buffer$decimals';
 }
