@@ -34,7 +34,9 @@ class ListingTile extends ConsumerWidget {
         title: listing.title,
         subtitle: listing.description ?? '',
         price: listing.displayPrice,
-        location: listing.locationName ?? 'Location unavailable',
+        location: listing.locationShortName ??
+            listing.locationName ??
+            'Location unavailable',
         imageUrl: resolvedImages.isEmpty ? null : resolvedImages.first,
         badge: listing.isPromoted ? 'PROMOTED' : null,
         trailing: showBadge ? ListingStatusBadge(status: listing.status) : null,

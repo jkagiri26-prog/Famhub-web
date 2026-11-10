@@ -196,7 +196,7 @@ class ListingCardWidget extends StatelessWidget {
                     Icon(
                       Icons.location_on_outlined,
                       size: 12,
-                      color: Colors.grey.shade500,
+                      color: Colors.orange.shade700,
                     ),
                     const SizedBox(width: 3),
                     Expanded(

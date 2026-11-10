@@ -52,7 +52,14 @@ class Listing {
 
   // ── Resolved fields (via JOINs) ──
   final String? unitName;
+
+  /// Full canonical location path (country › county › sub-county › ward)
+  /// for detail surfaces.
   final String? locationName;
+
+  /// Compact card label: "Ward, County" (levels 4 and 2), falling back to
+  /// whichever levels resolve.
+  final String? locationShortName;
   final String? sellerName;
   final double? sellerRating;
   final double availableQuantity;
@@ -93,6 +100,7 @@ class Listing {
     // Resolved fields
     this.unitName,
     this.locationName,
+    this.locationShortName,
     this.sellerName,
     this.sellerRating,
     this.availableQuantity = 0,
@@ -144,6 +152,7 @@ class Listing {
     DateTime? updatedAt,
     String? unitName,
     String? locationName,
+    String? locationShortName,
     String? sellerName,
     double? sellerRating,
     double? availableQuantity,
@@ -177,6 +186,7 @@ class Listing {
       updatedAt: updatedAt ?? this.updatedAt,
       unitName: unitName ?? this.unitName,
       locationName: locationName ?? this.locationName,
+      locationShortName: locationShortName ?? this.locationShortName,
       sellerName: sellerName ?? this.sellerName,
       sellerRating: sellerRating ?? this.sellerRating,
       availableQuantity: availableQuantity ?? this.availableQuantity,

@@ -52,6 +52,7 @@ class ListingMapper {
           DateTime.now(),
       unitName: json['unit_name']?.toString(),
       locationName: json['location_name']?.toString(),
+      locationShortName: json['location_short_name']?.toString(),
       sellerName: json['seller_name']?.toString(),
       sellerRating: (json['seller_rating'] as num?)?.toDouble(),
       itemName: json['item_name']?.toString(),
@@ -161,7 +162,15 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
 
     // Independent best-effort lookups — never fail the whole listing load.
     Map<String, String> units = const {};
-    Map<String, String> locations = const {};
+    Map<
+        String,
+        ({
+          String name,
+          String level1,
+          String level2,
+          String level3,
+          String level4
+        })> locationHierarchies = const {};
     Map<String, ({double quantity, double reservedQuantity})> stock = const {};
     Map<
         String,
@@ -176,7 +185,7 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
       units = await dataSource.fetchUnitsByIds(unitIds);
     } catch (_) {}
     try {
-      locations = await dataSource.fetchLocationsByIds(locationIds);
+      locationHierarchies = await dataSource.fetchLocationHierarchies(locationIds);
     } catch (_) {}
     try {
       stock = await dataSource.fetchStockByIds(stockIds);
@@ -191,8 +200,30 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
         raw['unit_name'] = units[unitId];
       }
       final locationId = raw['location_id']?.toString();
-      if (locationId != null && locations.containsKey(locationId)) {
-        raw['location_name'] = locations[locationId];
+      final hierarchy =
+          locationId == null ? null : locationHierarchies[locationId];
+      if (hierarchy != null) {
+        // Full path (country → ward) for details; compact ward + county for
+        // cards. Fall back to the location's own name when no ancestors are
+        // resolvable.
+        final parts = [
+          hierarchy.level1,
+          hierarchy.level2,
+          hierarchy.level3,
+          hierarchy.level4,
+        ].where((part) => part.isNotEmpty).toList();
+        if (parts.isNotEmpty) {
+          raw['location_name'] = parts.join(' › ');
+        } else if (hierarchy.name.isNotEmpty) {
+          raw['location_name'] = hierarchy.name;
+        }
+        final shortParts = [
+          hierarchy.level4,
+          hierarchy.level2,
+        ].where((part) => part.isNotEmpty).toList();
+        if (shortParts.isNotEmpty) {
+          raw['location_short_name'] = shortParts.join(', ');
+        }
       }
       final stockId = raw['stock_id']?.toString();
       if (stockId != null && stock.containsKey(stockId)) {
@@ -372,7 +403,15 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
     Map<String, String> variants = const {};
     Map<String, String> items = const {};
     Map<String, String> units = const {};
-    Map<String, String> locations = const {};
+    Map<
+        String,
+        ({
+          String name,
+          String level1,
+          String level2,
+          String level3,
+          String level4
+        })> locationHierarchies = const {};
     try {
       variants = await dataSource.fetchVariantsByIds(variantIds);
     } catch (_) {}
@@ -383,7 +422,7 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
       units = await dataSource.fetchUnitsByIds(unitIds);
     } catch (_) {}
     try {
-      locations = await dataSource.fetchLocationsByIds(locationIds);
+      locationHierarchies = await dataSource.fetchLocationHierarchies(locationIds);
     } catch (_) {}
 
     final result = <StockItem>[];
@@ -412,8 +451,8 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
             ? units[unitId]
             : null,
         locationId: locationId,
-        locationName: locationId != null && locations.containsKey(locationId)
-            ? locations[locationId]
+        locationName: locationId != null
+            ? locationHierarchies[locationId]?.name
             : null,
         quantity: (raw['quantity'] as num?)?.toDouble() ?? 0,
         reservedQuantity: (raw['reserved_quantity'] as num?)?.toDouble() ?? 0,

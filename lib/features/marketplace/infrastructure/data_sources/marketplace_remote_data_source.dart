@@ -162,6 +162,106 @@ class MarketplaceRemoteDataSource {
     }
   }
 
+  /// Resolve the canonical geographic hierarchy for the given location ids.
+  ///
+  /// Walks `core.locations.parent_id` up to the country and labels rows by
+  /// `core.geography_levels.level_order`
+  /// (1 country → 2 county → 3 sub-county → 4 ward).
+  ///
+  /// Lets the UI show a compact "Ward, County" on cards and the full
+  /// country → ward path on details. Names come only from `core.locations`;
+  /// nothing is inferred or fabricated.
+  Future<
+      Map<
+          String,
+          ({
+            String name,
+            String level1,
+            String level2,
+            String level3,
+            String level4,
+          })>> fetchLocationHierarchies(Set<String> locationIds) async {
+    final ids = locationIds.where((id) => id.isNotEmpty).toSet();
+    if (ids.isEmpty) return const {};
+
+    // location id → (name, level_id, parent_id)
+    final nodes = <String, ({String name, String levelId, String parentId})>{};
+    var pending = <String>{...ids};
+
+    for (var depth = 0; depth < 6 && pending.isNotEmpty; depth++) {
+      final batch = pending.take(200).toList();
+      pending = <String>{};
+      try {
+        final response = (await _client
+                .schema('core')
+                .from('locations')
+                .select('id, name, level_id, parent_id')
+                .inFilter('id', batch) as List)
+            .cast<Map<String, dynamic>>();
+        for (final row in response) {
+          final id = row['id']?.toString();
+          if (id == null || id.isEmpty) continue;
+          final node = (
+            name: row['name']?.toString() ?? '',
+            levelId: row['level_id']?.toString() ?? '',
+            parentId: row['parent_id']?.toString() ?? '',
+          );
+          nodes[id] = node;
+          if (node.parentId.isNotEmpty && !nodes.containsKey(node.parentId)) {
+            pending.add(node.parentId);
+          }
+        }
+      } catch (_) {
+        break;
+      }
+    }
+
+    // level id → level_order
+    final levelIds = nodes.values
+        .map((n) => n.levelId)
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final levelOrders = <String, int>{};
+    if (levelIds.isNotEmpty) {
+      try {
+        final response = (await _client
+                .schema('core')
+                .from('geography_levels')
+                .select('id, level_order')
+                .inFilter('id', levelIds.toList()) as List)
+            .cast<Map<String, dynamic>>();
+        for (final row in response) {
+          final id = row['id']?.toString();
+          final order = (row['level_order'] as num?)?.toInt();
+          if (id != null && order != null) levelOrders[id] = order;
+        }
+      } catch (_) {}
+    }
+
+    String nameAtLevel(String startId, int order) {
+      var currentId = startId;
+      var guard = 0;
+      while (currentId.isNotEmpty && guard++ < 6) {
+        final node = nodes[currentId];
+        if (node == null) return '';
+        if (levelOrders[node.levelId] == order) return node.name;
+        currentId = node.parentId;
+      }
+      return '';
+    }
+
+    return {
+      for (final id in ids)
+        id: (
+          name: nodes[id]?.name ?? '',
+          level1: nameAtLevel(id, 1),
+          level2: nameAtLevel(id, 2),
+          level3: nameAtLevel(id, 3),
+          level4: nameAtLevel(id, 4),
+        ),
+    };
+  }
+
   /// Resolve stock quantities for the given stock IDs
   /// (id → (quantity, reserved_quantity)).
   ///

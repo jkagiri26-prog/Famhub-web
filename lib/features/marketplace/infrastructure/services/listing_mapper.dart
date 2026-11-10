@@ -72,9 +72,11 @@ class ListingMapper {
       unitName: unitData is Map<String, dynamic>
           ? unitData['name']?.toString()
           : null,
-      locationName: locationData is Map<String, dynamic>
-          ? locationData['name']?.toString()
-          : null,
+      locationName: json['location_name']?.toString() ??
+          (locationData is Map<String, dynamic>
+              ? locationData['name']?.toString()
+              : null),
+      locationShortName: json['location_short_name']?.toString(),
       sellerName: json['seller_name']?.toString(),
       sellerRating: (json['seller_rating'] as num?)?.toDouble(),
       itemName: json['item_name']?.toString(),
