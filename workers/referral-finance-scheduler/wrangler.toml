@@ -1,0 +1,9 @@
+name = "referral-finance-scheduler-staging"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+
+[triggers]
+crons = []
+
+[vars]
+SUPABASE_FUNCTION_URL = "https://ivcddanirifujxtexmzh.supabase.co/functions/v1/referral-finance-worker"
