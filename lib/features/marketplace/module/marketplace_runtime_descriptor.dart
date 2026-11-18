@@ -127,7 +127,6 @@ ModuleRuntimeDescriptor createMarketplaceDescriptor() {
         label: 'Sell Product',
         iconKey: 'add_circle',
         displayOrder: 1,
-        route: '/marketplace/create',
         isPrimary: true,
       ),
       QuickActionDescriptor(

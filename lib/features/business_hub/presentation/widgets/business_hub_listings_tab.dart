@@ -29,6 +29,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:famhub_app/features/marketplace/domain/enums/listing_status.dart';
 import 'package:famhub_app/features/marketplace/presentation/pages/create_listing_page.dart';
+import 'package:famhub_app/features/marketplace/presentation/pages/stock_selection_page.dart';
 import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/loading_state_widget.dart';
@@ -104,6 +105,14 @@ void _openStandaloneListing(BuildContext context, WidgetRef ref) {
   );
 }
 
+void _openInventoryListing(BuildContext context) {
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => const StockSelectionPage(),
+    ),
+  );
+}
+
 class BusinessHubListingsTab extends ConsumerWidget {
   const BusinessHubListingsTab({super.key});
 
@@ -134,14 +143,28 @@ class BusinessHubListingsTab extends ConsumerWidget {
       ),
       data: (listings) {
         if (listings.isEmpty) {
-          return EmptyStateWidget(
-            icon: Icons.storefront_outlined,
-            title: 'No listings yet',
-            subtitle: 'Listings for this business appear here once items '
-                'are published in Marketplace. You can also list a product '
-                'without keeping stock.',
-            actionLabel: 'List a product without stock',
-            onAction: () => _openStandaloneListing(context, ref),
+          return Column(
+            children: [
+              Expanded(
+                child: EmptyStateWidget(
+                  icon: Icons.storefront_outlined,
+                  title: 'No listings yet',
+                  subtitle: 'Listings for this business appear here once '
+                      'items are published in Marketplace. You can list a '
+                      'product with or without managed stock.',
+                  actionLabel: 'List a product without stock',
+                  onAction: () => _openStandaloneListing(context, ref),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: OutlinedButton.icon(
+                  onPressed: () => _openInventoryListing(context),
+                  icon: const Icon(Icons.inventory_2_outlined, size: 18),
+                  label: const Text('List from existing inventory'),
+                ),
+              ),
+            ],
           );
         }
         return _ListingsLoaded(listings: listings);
@@ -173,6 +196,25 @@ class _ListingsLoaded extends ConsumerWidget {
             onPressed: () => _openStandaloneListing(context, ref),
             icon: const Icon(Icons.add_business_outlined, size: 18),
             label: const Text('List a product without stock'),
+            style: OutlinedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              foregroundColor: theme.colorScheme.primary,
+              side: BorderSide(
+                color: theme.colorScheme.primary.withValues(alpha: 0.4),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => _openInventoryListing(context),
+            icon: const Icon(Icons.inventory_2_outlined, size: 18),
+            label: const Text('List from existing inventory'),
             style: OutlinedButton.styleFrom(
               visualDensity: VisualDensity.compact,
               foregroundColor: theme.colorScheme.primary,

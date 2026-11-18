@@ -27,6 +27,7 @@ import 'package:famhub_app/core/composition/contributions/contribution_models.da
 import 'package:famhub_app/core/composition/providers/descriptor_providers.dart';
 import 'package:famhub_app/core/composition/observability/contribution_observability.dart';
 import 'package:famhub_app/shared/utils/icon_resolver.dart';
+import 'package:famhub_app/features/marketplace/presentation/pages/marketplace_page.dart';
 import 'package:famhub_app/shared/widgets/module_error_boundary.dart';
 
 /// ============================================================
@@ -509,8 +510,8 @@ class _QuickActionChip extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: () {
-          if (action.route != null) {
-            // Navigate via route
+          if (action.actionKey == 'marketplace_sell_product') {
+            openMarketplaceListingCreation(context);
           }
         },
         borderRadius: BorderRadius.circular(12),

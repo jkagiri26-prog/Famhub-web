@@ -197,7 +197,7 @@ class DemoMarketplaceRepository implements MarketplaceRepository {
       images: [],
       entityId: payload['entity_id'] as String? ?? 'demo-farm-001',
       variantId: payload['variant_id'] as String? ?? 'demo-variant',
-      stockId: payload['stock_id'] as String? ?? 'demo-stock',
+      stockId: payload['stock_id'] as String?,
       unitId: payload['unit_id'] as String?,
       quantityOffered: (payload['quantity_offered'] as num?)?.toDouble(),
       status: ListingStatus.draft,

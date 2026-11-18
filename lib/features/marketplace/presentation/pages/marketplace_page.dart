@@ -12,8 +12,60 @@ import '../widgets/listing_tile.dart';
 import '../../application/providers/marketplace_provider.dart';
 import '../../application/providers/market_prices_provider.dart';
 import '../../domain/entities/listing.dart';
+import 'create_listing_page.dart';
 import 'stock_selection_page.dart';
 import 'market_prices_page.dart';
+
+/// Inventory is optional. The seller explicitly chooses between a
+/// standalone Marketplace offer and an existing managed-stock record.
+///
+/// Shared by the Marketplace page and the Home quick action so both entry
+/// points use the same listing flow.
+void openMarketplaceListingCreation(BuildContext context) {
+  showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    builder: (sheetContext) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.storefront_outlined),
+            title: const Text('List a product'),
+            subtitle: const Text(
+              'Advertise the quantity you are offering without managing '
+              'stock.',
+            ),
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const CreateListingPage(),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.inventory_2_outlined),
+            title: const Text('List from existing inventory'),
+            subtitle: const Text(
+              'Use a stock record you already manage as inventory.',
+            ),
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const StockSelectionPage(),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    ),
+  );
+}
 
 class MarketplacePage extends ConsumerStatefulWidget {
   const MarketplacePage({super.key});
@@ -59,16 +111,7 @@ class _MarketplacePageState extends ConsumerState<MarketplacePage> {
             title: 'Marketplace',
             subtitle: 'Buy & Sell — Inputs, Livestock, Produce',
             trailingIcon: Icons.add_circle_outline,
-            onTrailingTap: () {
-              // Phase 1: Add Listing → choose eligible managed stock →
-              // publish from stock. Replaces the legacy raw-UUID form which
-              // let the client submit entity/variant/unit/location directly.
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const StockSelectionPage(),
-                ),
-              );
-            },
+            onTrailingTap: () => openMarketplaceListingCreation(context),
           ),
 
           const SizedBox(height: 12),
