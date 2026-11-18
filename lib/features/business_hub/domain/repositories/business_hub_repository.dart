@@ -105,6 +105,22 @@ abstract class BusinessHubRepository {
   /// relationship (no FK exists).
   Future<List<SalesOrderLine>> fetchOrderItems(String orderId);
 
+  /// Seller accepts a pending order. The backend derives the seller from the
+  /// authenticated entity context; the client sends only the order id.
+  Future<void> acceptSalesOrder(String orderId);
+
+  /// Seller rejects a pending order and releases its stock reservation once.
+  /// The backend derives the seller from the authenticated entity context.
+  Future<void> rejectSalesOrder(String orderId, {String? reason});
+
+  /// Seller confirms fulfilment of an accepted order. The backend reuses the
+  /// existing canonical stock processing trigger and returns the order status.
+  Future<void> confirmSalesOrderFulfilment(String orderId);
+
+  /// Seller marks a confirmed order shipped. Shipping is status-only and
+  /// creates no stock movement.
+  Future<void> shipSalesOrder(String orderId, {String? reason});
+
   /// Fetch listings for the given business entity (read/management
   /// visibility only).
   ///

@@ -148,6 +148,17 @@ class ShellAppBar extends ConsumerWidget {
 
             if (config.showNotifications) const SizedBox(width: 4),
 
+            // Universal Subscription Centre — available in every workspace.
+            if (config.showSubscription)
+              _AppBarButton(
+                icon: Icons.workspace_premium_outlined,
+                tooltip: 'Subscription',
+                palette: palette,
+                onPressed: () => context.go(AppRoutes.subscription),
+              ),
+
+            if (config.showSubscription) const SizedBox(width: 4),
+
             // Settings
             if (config.showSettings)
               _AppBarButton(

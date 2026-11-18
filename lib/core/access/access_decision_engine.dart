@@ -14,9 +14,7 @@ class AccessDecisionEngine {
 
   void _ensurePolicyLoaded() {
     final asyncPolicy = ref.read(accessPolicyProvider);
-        _cachedPolicy ??= asyncPolicy.whenOrNull(
-      data: (data) => data,
-    );
+    _cachedPolicy ??= asyncPolicy.whenOrNull(data: (data) => data);
   }
 
   AccessDecision evaluate({
@@ -24,6 +22,7 @@ class AccessDecisionEngine {
     required String permission,
     required String role,
     required SubscriptionTier userTier,
+    bool checkTier = true,
   }) {
     _ensurePolicyLoaded();
 
@@ -38,9 +37,7 @@ class AccessDecisionEngine {
 
     final allowedPermissions = policy.rolePermissions[role] ?? [];
 
-    final roleAllowed = allowedPermissions.any(
-      (p) => permission.startsWith(p),
-    );
+    final roleAllowed = allowedPermissions.any((p) => permission.startsWith(p));
 
     if (!roleAllowed) {
       return const AccessDecision(
@@ -49,20 +46,20 @@ class AccessDecisionEngine {
       );
     }
 
-    final requiredTier =
-        policy.featureTiers[featureKey] ?? SubscriptionTier.free;
+    if (checkTier) {
+      final requiredTier =
+          policy.featureTiers[featureKey] ?? SubscriptionTier.free;
 
-    final tierAllowed = userTier.index >= requiredTier.index;
+      final tierAllowed = userTier.index >= requiredTier.index;
 
-    if (!tierAllowed) {
-      return const AccessDecision(
-        type: AccessDecisionType.upgradeRequired,
-        reason: 'Upgrade required',
-      );
+      if (!tierAllowed) {
+        return const AccessDecision(
+          type: AccessDecisionType.upgradeRequired,
+          reason: 'Upgrade required',
+        );
+      }
     }
 
-    return const AccessDecision(
-      type: AccessDecisionType.allow,
-    );
+    return const AccessDecision(type: AccessDecisionType.allow);
   }
 }

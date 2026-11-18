@@ -24,6 +24,9 @@ class SalesSummary {
   /// Delivered (completed) orders.
   final int completedCount;
 
+  /// Rejected orders.
+  final int rejectedCount;
+
   /// Cancelled orders.
   final int cancelledCount;
 
@@ -34,6 +37,7 @@ class SalesSummary {
     required this.totalCount,
     required this.openCount,
     required this.completedCount,
+    required this.rejectedCount,
     required this.cancelledCount,
     required this.returnedCount,
   });
@@ -43,6 +47,7 @@ class SalesSummary {
       totalCount: orders.length,
       openCount: orders.where((o) => o.isOpen).length,
       completedCount: orders.where((o) => o.isCompleted).length,
+      rejectedCount: orders.where((o) => o.isRejected).length,
       cancelledCount: orders.where((o) => o.isCancelled).length,
       returnedCount: orders.where((o) => o.isReturned).length,
     );

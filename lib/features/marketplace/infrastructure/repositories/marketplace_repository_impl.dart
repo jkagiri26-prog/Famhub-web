@@ -12,9 +12,11 @@ import 'dart:typed_data';
 import 'package:famhub_app/features/marketplace/domain/entities/listing.dart';
 import 'package:famhub_app/features/marketplace/domain/entities/stock_item.dart';
 import 'package:famhub_app/features/marketplace/domain/enums/listing_status.dart';
+import 'package:famhub_app/features/marketplace/domain/models/contact_unlock_payment.dart';
 import 'package:famhub_app/features/marketplace/domain/models/listing_edit_changes.dart';
 import 'package:famhub_app/features/marketplace/domain/models/listing_image_file.dart';
 import 'package:famhub_app/features/marketplace/domain/models/listing_publication.dart';
+import 'package:famhub_app/features/marketplace/domain/models/marketplace_order.dart';
 import 'package:famhub_app/features/marketplace/domain/repositories/marketplace_repository.dart';
 import 'package:famhub_app/features/marketplace/infrastructure/data_sources/marketplace_remote_data_source.dart';
 
@@ -27,7 +29,8 @@ class ListingMapper {
       description: json['description']?.toString(),
       pricePerUnit: (json['price_per_unit'] ?? 0).toDouble(),
       currency: json['currency']?.toString() ?? 'KES',
-      images: (json['images'] as List<dynamic>?)
+      images:
+          (json['images'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
@@ -46,9 +49,11 @@ class ListingMapper {
         (s) => s.value == json['status']?.toString(),
         orElse: () => ListingStatus.active,
       ),
-      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ??
+      createdAt:
+          DateTime.tryParse(json['created_at']?.toString() ?? '') ??
           DateTime.now(),
-      updatedAt: DateTime.tryParse(json['updated_at']?.toString() ?? '') ??
+      updatedAt:
+          DateTime.tryParse(json['updated_at']?.toString() ?? '') ??
           DateTime.now(),
       unitName: json['unit_name']?.toString(),
       locationName: json['location_name']?.toString(),
@@ -60,7 +65,8 @@ class ListingMapper {
       commodityCategory: json['commodity_category']?.toString(),
       itemCategory: json['item_category']?.toString(),
       itemDomain: json['item_domain']?.toString(),
-      availableQuantity: (json['available_quantity'] as num?)?.toDouble() ??
+      availableQuantity:
+          (json['available_quantity'] as num?)?.toDouble() ??
           (json['quantity_offered'] as num?)?.toDouble() ??
           0,
       reservedQuantity: (json['reserved_quantity'] ?? 0).toDouble(),
@@ -87,7 +93,8 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
   /// Referenced-data enrichment and the seller-profile batch are independent
   /// and run concurrently.
   Future<List<Listing>> _enrichWithSellerProfiles(
-      List<Map<String, dynamic>> rawListings) async {
+    List<Map<String, dynamic>> rawListings,
+  ) async {
     final entityIds = <String>{};
     for (final raw in rawListings) {
       final entityId = raw['entity_id']?.toString();
@@ -96,8 +103,7 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
 
     await Future.wait([
       _enrichReferencedData(rawListings),
-      if (entityIds.isNotEmpty)
-        _stampSellerProfiles(rawListings, entityIds),
+      if (entityIds.isNotEmpty) _stampSellerProfiles(rawListings, entityIds),
     ]);
 
     return [for (final raw in rawListings) ListingMapper.fromJson(raw)];
@@ -131,8 +137,7 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
   ///
   /// The referenced-data enrichment and the seller lookup are independent and
   /// run concurrently.
-  Future<Listing> _enrichSingleSellerProfile(
-      Map<String, dynamic> raw) async {
+  Future<Listing> _enrichSingleSellerProfile(Map<String, dynamic> raw) async {
     final entityId = raw['entity_id']?.toString();
     Future<void> stampSeller() async {
       if (entityId == null || entityId.isEmpty) return;
@@ -164,7 +169,8 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
   /// fails with "Could not find a relationship ... in the schema cache"
   /// when the PostgREST schema cache is stale for the cross-schema FKs.
   Future<void> _enrichReferencedData(
-      List<Map<String, dynamic>> rawListings) async {
+    List<Map<String, dynamic>> rawListings,
+  ) async {
     final unitIds = <String>{};
     final locationIds = <String>{};
     final stockIds = <String>{};
@@ -194,24 +200,28 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
     // They are independent of one another, so they run concurrently.
     Map<String, String> units = const {};
     Map<
-        String,
-        ({
-          String name,
-          String level1,
-          String level2,
-          String level3,
-          String level4
-        })> locationHierarchies = const {};
+      String,
+      ({
+        String name,
+        String level1,
+        String level2,
+        String level3,
+        String level4,
+      })
+    >
+    locationHierarchies = const {};
     Map<String, ({double quantity, double reservedQuantity})> stock = const {};
     Map<
-        String,
-        ({
-          String variantName,
-          String itemName,
-          String commodityCategory,
-          String itemCategory,
-          String itemDomain
-        })> taxonomy = const {};
+      String,
+      ({
+        String variantName,
+        String itemName,
+        String commodityCategory,
+        String itemCategory,
+        String itemDomain,
+      })
+    >
+    taxonomy = const {};
     await Future.wait([
       () async {
         try {
@@ -220,8 +230,9 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
       }(),
       () async {
         try {
-          locationHierarchies =
-              await dataSource.fetchLocationHierarchies(locationIds);
+          locationHierarchies = await dataSource.fetchLocationHierarchies(
+            locationIds,
+          );
         } catch (_) {}
       }(),
       () async {
@@ -242,8 +253,9 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
         raw['unit_name'] = units[unitId];
       }
       final locationId = raw['location_id']?.toString();
-      final hierarchy =
-          locationId == null ? null : locationHierarchies[locationId];
+      final hierarchy = locationId == null
+          ? null
+          : locationHierarchies[locationId];
       if (hierarchy != null) {
         // Full path (country → ward) for details; compact ward + county for
         // cards. Fall back to the location's own name when no ancestors are
@@ -273,8 +285,7 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
         raw['reserved_quantity'] = stock[stockId]!.reservedQuantity;
       }
       final variantId = raw['variant_id']?.toString();
-      final variantTaxonomy =
-          variantId == null ? null : taxonomy[variantId];
+      final variantTaxonomy = variantId == null ? null : taxonomy[variantId];
       if (variantTaxonomy != null) {
         raw['variant_name'] = variantTaxonomy.variantName;
         raw['item_name'] = variantTaxonomy.itemName;
@@ -284,6 +295,7 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
       }
     }
   }
+
   @override
   Future<List<Listing>> fetchListings({
     String? category,
@@ -315,8 +327,7 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
   }
 
   @override
-  Future<Listing> updateListing(
-      String id, Map<String, dynamic> payload) async {
+  Future<Listing> updateListing(String id, Map<String, dynamic> payload) async {
     final data = await dataSource.updateListing(id, payload);
     return ListingMapper.fromJson(data);
   }
@@ -349,8 +360,7 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
     required String listingId,
     required ListingStatus status,
   }) async {
-    if (status != ListingStatus.active &&
-        status != ListingStatus.inactive) {
+    if (status != ListingStatus.active && status != ListingStatus.inactive) {
       throw ArgumentError.value(
         status,
         'status',
@@ -373,9 +383,7 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
   }
 
   @override
-  Future<List<({String id, String name})>> searchLocations(
-    String query,
-  ) {
+  Future<List<({String id, String name})>> searchLocations(String query) {
     return dataSource.searchLocations(query);
   }
 
@@ -413,6 +421,106 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
     return dataSource.fetchSellerStats(sellerId);
   }
 
+  @override
+  Future<MarketplaceOrder> createListingOrder({
+    required String listingId,
+    required double quantity,
+    required String idempotencyKey,
+  }) async {
+    final row = await dataSource.createListingOrder(
+      listingId: listingId,
+      quantity: quantity,
+      idempotencyKey: idempotencyKey,
+    );
+    if (row == null) {
+      throw Exception('Order creation returned no result.');
+    }
+    return MarketplaceOrder.fromJson(row);
+  }
+
+  @override
+  Future<MarketplaceOrder?> fetchBuyerOrder(String orderId) async {
+    final row = await dataSource.fetchBuyerOrder(orderId);
+    return row == null ? null : MarketplaceOrder.fromJson(row);
+  }
+
+  @override
+  Future<MarketplaceOrder> cancelListingOrder({
+    required String orderId,
+    String? reason,
+  }) async {
+    final row = await dataSource.cancelListingOrder(
+      orderId: orderId,
+      reason: reason,
+    );
+    if (row == null) {
+      throw Exception('Order cancellation returned no result.');
+    }
+    return MarketplaceOrder.fromJson(row);
+  }
+
+  @override
+  Future<MarketplaceOrder> confirmListingOrderDelivery({
+    required String orderId,
+    String? reason,
+  }) async {
+    final row = await dataSource.confirmListingOrderDelivery(
+      orderId: orderId,
+      reason: reason,
+    );
+    if (row == null) {
+      throw Exception('Delivery confirmation returned no result.');
+    }
+    return MarketplaceOrder.fromJson(row);
+  }
+
+  @override
+  Future<ContactUnlockPayment> requestContactUnlockPayment({
+    required String listingId,
+    required String phone,
+    required String idempotencyKey,
+  }) async {
+    final row = await dataSource.requestContactUnlockPayment(
+      listingId: listingId,
+      phone: phone,
+      idempotencyKey: idempotencyKey,
+    );
+    if (row == null) {
+      throw Exception('Contact-unlock payment request returned no result.');
+    }
+    final payment = ContactUnlockPayment.fromJson(row);
+    if (!payment.isAlreadyUnlocked) {
+      if (!payment.hasPaymentAttempt || payment.obligationId == null) {
+        throw Exception('Contact-unlock payment attempt is incomplete.');
+      }
+      await dataSource.initiateContactUnlockMpesa(
+        paymentAttemptId: payment.paymentAttemptId ?? '',
+        obligationId: payment.obligationId ?? '',
+        phone: phone,
+        amount: payment.amount,
+        currency: payment.currency,
+      );
+    }
+    return payment;
+  }
+
+  @override
+  Future<ContactUnlockStatus?> fetchContactUnlockStatus(
+    String listingId,
+  ) async {
+    final row = await dataSource.fetchContactUnlockStatus(listingId);
+    return row == null ? null : ContactUnlockStatus.fromJson(row);
+  }
+
+  @override
+  Future<SellerContact> fetchSellerContactForUnlock(String listingId) async {
+    final row = await dataSource.fetchSellerContactForUnlock(listingId);
+    if (row == null) {
+      throw Exception('Seller contact is not available for this unlock.');
+    }
+    return SellerContact.fromJson(row);
+  }
+
   // ──────────────────────────────────────────────────────────
   // MANAGED-STOCK PUBLISHING (PHASE 1)
   // ──────────────────────────────────────────────────────────
@@ -420,7 +528,8 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
   /// Resolve display names for stock rows in batched lookups (no
   /// cross-schema PostgREST embeds) and build [StockItem] entities.
   Future<List<StockItem>> _buildStockItems(
-      List<Map<String, dynamic>> rawRows) async {
+    List<Map<String, dynamic>> rawRows,
+  ) async {
     if (rawRows.isEmpty) return const [];
 
     final variantIds = <String>{};
@@ -446,14 +555,16 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
     Map<String, String> items = const {};
     Map<String, String> units = const {};
     Map<
-        String,
-        ({
-          String name,
-          String level1,
-          String level2,
-          String level3,
-          String level4
-        })> locationHierarchies = const {};
+      String,
+      ({
+        String name,
+        String level1,
+        String level2,
+        String level3,
+        String level4,
+      })
+    >
+    locationHierarchies = const {};
     try {
       variants = await dataSource.fetchVariantsByIds(variantIds);
     } catch (_) {}
@@ -464,7 +575,9 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
       units = await dataSource.fetchUnitsByIds(unitIds);
     } catch (_) {}
     try {
-      locationHierarchies = await dataSource.fetchLocationHierarchies(locationIds);
+      locationHierarchies = await dataSource.fetchLocationHierarchies(
+        locationIds,
+      );
     } catch (_) {}
 
     final result = <StockItem>[];
@@ -476,12 +589,11 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
 
       // Product/variant display name: prefer the product (item) name and
       // fall back to the variant name when the product is not linked.
-      final productName =
-          (productId != null && items.containsKey(productId))
-              ? items[productId]
-              : (variantId != null && variants.containsKey(variantId))
-                  ? variants[variantId]
-                  : null;
+      final productName = (productId != null && items.containsKey(productId))
+          ? items[productId]
+          : (variantId != null && variants.containsKey(variantId))
+          ? variants[variantId]
+          : null;
 
       final stock = StockItem(
         id: raw['id']?.toString() ?? '',
@@ -517,10 +629,12 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
     if (searchQuery != null && searchQuery.trim().isNotEmpty) {
       final q = searchQuery.trim().toLowerCase();
       stock = stock
-          .where((s) =>
-              s.displayName.toLowerCase().contains(q) ||
-              s.displayUnit.toLowerCase().contains(q) ||
-              s.displayLocation.toLowerCase().contains(q))
+          .where(
+            (s) =>
+                s.displayName.toLowerCase().contains(q) ||
+                s.displayUnit.toLowerCase().contains(q) ||
+                s.displayLocation.toLowerCase().contains(q),
+          )
           .toList();
     }
     return stock;
@@ -662,7 +776,8 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
 
   @override
   Future<List<ListingImageFile>> fetchListingImageFiles(
-      String listingId) async {
+    String listingId,
+  ) async {
     final entries = await dataSource.fetchListingMediaEntries(listingId);
     return [
       for (final entry in entries)

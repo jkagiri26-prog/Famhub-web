@@ -17,9 +17,11 @@ import 'dart:typed_data';
 import 'package:famhub_app/features/marketplace/domain/entities/listing.dart';
 import 'package:famhub_app/features/marketplace/domain/entities/stock_item.dart';
 import 'package:famhub_app/features/marketplace/domain/enums/listing_status.dart';
+import 'package:famhub_app/features/marketplace/domain/models/contact_unlock_payment.dart';
 import 'package:famhub_app/features/marketplace/domain/models/listing_edit_changes.dart';
 import 'package:famhub_app/features/marketplace/domain/models/listing_image_file.dart';
 import 'package:famhub_app/features/marketplace/domain/models/listing_publication.dart';
+import 'package:famhub_app/features/marketplace/domain/models/marketplace_order.dart';
 import 'package:famhub_app/features/marketplace/domain/repositories/marketplace_repository.dart';
 
 /// Demo implementation of MarketplaceRepository.
@@ -69,7 +71,8 @@ class DemoMarketplaceRepository implements MarketplaceRepository {
     Listing(
       id: 'demo-listing-003',
       title: 'Free-Range Eggs — Kuroiler',
-      description: 'Farm-fresh eggs from free-range Kuroiler chickens. 240 eggs available.',
+      description:
+          'Farm-fresh eggs from free-range Kuroiler chickens. 240 eggs available.',
       pricePerUnit: 35.0,
       currency: 'KES',
       images: [],
@@ -88,7 +91,8 @@ class DemoMarketplaceRepository implements MarketplaceRepository {
     Listing(
       id: 'demo-listing-004',
       title: 'DAP Fertilizer — 50kg Bags',
-      description: 'High-quality DAP fertilizer for crop nutrition. 20 bags available.',
+      description:
+          'High-quality DAP fertilizer for crop nutrition. 20 bags available.',
       pricePerUnit: 3200.0,
       currency: 'KES',
       images: [],
@@ -137,17 +141,24 @@ class DemoMarketplaceRepository implements MarketplaceRepository {
     var filtered = List<Listing>.from(_sampleListings);
 
     if (category != null && category.isNotEmpty) {
-      filtered = filtered.where((l) =>
-        (l.description ?? '').toLowerCase().contains(category.toLowerCase())
-      ).toList();
+      filtered = filtered
+          .where(
+            (l) => (l.description ?? '').toLowerCase().contains(
+              category.toLowerCase(),
+            ),
+          )
+          .toList();
     }
 
     if (searchQuery != null && searchQuery.isNotEmpty) {
       final query = searchQuery.toLowerCase();
-      filtered = filtered.where((l) =>
-        l.title.toLowerCase().contains(query) ||
-        (l.description ?? '').toLowerCase().contains(query)
-      ).toList();
+      filtered = filtered
+          .where(
+            (l) =>
+                l.title.toLowerCase().contains(query) ||
+                (l.description ?? '').toLowerCase().contains(query),
+          )
+          .toList();
     }
 
     if (sellerId != null) {
@@ -155,7 +166,9 @@ class DemoMarketplaceRepository implements MarketplaceRepository {
     }
 
     if (statusFilter != null && statusFilter.isNotEmpty) {
-      filtered = filtered.where((l) => statusFilter.contains(l.status)).toList();
+      filtered = filtered
+          .where((l) => statusFilter.contains(l.status))
+          .toList();
     }
 
     return filtered;
@@ -198,23 +211,24 @@ class DemoMarketplaceRepository implements MarketplaceRepository {
     await Future.delayed(const Duration(milliseconds: 200));
     final existing = await fetchListingById(id);
     return existing?.copyWith(
-      title: payload['title'] as String?,
-      description: payload['description'] as String?,
-      pricePerUnit: (payload['price_per_unit'] as num?)?.toDouble(),
-    ) ?? Listing(
-      id: id,
-      title: payload['title'] as String? ?? 'Updated Listing',
-      description: payload['description'] as String?,
-      pricePerUnit: 0,
-      currency: 'KES',
-      images: [],
-      entityId: 'demo-farm-001',
-      variantId: 'demo-variant',
-      stockId: 'demo-stock',
-      status: ListingStatus.active,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
+          title: payload['title'] as String?,
+          description: payload['description'] as String?,
+          pricePerUnit: (payload['price_per_unit'] as num?)?.toDouble(),
+        ) ??
+        Listing(
+          id: id,
+          title: payload['title'] as String? ?? 'Updated Listing',
+          description: payload['description'] as String?,
+          pricePerUnit: 0,
+          currency: 'KES',
+          images: [],
+          entityId: 'demo-farm-001',
+          variantId: 'demo-variant',
+          stockId: 'demo-stock',
+          status: ListingStatus.active,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
   }
 
   @override
@@ -226,19 +240,20 @@ class DemoMarketplaceRepository implements MarketplaceRepository {
   Future<Listing> publishListing(String id) async {
     await Future.delayed(const Duration(milliseconds: 200));
     final existing = await fetchListingById(id);
-    return existing?.copyWith(status: ListingStatus.active) ?? Listing(
-      id: id,
-      title: 'Published Listing',
-      pricePerUnit: 0,
-      currency: 'KES',
-      images: [],
-      entityId: 'demo-farm-001',
-      variantId: 'demo-variant',
-      stockId: 'demo-stock',
-      status: ListingStatus.active,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
+    return existing?.copyWith(status: ListingStatus.active) ??
+        Listing(
+          id: id,
+          title: 'Published Listing',
+          pricePerUnit: 0,
+          currency: 'KES',
+          images: [],
+          entityId: 'demo-farm-001',
+          variantId: 'demo-variant',
+          stockId: 'demo-stock',
+          status: ListingStatus.active,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
   }
 
   @override
@@ -259,6 +274,29 @@ class DemoMarketplaceRepository implements MarketplaceRepository {
       'totalSales': 89000.0,
       'rating': 4.5,
     };
+  }
+
+  @override
+  Future<ContactUnlockPayment> requestContactUnlockPayment({
+    required String listingId,
+    required String phone,
+    required String idempotencyKey,
+  }) {
+    throw UnimplementedError(
+      'Contact unlock payment is unavailable in demo mode.',
+    );
+  }
+
+  @override
+  Future<ContactUnlockStatus?> fetchContactUnlockStatus(String listingId) {
+    throw UnimplementedError(
+      'Contact unlock status is unavailable in demo mode.',
+    );
+  }
+
+  @override
+  Future<SellerContact> fetchSellerContactForUnlock(String listingId) {
+    throw UnimplementedError('Seller contact is unavailable in demo mode.');
   }
 
   // ──────────────────────────────────────────────────────────
@@ -326,10 +364,12 @@ class DemoMarketplaceRepository implements MarketplaceRepository {
     if (searchQuery != null && searchQuery.trim().isNotEmpty) {
       final q = searchQuery.trim().toLowerCase();
       stock = stock
-          .where((s) =>
-              s.displayName.toLowerCase().contains(q) ||
-              s.displayUnit.toLowerCase().contains(q) ||
-              s.displayLocation.toLowerCase().contains(q))
+          .where(
+            (s) =>
+                s.displayName.toLowerCase().contains(q) ||
+                s.displayUnit.toLowerCase().contains(q) ||
+                s.displayLocation.toLowerCase().contains(q),
+          )
           .toList();
     }
     return stock;
@@ -416,13 +456,57 @@ class DemoMarketplaceRepository implements MarketplaceRepository {
 
   @override
   Future<List<ListingImageFile>> fetchListingImageFiles(
-      String listingId) async {
+    String listingId,
+  ) async {
     return const [];
   }
 
   @override
   Future<void> deleteListingImage(String fileId) async {
     await Future.delayed(const Duration(milliseconds: 50));
+  }
+
+  @override
+  Future<MarketplaceOrder> createListingOrder({
+    required String listingId,
+    required double quantity,
+    required String idempotencyKey,
+  }) async {
+    final listing = await fetchListingById(listingId);
+    if (listing == null || listing.status != ListingStatus.active) {
+      throw Exception('listing not found or inactive');
+    }
+    return MarketplaceOrder(
+      id: 'demo-order-${DateTime.now().millisecondsSinceEpoch}',
+      listingId: listingId,
+      buyerEntityId: 'demo-buyer-entity',
+      sellerEntityId: listing.entityId,
+      quantity: quantity,
+      totalAmount: listing.pricePerUnit * quantity,
+      currency: listing.currency,
+      status: MarketplaceOrderStatus.pending,
+      rawStatus: 'pending',
+      createdAt: DateTime.now(),
+    );
+  }
+
+  @override
+  Future<MarketplaceOrder?> fetchBuyerOrder(String orderId) async => null;
+
+  @override
+  Future<MarketplaceOrder> cancelListingOrder({
+    required String orderId,
+    String? reason,
+  }) async {
+    throw UnsupportedError('Order cancellation is unavailable in demo mode');
+  }
+
+  @override
+  Future<MarketplaceOrder> confirmListingOrderDelivery({
+    required String orderId,
+    String? reason,
+  }) async {
+    throw UnsupportedError('Delivery confirmation is unavailable in demo mode');
   }
 
   // ──────────────────────────────────────────────────────────
@@ -463,8 +547,7 @@ class DemoMarketplaceRepository implements MarketplaceRepository {
     required String listingId,
     required ListingStatus status,
   }) async {
-    if (status != ListingStatus.active &&
-        status != ListingStatus.inactive) {
+    if (status != ListingStatus.active && status != ListingStatus.inactive) {
       throw ArgumentError.value(
         status,
         'status',
@@ -476,10 +559,7 @@ class DemoMarketplaceRepository implements MarketplaceRepository {
     if (existing == null) {
       throw Exception('Listing no longer available.');
     }
-    return existing.copyWith(
-      status: status,
-      updatedAt: DateTime.now(),
-    );
+    return existing.copyWith(status: status, updatedAt: DateTime.now());
   }
 
   // ──────────────────────────────────────────────────────────
@@ -498,9 +578,7 @@ class DemoMarketplaceRepository implements MarketplaceRepository {
   ];
 
   @override
-  Future<List<({String id, String name})>> searchLocations(
-    String query,
-  ) async {
+  Future<List<({String id, String name})>> searchLocations(String query) async {
     await Future.delayed(const Duration(milliseconds: 200));
     final trimmed = query.trim().toLowerCase();
     if (trimmed.isEmpty) return _sampleLocations;
@@ -510,7 +588,9 @@ class DemoMarketplaceRepository implements MarketplaceRepository {
   }
 
   @override
-  Future<Map<String, String>> fetchLocationNames(Set<String> locationIds) async {
+  Future<Map<String, String>> fetchLocationNames(
+    Set<String> locationIds,
+  ) async {
     await Future.delayed(const Duration(milliseconds: 100));
     return {
       for (final loc in _sampleLocations)

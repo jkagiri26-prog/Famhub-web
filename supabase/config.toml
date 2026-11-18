@@ -10,7 +10,7 @@ enabled = true
 port = 54321
 # Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
 # endpoints. `public` and `graphql_public` schemas are included by default.
-schemas = ["public", "graphql_public", "financing", "finance", "assistant"]
+schemas = ["public", "graphql_public", "financing", "finance", "assistant", "system"]
 # Extra schemas to add to the search_path of every request.
 extra_search_path = ["public", "extensions"]
 # The maximum number of rows returns from a view, table, or stored procedure. Limits payload size
@@ -28,6 +28,12 @@ enabled = false
 # Paths to self-signed certificate pair.
 # cert_path = "../certs/my-cert.pem"
 # key_path = "../certs/my-key.pem"
+
+[functions.referral-finance-worker]
+# The worker is invoked by a trusted scheduler and authenticates with the
+# x-worker-secret header. It does not use a user JWT.
+enabled = true
+verify_jwt = false
 
 [db]
 # Port to use for the local database URL.

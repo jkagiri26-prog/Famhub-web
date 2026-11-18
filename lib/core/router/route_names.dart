@@ -122,6 +122,10 @@ class AppRoutes {
   static const profile = '/profile';
   static const profileName = 'profile';
 
+  /// Universal Subscription Centre (workspace-independent)
+  static const subscription = '/subscription';
+  static const subscriptionName = 'subscription';
+
   /// Settings (nested under profile)
   static const settings = '/profile/settings';
   static const settingsName = 'settings';

@@ -16,8 +16,12 @@
 ///       column) → status
 ///   - Lightweight read-only detail bottom sheet incl. item lines
 ///
-/// NOT implemented in this phase: create / approve / fulfil / cancel /
-/// payment / stock deduction / reservation / dispatch.
+/// Seller lifecycle actions available here:
+///   - accept a pending order (reservation preserved)
+///   - reject a pending order (reservation released once)
+///   - confirm fulfilment of an accepted order (canonical stock consumption)
+///
+/// Not implemented here: buyer cancellation, payment, shipping or delivery.
 ///
 /// States: loading / loaded / empty / error. Guests see demo data via
 /// the demo repository (session-aware switch).
@@ -32,14 +36,26 @@ import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/loading_state_widget.dart';
 
 import '../../application/providers/active_business_provider.dart';
+import '../../application/providers/business_hub_repository_provider.dart';
 import '../../application/providers/sales_provider.dart';
 import '../../domain/entities/sales_order.dart';
 import '../../domain/entities/sales_order_line.dart';
 import '../../domain/models/sales_summary.dart';
+import '../../domain/repositories/business_hub_repository.dart';
 
 const List<String> _months = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ];
 
 String _formatDate(DateTime? date) {
@@ -75,15 +91,12 @@ class BusinessHubSalesTab extends ConsumerWidget {
     final ordersAsync = ref.watch(activeBusinessSalesOrdersProvider);
 
     return ordersAsync.when(
-      loading: () => const LoadingStateWidget(
-        message: 'Loading orders...',
-      ),
+      loading: () => const LoadingStateWidget(message: 'Loading orders...'),
       error: (e, _) => ErrorStateWidget(
         title: 'Failed to Load',
         message: 'Could not load sales for ${active.name}.',
         retryLabel: 'Retry',
-        onRetry: () =>
-            ref.invalidate(salesOrdersByBusinessProvider(active.id)),
+        onRetry: () => ref.invalidate(salesOrdersByBusinessProvider(active.id)),
         detailedError: e.toString(),
       ),
       data: (orders) {
@@ -91,7 +104,8 @@ class BusinessHubSalesTab extends ConsumerWidget {
           return const EmptyStateWidget(
             icon: Icons.sell_outlined,
             title: 'No sales orders yet',
-            subtitle: 'Orders for this business appear here once buyers '
+            subtitle:
+                'Orders for this business appear here once buyers '
                 'place orders (commerce.orders).',
           );
         }
@@ -140,6 +154,12 @@ class _SalesLoaded extends ConsumerWidget {
                   label: 'Completed',
                   value: '${summary.completedCount}',
                   color: Colors.green,
+                ),
+              if (summary.rejectedCount > 0)
+                _SummaryChip(
+                  label: 'Rejected',
+                  value: '${summary.rejectedCount}',
+                  color: Colors.red.shade700,
                 ),
               if (summary.cancelledCount > 0)
                 _SummaryChip(
@@ -335,19 +355,27 @@ class _StatusPill extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color),
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
       ),
     );
   }
 
   (String, Color) _statusOf(SalesOrder order) {
     switch (order.status) {
+      case 'accepted':
+        return ('Accepted', Colors.blue.shade700);
       case 'confirmed':
         return ('Confirmed', Colors.blue.shade700);
       case 'shipped':
         return ('Shipped', Colors.indigo.shade600);
       case 'delivered':
         return ('Delivered', Colors.green.shade700);
+      case 'rejected':
+        return ('Rejected', Colors.red.shade600);
       case 'cancelled':
         return ('Cancelled', Colors.grey);
       case 'returned':
@@ -384,8 +412,9 @@ class _SalesOrderDetailSheet extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       order.displayBuyer,
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w800),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                   _StatusPill(order: order),
@@ -394,27 +423,36 @@ class _SalesOrderDetailSheet extends ConsumerWidget {
               const SizedBox(height: 4),
               Text(
                 'Sales order',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: Colors.grey.shade600),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: Colors.grey.shade600,
+                ),
               ),
               const SizedBox(height: 16),
               _detailRow(context, 'Amount', _formatAmount(order.totalAmount)),
               _detailRow(context, 'Date', _formatDate(order.orderDate)),
               if (order.deliveryDate != null)
                 _detailRow(
-                    context, 'Delivery', _formatDate(order.deliveryDate)),
+                  context,
+                  'Delivery',
+                  _formatDate(order.deliveryDate),
+                ),
               _detailRow(context, 'Status', _statusLabel(order.status)),
-              _detailRow(
-                  context, 'Payment', _paymentStatusLabel(order)),
-              if (order.paymentMode != null && order.paymentMode != 'direct_supplier')
-                _detailRow(context, 'Mode', _paymentModeLabel(order.paymentMode!)),
+              _detailRow(context, 'Payment', _paymentStatusLabel(order)),
+              if (order.paymentMode != null &&
+                  order.paymentMode != 'direct_supplier')
+                _detailRow(
+                  context,
+                  'Mode',
+                  _paymentModeLabel(order.paymentMode!),
+                ),
               const Divider(height: 24),
 
               // ── Item lines (commerce.order_items) ──
               Text(
                 'Items',
-                style: theme.textTheme.titleSmall
-                    ?.copyWith(fontWeight: FontWeight.w700),
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 8),
               itemsAsync.when(
@@ -453,6 +491,8 @@ class _SalesOrderDetailSheet extends ConsumerWidget {
               const Divider(height: 24),
               _detailRow(context, 'Order ID', order.id, mono: true),
               const SizedBox(height: 12),
+              _SellerOrderActions(order: order),
+              if (order.status == 'pending') const SizedBox(height: 12),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(10),
@@ -492,7 +532,10 @@ class _SalesOrderDetailSheet extends ConsumerWidget {
             children: [
               Text(
                 line.displayQuantity,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               if (line.totalAmount > 0)
                 Text(
@@ -542,12 +585,16 @@ class _SalesOrderDetailSheet extends ConsumerWidget {
 
   String _statusLabel(String status) {
     switch (status) {
+      case 'accepted':
+        return 'Accepted';
       case 'confirmed':
         return 'Confirmed';
       case 'shipped':
         return 'Shipped';
       case 'delivered':
         return 'Delivered';
+      case 'rejected':
+        return 'Rejected';
       case 'cancelled':
         return 'Cancelled';
       case 'returned':
@@ -579,5 +626,217 @@ class _SalesOrderDetailSheet extends ConsumerWidget {
       default:
         return 'Direct supplier';
     }
+  }
+}
+
+/// Minimal seller lifecycle actions hosted in the existing sales detail sheet.
+class _SellerOrderActions extends ConsumerStatefulWidget {
+  final SalesOrder order;
+
+  const _SellerOrderActions({required this.order});
+
+  @override
+  ConsumerState<_SellerOrderActions> createState() =>
+      _SellerOrderActionsState();
+}
+
+class _SellerOrderActionsState extends ConsumerState<_SellerOrderActions> {
+  bool _busy = false;
+
+  Future<void> _accept() async {
+    await _run(
+      (repo) => repo.acceptSalesOrder(widget.order.id),
+      successMessage: 'Order accepted. Stock remains reserved.',
+    );
+  }
+
+  Future<void> _reject() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Reject order?'),
+        content: const Text(
+          'The buyer will see the order as rejected and the reserved stock '
+          'will be released.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Keep order'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Reject order'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    await _run(
+      (repo) => repo.rejectSalesOrder(widget.order.id),
+      successMessage: 'Order rejected and stock released.',
+    );
+  }
+
+  Future<void> _confirmFulfilment() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirm fulfilment?'),
+        content: const Text(
+          'This consumes the reserved stock through the existing stock '
+          'movement path and moves the order to confirmed. It cannot be '
+          'reversed by confirming again.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Confirm fulfilment'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    await _run(
+      (repo) => repo.confirmSalesOrderFulfilment(widget.order.id),
+      successMessage:
+          'Fulfilment confirmed. Order status is now confirmed and stock was '
+          'consumed.',
+    );
+  }
+
+  Future<void> _shipOrder() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Mark order shipped?'),
+        content: const Text(
+          'The buyer will be able to confirm delivery. Shipping does not '
+          'change stock or payment state.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Mark shipped'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    await _run(
+      (repo) => repo.shipSalesOrder(widget.order.id),
+      successMessage: 'Order status is now shipped.',
+    );
+  }
+
+  Future<void> _run(
+    Future<void> Function(BusinessHubRepository repo) action, {
+    required String successMessage,
+  }) async {
+    if (_busy || !mounted) return;
+    setState(() => _busy = true);
+    final active = ref.read(activeBusinessProvider);
+    try {
+      await action(ref.read(businessHubRepositoryProvider));
+      if (!mounted) return;
+      if (active != null) {
+        ref.invalidate(salesOrdersByBusinessProvider(active.id));
+      }
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(successMessage)));
+    } catch (error) {
+      if (!mounted) return;
+      final text = error.toString().toLowerCase();
+      final message = text.contains('not authorized')
+          ? 'You are not authorized to update this order.'
+          : text.contains('cannot be')
+          ? 'This order has already moved past the pending state.'
+          : 'The order could not be updated. Please try again.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Colors.red.shade700),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.order.status == 'accepted') {
+      return SizedBox(
+        width: double.infinity,
+        child: FilledButton.icon(
+          onPressed: _busy ? null : _confirmFulfilment,
+          icon: _busy
+              ? const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.inventory_2_outlined, size: 16),
+          label: Text(_busy ? 'Confirming…' : 'Confirm fulfilment'),
+        ),
+      );
+    }
+
+    if (widget.order.status == 'confirmed') {
+      return SizedBox(
+        width: double.infinity,
+        child: FilledButton.icon(
+          onPressed: _busy ? null : _shipOrder,
+          icon: _busy
+              ? const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.local_shipping_outlined, size: 16),
+          label: Text(_busy ? 'Shipping…' : 'Ship order'),
+        ),
+      );
+    }
+
+    if (widget.order.status != 'pending') {
+      return const SizedBox.shrink();
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: _busy ? null : _reject,
+            icon: const Icon(Icons.close, size: 16),
+            label: Text(_busy ? 'Working…' : 'Reject'),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: _busy ? null : _accept,
+            icon: _busy
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.check, size: 16),
+            label: const Text('Accept'),
+          ),
+        ),
+      ],
+    );
   }
 }

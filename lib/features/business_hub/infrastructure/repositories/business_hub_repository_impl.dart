@@ -187,6 +187,26 @@ class BusinessHubRepositoryImpl implements BusinessHubRepository {
   }
 
   @override
+  Future<void> acceptSalesOrder(String orderId) {
+    return _dataSource.acceptOrder(orderId);
+  }
+
+  @override
+  Future<void> rejectSalesOrder(String orderId, {String? reason}) {
+    return _dataSource.rejectOrder(orderId, reason: reason);
+  }
+
+  @override
+  Future<void> confirmSalesOrderFulfilment(String orderId) {
+    return _dataSource.confirmFulfilment(orderId);
+  }
+
+  @override
+  Future<void> shipSalesOrder(String orderId, {String? reason}) {
+    return _dataSource.shipOrder(orderId, reason: reason);
+  }
+
+  @override
   Future<List<SalesOrderLine>> fetchOrderItems(String orderId) async {
     final rawRows = await _dataSource.fetchOrderItemsByOrderIds({orderId});
     return _buildOrderLines(rawRows);

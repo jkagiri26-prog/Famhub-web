@@ -14,6 +14,7 @@ library;
 import 'package:famhub_app/core/dashboard_engine/presentation/builders/widget_registry.dart';
 import 'package:famhub_app/features/farm_management/presentation/widgets/farm_lifecycle_stage_widget.dart';
 import 'package:famhub_app/features/farm_management/presentation/widgets/farm_recommendations_widget.dart';
+import 'package:famhub_app/features/farm_management/presentation/widgets/premium/farm_premium_insights_gate.dart';
 
 /// Register all lifecycle-aware dashboard widgets.
 void bootstrapLifecycleWidgets() {
@@ -32,7 +33,8 @@ void bootstrapLifecycleWidgets() {
 
   WidgetRegistry.register(
     widgetKey: 'farm_recommendations',
-    builder: () => const FarmRecommendationsWidget(),
+    builder: () =>
+        const FarmPremiumInsightsGate(child: FarmRecommendationsWidget()),
     metadata: const WidgetRegistration(
       widgetKey: 'farm_recommendations',
       displayName: 'Recommendations',

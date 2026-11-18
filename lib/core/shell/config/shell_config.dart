@@ -166,6 +166,9 @@ class TopBarConfig {
   /// Whether to show the settings button
   final bool showSettings;
 
+  /// Whether to show the universal Subscription Centre button
+  final bool showSubscription;
+
   /// Whether to show the profile menu
   final bool showProfile;
 
@@ -181,6 +184,7 @@ class TopBarConfig {
     this.showNotifications = true,
     this.showAiAssistant = true,
     this.showSettings = false,
+    this.showSubscription = true,
     this.showProfile = true,
     this.customActions = const [],
   });
@@ -194,6 +198,7 @@ class TopBarConfig {
     bool? showNotifications,
     bool? showAiAssistant,
     bool? showSettings,
+    bool? showSubscription,
     bool? showProfile,
     List<ShellAction>? customActions,
   }) {
@@ -206,6 +211,7 @@ class TopBarConfig {
       showNotifications: showNotifications ?? this.showNotifications,
       showAiAssistant: showAiAssistant ?? this.showAiAssistant,
       showSettings: showSettings ?? this.showSettings,
+      showSubscription: showSubscription ?? this.showSubscription,
       showProfile: showProfile ?? this.showProfile,
       customActions: customActions ?? this.customActions,
     );

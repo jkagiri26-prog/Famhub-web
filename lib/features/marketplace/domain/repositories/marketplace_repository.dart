@@ -3,9 +3,11 @@ import 'dart:typed_data';
 import '../entities/listing.dart';
 import '../entities/stock_item.dart';
 import '../enums/listing_status.dart';
+import '../models/contact_unlock_payment.dart';
 import '../models/listing_edit_changes.dart';
 import '../models/listing_image_file.dart';
 import '../models/listing_publication.dart';
+import '../models/marketplace_order.dart';
 
 /// Abstract repository contract for marketplace data operations.
 ///
@@ -35,6 +37,64 @@ abstract class MarketplaceRepository {
   });
 
   Future<Map<String, dynamic>> getSellerStats(String sellerId);
+
+  // ──────────────────────────────────────────────────────────
+  // BUYER ORDERS
+  // ──────────────────────────────────────────────────────────
+  //
+  // The server derives buyer/seller entities, price, currency, stock identity
+  // and totals from the session and canonical listing. The client supplies
+  // only the listing id, quantity and an idempotency key.
+
+  /// Create an order from an active listing via
+  /// `commerce.create_listing_order(uuid, numeric, text)`.
+  Future<MarketplaceOrder> createListingOrder({
+    required String listingId,
+    required double quantity,
+    required String idempotencyKey,
+  });
+
+  /// Read the authenticated buyer's order by id. RLS limits the result to
+  /// orders owned by the current buyer profile.
+  Future<MarketplaceOrder?> fetchBuyerOrder(String orderId);
+
+  /// Cancel a pending order as its authenticated buyer via
+  /// `commerce.cancel_listing_order(uuid, text)`.
+  Future<MarketplaceOrder> cancelListingOrder({
+    required String orderId,
+    String? reason,
+  });
+
+  /// Confirm delivery of a shipped order as its authenticated buyer via
+  /// `commerce.confirm_listing_order_delivery(uuid, text)`.
+  Future<MarketplaceOrder> confirmListingOrderDelivery({
+    required String orderId,
+    String? reason,
+  });
+
+  // ──────────────────────────────────────────────────────────
+  // CONTACT UNLOCK PAYMENT LIFECYCLE
+  // ──────────────────────────────────────────────────────────
+  //
+  // The backend owns listing eligibility, buyer authorization, Finance
+  // obligation creation, payment-attempt creation, and idempotency. The
+  // client only supplies the listing, phone number, and idempotency key.
+
+  /// Create or reuse the contact-unlock Finance obligation and its M-Pesa
+  /// payment attempt for the authenticated buyer.
+  Future<ContactUnlockPayment> requestContactUnlockPayment({
+    required String listingId,
+    required String phone,
+    required String idempotencyKey,
+  });
+
+  /// Read the authenticated buyer's current unlock and payment-attempt state.
+  /// Returns null when no unlock has been started for this listing.
+  Future<ContactUnlockStatus?> fetchContactUnlockStatus(String listingId);
+
+  /// Reveal seller contact details only after the backend confirms a completed,
+  /// unexpired contact unlock for the active buyer.
+  Future<SellerContact> fetchSellerContactForUnlock(String listingId);
 
   // ──────────────────────────────────────────────────────────
   // MANAGED-STOCK PUBLISHING (PHASE 1)

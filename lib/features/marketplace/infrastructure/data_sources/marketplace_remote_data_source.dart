@@ -14,6 +14,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../domain/models/contact_unlock_payment.dart';
 import '../../domain/models/listing_edit_changes.dart';
 
 /// Serializes [changes] into the exact whitelisted JSONB payload accepted by
@@ -179,15 +180,18 @@ class MarketplaceRemoteDataSource {
   /// country → ward path on details. Names come only from `core.locations`;
   /// nothing is inferred or fabricated.
   Future<
-      Map<
-          String,
-          ({
-            String name,
-            String level1,
-            String level2,
-            String level3,
-            String level4,
-          })>> fetchLocationHierarchies(Set<String> locationIds) async {
+    Map<
+      String,
+      ({
+        String name,
+        String level1,
+        String level2,
+        String level3,
+        String level4,
+      })
+    >
+  >
+  fetchLocationHierarchies(Set<String> locationIds) async {
     final ids = locationIds.where((id) => id.isNotEmpty).toSet();
     if (ids.isEmpty) return const {};
 
@@ -204,10 +208,12 @@ class MarketplaceRemoteDataSource {
 
     void ensureLevelOrders(Set<String> levelIds) {
       final missing = levelIds
-          .where((id) =>
-              id.isNotEmpty &&
-              !_levelOrderCache.containsKey(id) &&
-              !requestedLevelIds.contains(id))
+          .where(
+            (id) =>
+                id.isNotEmpty &&
+                !_levelOrderCache.containsKey(id) &&
+                !requestedLevelIds.contains(id),
+          )
           .toSet();
       if (missing.isEmpty) return;
       requestedLevelIds.addAll(missing);
@@ -225,12 +231,14 @@ class MarketplaceRemoteDataSource {
       final batch = pending.take(200).toList();
       pending = <String>{};
       try {
-        final response = (await _client
-                .schema('core')
-                .from('locations')
-                .select('id, name, level_id, parent_id')
-                .inFilter('id', batch) as List)
-            .cast<Map<String, dynamic>>();
+        final response =
+            (await _client
+                        .schema('core')
+                        .from('locations')
+                        .select('id, name, level_id, parent_id')
+                        .inFilter('id', batch)
+                    as List)
+                .cast<Map<String, dynamic>>();
         for (final row in response) {
           final id = row['id']?.toString();
           if (id == null || id.isEmpty) continue;
@@ -291,12 +299,14 @@ class MarketplaceRemoteDataSource {
   ) async {
     if (levelIds.isEmpty) return const {};
     try {
-      final response = (await _client
-              .schema('core')
-              .from('geography_levels')
-              .select('id, level_order')
-              .inFilter('id', levelIds.toList()) as List)
-          .cast<Map<String, dynamic>>();
+      final response =
+          (await _client
+                      .schema('core')
+                      .from('geography_levels')
+                      .select('id, level_order')
+                      .inFilter('id', levelIds.toList())
+                  as List)
+              .cast<Map<String, dynamic>>();
       return {
         for (final row in response)
           if (row['id'] != null && row['level_order'] != null)
@@ -405,15 +415,18 @@ class MarketplaceRemoteDataSource {
   /// Output fields are unchanged: variant name, item name, commodity
   /// category, item category and item domain.
   Future<
-      Map<
-          String,
-          ({
-            String variantName,
-            String itemName,
-            String commodityCategory,
-            String itemCategory,
-            String itemDomain,
-          })>> fetchVariantTaxonomyByIds(Set<String> variantIds) async {
+    Map<
+      String,
+      ({
+        String variantName,
+        String itemName,
+        String commodityCategory,
+        String itemCategory,
+        String itemDomain,
+      })
+    >
+  >
+  fetchVariantTaxonomyByIds(Set<String> variantIds) async {
     final ids = variantIds.where((id) => id.isNotEmpty).toList();
     if (ids.isEmpty) return const {};
 
@@ -428,28 +441,33 @@ class MarketplaceRemoteDataSource {
   /// Returns null when the nested select cannot be used so the caller can
   /// fall back to batched scalar lookups (schema-cache safety).
   Future<
-      Map<
-          String,
-          ({
-            String variantName,
-            String itemName,
-            String commodityCategory,
-            String itemCategory,
-            String itemDomain,
-          })>?> _fetchVariantTaxonomyNested(List<String> ids) async {
+    Map<
+      String,
+      ({
+        String variantName,
+        String itemName,
+        String commodityCategory,
+        String itemCategory,
+        String itemDomain,
+      })
+    >?
+  >
+  _fetchVariantTaxonomyNested(List<String> ids) async {
     List<Map<String, dynamic>> rows;
     try {
-      rows = (await _client
-              .schema('core')
-              .from('item_variants')
-              .select(
-                'id,name,item_id,'
-                'items(name,category_id,'
-                'categories(name,domain_id,domains(name)),'
-                'commodities(category))',
-              )
-              .inFilter('id', ids) as List)
-          .cast<Map<String, dynamic>>();
+      rows =
+          (await _client
+                      .schema('core')
+                      .from('item_variants')
+                      .select(
+                        'id,name,item_id,'
+                        'items(name,category_id,'
+                        'categories(name,domain_id,domains(name)),'
+                        'commodities(category))',
+                      )
+                      .inFilter('id', ids)
+                  as List)
+              .cast<Map<String, dynamic>>();
     } catch (_) {
       return null;
     }
@@ -463,13 +481,17 @@ class MarketplaceRemoteDataSource {
       return null;
     }
 
-    final taxonomy = <String, ({
-      String variantName,
-      String itemName,
-      String commodityCategory,
-      String itemCategory,
-      String itemDomain,
-    })>{};
+    final taxonomy =
+        <
+          String,
+          ({
+            String variantName,
+            String itemName,
+            String commodityCategory,
+            String itemCategory,
+            String itemDomain,
+          })
+        >{};
     for (final row in rows) {
       final variantId = row['id']?.toString();
       if (variantId == null || variantId.isEmpty) continue;
@@ -509,21 +531,26 @@ class MarketplaceRemoteDataSource {
   ///
   /// Request waves: variants → (items ‖ commodities) → categories → domains.
   Future<
-      Map<
-          String,
-          ({
-            String variantName,
-            String itemName,
-            String commodityCategory,
-            String itemCategory,
-            String itemDomain,
-          })>> _fetchVariantTaxonomyBatched(List<String> ids) async {
-    final variantRows = (await _client
-            .schema('core')
-            .from('item_variants')
-            .select('id, name, item_id')
-            .inFilter('id', ids) as List)
-        .cast<Map<String, dynamic>>();
+    Map<
+      String,
+      ({
+        String variantName,
+        String itemName,
+        String commodityCategory,
+        String itemCategory,
+        String itemDomain,
+      })
+    >
+  >
+  _fetchVariantTaxonomyBatched(List<String> ids) async {
+    final variantRows =
+        (await _client
+                    .schema('core')
+                    .from('item_variants')
+                    .select('id, name, item_id')
+                    .inFilter('id', ids)
+                as List)
+            .cast<Map<String, dynamic>>();
 
     final itemIds = variantRows
         .map((v) => v['item_id']?.toString())
@@ -547,31 +574,37 @@ class MarketplaceRemoteDataSource {
       await Future.wait([
         () async {
           try {
-            final itemRows = (await _client
-                    .schema('core')
-                    .from('items')
-                    .select('id, name, category_id')
-                    .inFilter('id', itemIds.toList()) as List)
-                .cast<Map<String, dynamic>>();
+            final itemRows =
+                (await _client
+                            .schema('core')
+                            .from('items')
+                            .select('id, name, category_id')
+                            .inFilter('id', itemIds.toList())
+                        as List)
+                    .cast<Map<String, dynamic>>();
             itemNames = {
               for (final row in itemRows)
-                if (row['id'] != null) row['id'].toString(): row['name']?.toString() ?? '',
+                if (row['id'] != null)
+                  row['id'].toString(): row['name']?.toString() ?? '',
             };
             itemCategoryIds = {
               for (final row in itemRows)
-                if (row['id'] != null && (row['category_id']?.toString().isNotEmpty ?? false))
+                if (row['id'] != null &&
+                    (row['category_id']?.toString().isNotEmpty ?? false))
                   row['id'].toString(): row['category_id'].toString(),
             };
           } catch (_) {}
         }(),
         () async {
           try {
-            final commodityRows = (await _client
-                    .schema('core')
-                    .from('commodities')
-                    .select('item_id, category')
-                    .inFilter('item_id', itemIds.toList()) as List)
-                .cast<Map<String, dynamic>>();
+            final commodityRows =
+                (await _client
+                            .schema('core')
+                            .from('commodities')
+                            .select('item_id, category')
+                            .inFilter('item_id', itemIds.toList())
+                        as List)
+                    .cast<Map<String, dynamic>>();
             commodityCategories = {
               for (final row in commodityRows)
                 if (row['item_id'] != null)
@@ -584,12 +617,14 @@ class MarketplaceRemoteDataSource {
       final categoryIds = itemCategoryIds.values.toSet().toList();
       if (categoryIds.isNotEmpty) {
         try {
-          final categoryRows = (await _client
-                  .schema('core')
-                  .from('categories')
-                  .select('id, name, domain_id')
-                  .inFilter('id', categoryIds) as List)
-              .cast<Map<String, dynamic>>();
+          final categoryRows =
+              (await _client
+                          .schema('core')
+                          .from('categories')
+                          .select('id, name, domain_id')
+                          .inFilter('id', categoryIds)
+                      as List)
+                  .cast<Map<String, dynamic>>();
           categoryNames = {
             for (final row in categoryRows)
               if (row['id'] != null)
@@ -606,12 +641,14 @@ class MarketplaceRemoteDataSource {
         final domainIds = categoryDomainIds.values.toSet().toList();
         if (domainIds.isNotEmpty) {
           try {
-            final domainRows = (await _client
-                    .schema('core')
-                    .from('domains')
-                    .select('id, name')
-                    .inFilter('id', domainIds) as List)
-                .cast<Map<String, dynamic>>();
+            final domainRows =
+                (await _client
+                            .schema('core')
+                            .from('domains')
+                            .select('id, name')
+                            .inFilter('id', domainIds)
+                        as List)
+                    .cast<Map<String, dynamic>>();
             domainNames = {
               for (final row in domainRows)
                 if (row['id'] != null)
@@ -622,13 +659,17 @@ class MarketplaceRemoteDataSource {
       }
     }
 
-    final taxonomy = <String, ({
-      String variantName,
-      String itemName,
-      String commodityCategory,
-      String itemCategory,
-      String itemDomain,
-    })>{};
+    final taxonomy =
+        <
+          String,
+          ({
+            String variantName,
+            String itemName,
+            String commodityCategory,
+            String itemCategory,
+            String itemDomain,
+          })
+        >{};
     for (final row in variantRows) {
       final variantId = row['id']?.toString();
       if (variantId == null || variantId.isEmpty) continue;
@@ -682,8 +723,7 @@ class MarketplaceRemoteDataSource {
       if (entityId != null && entityId.isNotEmpty) {
         query = query.eq('entity_id', entityId);
       }
-      final response =
-          await query.order('updated_at', ascending: false);
+      final response = await query.order('updated_at', ascending: false);
       return (response as List).cast<Map<String, dynamic>>();
     } on PostgrestException catch (e) {
       throw Exception('Failed to fetch managed stock: ${e.message}');
@@ -1029,6 +1069,15 @@ class MarketplaceRemoteDataSource {
 
   static const String updateListingRpc = 'update_listing';
   static const String setListingStatusRpc = 'set_listing_status';
+  static const String createListingOrderRpc = 'create_listing_order';
+  static const String cancelListingOrderRpc = 'cancel_listing_order';
+  static const String confirmDeliveryRpc = 'confirm_listing_order_delivery';
+  static const String requestContactUnlockPaymentRpc =
+      'request_contact_unlock_payment';
+  static const String contactUnlockStatusRpc = 'contact_unlock_status';
+  static const String sellerContactForUnlockRpc =
+      'get_seller_contact_for_unlock';
+  static const String contactUnlockFunctionName = 'mpesa-contact-unlock';
 
   /// Update listing metadata via `marketplace.update_listing(uuid, jsonb)`.
   ///
@@ -1066,6 +1115,169 @@ class MarketplaceRemoteDataSource {
           params: {'p_listing_id': listingId, 'p_status': status},
         );
     return MarketplaceRemoteDataSource._firstListingRow(response);
+  }
+
+  /// Create an order from an active listing via the canonical commerce RPC.
+  ///
+  /// The client sends only listing id, quantity and a retry key. Buyer/seller
+  /// entities, price, currency, stock identity and totals are derived by the
+  /// backend. A duplicate retry with the same key returns the existing order.
+  Future<Map<String, dynamic>?> createListingOrder({
+    required String listingId,
+    required double quantity,
+    required String idempotencyKey,
+  }) async {
+    final response = await _client
+        .schema('commerce')
+        .rpc(
+          createListingOrderRpc,
+          params: {
+            'p_listing_id': listingId,
+            'p_quantity': quantity,
+            'p_idempotency_key': idempotencyKey,
+          },
+        );
+    return _firstRpcRow(response);
+  }
+
+  /// Cancel a pending order as the authenticated buyer. The backend resolves
+  /// the buyer identity and releases the reservation exactly once.
+  Future<Map<String, dynamic>?> cancelListingOrder({
+    required String orderId,
+    String? reason,
+  }) async {
+    final response = await _client
+        .schema('commerce')
+        .rpc(
+          cancelListingOrderRpc,
+          params: {'p_order_id': orderId, 'p_reason': reason},
+        );
+    return _firstRpcRow(response);
+  }
+
+  /// Confirm delivery of a shipped order as the authenticated buyer. The
+  /// backend resolves the buyer identity and does not mutate stock/payment.
+  Future<Map<String, dynamic>?> confirmListingOrderDelivery({
+    required String orderId,
+    String? reason,
+  }) async {
+    final response = await _client
+        .schema('commerce')
+        .rpc(
+          confirmDeliveryRpc,
+          params: {'p_order_id': orderId, 'p_reason': reason},
+        );
+    return _firstRpcRow(response);
+  }
+
+  /// Read one order for the authenticated buyer. RLS scopes the query; no
+  /// buyer id is sent by the client.
+  Future<Map<String, dynamic>?> fetchBuyerOrder(String orderId) async {
+    final response = await _client
+        .schema('commerce')
+        .from('orders')
+        .select(
+          'id, listing_id, buyer_entity_id, seller_entity_id, quantity, '
+          'total_amount, currency, status, created_at',
+        )
+        .eq('id', orderId)
+        .maybeSingle();
+    return response;
+  }
+
+  /// Create or reuse the contact-unlock Finance obligation and M-Pesa
+  /// payment attempt for the authenticated buyer.
+  Future<Map<String, dynamic>?> requestContactUnlockPayment({
+    required String listingId,
+    required String phone,
+    required String idempotencyKey,
+  }) async {
+    final response = await _client
+        .schema('marketplace')
+        .rpc(
+          requestContactUnlockPaymentRpc,
+          params: {
+            'p_listing_id': listingId,
+            'p_phone': phone,
+            'p_idempotency_key': idempotencyKey,
+          },
+        );
+    return _firstRpcRow(response);
+  }
+
+  /// Invoke the provider-independent Edge Function after Finance has created
+  /// the payment attempt. The function never receives a service-role key.
+  Future<void> initiateContactUnlockMpesa({
+    required String paymentAttemptId,
+    required String obligationId,
+    required String phone,
+    required double amount,
+    required String currency,
+  }) async {
+    try {
+      final response = await _client.functions.invoke(
+        contactUnlockFunctionName,
+        body: {
+          'action': 'initiate',
+          'paymentAttemptId': paymentAttemptId,
+          'obligationId': obligationId,
+          'phone': phone,
+          'amount': amount,
+          'currency': currency,
+        },
+      );
+      final data = response.data;
+      if (data is! Map || data['ok'] != true) {
+        throw Exception('Contact-unlock provider request failed.');
+      }
+    } on FunctionException catch (error) {
+      if (error.status == 503 && isProviderUnconfigured(error)) {
+        throw const ContactUnlockProviderUnavailable();
+      }
+      throw Exception('Contact-unlock provider request failed.');
+    }
+  }
+
+  static bool isProviderUnconfigured(FunctionException error) {
+    final details = error.details;
+    if (details is Map && details['error'] == 'mpesa_provider_not_configured') {
+      return true;
+    }
+    return details?.toString().contains('mpesa_provider_not_configured') ==
+        true;
+  }
+
+  /// Read the authenticated buyer's current unlock/payment state.
+  Future<Map<String, dynamic>?> fetchContactUnlockStatus(
+    String listingId,
+  ) async {
+    final response = await _client
+        .schema('marketplace')
+        .rpc(contactUnlockStatusRpc, params: {'p_listing_id': listingId});
+    return _firstRpcRow(response);
+  }
+
+  /// Reveal seller contact details. The backend enforces completed payment and
+  /// an active, unexpired unlock for the authenticated buyer.
+  Future<Map<String, dynamic>?> fetchSellerContactForUnlock(
+    String listingId,
+  ) async {
+    final response = await _client
+        .schema('marketplace')
+        .rpc(sellerContactForUnlockRpc, params: {'p_listing_id': listingId});
+    return _firstRpcRow(response);
+  }
+
+  static Map<String, dynamic>? _firstRpcRow(dynamic response) {
+    if (response is Map<String, dynamic>) return response;
+    if (response is Map) return Map<String, dynamic>.from(response);
+    if (response is List) {
+      for (final item in response) {
+        if (item is Map<String, dynamic>) return item;
+        if (item is Map) return Map<String, dynamic>.from(item);
+      }
+    }
+    return null;
   }
 
   /// Defensively extracts a single listing row from an RPC response that may
@@ -1160,8 +1372,10 @@ class MarketplaceRemoteDataSource {
       return MarketplaceRemoteDataSource.mediaFileEntries(response.data);
     } on FunctionException catch (e) {
       // ignore: avoid_print
-      print('[media_get_by_context] status=${e.status} '
-          'details=${e.details} reason=${e.reasonPhrase}');
+      print(
+        '[media_get_by_context] status=${e.status} '
+        'details=${e.details} reason=${e.reasonPhrase}',
+      );
       // Diagnostic: surface the function's error body (see TODO to restore
       // treating a genuine "no media" 404 as an empty album once the body
       // wording is known).

@@ -1,0 +1,10 @@
+name = "referral-finance-scheduler-production"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+workers_dev = false
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[vars]
+SUPABASE_FUNCTION_URL = "https://erbxiqdfjmqnoeyjupru.supabase.co/functions/v1/referral-finance-worker"

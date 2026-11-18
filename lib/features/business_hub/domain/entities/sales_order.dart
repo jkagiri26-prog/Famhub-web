@@ -13,7 +13,8 @@
 ///   entity_id, business_profile_id
 ///
 /// Status enum (backend CHECK):
-///   pending | confirmed | shipped | delivered | cancelled | returned
+///   pending | accepted | confirmed | shipped | delivered | rejected |
+///   cancelled | returned
 /// Payment status enum:
 ///   pending | completed | failed | refunded
 ///
@@ -45,8 +46,8 @@ class SalesOrder {
   /// Order total amount (no currency column exists on this table).
   final double totalAmount;
 
-  /// Raw status: pending | confirmed | shipped | delivered | cancelled |
-  /// returned.
+  /// Raw status: pending | accepted | confirmed | shipped | delivered |
+  /// rejected | cancelled | returned.
   final String status;
 
   /// Raw payment status: pending | completed | failed | refunded.
@@ -73,11 +74,16 @@ class SalesOrder {
     this.deliveryDate,
   });
 
-  /// Open / in-progress: pending, confirmed or shipped.
+  /// Open / in-progress: pending, accepted, confirmed or shipped.
   bool get isOpen =>
-      status == 'pending' || status == 'confirmed' || status == 'shipped';
+      status == 'pending' ||
+      status == 'accepted' ||
+      status == 'confirmed' ||
+      status == 'shipped';
 
   bool get isCompleted => status == 'delivered';
+
+  bool get isRejected => status == 'rejected';
 
   bool get isCancelled => status == 'cancelled';
 
@@ -86,8 +92,7 @@ class SalesOrder {
   bool get isPaid => paymentStatus == 'completed';
 
   /// Buyer fallback for display.
-  String get displayBuyer =>
-      (buyerName != null && buyerName!.trim().isNotEmpty)
-          ? buyerName!.trim()
-          : 'Buyer';
+  String get displayBuyer => (buyerName != null && buyerName!.trim().isNotEmpty)
+      ? buyerName!.trim()
+      : 'Buyer';
 }

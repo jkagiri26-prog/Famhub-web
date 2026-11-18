@@ -11,6 +11,8 @@ import 'package:famhub_app/shared/widgets/cards/info_tile_widget.dart';
 import 'package:famhub_app/core/session/session_provider.dart';
 import 'package:famhub_app/features/marketplace/presentation/widgets/listing_card_widget.dart';
 import 'package:famhub_app/features/marketplace/presentation/widgets/listing_status_badge.dart';
+import 'package:famhub_app/features/marketplace/presentation/widgets/buy_order_section.dart';
+import 'package:famhub_app/features/marketplace/presentation/widgets/contact_unlock_section.dart';
 import 'package:famhub_app/features/marketplace/presentation/widgets/marketplace_health_widget.dart';
 import 'package:famhub_app/features/marketplace/domain/entities/listing.dart';
 import 'package:famhub_app/features/marketplace/domain/enums/listing_status.dart';
@@ -21,10 +23,7 @@ import 'package:famhub_app/features/marketplace/presentation/pages/seller_profil
 class ProductDetailsPage extends ConsumerWidget {
   final String? listingId;
 
-  const ProductDetailsPage({
-    super.key,
-    this.listingId,
-  });
+  const ProductDetailsPage({super.key, this.listingId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -89,7 +88,8 @@ class _ProductDetailContent extends ConsumerWidget {
     };
 
     final availabilityText = switch (listing.status) {
-      ListingStatus.active => '${listing.availableQuantity.toStringAsFixed(0)} ${listing.unitName ?? ''} available',
+      ListingStatus.active =>
+        '${listing.availableQuantity.toStringAsFixed(0)} ${listing.unitName ?? ''} available',
       ListingStatus.soldOut => 'Sold Out',
       ListingStatus.draft => 'Draft',
       ListingStatus.paused => 'Paused',
@@ -121,8 +121,7 @@ class _ProductDetailContent extends ConsumerWidget {
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) =>
-                          ListingEditPage(listingId: listing.id),
+                      builder: (_) => ListingEditPage(listingId: listing.id),
                     ),
                   );
                 },
@@ -131,10 +130,9 @@ class _ProductDetailContent extends ConsumerWidget {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Theme.of(context).colorScheme.primary,
                   side: BorderSide(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primary
-                        .withValues(alpha: 0.4),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.4),
                   ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
@@ -218,7 +216,7 @@ class _ProductDetailContent extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(height: 2),
-                                            Text(
+                      Text(
                         'Reserved: ${listing.reservedQuantity.toStringAsFixed(0)}',
                         style: TextStyle(
                           fontSize: 12,
@@ -228,14 +226,18 @@ class _ProductDetailContent extends ConsumerWidget {
                     ],
                   ),
                 ),
-                                // ListingStatusBadge(status: listing.status),
+                // ListingStatusBadge(status: listing.status),
               ],
             ),
           ),
 
           const SizedBox(height: 16),
 
-                    // Seller Info Section
+          BuyOrderSection(listing: listing),
+
+          const SizedBox(height: 16),
+
+          // Seller Info Section
           if (listing.sellerName != null) ...[
             InfoTileWidget(
               label: listing.sellerName!,
@@ -243,7 +245,7 @@ class _ProductDetailContent extends ConsumerWidget {
                   ? 'Rating: ${listing.sellerRating}'
                   : 'Seller',
               icon: Icons.person,
-                            onTap: listing.entityId.isNotEmpty
+              onTap: listing.entityId.isNotEmpty
                   ? () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
@@ -259,7 +261,13 @@ class _ProductDetailContent extends ConsumerWidget {
             const SizedBox(height: 16),
           ],
 
-                    // AI Assistant Section (future)
+          if (ref.watch(isAuthenticatedProvider) &&
+              listing.contactVisibility == 'locked') ...[
+            ContactUnlockSection(listing: listing),
+            const SizedBox(height: 16),
+          ],
+
+          // AI Assistant Section (future)
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),

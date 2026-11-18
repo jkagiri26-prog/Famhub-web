@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,10 +7,12 @@ import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
 import '../../domain/entities/listing.dart';
 import '../../domain/entities/stock_item.dart';
 import '../../domain/enums/listing_status.dart';
+import '../../domain/models/contact_unlock_payment.dart';
 import '../../domain/models/listing_edit_changes.dart';
 import '../../domain/models/listing_edit_images_state.dart';
 import '../../domain/models/listing_image_file.dart';
 import '../../domain/models/listing_publication.dart';
+import '../../domain/models/marketplace_order.dart';
 import '../../domain/repositories/marketplace_repository.dart';
 import '../../infrastructure/data_sources/marketplace_remote_data_source.dart';
 import '../../infrastructure/repositories/marketplace_repository_impl.dart';
@@ -19,14 +22,13 @@ import '../../infrastructure/repositories/marketplace_repository_impl.dart';
 /// ============================================================
 final marketplaceRemoteDataSourceProvider =
     Provider<MarketplaceRemoteDataSource>((ref) {
-  return MarketplaceRemoteDataSource();
-});
+      return MarketplaceRemoteDataSource();
+    });
 
 /// ============================================================
 /// REPOSITORY LAYER
 /// ============================================================
-final marketplaceRepositoryProvider =
-    Provider<MarketplaceRepository>((ref) {
+final marketplaceRepositoryProvider = Provider<MarketplaceRepository>((ref) {
   final dataSource = ref.watch(marketplaceRemoteDataSourceProvider);
   return MarketplaceRepositoryImpl(dataSource);
 });
@@ -63,12 +65,11 @@ final marketplaceFeedMetaProvider = Provider<MarketplaceFeedMeta>((ref) {
 /// ============================================================
 final marketplaceProvider =
     AsyncNotifierProvider<MarketplaceController, List<Listing>>(
-  MarketplaceController.new,
-);
+      MarketplaceController.new,
+    );
 
 class MarketplaceController extends AsyncNotifier<List<Listing>> {
-  MarketplaceRepository get _repo =>
-      ref.read(marketplaceRepositoryProvider);
+  MarketplaceRepository get _repo => ref.read(marketplaceRepositoryProvider);
 
   @override
   Future<List<Listing>> build() async {
@@ -103,10 +104,7 @@ class MarketplaceController extends AsyncNotifier<List<Listing>> {
     ref.invalidateSelf();
   }
 
-  Future<void> updateListing(
-    String id,
-    Map<String, dynamic> payload,
-  ) async {
+  Future<void> updateListing(String id, Map<String, dynamic> payload) async {
     await _repo.updateListing(id, payload);
 
     ref.invalidateSelf();
@@ -277,6 +275,33 @@ class MarketplaceController extends AsyncNotifier<List<Listing>> {
 
     ref.invalidateSelf();
     ref.invalidate(listingDetailsProvider(listingId));
+  }
+
+  /// Create or reuse the contact-unlock Finance obligation and payment attempt.
+  ///
+  /// The backend validates listing eligibility, buyer authorization, pricing,
+  /// and idempotency. No client-side amount or entity is sent.
+  Future<ContactUnlockPayment> requestContactUnlockPayment({
+    required String listingId,
+    required String phone,
+    required String idempotencyKey,
+  }) async {
+    final payment = await _repo.requestContactUnlockPayment(
+      listingId: listingId,
+      phone: phone,
+      idempotencyKey: idempotencyKey,
+    );
+    ref.invalidate(contactUnlockStatusProvider(listingId));
+    return payment;
+  }
+
+  /// Read the active buyer's contact-unlock/payment status.
+  Future<ContactUnlockStatus?> fetchContactUnlockStatus(String listingId) {
+    return _repo.fetchContactUnlockStatus(listingId);
+  }
+
+  Future<SellerContact> fetchSellerContactForUnlock(String listingId) {
+    return _repo.fetchSellerContactForUnlock(listingId);
   }
 
   /// Update ONLY the editable listing metadata via the canonical
@@ -488,20 +513,150 @@ class MarketplaceController extends AsyncNotifier<List<Listing>> {
 /// ============================================================
 /// DETAIL PROVIDERS
 /// ============================================================
-final listingDetailsProvider =
-    FutureProvider.family<Listing?, String>((ref, id) async {
+final listingDetailsProvider = FutureProvider.family<Listing?, String>((
+  ref,
+  id,
+) async {
   final repo = ref.read(marketplaceRepositoryProvider);
   return repo.fetchListingById(id);
 });
 
-final sellerListingsProvider =
-    FutureProvider.family<List<Listing>, String>((ref, sellerId) async {
+/// Order creation state for the buyer action on a listing.
+sealed class BuyerOrderCreationState {
+  const BuyerOrderCreationState();
+}
+
+class BuyerOrderIdle extends BuyerOrderCreationState {
+  const BuyerOrderIdle();
+}
+
+class BuyerOrderLoading extends BuyerOrderCreationState {
+  const BuyerOrderLoading();
+}
+
+class BuyerOrderSuccess extends BuyerOrderCreationState {
+  final MarketplaceOrder order;
+  const BuyerOrderSuccess(this.order);
+}
+
+class BuyerOrderFailure extends BuyerOrderCreationState {
+  final String message;
+  const BuyerOrderFailure(this.message);
+}
+
+/// Owns the loading -> success/failure lifecycle of a buyer order attempt.
+class BuyerOrderController extends Notifier<BuyerOrderCreationState> {
+  String? _retryKey;
+
+  MarketplaceRepository get _repo => ref.read(marketplaceRepositoryProvider);
+
+  @override
+  BuyerOrderCreationState build() => const BuyerOrderIdle();
+
+  Future<void> placeOrder({
+    required String listingId,
+    required double quantity,
+  }) async {
+    if (state is BuyerOrderLoading) return;
+
+    final key = _retryKey ??= _newIdempotencyKey(listingId);
+    state = const BuyerOrderLoading();
+
+    try {
+      final order = await _repo.createListingOrder(
+        listingId: listingId,
+        quantity: quantity,
+        idempotencyKey: key,
+      );
+      _retryKey = null;
+      state = BuyerOrderSuccess(order);
+      ref.invalidate(buyerOrderDetailsProvider(order.id));
+    } catch (error) {
+      state = BuyerOrderFailure(_orderErrorMessage(error));
+    }
+  }
+
+  void reset() {
+    _retryKey = null;
+    state = const BuyerOrderIdle();
+  }
+
+  String _newIdempotencyKey(String listingId) {
+    final random = Random.secure();
+    final token =
+        '${random.nextInt(1 << 32).toRadixString(16)}'
+        '${random.nextInt(1 << 32).toRadixString(16)}';
+    return 'order:$listingId:$token';
+  }
+
+  String _orderErrorMessage(Object error) {
+    final text = error.toString().toLowerCase();
+    if (text.contains('authentication required') ||
+        text.contains('active buyer') ||
+        text.contains('42501')) {
+      return 'Sign in with an active buyer workspace to place this order.';
+    }
+    if (text.contains('own listing')) {
+      return 'You cannot order your own listing.';
+    }
+    if (text.contains('listing not found or inactive') ||
+        text.contains('listing stock is not active')) {
+      return 'This listing is no longer available.';
+    }
+    if (text.contains('seller is inactive') ||
+        text.contains('seller has no active verified business profile')) {
+      return 'The seller is not currently accepting orders.';
+    }
+    if (text.contains('insufficient available stock')) {
+      return 'There is not enough stock available for that quantity.';
+    }
+    if (text.contains('quantity must')) {
+      return 'Enter a valid quantity greater than zero.';
+    }
+    if (text.contains('idempotency key reused')) {
+      return 'This order attempt changed. Please try again.';
+    }
+    return 'The order could not be placed. Please try again.';
+  }
+}
+
+final buyerOrderControllerProvider =
+    NotifierProvider<BuyerOrderController, BuyerOrderCreationState>(
+      BuyerOrderController.new,
+    );
+
+/// Basic buyer order status read path. The backend/RLS limits the row to the
+/// authenticated buyer.
+final buyerOrderDetailsProvider =
+    FutureProvider.family<MarketplaceOrder?, String>((ref, orderId) async {
+      final repo = ref.read(marketplaceRepositoryProvider);
+      return repo.fetchBuyerOrder(orderId);
+    });
+
+/// Current contact-unlock/payment state for the active buyer and listing.
+final contactUnlockStatusProvider =
+    FutureProvider.family<ContactUnlockStatus?, String>((ref, listingId) async {
+      final repo = ref.read(marketplaceRepositoryProvider);
+      return repo.fetchContactUnlockStatus(listingId);
+    });
+
+/// Seller contact details, gated by the backend's completed/unexpired unlock
+/// check. Do not watch this provider unless the unlock status is confirmed.
+final sellerContactForUnlockProvider =
+    FutureProvider.family<SellerContact, String>((ref, listingId) async {
+      final repo = ref.read(marketplaceRepositoryProvider);
+      return repo.fetchSellerContactForUnlock(listingId);
+    });
+
+final sellerListingsProvider = FutureProvider.family<List<Listing>, String>((
+  ref,
+  sellerId,
+) async {
   final repo = ref.read(marketplaceRepositoryProvider);
   return repo.fetchListings(sellerId: sellerId);
 });
 
-final sellerStatsProvider =
-    FutureProvider.family<Map<String, dynamic>, String>(
+final sellerStatsProvider = FutureProvider.family<Map<String, dynamic>, String>(
   (ref, sellerId) async {
     final repo = ref.read(marketplaceRepositoryProvider);
     return repo.getSellerStats(sellerId);
@@ -516,8 +671,7 @@ final sellerStatsProvider =
 ///
 /// Reads `commerce.stock_registry` (RLS-scoped, available quantity > 0).
 /// Powers the Marketplace → Add Listing stock-selection screen.
-final eligibleStockProvider =
-    FutureProvider<List<StockItem>>((ref) async {
+final eligibleStockProvider = FutureProvider<List<StockItem>>((ref) async {
   // Scope to the ACTIVE entity context so a workspace switch cannot leak
   // another entity's stock (e.g. Farmer stock in the Trader workspace).
   final entityId = ref.watch(contextProvider.select((c) => c.entityId));
@@ -529,8 +683,10 @@ final eligibleStockProvider =
 ///
 /// Used by the publish form to display product/variant, available
 /// quantity, unit and location without letting the client edit them.
-final stockItemDetailsProvider =
-    FutureProvider.family<StockItem?, String>((ref, stockId) async {
+final stockItemDetailsProvider = FutureProvider.family<StockItem?, String>((
+  ref,
+  stockId,
+) async {
   final repo = ref.read(marketplaceRepositoryProvider);
   return repo.fetchStockById(stockId);
 });
@@ -545,8 +701,10 @@ final stockItemDetailsProvider =
 /// Listing.images holds `media.files` IDs — never URLs. This provider is the
 /// presentation/runtime representation of those references. Signed URLs expire
 /// and must never be persisted; invalidate the provider to refresh them.
-final listingImageUrlsProvider =
-    FutureProvider.family<List<String>, String>((ref, listingId) async {
+final listingImageUrlsProvider = FutureProvider.family<List<String>, String>((
+  ref,
+  listingId,
+) async {
   final repo = ref.read(marketplaceRepositoryProvider);
   return repo.fetchListingImageUrls(listingId);
 });
@@ -557,11 +715,13 @@ final listingImageUrlsProvider =
 /// The file ids power per-photo deletion through `delete_media`; the signed
 /// URLs are display-only and expire. Used by the listing image editor.
 final listingMediaFilesProvider =
-    FutureProvider.family<List<ListingImageFile>, String>(
-        (ref, listingId) async {
-  final repo = ref.read(marketplaceRepositoryProvider);
-  return repo.fetchListingImageFiles(listingId);
-});
+    FutureProvider.family<List<ListingImageFile>, String>((
+      ref,
+      listingId,
+    ) async {
+      final repo = ref.read(marketplaceRepositoryProvider);
+      return repo.fetchListingImageFiles(listingId);
+    });
 
 /// ============================================================
 /// LOCATION SEARCH (STANDALONE LISTING PICKER)
@@ -571,8 +731,11 @@ final listingMediaFilesProvider =
 /// picker fallback (used only when the active context has no location).
 ///
 /// Read-only: never creates a location and never invents an id.
-final locationSearchProvider = FutureProvider.family<
-    List<({String id, String name})>, String>((ref, query) async {
-  final repo = ref.read(marketplaceRepositoryProvider);
-  return repo.searchLocations(query);
-});
+final locationSearchProvider =
+    FutureProvider.family<List<({String id, String name})>, String>((
+      ref,
+      query,
+    ) async {
+      final repo = ref.read(marketplaceRepositoryProvider);
+      return repo.searchLocations(query);
+    });

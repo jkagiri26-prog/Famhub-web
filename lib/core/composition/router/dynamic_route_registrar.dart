@@ -63,6 +63,7 @@ import 'package:famhub_app/features/business_hub/presentation/pages/trader_works
 import 'package:famhub_app/features/search/presentation/pages/global_search_page.dart';
 import 'package:famhub_app/features/notifications/presentation/pages/notification_center_page.dart';
 import 'package:famhub_app/features/settings/presentation/pages/runtime_settings_page.dart';
+import 'package:famhub_app/features/subscription_billing/presentation/pages/subscription_centre_page.dart';
 import 'package:famhub_app/features/reports/presentation/pages/reports_center_page.dart';
 import 'package:famhub_app/features/farm_management/presentation/pages/farmer_advisor_page.dart';
 import 'package:famhub_app/features/weather/presentation/pages/weather_page.dart';
@@ -318,6 +319,11 @@ class DynamicRouteRegistrar {
             path: AppRoutes.guest,
             name: AppRoutes.guestName,
             builder: (context, state) => const FamhubHomePage(),
+          ),
+          GoRoute(
+            path: AppRoutes.subscription,
+            name: AppRoutes.subscriptionName,
+            builder: (context, state) => const SubscriptionCentrePage(),
           ),
           GoRoute(
             path: AppRoutes.settings,

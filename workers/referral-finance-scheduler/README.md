@@ -89,8 +89,8 @@ HTTP 401, HTTP 500, timeouts, network failures, malformed JSON, and contract fai
 From this directory:
 
 ```sh
-deno check src/index.ts test/scheduler.test.ts
-deno test test/scheduler.test.ts
+deno check src/index.ts test/scheduler.test.ts test/configs.test.ts
+deno test --allow-read test/scheduler.test.ts test/configs.test.ts
 ```
 
 The tests use a mocked `fetch()` and a fake non-production secret. They never contact Supabase and never require a real secret.
@@ -129,6 +129,37 @@ Deployment is not authorized by this repository task. When separately approved:
 6. Deploy and monitor Cron Events and Workers Logs.
 
 Production must use a separate Worker, separate URL, and a separate production-only secret. Never reuse the staging secret in production.
+
+The production configuration is isolated in:
+
+```text
+wrangler.production.toml
+```
+
+It targets:
+
+```text
+referral-finance-scheduler-production
+https://erbxiqdfjmqnoeyjupru.supabase.co/functions/v1/referral-finance-worker
+```
+
+with:
+
+```toml
+[triggers]
+crons = ["*/5 * * * *"]
+```
+
+Deploy only after separate approval:
+
+```sh
+npx wrangler secret put REFERRAL_WORKER_SECRET --config wrangler.production.toml
+npx wrangler deploy --config wrangler.production.toml
+```
+
+The secret is supplied only through Cloudflare Worker secrets and must never be
+added to either TOML file. Configuration tests verify that staging and
+production cannot silently target each other's Supabase project.
 
 ## Enable or disable the Cron Trigger
 

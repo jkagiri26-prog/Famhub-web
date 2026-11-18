@@ -345,6 +345,26 @@ class DemoBusinessHubRepository implements BusinessHubRepository {
       ),
     ];
   }
+
+  @override
+  Future<void> acceptSalesOrder(String orderId) async {
+    throw UnsupportedError('Order actions are unavailable in demo mode');
+  }
+
+  @override
+  Future<void> rejectSalesOrder(String orderId, {String? reason}) async {
+    throw UnsupportedError('Order actions are unavailable in demo mode');
+  }
+
+  @override
+  Future<void> confirmSalesOrderFulfilment(String orderId) async {
+    throw UnsupportedError('Order actions are unavailable in demo mode');
+  }
+
+  @override
+  Future<void> shipSalesOrder(String orderId, {String? reason}) async {
+    throw UnsupportedError('Order actions are unavailable in demo mode');
+  }
 }
 
 DateTime _demoTime(int year, int month, int day) => DateTime(year, month, day);

@@ -29,6 +29,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Remote data source for Business Hub reads.
 class BusinessHubRemoteDataSource {
+  static const String acceptOrderRpc = 'accept_listing_order';
+  static const String rejectOrderRpc = 'reject_listing_order';
+  static const String confirmFulfilmentRpc = 'confirm_order_fulfilment';
+  static const String shipOrderRpc = 'ship_listing_order';
+
   final SupabaseClient _client;
 
   BusinessHubRemoteDataSource({SupabaseClient? client})
@@ -432,6 +437,59 @@ class BusinessHubRemoteDataSource {
     }
   }
 
+  /// Seller accepts a pending order. No seller identity or financial values
+  /// are sent; the backend resolves the active seller entity.
+  Future<void> acceptOrder(String orderId) async {
+    try {
+      await _client
+          .schema('commerce')
+          .rpc(acceptOrderRpc, params: {'p_order_id': orderId});
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to accept order: ${e.message}');
+    }
+  }
+
+  /// Seller rejects a pending order. The backend releases the reservation.
+  Future<void> rejectOrder(String orderId, {String? reason}) async {
+    try {
+      await _client
+          .schema('commerce')
+          .rpc(
+            rejectOrderRpc,
+            params: {'p_order_id': orderId, 'p_reason': reason},
+          );
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to reject order: ${e.message}');
+    }
+  }
+
+  /// Seller confirms fulfilment of an accepted order. The backend derives the
+  /// seller and uses the existing canonical stock movement trigger.
+  Future<void> confirmFulfilment(String orderId) async {
+    try {
+      await _client
+          .schema('commerce')
+          .rpc(confirmFulfilmentRpc, params: {'p_order_id': orderId});
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to confirm fulfilment: ${e.message}');
+    }
+  }
+
+  /// Seller marks a confirmed order shipped. No stock or payment mutation.
+  Future<void> shipOrder(String orderId, {String? reason}) async {
+    try {
+      await _client
+          .schema('commerce')
+          .rpc(
+            shipOrderRpc,
+            params: {'p_order_id': orderId, 'p_reason': reason},
+          );
+    } on PostgrestException catch (e) {
+      throw Exception('Failed to ship order: ${e.message}');
+    }
+  }
+
+  /// Fetch `commerce.order_items` rows for the given order ids (linked
   /// Fetch `commerce.order_items` rows for the given order ids (linked
   /// via the verified `order_id` FK).
   Future<List<Map<String, dynamic>>> fetchOrderItemsByOrderIds(
