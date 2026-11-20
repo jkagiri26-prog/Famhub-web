@@ -17,7 +17,7 @@
 /// ============================================================
 library famhub_app.features.auth.presentation.pages.splash_screen_page;
 
-import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -51,15 +51,11 @@ class SplashScreenPage extends ConsumerStatefulWidget {
 class _SplashScreenPageState extends ConsumerState<SplashScreenPage>
     with SingleTickerProviderStateMixin {
   late final AnimationController _logoController;
-  late final AnimationController _leafController;
   late final AnimationController _progressController;
 
   late final Animation<double> _logoFadeIn;
   late final Animation<double> _logoScale;
   late final Animation<double> _logoPulse;
-
-  late final Animation<double> _leafRotation;
-  late final Animation<double> _leafGrowth;
 
   late final Animation<double> _taglineFadeIn;
   late final Animation<double> _stepsFadeIn;
@@ -98,26 +94,6 @@ class _SplashScreenPageState extends ConsumerState<SplashScreenPage>
       ),
     );
 
-    // ── Leaf Animation Controller (rotating leaf) ──
-    _leafController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 3000),
-    );
-
-    _leafRotation = Tween<double>(begin: 0.0, end: 2 * math.pi).animate(
-      CurvedAnimation(
-        parent: _leafController,
-        curve: Curves.easeInOut,
-      ),
-    );
-
-    _leafGrowth = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _leafController,
-        curve: const Interval(0.0, 0.6, curve: Curves.easeOutBack),
-      ),
-    );
-
     // ── Tagline Animation ──
     _taglineFadeIn = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
@@ -142,7 +118,6 @@ class _SplashScreenPageState extends ConsumerState<SplashScreenPage>
 
     // Start animations
     _logoController.forward();
-    _leafController.repeat();
     _simulateProgress();
   }
 
@@ -164,7 +139,6 @@ class _SplashScreenPageState extends ConsumerState<SplashScreenPage>
   @override
   void dispose() {
     _logoController.dispose();
-    _leafController.dispose();
     _progressController.dispose();
     super.dispose();
   }
@@ -212,67 +186,17 @@ class _SplashScreenPageState extends ConsumerState<SplashScreenPage>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // ── Logo with Leaf Animation ──
-                    SizedBox(
-                      width: 120,
-                      height: 120,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          // Background circle
-                          Container(
-                            width: 110,
-                            height: 110,
-                            decoration: BoxDecoration(
-                              color: colorScheme.primary.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(28),
-                            ),
-                          ),
-
-                          // Rotating leaf
-                          _SplashAnimatedBuilder(
-                            listenable: _leafController,
-                            builder: (context, child) {
-                              return Transform.rotate(
-                                angle: _leafRotation.value,
-                                child: Opacity(
-                                  opacity: _leafGrowth.value,
-                                  child: Transform.scale(
-                                    scale: 0.3 + (_leafGrowth.value * 0.7),
-                                    child: Icon(
-                                      Icons.eco_rounded,
-                                      size: 40,
-                                      color: colorScheme.primary.withValues(alpha: 0.3),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-
-                          // Main icon
-                          Icon(
-                            Icons.agriculture_rounded,
-                            size: 48,
-                            color: colorScheme.primary,
-                          ),
-                        ],
+                    // ── Brand Logo ──
+                    ClipOval(
+                      child: Image.asset(
+                        'assets/images/vunio_logo.png',
+                        width: 150,
+                        height: 150,
+                        fit: BoxFit.cover,
                       ),
                     ),
 
                     const SizedBox(height: 24),
-
-                    // ── Brand Name ──
-                    Text(
-                      'Vunio',
-                      style: theme.textTheme.headlineLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: colorScheme.primary,
-                        letterSpacing: 0.4,
-                      ),
-                    ),
-
-                    const SizedBox(height: 8),
 
                     // ── Tagline ──
                     Opacity(

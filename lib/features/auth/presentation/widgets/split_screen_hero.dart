@@ -484,39 +484,15 @@ class _SplitScreenHeroState extends State<SplitScreenHero> {
 
   /// ── Vunio Logo ──
   Widget _buildLogo({double logoSize = 36}) {
-    // Derive child sizes proportionally
-    final iconContainer = logoSize;
-    final iconSize = logoSize * 0.55;
-    final fontSize = logoSize * 0.5;
-    final spacing = logoSize * 0.28;
+    final logoSide = logoSize * 2.2;
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: iconContainer,
-          height: iconContainer,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(
-            Icons.agriculture_rounded,
-            size: iconSize,
-            color: Colors.white.withValues(alpha: 0.9),
-          ),
-        ),
-        SizedBox(width: spacing),
-        Text(
-          'Vunio',
-          style: TextStyle(
-            fontSize: fontSize,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-            letterSpacing: 0.4,
-          ),
-        ),
-      ],
+    return ClipOval(
+      child: Image.asset(
+        'assets/images/vunio_logo.png',
+        width: logoSide,
+        height: logoSide,
+        fit: BoxFit.cover,
+      ),
     );
   }
 }
