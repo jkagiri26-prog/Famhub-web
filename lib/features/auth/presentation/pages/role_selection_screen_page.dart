@@ -169,6 +169,7 @@ class _RoleSelectionScreenPageState extends State<RoleSelectionScreenPage> {
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
+        foregroundColor: colorScheme.onSurface,
         elevation: 0,
         title: Text(
           'Your Role',

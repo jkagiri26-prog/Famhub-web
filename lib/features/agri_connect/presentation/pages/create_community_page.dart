@@ -90,8 +90,6 @@ class _CreateCommunityPageState extends ConsumerState<CreateCommunityPage> {
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         title: const Text('Create Community'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
         elevation: 0,
       ),
       body: SingleChildScrollView(

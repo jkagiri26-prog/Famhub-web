@@ -283,18 +283,18 @@ class ShellBottomNav extends ConsumerWidget {
                   item.badgeText ?? '${item.unreadCount}',
                   style: const TextStyle(fontSize: 9, color: Colors.white),
                 ),
-                child: Icon(item.icon, color: palette.secondaryText),
+                child: Icon(item.icon, color: palette.onChromeMuted),
               )
-            : Icon(item.icon, color: palette.secondaryText),
+            : Icon(item.icon, color: palette.onChromeMuted),
         selectedIcon: item.hasBadge
             ? Badge(
                 label: Text(
                   item.badgeText ?? '${item.unreadCount}',
                   style: const TextStyle(fontSize: 9, color: Colors.white),
                 ),
-                child: Icon(item.icon, color: palette.navigationSelectedText),
+                child: Icon(item.icon, color: palette.onChrome),
               )
-            : Icon(item.icon, color: palette.navigationSelectedText),
+            : Icon(item.icon, color: palette.onChrome),
         label: item.maintenanceMode
             ? '${_bottomNavLabel(item)}*'
             : _bottomNavLabel(item),
@@ -304,9 +304,9 @@ class ShellBottomNav extends ConsumerWidget {
     if (showMoreButton) {
       destinations.add(
         NavigationDestination(
-          icon: Icon(Icons.grid_view_rounded, color: palette.secondaryText),
+          icon: Icon(Icons.grid_view_rounded, color: palette.onChromeMuted),
           selectedIcon: Icon(Icons.grid_view_rounded,
-              color: palette.navigationSelectedText),
+              color: palette.onChrome),
           label: 'More',
         ),
       );
@@ -324,8 +324,8 @@ class ShellBottomNav extends ConsumerWidget {
           _onNavigate(context, items[index]);
         }
       },
-      backgroundColor: palette.surface,
-      indicatorColor: palette.navigationSelectedBg,
+      backgroundColor: palette.chromeBackground,
+      indicatorColor: palette.chromeNavSelectedBg,
       height: 64,
       labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       destinations: destinations,

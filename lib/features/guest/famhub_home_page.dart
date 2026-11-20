@@ -1620,7 +1620,6 @@ class FamhubHomePage extends ConsumerWidget {
         builder: (_) => Scaffold(
           appBar: AppBar(
             title: Text(title),
-            backgroundColor: Colors.transparent,
             elevation: 0,
           ),
           body: page,

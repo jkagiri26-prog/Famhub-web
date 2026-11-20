@@ -41,6 +41,20 @@ class FamhubBrandTokens {
   /// Primary brand green — deep natural agriculture green.
   static const Color green = Color(0xFF256D3A);
 
+  /// App bar and bottom-navigation chrome.
+  static const Color chrome = Color(0xFF256D3A);
+  static const Color chromeSelected = Color(0xFF3E9155);
+  static const Color onChrome = Color(0xFFFFFFFF);
+  static const Color onChromeMuted = Color(0xFFC9DBCE);
+  static const Color chromeBorder = Color(0xFF1B5229);
+
+  /// Dark-mode chrome.
+  static const Color chromeDark = Color(0xFF1B5229);
+  static const Color chromeSelectedDark = Color(0xFF2F7F46);
+  static const Color onChromeDark = Color(0xFFFFFFFF);
+  static const Color onChromeMutedDark = Color(0xFFA9C4B0);
+  static const Color chromeBorderDark = Color(0xFF12301B);
+
   /// Supporting fresh green for subtle green details.
   static const Color freshGreen = Color(0xFF4CAF50);
 
@@ -107,6 +121,11 @@ final shellThemeProvider = Provider<ShellTheme>((ref) {
     navigationHover: FamhubBrandTokens.greenHover,
     navigationSelectedBg: FamhubBrandTokens.green.withValues(alpha: 0.08),
     navigationSelectedText: FamhubBrandTokens.green,
+    chromeBackground: FamhubBrandTokens.chrome,
+    onChrome: FamhubBrandTokens.onChrome,
+    onChromeMuted: FamhubBrandTokens.onChromeMuted,
+    chromeBorder: FamhubBrandTokens.chromeBorder,
+    chromeNavSelectedBg: FamhubBrandTokens.chromeSelected,
     statusBarBg: FamhubBrandTokens.greenBackground,
     statusBarText: FamhubBrandTokens.statusTextLight,
   );
@@ -127,6 +146,11 @@ final shellThemeProvider = Provider<ShellTheme>((ref) {
     navigationHover: FamhubBrandTokens.greenSurfaceVariantDark,
     navigationSelectedBg: FamhubBrandTokens.greenDark.withValues(alpha: 0.12),
     navigationSelectedText: FamhubBrandTokens.greenDark,
+    chromeBackground: FamhubBrandTokens.chromeDark,
+    onChrome: FamhubBrandTokens.onChromeDark,
+    onChromeMuted: FamhubBrandTokens.onChromeMutedDark,
+    chromeBorder: FamhubBrandTokens.chromeBorderDark,
+    chromeNavSelectedBg: FamhubBrandTokens.chromeSelectedDark,
     statusBarBg: FamhubBrandTokens.greenBackgroundDark,
     statusBarText: FamhubBrandTokens.statusTextDark,
   );

@@ -28,8 +28,6 @@ class ConversationPage extends ConsumerWidget {
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         title: Text(conversationAsync.value?.title ?? 'Chat'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
         elevation: 0,
       ),
       body: ConversationView(conversationId: conversationId),

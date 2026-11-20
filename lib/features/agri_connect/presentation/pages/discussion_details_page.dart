@@ -266,8 +266,6 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         title: Text(discussionAsync.value?.title ?? 'Discussion'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
         elevation: 0,
         actions: [
           IconButton(

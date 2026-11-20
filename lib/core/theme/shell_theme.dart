@@ -109,6 +109,11 @@ class ShellTheme {
     navigationHover: Color(0xFFF3F4F6),
     navigationSelectedBg: Color(0x0D6366F1),
     navigationSelectedText: Color(0xFF6366F1),
+    chromeBackground: Color(0xFFFFFFFF),
+    onChrome: Color(0xFF111827),
+    onChromeMuted: Color(0xFF6B7280),
+    chromeBorder: Color(0xFFE5E7EB),
+    chromeNavSelectedBg: Color(0x0D6366F1),
     statusBarBg: Color(0xFFF8FAFC),
     statusBarText: Color(0xFF6B7280),
   );
@@ -154,6 +159,11 @@ class ShellTheme {
     navigationHover: Color(0xFF334155),
     navigationSelectedBg: Color(0x14818CF8),
     navigationSelectedText: Color(0xFF818CF8),
+    chromeBackground: Color(0xFF1E293B),
+    onChrome: Color(0xFFF8FAFC),
+    onChromeMuted: Color(0xFFCBD5E1),
+    chromeBorder: Color(0xFF334155),
+    chromeNavSelectedBg: Color(0x14818CF8),
     statusBarBg: Color(0xFF0F172A),
     statusBarText: Color(0xFF94A3B8),
   );
@@ -265,8 +275,8 @@ class ShellTheme {
       colorScheme: colorScheme,
       scaffoldBackgroundColor: palette.background,
       appBarTheme: AppBarTheme(
-        backgroundColor: palette.surface,
-        foregroundColor: palette.primaryText,
+        backgroundColor: palette.chromeBackground,
+        foregroundColor: palette.onChrome,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0.5,
@@ -282,25 +292,25 @@ class ShellTheme {
           systemNavigationBarDividerColor: palette.background,
         ),
         titleTextStyle: TextStyle(
-          color: palette.primaryText,
+          color: palette.onChrome,
           fontSize: 16,
           fontWeight: FontWeight.w600,
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: palette.surface,
-        indicatorColor: palette.navigationSelectedBg,
+        backgroundColor: palette.chromeBackground,
+        indicatorColor: palette.chromeNavSelectedBg,
         surfaceTintColor: Colors.transparent,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return TextStyle(
-              color: palette.navigationSelectedText,
+              color: palette.onChrome,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             );
           }
           return TextStyle(
-            color: palette.secondaryText,
+            color: palette.onChromeMuted,
             fontSize: 12,
             fontWeight: FontWeight.w500,
           );
@@ -308,12 +318,12 @@ class ShellTheme {
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return IconThemeData(
-              color: palette.navigationSelectedText,
+              color: palette.onChrome,
               size: 22,
             );
           }
           return IconThemeData(
-            color: palette.secondaryText,
+            color: palette.onChromeMuted,
             size: 22,
           );
         }),
@@ -475,6 +485,13 @@ class ShellColorPalette {
   final Color navigationSelectedBg;
   final Color navigationSelectedText;
 
+  // ── Chrome (app bar + bottom navigation) ──
+  final Color chromeBackground;
+  final Color onChrome;
+  final Color onChromeMuted;
+  final Color chromeBorder;
+  final Color chromeNavSelectedBg;
+
   // ── Status bar ──
   final Color statusBarBg;
   final Color statusBarText;
@@ -508,6 +525,11 @@ class ShellColorPalette {
     required this.navigationHover,
     required this.navigationSelectedBg,
     required this.navigationSelectedText,
+    required this.chromeBackground,
+    required this.onChrome,
+    required this.onChromeMuted,
+    required this.chromeBorder,
+    required this.chromeNavSelectedBg,
     required this.statusBarBg,
     required this.statusBarText,
   });
@@ -541,6 +563,11 @@ class ShellColorPalette {
     Color? navigationHover,
     Color? navigationSelectedBg,
     Color? navigationSelectedText,
+    Color? chromeBackground,
+    Color? onChrome,
+    Color? onChromeMuted,
+    Color? chromeBorder,
+    Color? chromeNavSelectedBg,
     Color? statusBarBg,
     Color? statusBarText,
   }) {
@@ -574,6 +601,11 @@ class ShellColorPalette {
       navigationSelectedBg: navigationSelectedBg ?? this.navigationSelectedBg,
       navigationSelectedText:
           navigationSelectedText ?? this.navigationSelectedText,
+      chromeBackground: chromeBackground ?? this.chromeBackground,
+      onChrome: onChrome ?? this.onChrome,
+      onChromeMuted: onChromeMuted ?? this.onChromeMuted,
+      chromeBorder: chromeBorder ?? this.chromeBorder,
+      chromeNavSelectedBg: chromeNavSelectedBg ?? this.chromeNavSelectedBg,
       statusBarBg: statusBarBg ?? this.statusBarBg,
       statusBarText: statusBarText ?? this.statusBarText,
     );
@@ -672,6 +704,11 @@ class ShellThemeColors extends ThemeExtension<ShellThemeColors> {
   Color get navigationHover => palette.navigationHover;
   Color get navigationSelectedBg => palette.navigationSelectedBg;
   Color get navigationSelectedText => palette.navigationSelectedText;
+  Color get chromeBackground => palette.chromeBackground;
+  Color get onChrome => palette.onChrome;
+  Color get onChromeMuted => palette.onChromeMuted;
+  Color get chromeBorder => palette.chromeBorder;
+  Color get chromeNavSelectedBg => palette.chromeNavSelectedBg;
   Color get statusBarBg => palette.statusBarBg;
   Color get statusBarText => palette.statusBarText;
 }

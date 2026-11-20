@@ -71,9 +71,9 @@ class ShellAppBar extends ConsumerWidget {
     return Container(
       height: config.height,
       decoration: BoxDecoration(
-        color: palette.surface,
+        color: palette.chromeBackground,
         border: Border(
-          bottom: BorderSide(color: palette.border),
+          bottom: BorderSide(color: palette.chromeBorder),
         ),
       ),
       child: LayoutBuilder(
@@ -82,7 +82,7 @@ class ShellAppBar extends ConsumerWidget {
               constraints.maxWidth < ResponsiveBreakpoints.mobile;
 
           final leftChildren = <Widget>[
-            if (kIsWeb && isNarrow) _buildDiagnosticButton(context),
+            if (kIsWeb && isNarrow) _buildDiagnosticButton(context, palette),
 
             // ── Left: Workspace switcher (global) ──
             if (config.showContextSelector)
@@ -104,7 +104,7 @@ class ShellAppBar extends ConsumerWidget {
           final rightChildren = <Widget>[
             // ── Right: Actions ──
 
-            if (kIsWeb && !isNarrow) _buildDiagnosticButton(context),
+            if (kIsWeb && !isNarrow) _buildDiagnosticButton(context, palette),
 
             // Custom actions
             ...config.customActions.map((action) => _buildCustomAction(action, palette)),
@@ -130,7 +130,7 @@ class ShellAppBar extends ConsumerWidget {
                 icon: Icons.auto_awesome_rounded,
                 tooltip: 'AI Assistant',
                 palette: palette,
-                color: palette.info,
+                color: palette.accent,
                 onPressed: () => AssistantLauncherRegistry.open(context, ref),
               ),
 
@@ -175,7 +175,7 @@ class ShellAppBar extends ConsumerWidget {
               Container(
                 width: 1,
                 height: 32,
-                color: palette.divider,
+                color: palette.chromeBorder,
               ),
 
             if (config.showProfile) const SizedBox(width: 12),
@@ -215,7 +215,7 @@ class ShellAppBar extends ConsumerWidget {
   Widget _buildCustomAction(ShellAction action, ShellColorPalette palette) {
     Widget iconWidget = Icon(
       action.icon,
-      color: action.color ?? palette.secondaryText,
+      color: action.color ?? palette.onChromeMuted,
       size: 22,
     );
 
@@ -237,10 +237,17 @@ class ShellAppBar extends ConsumerWidget {
     );
   }
 
-  Widget _buildDiagnosticButton(BuildContext context) => IconButton(
+  Widget _buildDiagnosticButton(
+    BuildContext context,
+    ShellColorPalette palette,
+  ) =>
+      IconButton(
         tooltip: 'Open temporary diagnostics',
         onPressed: () => DashboardDiagnosticLog.open(context),
-        icon: const Icon(Icons.bug_report_outlined),
+        icon: Icon(
+          Icons.bug_report_outlined,
+          color: palette.onChromeMuted,
+        ),
       );
 }
 
@@ -319,13 +326,13 @@ class _ContextSelector extends ConsumerWidget {
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: palette.primary.withValues(alpha: 0.1),
+                color: palette.onChrome.withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Icon(
                 Icons.workspaces_outline,
                 size: 16,
-                color: palette.primary,
+                color: palette.onChrome,
               ),
             ),
             const SizedBox(width: 8),
@@ -338,7 +345,7 @@ class _ContextSelector extends ConsumerWidget {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: palette.primaryText,
+                    color: palette.onChrome,
                   ),
                 ),
                 Text(
@@ -347,7 +354,7 @@ class _ContextSelector extends ConsumerWidget {
                       : 'Workspace',
                   style: TextStyle(
                     fontSize: 10,
-                    color: palette.secondaryText,
+                    color: palette.onChromeMuted,
                   ),
                 ),
               ],
@@ -356,7 +363,7 @@ class _ContextSelector extends ConsumerWidget {
             Icon(
               Icons.arrow_drop_down,
               size: 18,
-              color: palette.secondaryText,
+              color: palette.onChromeMuted,
             ),
           ],
         ),
@@ -1084,12 +1091,10 @@ class _ModuleStatusIndicator extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: hasMaintenance ? palette.warningBg : palette.successBg,
+        color: palette.onChrome.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: hasMaintenance
-              ? palette.warning.withValues(alpha: 0.3)
-              : palette.success.withValues(alpha: 0.3),
+          color: palette.onChrome.withValues(alpha: 0.24),
         ),
       ),
       child: Row(
@@ -1100,7 +1105,7 @@ class _ModuleStatusIndicator extends StatelessWidget {
                 ? Icons.engineering_outlined
                 : Icons.check_circle_outline,
             size: 14,
-            color: hasMaintenance ? palette.warning : palette.success,
+            color: hasMaintenance ? palette.accent : palette.onChrome,
           ),
           const SizedBox(width: 6),
           Text(
@@ -1108,7 +1113,7 @@ class _ModuleStatusIndicator extends StatelessWidget {
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w500,
-              color: hasMaintenance ? palette.warning : palette.success,
+              color: palette.onChrome,
             ),
           ),
           if (hasMaintenance) ...[
@@ -1117,7 +1122,7 @@ class _ModuleStatusIndicator extends StatelessWidget {
               width: 6,
               height: 6,
               decoration: BoxDecoration(
-                color: palette.warning,
+                color: palette.accent,
                 shape: BoxShape.circle,
               ),
             ),
@@ -1150,7 +1155,7 @@ class _AppBarButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveColor = color ?? palette.secondaryText;
+    final effectiveColor = color ?? palette.onChromeMuted;
 
     Widget iconWidget = Icon(icon, color: effectiveColor, size: 22);
 
@@ -1332,7 +1337,7 @@ class _ProfileWidget extends ConsumerWidget {
         width: 32,
         height: 32,
         decoration: BoxDecoration(
-          color: palette.primary.withValues(alpha: 0.1),
+          color: palette.onChrome.withValues(alpha: 0.16),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Center(
@@ -1341,7 +1346,7 @@ class _ProfileWidget extends ConsumerWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: palette.primary,
+              color: palette.onChrome,
             ),
           ),
         ),

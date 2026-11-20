@@ -66,8 +66,6 @@ class _CommunityMembersPageState extends ConsumerState<CommunityMembersPage> {
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         title: const Text('Members'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
         elevation: 0,
       ),
       body: content,

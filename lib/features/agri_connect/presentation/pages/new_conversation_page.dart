@@ -70,8 +70,6 @@ class _NewConversationPageState extends ConsumerState<NewConversationPage> {
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         title: const Text('New Conversation'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
         elevation: 0,
       ),
       body: ListView(

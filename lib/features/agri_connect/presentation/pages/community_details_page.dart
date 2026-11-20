@@ -47,8 +47,6 @@ class CommunityDetailsPage extends ConsumerWidget {
         backgroundColor: const Color(0xFFF8F9FA),
         appBar: AppBar(
           title: Text(communityAsync.value?.name ?? 'Community'),
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black87,
           elevation: 0,
           bottom: TabBar(
             labelColor: Theme.of(context).colorScheme.primary,
