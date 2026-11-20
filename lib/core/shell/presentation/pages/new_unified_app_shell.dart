@@ -52,6 +52,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../navigation/resize_optimizer.dart';
@@ -108,7 +109,10 @@ class UnifiedAppShellV2 extends ConsumerWidget {
     // SYSTEM DOWN GATE (GLOBAL BLOCKER)
     // ============================================================
     if (systemState.isSystemDown) {
-      return const ShellSystemDown();
+      return AnnotatedRegion<SystemUiOverlayStyle>(
+        value: palette.systemOverlayStyle,
+        child: const ShellSystemDown(),
+      );
     }
 
     // ============================================================
@@ -118,11 +122,14 @@ class UnifiedAppShellV2 extends ConsumerWidget {
     // LayoutBuilder does NOT run inside ConsumerWidget's build method.
     // This prevents unnecessary rebuilds when providers emit new values
     // but breakpoint/config remain unchanged.
-    return _ShellLayoutBuilder(
-      config: config,
-      palette: palette,
-      systemState: systemState,
-      child: child,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: palette.systemOverlayStyle,
+      child: _ShellLayoutBuilder(
+        config: config,
+        palette: palette,
+        systemState: systemState,
+        child: child,
+      ),
     );
   }
 }

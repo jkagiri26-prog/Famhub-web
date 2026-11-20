@@ -48,7 +48,6 @@ class ListingEditPage extends ConsumerWidget {
     final listingAsync = ref.watch(listingDetailsProvider(listingId));
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
       body: ResponsiveWrapper(
         child: listingAsync.when(
           loading: () =>

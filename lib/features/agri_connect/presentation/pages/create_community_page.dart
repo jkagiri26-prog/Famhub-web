@@ -87,7 +87,6 @@ class _CreateCommunityPageState extends ConsumerState<CreateCommunityPage> {
     final primary = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         title: const Text('Create Community'),
         elevation: 0,

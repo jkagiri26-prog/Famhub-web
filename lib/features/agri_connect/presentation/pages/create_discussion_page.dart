@@ -207,7 +207,6 @@ class _CreateDiscussionPageState extends ConsumerState<CreateDiscussionPage> {
     final primary = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         title: const Text('New Discussion'),
         elevation: 0,

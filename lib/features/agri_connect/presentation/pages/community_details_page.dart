@@ -44,7 +44,6 @@ class CommunityDetailsPage extends ConsumerWidget {
     return DefaultTabController(
       length: 4,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8F9FA),
         appBar: AppBar(
           title: Text(communityAsync.value?.name ?? 'Community'),
           elevation: 0,

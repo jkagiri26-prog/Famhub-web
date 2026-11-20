@@ -31,7 +31,7 @@ class ResponsiveWrapper extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      color: backgroundColor ?? const Color(0xFFF8F9FA),
+      color: backgroundColor ?? Theme.of(context).scaffoldBackgroundColor,
       child: Center(
         child: LayoutBuilder(
           builder: (context, constraints) {

@@ -280,17 +280,7 @@ class ShellTheme {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0.5,
-        systemOverlayStyle: SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness:
-              isDark ? Brightness.light : Brightness.dark,
-          statusBarBrightness:
-              isDark ? Brightness.dark : Brightness.light,
-          systemNavigationBarColor: palette.background,
-          systemNavigationBarIconBrightness:
-              isDark ? Brightness.light : Brightness.dark,
-          systemNavigationBarDividerColor: palette.background,
-        ),
+        systemOverlayStyle: palette.systemOverlayStyle,
         titleTextStyle: TextStyle(
           color: palette.onChrome,
           fontSize: 16,
@@ -608,6 +598,26 @@ class ShellColorPalette {
       chromeNavSelectedBg: chromeNavSelectedBg ?? this.chromeNavSelectedBg,
       statusBarBg: statusBarBg ?? this.statusBarBg,
       statusBarText: statusBarText ?? this.statusBarText,
+    );
+  }
+
+  /// System status/navigation bar style that matches the app chrome.
+  ///
+  /// The chrome is the green app bar / bottom navigation. The icon
+  /// brightness is derived from the chrome luminance so the same token
+  /// works for light and dark palettes.
+  SystemUiOverlayStyle get systemOverlayStyle {
+    final icons = chromeBackground.computeLuminance() > 0.5
+        ? Brightness.dark
+        : Brightness.light;
+    return SystemUiOverlayStyle(
+      statusBarColor: chromeBackground,
+      statusBarIconBrightness: icons,
+      statusBarBrightness:
+          icons == Brightness.light ? Brightness.dark : Brightness.light,
+      systemNavigationBarColor: chromeBackground,
+      systemNavigationBarIconBrightness: icons,
+      systemNavigationBarDividerColor: chromeBackground,
     );
   }
 }

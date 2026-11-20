@@ -67,7 +67,6 @@ class _NewConversationPageState extends ConsumerState<NewConversationPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         title: const Text('New Conversation'),
         elevation: 0,

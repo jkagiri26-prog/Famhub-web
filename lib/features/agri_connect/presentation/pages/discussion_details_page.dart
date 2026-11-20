@@ -263,7 +263,6 @@ class _DiscussionDetailsPageState extends ConsumerState<DiscussionDetailsPage> {
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         title: Text(discussionAsync.value?.title ?? 'Discussion'),
         elevation: 0,

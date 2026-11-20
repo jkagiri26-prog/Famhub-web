@@ -63,7 +63,6 @@ class _CommunityMembersPageState extends ConsumerState<CommunityMembersPage> {
     if (widget.embedded) return content;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         title: const Text('Members'),
         elevation: 0,

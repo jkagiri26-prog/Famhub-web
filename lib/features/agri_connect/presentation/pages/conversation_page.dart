@@ -25,7 +25,6 @@ class ConversationPage extends ConsumerWidget {
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
         title: Text(conversationAsync.value?.title ?? 'Chat'),
         elevation: 0,

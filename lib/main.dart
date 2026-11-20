@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -89,6 +90,20 @@ import 'features/settings/application/providers/settings_provider.dart';
 void main() async {
   // ── Phase 0: Platform initialization (must be outside zone) ──
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Align the OS status/navigation bars with the Vunio chrome. The shell
+  // overrides this per-theme via AnnotatedRegion once it is mounted; this
+  // default covers the splash/welcome screens before the shell exists.
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Color(0xFF256D3A),
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
+      systemNavigationBarColor: Color(0xFF256D3A),
+      systemNavigationBarIconBrightness: Brightness.light,
+      systemNavigationBarDividerColor: Color(0xFF256D3A),
+    ),
+  );
   debugPrint('1. Widgets initialized');
 
   // ── Phase 0b: Configure FlutterError + PlatformDispatcher ──
