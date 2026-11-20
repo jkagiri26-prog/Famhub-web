@@ -30,20 +30,23 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Vunio">
-  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20261120b">
 
   <!-- Favicon -->
-  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
-  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png?v=20261120b">
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png?v=20261120b">
+  <link rel="icon" type="image/png" sizes="192x192" href="android-chrome-192x192.png?v=20261120b">
+  <link rel="icon" href="favicon.ico?v=20261120b" sizes="any">
+  <link rel="shortcut icon" href="favicon.ico?v=20261120b">
 
   <title>Vunio</title>
-  <link rel="manifest" href="site.webmanifest">
+  <link rel="manifest" href="site.webmanifest?v=20261120b">
 
   <style>
     body { background-color: #f8f9fa; margin: 0; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
     #loading { text-align: center; }
-    .loader { border: 5px solid #e0e0e0; border-top: 5px solid #2E7D32; border-radius: 50%; width: 44px; height: 44px; animation: spin 1s linear infinite; margin: 0 auto; }
+    .brand-logo { display: block; width: 84px; height: 84px; margin: 0 auto 18px; border-radius: 50%; box-shadow: 0 10px 28px rgba(37, 109, 58, 0.18); }
+    .loader { border: 5px solid #e0e0e0; border-top: 5px solid #256D3A; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 18px auto 0; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     h2 { color: #2E7D32; margin-top: 20px; font-weight: 400; }
     p { color: #757575; margin-top: 8px; font-size: 14px; }
@@ -51,8 +54,9 @@
 </head>
 <body>
   <div id="loading">
-    <div class="loader"></div>
+    <img class="brand-logo" src="android-chrome-192x192.png?v=20261120b" alt="Vunio logo">
     <h2>Vunio</h2>
+    <div class="loader"></div>
     <p>Loading...</p>
   </div>
   <script>
