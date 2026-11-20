@@ -162,6 +162,9 @@ final shellThemeProvider = Provider<ShellTheme>((ref) {
       name: 'Vunio',
       tagline: 'Your Complete Agricultural Platform',
     ),
+    assets: const ShellAssets(
+      logoAsset: 'assets/images/vunio_logo_appbar.png',
+    ),
   );
 });
 

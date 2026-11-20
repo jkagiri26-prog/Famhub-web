@@ -22,6 +22,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../theme/shell_theme.dart';
+import '../../../theme/shell_theme_provider.dart';
 import '../../../navigation/responsive_breakpoints.dart';
 import '../../config/shell_config.dart';
 import '../../application/assistant/assistant_launcher_registry.dart';
@@ -62,6 +63,7 @@ class ShellAppBar extends ConsumerWidget {
         ShellTheme.defaultLight;
     final moduleAsync = ref.watch(moduleProvider);
     final user = ref.watch(userProvider);
+    final logoAsset = ref.watch(shellThemeProvider).assets.logoAsset;
 
     final moduleCount = moduleAsync.whenOrNull(data: (m) => m.length) ?? 0;
     final hasMaintenance = moduleAsync.whenOrNull(
@@ -82,7 +84,11 @@ class ShellAppBar extends ConsumerWidget {
               constraints.maxWidth < ResponsiveBreakpoints.mobile;
 
           final leftChildren = <Widget>[
-            if (kIsWeb && isNarrow) _buildDiagnosticButton(context, palette),
+            // ── Brand emblem ──
+            if (logoAsset != null) ...[
+              _BrandLogo(asset: logoAsset, palette: palette),
+              const SizedBox(width: 8),
+            ],
 
             // ── Left: Workspace switcher (global) ──
             if (config.showContextSelector)
@@ -249,6 +255,45 @@ class ShellAppBar extends ConsumerWidget {
           color: palette.onChromeMuted,
         ),
       );
+}
+
+/// ============================================================
+/// BRAND LOGO — Vunio emblem shown beside the workspace switcher
+/// ============================================================
+class _BrandLogo extends StatelessWidget {
+  final String asset;
+  final ShellColorPalette palette;
+
+  const _BrandLogo({required this.asset, required this.palette});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: palette.onChrome.withValues(alpha: 0.28),
+        ),
+      ),
+      child: ClipOval(
+        child: Image.asset(
+          asset,
+          fit: BoxFit.cover,
+          filterQuality: FilterQuality.high,
+          errorBuilder: (_, __, ___) => Container(
+            color: palette.onChrome.withValues(alpha: 0.14),
+            child: Icon(
+              Icons.eco_outlined,
+              size: 18,
+              color: palette.onChrome,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// ============================================================
