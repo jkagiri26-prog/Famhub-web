@@ -39,8 +39,8 @@
 ///
 /// 🏢 Usage for ANY domain (zero shell modifications):
 ///   ```dart
-///   // VUNIO
-///   ShellTheme.fromBrand(brandPrimary: Color(0xFF059669), brandName: 'VUNIO');
+///   // Vunio
+///   ShellTheme.fromBrand(brandPrimary: Color(0xFF059669), brandName: 'Vunio');
 ///   // Factory ERP
 ///   ShellTheme.fromBrand(brandPrimary: Color(0xFF2563EB), brandName: 'FactoryERP');
 ///   // Healthcare

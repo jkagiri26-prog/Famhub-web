@@ -8,14 +8,14 @@ class TraceabilityQrSectionWidget extends StatelessWidget {
     return Column(
       children: [
         Image.network(
-          'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=VUNIO_VERIFIED_9923',
+          'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=Vunio_VERIFIED_9923',
           height: 150,
         ),
 
         const SizedBox(height: 8),
 
         const Text(
-          'Scan to verify on VUNIO Ledger',
+          'Scan to verify on Vunio Ledger',
           style: TextStyle(
             fontSize: 11,
             color: Colors.grey,

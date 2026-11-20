@@ -33,7 +33,7 @@ void main() {
 
       // The assistant lives behind the shell's global AI tab, not here.
       expect(find.byType(TextField), findsNothing);
-      expect(find.text('VUNIO AI'), findsNothing);
+      expect(find.text('Vunio AI'), findsNothing);
       expect(find.text('Farming adviser'), findsNothing);
       expect(
         find.text('Ask a question about your crops or livestock.'),

@@ -66,7 +66,7 @@ Future<bool> showProtectedActionPrompt(
           ),
           const SizedBox(height: 20),
           Text(
-            'Create your free VUNIO account to continue.',
+            'Create your free Vunio account to continue.',
             textAlign: TextAlign.center,
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,

@@ -16,7 +16,7 @@
 ///
 /// ✅ Pattern:
 ///   This coordinator should become the standard lifecycle entry point
-///   for EVERY VUNIO module. Future modules (Marketplace, Commerce,
+///   for EVERY Vunio module. Future modules (Marketplace, Commerce,
 ///   Knowledge Hub, Finance, Logistics, etc.) follow the same pattern.
 ///
 ///   Page code is SIMPLIFIED to:

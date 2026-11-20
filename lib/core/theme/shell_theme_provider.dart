@@ -8,8 +8,8 @@
 ///
 /// ✅ Domain-Agnostic:
 ///   - The shell palette model stays neutral and reusable
-///   - VUNIO brand colours are injected via [FamhubBrandTokens]
-///   - Supports any domain: VUNIO, FactoryERP, Social, Healthcare, etc.
+///   - Vunio brand colours are injected via [FamhubBrandTokens]
+///   - Supports any domain: Vunio, FactoryERP, Social, Healthcare, etc.
 ///
 /// ✅ Usage for any domain:
 ///   ```dart
@@ -25,10 +25,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'shell_theme.dart';
 
 /// ============================================================
-/// VUNIO BRAND TOKENS — Central colour identity
+/// Vunio BRAND TOKENS — Central colour identity
 /// ============================================================
 ///
-/// Single source of truth for the VUNIO accent. Changing these
+/// Single source of truth for the Vunio accent. Changing these
 /// values re-skins the entire app — no widget hardcodes the brand.
 ///
 /// The previous purple-blue accent (#6366F1) is replaced with a
@@ -89,12 +89,12 @@ class FamhubBrandTokens {
 
 /// Provides the application's ShellTheme configuration.
 ///
-/// The shell itself stays domain-agnostic; VUNIO injects its brand
+/// The shell itself stays domain-agnostic; Vunio injects its brand
 /// identity here through the centralized palette tokens above, which
 /// flow into [ColorScheme] via [ShellTheme.toThemeData].
 final shellThemeProvider = Provider<ShellTheme>((ref) {
   final light = ShellTheme.defaultLight.copyWith(
-    name: 'VUNIO Light',
+    name: 'Vunio Light',
     primary: FamhubBrandTokens.green,
     accent: FamhubBrandTokens.orange,
     borderFocused: FamhubBrandTokens.green,
@@ -112,7 +112,7 @@ final shellThemeProvider = Provider<ShellTheme>((ref) {
   );
 
   final dark = ShellTheme.defaultDark.copyWith(
-    name: 'VUNIO Dark',
+    name: 'Vunio Dark',
     primary: FamhubBrandTokens.greenDark,
     accent: FamhubBrandTokens.orangeDark,
     borderFocused: FamhubBrandTokens.greenDark,
@@ -135,7 +135,7 @@ final shellThemeProvider = Provider<ShellTheme>((ref) {
     light: light,
     dark: dark,
     brand: const ShellBrand(
-      name: 'VUNIO',
+      name: 'Vunio',
       tagline: 'Your Complete Agricultural Platform',
     ),
   );

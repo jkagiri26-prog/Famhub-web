@@ -1,5 +1,5 @@
 /// ============================================================
-/// FARM ASSISTANT LAUNCHER — shell wiring for the VUNIO AI assistant
+/// FARM ASSISTANT LAUNCHER — shell wiring for the Vunio AI assistant
 /// ============================================================
 ///
 /// 🧠 LOCATION CONTEXT:

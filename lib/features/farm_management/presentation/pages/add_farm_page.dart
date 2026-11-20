@@ -15,7 +15,7 @@ import 'package:famhub_app/features/profile/presentation/widgets/dynamic_locatio
 
 /// Add Farm form with automatic default field creation.
 ///
-/// 🏗️ POLICY (VUNIO Default Field Creation):
+/// 🏗️ POLICY (Vunio Default Field Creation):
 ///   Create Farm → Save Farm → Auto-create "Main Field" → Select Main Field → Navigate to Field Dashboard
 ///   The user is never asked to create the first field manually.
 ///

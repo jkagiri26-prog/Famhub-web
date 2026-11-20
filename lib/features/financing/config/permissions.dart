@@ -36,7 +36,7 @@
 ///   been applied. All five codes carry active grants on the Admin role
 ///   (60773165-412a-4d1b-98da-5c9f2e7fe307), together with a matching
 ///   scope_type='module' / module='finance' row in `core.entity_role_scopes`
-///   for profile 01a03733-ce44-7f82-ba8d-d12d97025346 acting in the VUNIO
+///   for profile 01a03733-ce44-7f82-ba8d-d12d97025346 acting in the Vunio
 ///   Platform Administration entity (01a091e6-f283-70b5-9393-813acf541c09).
 ///   The Finance module is enabled and not in maintenance mode.
 ///

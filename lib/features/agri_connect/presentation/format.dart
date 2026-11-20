@@ -116,6 +116,6 @@ extension AnnouncementTypeLabel on AnnouncementType {
   String get label => switch (this) {
     AnnouncementType.community => 'Community',
     AnnouncementType.organization => 'Organization',
-    AnnouncementType.famhub => 'VUNIO',
+    AnnouncementType.famhub => 'Vunio',
   };
 }

@@ -4,7 +4,7 @@
 ///
 /// 🧠 DOMAIN LAYER — PURE DART, NO FLUTTER, NO SUPABASE
 ///
-/// Enforces the VUNIO area validation policy:
+/// Enforces the Vunio area validation policy:
 ///   "The sum of all field areas must never exceed the total farm area."
 ///
 /// Validation scenarios:

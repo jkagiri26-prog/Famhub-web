@@ -67,7 +67,7 @@ class LogisticsPermissionStatus {
 /// ============================================================
 ///
 /// Resolves a single backend permission key. The active entity context is
-/// derived by the existing VUNIO context mechanism — nothing is supplied
+/// derived by the existing Vunio context mechanism — nothing is supplied
 /// by the caller.
 ///
 /// [logisticsPermissionCheckerProvider] is a separate indirection so tests

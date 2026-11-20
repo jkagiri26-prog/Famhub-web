@@ -1,7 +1,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 /// =======================================================
-/// VUNIO NOTIFICATION SERVICE
+/// Vunio NOTIFICATION SERVICE
 /// =======================================================
 ///
 /// RESPONSIBILITY:
@@ -71,9 +71,9 @@ class NotificationService {
   }) async {
     const androidDetails = AndroidNotificationDetails(
       'famhub_channel',
-      'VUNIO Notifications',
+      'Vunio Notifications',
       channelDescription:
-          'General notifications for VUNIO system alerts',
+          'General notifications for Vunio system alerts',
       importance: Importance.max,
       priority: Priority.high,
       enableVibration: true,

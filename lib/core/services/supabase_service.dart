@@ -2,7 +2,7 @@ import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// =======================================================
-/// VUNIO SUPABASE SERVICE
+/// Vunio SUPABASE SERVICE
 /// =======================================================
 ///
 /// RESPONSIBILITY:

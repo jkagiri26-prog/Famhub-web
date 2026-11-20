@@ -1,5 +1,5 @@
 /// ============================================================
-/// VUNIO SDK DEPRECATION REGISTRY
+/// Vunio SDK DEPRECATION REGISTRY
 /// ============================================================
 ///
 /// 🧠 LOCATION CONTEXT:

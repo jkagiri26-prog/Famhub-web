@@ -1,4 +1,4 @@
-name: VUNIO Deploy to Cloudflare Pages
+name: Vunio Deploy to Cloudflare Pages
 on:
   push:
     branches: [ main ]

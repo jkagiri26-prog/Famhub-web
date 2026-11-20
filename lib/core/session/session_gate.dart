@@ -8,7 +8,7 @@
 /// ✅ Responsibilities:
 ///   - Determine which screen to show based on session state
 ///   - Orchestrate splash → welcome → auth → profile → workspace → dashboard
-///   - Unauthenticated → VUNIO Home (ecosystem showcase) / Welcome
+///   - Unauthenticated → Vunio Home (ecosystem showcase) / Welcome
 ///   - Authenticated + no profile → Create Profile
 ///   - Authenticated + profile + no workspaces → Workspace Selection
 ///   - Authenticated + profile + workspaces → Dashboard
@@ -113,6 +113,7 @@ class _SessionGateState extends ConsumerState<SessionGate> {
     final themeMode = ref.watch(themeModeProvider);
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      title: 'Vunio',
       theme: shellTheme.toThemeData(ThemeMode.light),
       darkTheme: shellTheme.toThemeData(ThemeMode.dark),
       themeMode: themeMode,
@@ -193,6 +194,7 @@ class _SessionGateState extends ConsumerState<SessionGate> {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      title: 'Vunio',
       theme: shellTheme.toThemeData(ThemeMode.light),
       darkTheme: shellTheme.toThemeData(ThemeMode.dark),
       themeMode: themeMode,
@@ -307,6 +309,7 @@ class _SessionGateState extends ConsumerState<SessionGate> {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      title: 'Vunio',
       theme: shellTheme.toThemeData(ThemeMode.light),
       darkTheme: shellTheme.toThemeData(ThemeMode.dark),
       themeMode: themeMode,
@@ -352,6 +355,7 @@ class _SessionGateState extends ConsumerState<SessionGate> {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      title: 'Vunio',
       theme: shellTheme.toThemeData(ThemeMode.light),
       darkTheme: shellTheme.toThemeData(ThemeMode.dark),
       themeMode: themeMode,
@@ -374,6 +378,7 @@ class _SessionGateState extends ConsumerState<SessionGate> {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      title: 'Vunio',
       theme: shellTheme.toThemeData(ThemeMode.light),
       darkTheme: shellTheme.toThemeData(ThemeMode.dark),
       themeMode: themeMode,
@@ -487,7 +492,7 @@ class _AuthFlow extends StatelessWidget {
   }
 }
 
-/// VUNIO Home flow — the public ecosystem showcase.
+/// Vunio Home flow — the public ecosystem showcase.
 /// This is the entry point for unauthenticated (browsing) users.
 /// Visitors see the real modules with sample/public data.
 /// The exploration banner's "Sign In" button can trigger the auth flow.
@@ -541,6 +546,7 @@ class _FamhubHomeFlowState extends ConsumerState<_FamhubHomeFlow> {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      title: 'Vunio',
       theme: shellTheme.toThemeData(ThemeMode.light),
       darkTheme: shellTheme.toThemeData(ThemeMode.dark),
       themeMode: themeMode,

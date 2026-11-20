@@ -22,12 +22,12 @@ import 'logistics_tracking_page.dart';
 /// LOGISTICS PAGE — module entry / dashboard
 /// ============================================================
 ///
-/// VUNIO Logistics module.
+/// Vunio Logistics module.
 ///
 /// Architecture compliance:
 /// - No Scaffold / AppBar / Drawer / BottomNavigationBar (shell owns them)
 /// - ResponsiveWrapper enforced
-/// - Entity context comes from the existing VUNIO context mechanism
+/// - Entity context comes from the existing Vunio context mechanism
 /// - Backend RLS stays authoritative — no client-side ownership id
 /// - Loading / empty / error / permission states are always rendered
 ///

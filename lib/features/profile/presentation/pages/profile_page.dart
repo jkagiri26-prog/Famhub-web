@@ -256,7 +256,7 @@ class _LoadedProfile extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                displayName.isEmpty ? 'VUNIO User' : displayName,
+                displayName.isEmpty ? 'Vunio User' : displayName,
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,

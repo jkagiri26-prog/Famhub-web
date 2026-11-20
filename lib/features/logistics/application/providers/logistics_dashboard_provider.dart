@@ -8,7 +8,7 @@
 /// ✅ Responsibilities:
 ///   - Expose the bounded Logistics dashboard snapshot through Riverpod.
 ///   - Re-read when the active entity changes, using the entity id
-///     already derived by the VUNIO context mechanism.
+///     already derived by the Vunio context mechanism.
 ///
 /// ✅ ARCHITECTURE COMPLIANCE:
 ///   - UI never talks to Supabase.

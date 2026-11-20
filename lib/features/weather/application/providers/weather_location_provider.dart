@@ -6,7 +6,7 @@
 ///   features/weather/application/providers/ = weather application layer
 ///
 /// ✅ Responsibilities:
-///   - Reuse the VUNIO canonical location architecture (`core.locations`)
+///   - Reuse the Vunio canonical location architecture (`core.locations`)
 ///   - Derive a weather target from the selected farm's canonical ids
 ///   - Fall back to the signed-in user's profile location
 ///   - Remember an explicit user choice from the Weather page selector

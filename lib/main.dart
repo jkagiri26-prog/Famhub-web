@@ -455,12 +455,12 @@ class _MyAppState extends ConsumerState<MyApp> {
 
     // ==========================================================
     // PHASE 2: Bypass Context Engine & Router
-    // If this shows "VUNIO Boot OK" → main() is working fine.
+    // If this shows "Vunio Boot OK" → main() is working fine.
     // ==========================================================
     // return const MaterialApp(
     //   debugShowCheckedModeBanner: false,
     //   home: Scaffold(
-    //     body: Center(child: Text('VUNIO Boot OK')),
+    //     body: Center(child: Text('Vunio Boot OK')),
     //   ),
     // );
 
@@ -510,6 +510,7 @@ class _MyAppState extends ConsumerState<MyApp> {
         return MaterialApp.router(
           routerConfig: router,
           debugShowCheckedModeBanner: false,
+          title: 'Vunio',
           theme: shellTheme.toThemeData(ThemeMode.light),
           darkTheme: shellTheme.toThemeData(ThemeMode.dark),
           themeMode: themeMode,

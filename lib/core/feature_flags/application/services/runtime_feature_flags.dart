@@ -109,7 +109,7 @@ class RuntimeFeatureFlags {
     passedChecks.add('not_maintenance');
 
     // ── 3. Authentication ──
-    // Note: For VUNIO Home ecosystem showcase, unauthenticated users
+    // Note: For Vunio Home ecosystem showcase, unauthenticated users
     // (isGuest=true) can browse module pages with sample data.
     // Protected actions (create, edit, delete, etc.) are guarded
     // separately by the RuntimeDecisionEngine and auth_guard.dart.

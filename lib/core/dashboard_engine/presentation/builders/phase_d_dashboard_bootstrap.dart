@@ -58,7 +58,7 @@ void bootstrapPhaseD() {
   // SHELL ASSISTANT LAUNCHER (agricultural capability)
   // ════════════════════════════════════════════════════════════════
   //
-  // Registers the VUNIO AI assistant with the core shell seam for the
+  // Registers the Vunio AI assistant with the core shell seam for the
   // workspaces that currently have it. The shell's existing AI Assistant
   // button resolves this launcher — no shell change is needed when another
   // workspace gains an assistant later.

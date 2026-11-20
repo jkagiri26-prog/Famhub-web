@@ -11,7 +11,7 @@
 /// organised group area and Messages holds conversations.
 ///
 /// Centered on:
-///   Person → Farm/Business → Community → Discussion/Chat → VUNIO modules
+///   Person → Farm/Business → Community → Discussion/Chat → Vunio modules
 /// ============================================================
 library;
 

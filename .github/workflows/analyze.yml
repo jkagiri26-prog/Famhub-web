@@ -1,4 +1,4 @@
-name: VUNIO Analyze
+name: Vunio Analyze
 on:
   push:
     branches: [ main ]

@@ -9,7 +9,7 @@
 ///   - Present available workspaces from `system.workspaces` (backend-driven)
 ///   - Let the user select which workspaces they want to use
 ///   - Multiple selection allowed
-///   - Premium, responsive layout consistent with the VUNIO login experience
+///   - Premium, responsive layout consistent with the Vunio login experience
 ///   - Loading / error / empty states
 ///   - Call onContinue(selectedIds) so the caller can persist via the
 ///     select-workspaces Edge Function and surface the backend result here

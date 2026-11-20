@@ -74,7 +74,7 @@ abstract class AppSession {
 }
 
 /// Session state for unauthenticated users.
-/// Unauthenticated users can still browse the VUNIO Home ecosystem.
+/// Unauthenticated users can still browse the Vunio Home ecosystem.
 class UnauthenticatedSession implements AppSession {
   const UnauthenticatedSession();
 

@@ -1,5 +1,5 @@
 /// ============================================================
-/// VUNIO HOME — Public ecosystem showcase for all visitors
+/// Vunio HOME — Public ecosystem showcase for all visitors
 /// ============================================================
 ///
 /// 🧠 LOCATION CONTEXT:
@@ -45,7 +45,7 @@ import 'package:famhub_app/features/auth/presentation/widgets/split_screen_hero.
 import 'package:famhub_app/features/weather/application/providers/weather_location_provider.dart';
 import 'package:famhub_app/features/weather/presentation/widgets/weather_card.dart';
 
-// Module page imports for direct navigation from VUNIO Home
+// Module page imports for direct navigation from Vunio Home
 import 'package:famhub_app/features/farm_management/presentation/pages/farm_management_page.dart';
 import 'package:famhub_app/features/business_hub/presentation/pages/trader_workspace_gate.dart';
 import 'package:famhub_app/features/marketplace/presentation/pages/marketplace_page.dart';
@@ -66,7 +66,7 @@ import 'package:famhub_app/features/agri_tech_lab/presentation/pages/agri_tech_l
 import 'package:famhub_app/features/refferal_hub/presentation/pages/referral_hub_page.dart';
 import 'package:famhub_app/features/reports/presentation/pages/reports_center_page.dart';
 
-/// Module card data for the VUNIO Home ecosystem showcase
+/// Module card data for the Vunio Home ecosystem showcase
 class _ModuleCardData {
   final String id;
   final String title;
@@ -130,7 +130,7 @@ class _Testimonial {
   });
 }
 
-/// All ecosystem module cards shown on the VUNIO Home page.
+/// All ecosystem module cards shown on the Vunio Home page.
 /// Descriptions are written for a diverse agricultural audience
 /// including farmers, traders, financial institutions, logistics
 /// providers, cooperatives, exporters, and investors.
@@ -343,7 +343,7 @@ const List<_MarketplacePreviewItem> _marketplacePreviews = [
 const List<_Testimonial> _testimonials = [
   _Testimonial(
     quote:
-        'VUNIO transformed how I sell my produce. I now reach buyers across three Counties without leaving my farm.',
+        'Vunio transformed how I sell my produce. I now reach buyers across three Counties without leaving my farm.',
     name: 'Henry Ochieng',
     role: 'Tomatoes Farmer',
     location: 'Kisumu county',
@@ -367,7 +367,7 @@ const List<_Testimonial> _testimonials = [
   ),
   _Testimonial(
     quote:
-        'Our cooperative reduced post-harvest losses by 40% using VUNIO\'s storage and logistics coordination.',
+        'Our cooperative reduced post-harvest losses by 40% using Vunio\'s storage and logistics coordination.',
     name: 'Grace Mwangi',
     role: 'Cooperative Leader',
     location: 'Nakuru, Kenya',
@@ -445,7 +445,7 @@ class FamhubHomePage extends ConsumerWidget {
                 ),
 
                 // ════════════════════════════════════════════
-                // SECTION 3: VUNIO MODULES (2 vertical + scrollable)
+                // SECTION 3: Vunio MODULES (2 vertical + scrollable)
                 // ════════════════════════════════════════════
                 _buildFamhubModulesSection(
                   context,
@@ -463,7 +463,7 @@ class FamhubHomePage extends ConsumerWidget {
                 _buildMarketplacePreview(context, ref, colorScheme, isMobile),
 
                 // ════════════════════════════════════════════
-                // SECTION 5: WHY CHOOSE VUNIO
+                // SECTION 5: WHY CHOOSE Vunio
                 // ════════════════════════════════════════════
                 _buildWhyChooseSection(
                   theme,
@@ -635,7 +635,7 @@ class FamhubHomePage extends ConsumerWidget {
     );
   }
 
-  /// ── SECTION 3: VUNIO MODULES ──
+  /// ── SECTION 3: Vunio MODULES ──
   /// First two modules are displayed vertically (stacked).
   /// The rest are shown in a horizontally scrollable row with compact cards.
   Widget _buildFamhubModulesSection(
@@ -876,7 +876,7 @@ class FamhubHomePage extends ConsumerWidget {
     );
   }
 
-  /// ── SECTION 5: WHY CHOOSE VUNIO ──
+  /// ── SECTION 5: WHY CHOOSE Vunio ──
   Widget _buildWhyChooseSection(
     ThemeData theme,
     ColorScheme colorScheme,
@@ -950,7 +950,7 @@ class FamhubHomePage extends ConsumerWidget {
       child: Column(
         children: [
           Text(
-            'Why Choose VUNIO?',
+            'Why Choose Vunio?',
             style: TextStyle(
               fontSize: isMobile ? 20 : 28,
               fontWeight: FontWeight.w700,
@@ -1113,7 +1113,7 @@ class FamhubHomePage extends ConsumerWidget {
           ),
           SizedBox(height: isMobile ? 12 : 16),
           Text(
-            'Join thousands of farmers, traders, and agribusinesses\nalready growing with VUNIO.',
+            'Join thousands of farmers, traders, and agribusinesses\nalready growing with Vunio.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: isMobile ? 14 : 16,
@@ -1239,12 +1239,12 @@ class FamhubHomePage extends ConsumerWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                'VUNIO',
+                'Vunio',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
-                  color: colorScheme.onSurface,
-                  letterSpacing: 1.5,
+                  color: colorScheme.primary,
+                  letterSpacing: 0.3,
                 ),
               ),
             ],
@@ -1302,7 +1302,7 @@ class FamhubHomePage extends ConsumerWidget {
             children: [
               Expanded(
                 child: Text(
-                  '© 2025 VUNIO. All rights reserved.',
+                  '© 2025 Vunio. All rights reserved.',
                   style: TextStyle(
                     fontSize: 12,
                     color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
@@ -1634,7 +1634,7 @@ class FamhubHomePage extends ConsumerWidget {
 /// EXPLORATION BANNER
 /// ─────────────────────────────────────────────────────────────
 ///
-/// A subtle banner at the top of VUNIO Home for unauthenticated
+/// A subtle banner at the top of Vunio Home for unauthenticated
 /// visitors. Informs them they are browsing publicly and offers
 /// a sign-in option without being intrusive.
 class _ExplorationBanner extends StatelessWidget {
@@ -1664,7 +1664,7 @@ class _ExplorationBanner extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'You are exploring VUNIO — no account needed',
+              'You are exploring Vunio — no account needed',
               style: TextStyle(
                 color: colorScheme.onSurfaceVariant,
                 fontSize: 13,

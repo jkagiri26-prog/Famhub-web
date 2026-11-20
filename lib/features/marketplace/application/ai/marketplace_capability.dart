@@ -138,7 +138,7 @@ bool isMarketplaceListingsQuestion(String question) {
 }
 
 /// The title search for [question]: up to two meaningful tokens, or null
-/// for an unfiltered overview ("What's in VUNIO Marketplace?").
+/// for an unfiltered overview ("What's in Vunio Marketplace?").
 ///
 /// Never an identifier — only words the farmer typed themselves.
 String? marketplaceSearchTerm(String question) {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// VUNIO Shared Layout
+/// Vunio Shared Layout
 ///
 /// Standard responsive wrapper for all module pages.
 ///

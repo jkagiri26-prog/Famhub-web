@@ -1,5 +1,5 @@
 /// ============================================================
-/// FARM & CROP CONTEXT CAPABILITY — second VUNIO AI capability
+/// FARM & CROP CONTEXT CAPABILITY — second Vunio AI capability
 /// ============================================================
 ///
 /// 🧠 LOCATION CONTEXT:

@@ -2,7 +2,7 @@
 /// AGRI CONNECT — ANNOUNCEMENT REPOSITORY CONTRACT
 /// ============================================================
 ///
-/// Community / organization / VUNIO announcements.
+/// Community / organization / Vunio announcements.
 /// Anonymous + authenticated reads are RLS-scoped.
 /// ============================================================
 library;

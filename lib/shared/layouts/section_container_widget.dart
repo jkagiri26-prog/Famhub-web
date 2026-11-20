@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// VUNIO Shared Layout
+/// Vunio Shared Layout
 ///
 /// Standard white content container used across:
 /// - analytics cards

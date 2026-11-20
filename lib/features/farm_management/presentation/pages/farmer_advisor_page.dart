@@ -21,7 +21,7 @@ import 'package:famhub_app/features/farm_management/domain/repositories/assistan
 ///   features/farm_management/presentation/pages/
 ///
 /// Opened from the shell's existing AI Assistant button via
-/// AssistantLauncherRegistry, from the VUNIO home AI Assistant card, and
+/// AssistantLauncherRegistry, from the Vunio home AI Assistant card, and
 /// registered for the `/ai-assistant` route — one advisor page everywhere
 /// the assistant is reachable, never two competing AI pages.
 ///
@@ -104,7 +104,7 @@ class _FarmerAdvisorPageState extends ConsumerState<FarmerAdvisorPage> {
         title: const Text('Sign up or log in'),
         content: const Text(
           'Create an account or sign in to ask questions and keep your '
-          'chat history on VUNIO.',
+          'chat history on Vunio.',
         ),
         actions: <Widget>[
           TextButton(
@@ -217,7 +217,7 @@ class _FarmerAdvisorPageState extends ConsumerState<FarmerAdvisorPage> {
                   _brandGradient(colors).createShader(bounds),
               blendMode: BlendMode.srcIn,
               child: const Text(
-                'VUNIO AI',
+                'Vunio AI',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
@@ -469,7 +469,7 @@ class _FarmerAdvisorPageState extends ConsumerState<FarmerAdvisorPage> {
                         'For serious animal illness, suspected poisoning, difficult '
                         'births, or a heavy crop outbreak, contact a county extension '
                         'officer, KALRO, or a qualified veterinary officer promptly. '
-                        'VUNIO does not contact or book anyone for you.',
+                        'Vunio does not contact or book anyone for you.',
                         style: TextStyle(fontSize: 11, height: 1.4),
                       ),
                     ),

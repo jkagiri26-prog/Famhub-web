@@ -27,7 +27,7 @@ import 'package:famhub_app/features/admin_console/domain/permissions/permissions
 
 /// Which administration layer a capability belongs to.
 enum AdminScope {
-  /// Manages VUNIO itself (users, organisations, modules, billing...).
+  /// Manages Vunio itself (users, organisations, modules, billing...).
   platform,
 
   /// Manages the active organisation/entity (members, entity settings...).

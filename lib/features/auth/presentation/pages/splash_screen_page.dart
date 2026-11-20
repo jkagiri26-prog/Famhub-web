@@ -6,7 +6,7 @@
 ///   features/auth/presentation/pages/ = page layer
 ///
 /// ✅ Responsibilities:
-///   - Animated VUNIO logo with agriculture-inspired motion
+///   - Animated Vunio logo with agriculture-inspired motion
 ///   - Beautiful loading animation (leaf/growth inspired)
 ///   - Smooth fade and scale transitions
 ///   - Soft loading indicator (no generic spinner)
@@ -264,11 +264,11 @@ class _SplashScreenPageState extends ConsumerState<SplashScreenPage>
 
                     // ── Brand Name ──
                     Text(
-                      'VUNIO',
+                      'Vunio',
                       style: theme.textTheme.headlineLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: colorScheme.onSurface,
-                        letterSpacing: 2.0,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.primary,
+                        letterSpacing: 0.4,
                       ),
                     ),
 
