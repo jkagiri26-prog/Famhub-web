@@ -1249,6 +1249,23 @@ class FamhubHomePage extends ConsumerWidget {
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          Text(
+            'vunio.co.ke',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'info@vunio.co.ke  ·  support@vunio.co.ke',
+            style: TextStyle(
+              fontSize: 11,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
           SizedBox(height: isMobile ? 20 : 24),
 
           // Link columns
