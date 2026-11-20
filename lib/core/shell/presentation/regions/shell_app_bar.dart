@@ -154,8 +154,9 @@ class ShellAppBar extends ConsumerWidget {
 
             if (config.showNotifications) const SizedBox(width: 4),
 
-            // Universal Subscription Centre — available in every workspace.
-            if (config.showSubscription)
+            // Universal Subscription Centre — hidden on narrow screens to
+            // leave room for the profile action.
+            if (config.showSubscription && !isNarrow)
               _AppBarButton(
                 icon: Icons.workspace_premium_outlined,
                 tooltip: 'Subscription',
@@ -163,7 +164,7 @@ class ShellAppBar extends ConsumerWidget {
                 onPressed: () => context.go(AppRoutes.subscription),
               ),
 
-            if (config.showSubscription) const SizedBox(width: 4),
+            if (config.showSubscription && !isNarrow) const SizedBox(width: 4),
 
             // Settings
             if (config.showSettings)
@@ -192,7 +193,7 @@ class ShellAppBar extends ConsumerWidget {
           ];
 
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: EdgeInsets.symmetric(horizontal: isNarrow ? 12 : 16),
             child: isNarrow
                 ? SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -269,8 +270,8 @@ class _BrandLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 32,
-      height: 32,
+      width: 40,
+      height: 40,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
