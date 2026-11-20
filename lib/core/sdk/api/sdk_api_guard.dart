@@ -1,5 +1,5 @@
 /// ============================================================
-/// FAMHUB SDK API GUARD
+/// VUNIO SDK API GUARD
 /// ============================================================
 ///
 /// 🧠 LOCATION CONTEXT:
@@ -104,7 +104,7 @@ class ApiGuardReport {
   String get summary {
     final buf = StringBuffer();
     buf.writeln('╔══════════════════════════════════════════');
-    buf.writeln('║  FAMHUB SDK API GUARD REPORT');
+    buf.writeln('║  VUNIO SDK API GUARD REPORT');
     buf.writeln('╠══════════════════════════════════════════');
     buf.writeln('║  Status:   $status');
     buf.writeln('║  Version:  ${SdkVersion.current}');

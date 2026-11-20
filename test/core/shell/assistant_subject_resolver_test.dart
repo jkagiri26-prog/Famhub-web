@@ -8,7 +8,7 @@ void main() {
         () {
       final AdvisorSubjectResolution resolution = resolveAdvisorSubject(
         question: "What's the weather forecast this week?",
-        priorQuestions: <String>['What is in FAMHUB Marketplace?'],
+        priorQuestions: <String>['What is in VUNIO Marketplace?'],
         moduleId: 'marketplace',
       );
 
@@ -24,7 +24,7 @@ void main() {
         () {
       final AdvisorSubjectResolution resolution = resolveAdvisorSubject(
         question: 'Do we have any maize?',
-        priorQuestions: <String>['What is in FAMHUB Marketplace?'],
+        priorQuestions: <String>['What is in VUNIO Marketplace?'],
         moduleId: 'marketplace',
       );
 
@@ -54,7 +54,7 @@ void main() {
     test('history subject outranks the module', () {
       final AdvisorSubjectResolution resolution = resolveAdvisorSubject(
         question: 'How many do we have?',
-        priorQuestions: <String>['What is in FAMHUB Marketplace?'],
+        priorQuestions: <String>['What is in VUNIO Marketplace?'],
         moduleId: 'farm_management',
       );
 
@@ -70,7 +70,7 @@ void main() {
       final AdvisorSubjectResolution resolution = resolveAdvisorSubject(
         question: 'Do we have any?',
         priorQuestions: <String>[
-          'What is in FAMHUB Marketplace?',
+          'What is in VUNIO Marketplace?',
           'Which animals are registered on my farm?',
         ],
         moduleId: 'marketplace',

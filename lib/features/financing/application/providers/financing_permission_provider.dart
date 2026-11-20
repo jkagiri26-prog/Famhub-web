@@ -14,7 +14,7 @@
 /// ✅ ARCHITECTURE COMPLIANCE:
 ///   - No permission is granted here. The Phase 1 migration registered the
 ///     five `finance.*` codes and seeded no grants of its own; an operator
-///     subsequently granted them to the Admin role inside the FAMHUB Platform
+///     subsequently granted them to the Admin role inside the VUNIO Platform
 ///     Administration entity. This code grants nothing either way — when the
 ///     backend denies or errors, the state is `denied` / `unavailable` and the
 ///     UI shows a locked state instead of fabricating access.
@@ -76,7 +76,7 @@ final financingPermissionCheckerProvider = Provider<FinancingPermissionChecker>(
 });
 
 /// Resolves one permission key. The active entity context is derived by the
-/// existing FAMHUB context mechanism — never supplied by the caller.
+/// existing VUNIO context mechanism — never supplied by the caller.
 final financingPermissionProvider =
     FutureProvider.family<FinancingPermissionStatus, String>((
   ref,

@@ -82,7 +82,7 @@ class AssistantLauncherRegistry {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'The FAMHUB AI assistant is not available for this workspace yet.',
+            'The VUNIO AI assistant is not available for this workspace yet.',
           ),
         ),
       );

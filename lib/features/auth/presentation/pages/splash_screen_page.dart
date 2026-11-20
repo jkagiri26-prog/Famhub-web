@@ -6,7 +6,7 @@
 ///   features/auth/presentation/pages/ = page layer
 ///
 /// ✅ Responsibilities:
-///   - Animated FAMHUB logo with agriculture-inspired motion
+///   - Animated VUNIO logo with agriculture-inspired motion
 ///   - Beautiful loading animation (leaf/growth inspired)
 ///   - Smooth fade and scale transitions
 ///   - Soft loading indicator (no generic spinner)
@@ -264,7 +264,7 @@ class _SplashScreenPageState extends ConsumerState<SplashScreenPage>
 
                     // ── Brand Name ──
                     Text(
-                      'FAMHUB',
+                      'VUNIO',
                       style: theme.textTheme.headlineLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                         color: colorScheme.onSurface,

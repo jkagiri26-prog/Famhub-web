@@ -1,4 +1,4 @@
-name: FAMHUB Analyze
+name: VUNIO Analyze
 on:
   push:
     branches: [ main ]

@@ -21,7 +21,7 @@ library;
 
 /// Permission identifiers for Admin capabilities.
 ///
-/// The `admin.*` namespace covers FAMHUB platform administration.
+/// The `admin.*` namespace covers VUNIO platform administration.
 /// The `entity.*` namespace covers administration of the active
 /// organisation/entity. The backend access policy is the only
 /// authority that grants these to a role.

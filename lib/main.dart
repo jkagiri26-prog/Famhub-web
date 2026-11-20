@@ -455,12 +455,12 @@ class _MyAppState extends ConsumerState<MyApp> {
 
     // ==========================================================
     // PHASE 2: Bypass Context Engine & Router
-    // If this shows "FAMHUB Boot OK" → main() is working fine.
+    // If this shows "VUNIO Boot OK" → main() is working fine.
     // ==========================================================
     // return const MaterialApp(
     //   debugShowCheckedModeBanner: false,
     //   home: Scaffold(
-    //     body: Center(child: Text('FAMHUB Boot OK')),
+    //     body: Center(child: Text('VUNIO Boot OK')),
     //   ),
     // );
 

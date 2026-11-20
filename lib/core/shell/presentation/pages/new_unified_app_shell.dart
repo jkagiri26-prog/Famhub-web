@@ -39,8 +39,8 @@
 ///
 /// 🏢 Usage for ANY domain (zero shell modifications):
 ///   ```dart
-///   // FAMHUB
-///   ShellTheme.fromBrand(brandPrimary: Color(0xFF059669), brandName: 'FAMHUB');
+///   // VUNIO
+///   ShellTheme.fromBrand(brandPrimary: Color(0xFF059669), brandName: 'VUNIO');
 ///   // Factory ERP
 ///   ShellTheme.fromBrand(brandPrimary: Color(0xFF2563EB), brandName: 'FactoryERP');
 ///   // Healthcare

@@ -25,7 +25,7 @@
 ///   Hover:       #F3F4F6  (gray-100)
 ///
 /// 🏢 Usage in any domain:
-///   - FAMHUB:    Brand colors injected via ShellThemeData
+///   - VUNIO:    Brand colors injected via ShellThemeData
 ///   - FactoryERP: Brand colors injected via ShellThemeData
 ///   - SocialNet:  Brand colors injected via ShellThemeData
 ///   - Healthcare: Brand colors injected via ShellThemeData
@@ -169,8 +169,8 @@ class ShellTheme {
   /// Example:
   /// ```dart
   /// final theme = ShellTheme.fromBrand(
-  ///   brandPrimary: Color(0xFF059669),  // FAMHUB green
-  ///   brandName: 'FAMHUB',
+  ///   brandPrimary: Color(0xFF059669),  // VUNIO green
+  ///   brandName: 'VUNIO',
   /// );
   /// ```
   /// ============================================================

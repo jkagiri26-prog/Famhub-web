@@ -49,7 +49,7 @@ class ExploreBanner extends ConsumerWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Exploring FAMHUB — Sign in to save your data',
+              'Exploring VUNIO — Sign in to save your data',
               style: TextStyle(
                 color: colorScheme.onSurfaceVariant,
                 fontSize: 13,

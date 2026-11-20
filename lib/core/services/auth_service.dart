@@ -125,7 +125,7 @@ class WorkspaceMembershipResult {
   });
 }
 
-/// Unified auth service for FAMHUB.
+/// Unified auth service for VUNIO.
 /// All auth operations go through this service.
 class AuthService {
   final SupabaseService _supabase;

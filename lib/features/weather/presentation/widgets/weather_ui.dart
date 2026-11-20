@@ -1,5 +1,5 @@
 /// ============================================================
-/// WEATHER UI PRIMITIVES (SHARED, COMPACT, FAMHUB-NATIVE)
+/// WEATHER UI PRIMITIVES (SHARED, COMPACT, VUNIO-NATIVE)
 /// ============================================================
 ///
 /// 🧠 LOCATION CONTEXT:

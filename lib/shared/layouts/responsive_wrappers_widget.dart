@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// FAMHUB Shared Layout
+/// VUNIO Shared Layout
 ///
 /// Standard responsive wrapper for all module pages.
 ///

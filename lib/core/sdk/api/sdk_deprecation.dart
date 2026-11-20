@@ -1,5 +1,5 @@
 /// ============================================================
-/// FAMHUB SDK DEPRECATION REGISTRY
+/// VUNIO SDK DEPRECATION REGISTRY
 /// ============================================================
 ///
 /// 🧠 LOCATION CONTEXT:

@@ -18,7 +18,7 @@ import 'ai_context_sdk.dart';
 import 'spatial_sdk.dart';
 
 /// ============================================================
-/// FAMHUB SDK
+/// VUNIO SDK
 /// ============================================================
 ///
 /// Groups all domain SDKs into a single entry point.
@@ -82,7 +82,7 @@ class FamhubSdk {
 }
 
 /// ============================================================
-/// PROVIDER: FAMHUB SDK
+/// PROVIDER: VUNIO SDK
 /// ============================================================
 ///
 /// The single provider that exposes the entire SDK.

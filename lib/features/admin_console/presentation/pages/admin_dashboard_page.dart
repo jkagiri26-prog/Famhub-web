@@ -370,7 +370,7 @@ class _AdminOverviewTab extends StatelessWidget {
         if (hasPlatform)
           _CapabilitySection(
             title: 'Platform administration',
-            subtitle: 'Manage FAMHUB itself',
+            subtitle: 'Manage VUNIO itself',
             capabilities: access.platformCapabilities,
           ),
         if (hasPlatform && hasEntity) const SizedBox(height: 28),

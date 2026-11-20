@@ -500,7 +500,7 @@ class _AdminLocationsViewState extends ConsumerState<AdminLocationsView> {
         ),
         const SizedBox(height: 1),
         Text(
-          'Manage the geographic hierarchy used across FAMHUB.',
+          'Manage the geographic hierarchy used across VUNIO.',
           style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
         ),
       ],

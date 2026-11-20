@@ -8,7 +8,7 @@
 /// ✅ Responsibilities:
 ///   - Determine which screen to show based on session state
 ///   - Orchestrate splash → welcome → auth → profile → workspace → dashboard
-///   - Unauthenticated → FAMHUB Home (ecosystem showcase) / Welcome
+///   - Unauthenticated → VUNIO Home (ecosystem showcase) / Welcome
 ///   - Authenticated + no profile → Create Profile
 ///   - Authenticated + profile + no workspaces → Workspace Selection
 ///   - Authenticated + profile + workspaces → Dashboard
@@ -487,7 +487,7 @@ class _AuthFlow extends StatelessWidget {
   }
 }
 
-/// FAMHUB Home flow — the public ecosystem showcase.
+/// VUNIO Home flow — the public ecosystem showcase.
 /// This is the entry point for unauthenticated (browsing) users.
 /// Visitors see the real modules with sample/public data.
 /// The exploration banner's "Sign In" button can trigger the auth flow.

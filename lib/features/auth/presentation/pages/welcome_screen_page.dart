@@ -7,7 +7,7 @@
 ///
 /// ✅ Responsibilities:
 ///   - Present app brand and value proposition
-///   - Display: Welcome to FAMHUB, Your Complete Agricultural Platform
+///   - Display: Welcome to VUNIO, Your Complete Agricultural Platform
 /// - Offer "Sign In", "Create Account", and "Continue Exploring"
 ///   - Modern responsive design
 ///
@@ -136,7 +136,7 @@ class WelcomeScreenPage extends StatelessWidget {
 
                         // ── Title ──
                         Text(
-                          'Welcome to FAMHUB',
+                          'Welcome to VUNIO',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.headlineMedium?.copyWith(
                             fontWeight: FontWeight.w800,

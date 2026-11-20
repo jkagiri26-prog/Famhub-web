@@ -1,5 +1,5 @@
 /// ============================================================
-/// FAMHUB HOME — Public ecosystem showcase for all visitors
+/// VUNIO HOME — Public ecosystem showcase for all visitors
 /// ============================================================
 ///
 /// 🧠 LOCATION CONTEXT:
@@ -45,7 +45,7 @@ import 'package:famhub_app/features/auth/presentation/widgets/split_screen_hero.
 import 'package:famhub_app/features/weather/application/providers/weather_location_provider.dart';
 import 'package:famhub_app/features/weather/presentation/widgets/weather_card.dart';
 
-// Module page imports for direct navigation from FAMHUB Home
+// Module page imports for direct navigation from VUNIO Home
 import 'package:famhub_app/features/farm_management/presentation/pages/farm_management_page.dart';
 import 'package:famhub_app/features/business_hub/presentation/pages/trader_workspace_gate.dart';
 import 'package:famhub_app/features/marketplace/presentation/pages/marketplace_page.dart';
@@ -66,7 +66,7 @@ import 'package:famhub_app/features/agri_tech_lab/presentation/pages/agri_tech_l
 import 'package:famhub_app/features/refferal_hub/presentation/pages/referral_hub_page.dart';
 import 'package:famhub_app/features/reports/presentation/pages/reports_center_page.dart';
 
-/// Module card data for the FAMHUB Home ecosystem showcase
+/// Module card data for the VUNIO Home ecosystem showcase
 class _ModuleCardData {
   final String id;
   final String title;
@@ -130,7 +130,7 @@ class _Testimonial {
   });
 }
 
-/// All ecosystem module cards shown on the FAMHUB Home page.
+/// All ecosystem module cards shown on the VUNIO Home page.
 /// Descriptions are written for a diverse agricultural audience
 /// including farmers, traders, financial institutions, logistics
 /// providers, cooperatives, exporters, and investors.
@@ -343,7 +343,7 @@ const List<_MarketplacePreviewItem> _marketplacePreviews = [
 const List<_Testimonial> _testimonials = [
   _Testimonial(
     quote:
-        'FAMHUB transformed how I sell my produce. I now reach buyers across three Counties without leaving my farm.',
+        'VUNIO transformed how I sell my produce. I now reach buyers across three Counties without leaving my farm.',
     name: 'Henry Ochieng',
     role: 'Tomatoes Farmer',
     location: 'Kisumu county',
@@ -367,7 +367,7 @@ const List<_Testimonial> _testimonials = [
   ),
   _Testimonial(
     quote:
-        'Our cooperative reduced post-harvest losses by 40% using FAMHUB\'s storage and logistics coordination.',
+        'Our cooperative reduced post-harvest losses by 40% using VUNIO\'s storage and logistics coordination.',
     name: 'Grace Mwangi',
     role: 'Cooperative Leader',
     location: 'Nakuru, Kenya',
@@ -445,7 +445,7 @@ class FamhubHomePage extends ConsumerWidget {
                 ),
 
                 // ════════════════════════════════════════════
-                // SECTION 3: FAMHUB MODULES (2 vertical + scrollable)
+                // SECTION 3: VUNIO MODULES (2 vertical + scrollable)
                 // ════════════════════════════════════════════
                 _buildFamhubModulesSection(
                   context,
@@ -463,7 +463,7 @@ class FamhubHomePage extends ConsumerWidget {
                 _buildMarketplacePreview(context, ref, colorScheme, isMobile),
 
                 // ════════════════════════════════════════════
-                // SECTION 5: WHY CHOOSE FAMHUB
+                // SECTION 5: WHY CHOOSE VUNIO
                 // ════════════════════════════════════════════
                 _buildWhyChooseSection(
                   theme,
@@ -635,7 +635,7 @@ class FamhubHomePage extends ConsumerWidget {
     );
   }
 
-  /// ── SECTION 3: FAMHUB MODULES ──
+  /// ── SECTION 3: VUNIO MODULES ──
   /// First two modules are displayed vertically (stacked).
   /// The rest are shown in a horizontally scrollable row with compact cards.
   Widget _buildFamhubModulesSection(
@@ -876,7 +876,7 @@ class FamhubHomePage extends ConsumerWidget {
     );
   }
 
-  /// ── SECTION 5: WHY CHOOSE FAMHUB ──
+  /// ── SECTION 5: WHY CHOOSE VUNIO ──
   Widget _buildWhyChooseSection(
     ThemeData theme,
     ColorScheme colorScheme,
@@ -950,7 +950,7 @@ class FamhubHomePage extends ConsumerWidget {
       child: Column(
         children: [
           Text(
-            'Why Choose FAMHUB?',
+            'Why Choose VUNIO?',
             style: TextStyle(
               fontSize: isMobile ? 20 : 28,
               fontWeight: FontWeight.w700,
@@ -1113,7 +1113,7 @@ class FamhubHomePage extends ConsumerWidget {
           ),
           SizedBox(height: isMobile ? 12 : 16),
           Text(
-            'Join thousands of farmers, traders, and agribusinesses\nalready growing with FAMHUB.',
+            'Join thousands of farmers, traders, and agribusinesses\nalready growing with VUNIO.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: isMobile ? 14 : 16,
@@ -1239,7 +1239,7 @@ class FamhubHomePage extends ConsumerWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                'FAMHUB',
+                'VUNIO',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -1285,7 +1285,7 @@ class FamhubHomePage extends ConsumerWidget {
             children: [
               Expanded(
                 child: Text(
-                  '© 2025 FAMHUB. All rights reserved.',
+                  '© 2025 VUNIO. All rights reserved.',
                   style: TextStyle(
                     fontSize: 12,
                     color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
@@ -1617,7 +1617,7 @@ class FamhubHomePage extends ConsumerWidget {
 /// EXPLORATION BANNER
 /// ─────────────────────────────────────────────────────────────
 ///
-/// A subtle banner at the top of FAMHUB Home for unauthenticated
+/// A subtle banner at the top of VUNIO Home for unauthenticated
 /// visitors. Informs them they are browsing publicly and offers
 /// a sign-in option without being intrusive.
 class _ExplorationBanner extends StatelessWidget {
@@ -1647,7 +1647,7 @@ class _ExplorationBanner extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'You are exploring FAMHUB — no account needed',
+              'You are exploring VUNIO — no account needed',
               style: TextStyle(
                 color: colorScheme.onSurfaceVariant,
                 fontSize: 13,

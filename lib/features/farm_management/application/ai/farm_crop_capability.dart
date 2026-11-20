@@ -1,5 +1,5 @@
 /// ============================================================
-/// FARM & CROP CONTEXT CAPABILITY — second FAMHUB AI capability
+/// FARM & CROP CONTEXT CAPABILITY — second VUNIO AI capability
 /// ============================================================
 ///
 /// 🧠 LOCATION CONTEXT:

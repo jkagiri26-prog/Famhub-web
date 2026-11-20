@@ -215,7 +215,7 @@ void main() {
     testWidgets('shows an empty state with no fake experts', (tester) async {
       await _pumpPage(tester, gateway: _FakeGateway());
 
-      expect(find.text('FAMHUB AI'), findsOneWidget);
+      expect(find.text('VUNIO AI'), findsOneWidget);
       expect(find.text('Ask about your crops or livestock.'), findsOneWidget);
       expect(find.byType(TextField), findsOneWidget);
 
@@ -816,7 +816,7 @@ void main() {
 
         // The page opens and reads normally for a guest.
         expect(find.byType(FarmerAdvisorPage), findsOneWidget);
-        expect(find.text('FAMHUB AI'), findsOneWidget);
+        expect(find.text('VUNIO AI'), findsOneWidget);
         expect(find.text('Ask about your crops or livestock.'), findsOneWidget);
 
         // …and the guest is told up front, not after a failed attempt.

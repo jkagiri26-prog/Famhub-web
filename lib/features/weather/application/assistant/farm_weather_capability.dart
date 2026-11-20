@@ -1,5 +1,5 @@
 /// ============================================================
-/// FARM WEATHER CAPABILITY — first FAMHUB AI capability
+/// FARM WEATHER CAPABILITY — first VUNIO AI capability
 /// ============================================================
 ///
 /// 🧠 LOCATION CONTEXT:

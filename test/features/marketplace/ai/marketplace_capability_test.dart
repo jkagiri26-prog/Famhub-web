@@ -54,7 +54,7 @@ void main() {
   group('question matching', () {
     test('claims the marketplace regression sequence', () {
       expect(
-        isMarketplaceListingsQuestion('What is in FAMHUB Marketplace?'),
+        isMarketplaceListingsQuestion('What is in VUNIO Marketplace?'),
         isTrue,
       );
       expect(
@@ -111,7 +111,7 @@ void main() {
     });
 
     test('returns null for an unfiltered overview', () {
-      expect(marketplaceSearchTerm('What is in FAMHUB Marketplace?'), isNull);
+      expect(marketplaceSearchTerm('What is in VUNIO Marketplace?'), isNull);
       expect(marketplaceSearchTerm('I mean in marketplace.'), isNull);
       expect(marketplaceSearchTerm('Show me the listings.'), isNull);
     });
@@ -189,7 +189,7 @@ void main() {
       );
 
       final AssistantCapabilityOutcome outcome = await capability.run(
-        question: 'What is in FAMHUB Marketplace?',
+        question: 'What is in VUNIO Marketplace?',
         assistantContext: _context,
       );
 
@@ -247,7 +247,7 @@ void main() {
       );
 
       final AssistantCapabilityOutcome outcome = await capability.run(
-        question: 'What is in FAMHUB Marketplace?',
+        question: 'What is in VUNIO Marketplace?',
         assistantContext: _context,
       );
 

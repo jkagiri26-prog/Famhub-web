@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// FAMHUB Shared Layout
+/// VUNIO Shared Layout
 ///
 /// Standard white content container used across:
 /// - analytics cards

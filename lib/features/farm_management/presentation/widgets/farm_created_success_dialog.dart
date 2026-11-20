@@ -119,7 +119,7 @@ class FarmCreatedSuccessDialog extends StatelessWidget {
 
             // ── Description ──
             Text(
-              'To help you get started, FAMHUB has automatically created a Main Field using your farm\'s total area. You can begin recording crops or livestock immediately, or later divide your farm into multiple fields.',
+              'To help you get started, VUNIO has automatically created a Main Field using your farm\'s total area. You can begin recording crops or livestock immediately, or later divide your farm into multiple fields.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: Colors.grey.shade600,
                 height: 1.5,

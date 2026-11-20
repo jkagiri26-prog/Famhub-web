@@ -4,7 +4,7 @@
 ///
 /// 🧠 DOMAIN LAYER — PURE DART, NO FLUTTER, NO SUPABASE
 ///
-/// Enforces the FAMHUB area validation policy:
+/// Enforces the VUNIO area validation policy:
 ///   "The sum of all field areas must never exceed the total farm area."
 ///
 /// Validation scenarios:

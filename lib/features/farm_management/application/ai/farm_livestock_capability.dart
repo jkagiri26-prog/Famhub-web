@@ -1,5 +1,5 @@
 /// ============================================================
-/// FARM LIVESTOCK CONTEXT CAPABILITY — fourth FAMHUB AI capability
+/// FARM LIVESTOCK CONTEXT CAPABILITY — fourth VUNIO AI capability
 /// ============================================================
 ///
 /// 🧠 LOCATION CONTEXT:

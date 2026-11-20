@@ -1,11 +1,11 @@
 #!/bin/bash
 # ============================================================
-# FAMHUB Cloudflare Pages Deployment Script
+# VUNIO Cloudflare Pages Deployment Script
 # Single source of truth for production builds
 # ============================================================
 set -euo pipefail
 
-echo "[DEPLOY] FAMHUB Production Build - $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+echo "[DEPLOY] VUNIO Production Build - $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 
 # ── Validate required environment variables ──
 if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then

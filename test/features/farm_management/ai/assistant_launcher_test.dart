@@ -189,7 +189,7 @@ void main() {
 
         expect(
           find.text(
-            'The FAMHUB AI assistant is not available for this workspace yet.',
+            'The VUNIO AI assistant is not available for this workspace yet.',
           ),
           findsOneWidget,
         );
@@ -206,7 +206,7 @@ void main() {
       await _tapOpen(tester);
 
       expect(find.byType(FarmerAdvisorPage), findsOneWidget);
-      expect(find.text('FAMHUB AI'), findsOneWidget);
+      expect(find.text('VUNIO AI'), findsOneWidget);
       expect(find.byType(BackButton), findsOneWidget);
     });
 
@@ -219,7 +219,7 @@ void main() {
       await _tapOpen(tester);
 
       expect(find.byType(FarmerAdvisorPage), findsOneWidget);
-      expect(find.text('FAMHUB AI'), findsOneWidget);
+      expect(find.text('VUNIO AI'), findsOneWidget);
     });
 
     testWidgets('the assistant can be dismissed back to the shell', (

@@ -1,4 +1,4 @@
-name: FAMHUB Deploy to Cloudflare Pages
+name: VUNIO Deploy to Cloudflare Pages
 on:
   push:
     branches: [ main ]

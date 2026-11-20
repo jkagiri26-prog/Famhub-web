@@ -16,7 +16,7 @@
 ///
 /// All reads are entity-scoped by the backend RLS. The optional
 /// `entityId` argument only narrows reads further using the active
-/// entity already derived by the FAMHUB context mechanism — it is
+/// entity already derived by the VUNIO context mechanism — it is
 /// never an ownership grant.
 ///
 /// Every write is delegated to a backend RPC. Direct writes against

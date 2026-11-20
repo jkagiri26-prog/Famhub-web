@@ -48,7 +48,7 @@ class ExtensionServicesPage extends StatelessWidget {
 
             SizedBox(height: 24),
 
-            /// HUMAN HELP — plain text only. FAMHUB does not hold a directory
+            /// HUMAN HELP — plain text only. VUNIO does not hold a directory
             /// of extension providers, so no referral is offered here.
             SectionHeaderWidget(title: 'When you need a person'),
 
@@ -61,7 +61,7 @@ class ExtensionServicesPage extends StatelessWidget {
               'poisoning, difficult births, or a heavy crop outbreak, contact '
               'a county extension officer, KALRO, or a qualified veterinary '
               'officer promptly.\n\n'
-              'FAMHUB does not currently hold a directory of extension '
+              'VUNIO does not currently hold a directory of extension '
               'providers, so it cannot contact or book anyone on your behalf.',
               style: TextStyle(fontSize: 13, height: 1.5),
             ),

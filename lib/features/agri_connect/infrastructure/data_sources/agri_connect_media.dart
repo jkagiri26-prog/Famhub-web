@@ -2,7 +2,7 @@
 /// AGRI CONNECT — MEDIA DATA SOURCE
 /// ============================================================
 ///
-/// Reuses the existing FAMHUB media architecture via the deployed
+/// Reuses the existing VUNIO media architecture via the deployed
 /// edge functions (`upload_media`, `media_get_by_context`, `delete_media`).
 /// The client never writes to Storage or `media.context_access`.
 ///

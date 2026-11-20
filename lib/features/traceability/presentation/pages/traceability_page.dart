@@ -10,7 +10,7 @@ import '../widgets/traceability_info_tile_widget.dart';
 import '../widgets/traceability_ledger_timeline_tile_widget.dart';
 import '../widgets/traceability_qr_section_widget.dart';
 
-/// FAMHUB Traceability Module
+/// VUNIO Traceability Module
 ///
 /// Architecture Compliance:
 /// - No Scaffold

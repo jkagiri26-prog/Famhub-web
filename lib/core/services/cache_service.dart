@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:famhub_app/core/modules/domain/models/module_activation.dart';
 
 /// =======================================================
-/// FAMHUB ACTIVATION CACHE SERVICE
+/// VUNIO ACTIVATION CACHE SERVICE
 /// =======================================================
 ///
 /// RESPONSIBILITY:

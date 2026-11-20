@@ -6,7 +6,7 @@ import 'package:famhub_app/shared/layouts/section_container_widget.dart';
 import '../widgets/featured_opportunity_widget.dart';
 import '../widgets/opportunity_item_widget.dart';
 
-/// FAMHUB Module: OpportunitiesPage
+/// VUNIO Module: OpportunitiesPage
 /// Fully aligned with Shared Widget System
 /// - ResponsiveWrapper
 /// - ModuleHeaderWidget

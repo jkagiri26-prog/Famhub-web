@@ -1,5 +1,5 @@
 /// ============================================================
-/// SPLIT SCREEN HERO — Premium hero layout for FAMHUB
+/// SPLIT SCREEN HERO — Premium hero layout for VUNIO
 /// ============================================================
 ///
 /// 🎯 PURPOSE:
@@ -48,7 +48,7 @@ const List<_CarouselSlide> _slides = [
   _CarouselSlide(
     headline: 'Grow Smarter, Harvest Better',
     subtext:
-        'Manage your farm, track crops, access market prices, and improve productivity with FAMHUB.',
+        'Manage your farm, track crops, access market prices, and improve productivity with VUNIO.',
     ctaText: 'Explore Farm Management',
     imagePath: 'assets/images/farm1.png',
     accentColor: Color(0xFF22C55E),
@@ -56,7 +56,7 @@ const List<_CarouselSlide> _slides = [
   _CarouselSlide(
     headline: 'Connect Directly with Farmers',
     subtext:
-        'Buy and sell agricultural products faster through FAMHUB\'s trusted marketplace.',
+        'Buy and sell agricultural products faster through VUNIO\'s trusted marketplace.',
     ctaText: 'Visit Marketplace',
     imagePath: 'assets/images/farm2.png',
     accentColor: FamhubBrandTokens.orange,
@@ -64,7 +64,7 @@ const List<_CarouselSlide> _slides = [
   _CarouselSlide(
     headline: 'Reach Thousands of Farmers',
     subtext:
-        'Showcase your products and grow your agricultural business with FAMHUB.',
+        'Showcase your products and grow your agricultural business with VUNIO.',
     ctaText: 'Become a Supplier',
     imagePath: 'assets/images/farm3.png',
     accentColor: Color(0xFF3B82F6),
@@ -73,7 +73,7 @@ const List<_CarouselSlide> _slides = [
     headline: 'Empower Kenya\'s Agriculture',
     subtext:
         'Support farmers through finance, logistics, knowledge, and extension services.',
-    ctaText: 'Partner with FAMHUB',
+    ctaText: 'Partner with VUNIO',
     imagePath: 'assets/images/farm1.png',
     accentColor: Color(0xFF8B5CF6),
   ),
@@ -107,7 +107,7 @@ class _SplitScreenHeroState extends State<SplitScreenHero> {
   int _currentPage = 0;
   bool _isHovering = false;
 
-  // FAMHUB brand colors
+  // VUNIO brand colors
   static const _brandGreen = Color(0xFF059669);
   static const _darkGreen = Color(0xFF047857);
   static const _deepGreen = Color(0xFF065F46);
@@ -251,14 +251,14 @@ class _SplitScreenHeroState extends State<SplitScreenHero> {
             children: [
               const Spacer(flex: 1),
 
-              // ── FAMHUB Logo ──
+              // ── VUNIO Logo ──
               _buildLogo(logoSize: logoSize),
 
               SizedBox(height: gapLogoHeadline),
 
               // ── Headline ──
               Text(
-                'Welcome to\nFAMHUB',
+                'Welcome to\nVUNIO',
                 textAlign: TextAlign.start,
                 style: TextStyle(
                   fontSize: headlineSize,
@@ -482,7 +482,7 @@ class _SplitScreenHeroState extends State<SplitScreenHero> {
     );
   }
 
-  /// ── FAMHUB Logo ──
+  /// ── VUNIO Logo ──
   Widget _buildLogo({double logoSize = 36}) {
     // Derive child sizes proportionally
     final iconContainer = logoSize;
@@ -508,7 +508,7 @@ class _SplitScreenHeroState extends State<SplitScreenHero> {
         ),
         SizedBox(width: spacing),
         Text(
-          'FAMHUB',
+          'VUNIO',
           style: TextStyle(
             fontSize: fontSize,
             fontWeight: FontWeight.w800,

@@ -76,7 +76,7 @@ class SignInScreenPage extends StatefulWidget {
     super.key,
     this.onAuthenticate,
     required this.onBack,
-    this.title = 'Welcome to FAMHUB',
+    this.title = 'Welcome to VUNIO',
     this.subtitle = 'Enter your phone number to continue',
   });
 

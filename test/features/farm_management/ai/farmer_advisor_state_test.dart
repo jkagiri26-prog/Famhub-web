@@ -990,7 +990,7 @@ void main() {
         );
 
         await controller.ask(
-          'What is in FAMHUB Marketplace?',
+          'What is in VUNIO Marketplace?',
           assistantContext: onMarketplace,
         );
         await _drain();
@@ -1008,7 +1008,7 @@ void main() {
         // The gateway always receives the farmer's own words — the routing
         // annotation never leaves the client.
         expect(f.gateway.questions, <String>[
-          'What is in FAMHUB Marketplace?',
+          'What is in VUNIO Marketplace?',
           'Do we have any maize?',
           'I mean in marketplace.',
         ]);
@@ -1040,7 +1040,7 @@ void main() {
         expect(conversation['active_subject'], 'marketplace');
         expect((conversation['turns'] as List).first, <String, String>{
           'role': 'farmer',
-          'text': 'What is in FAMHUB Marketplace?',
+          'text': 'What is in VUNIO Marketplace?',
         });
 
         expect(
@@ -1207,7 +1207,7 @@ void main() {
 
         // Marketplace → weather, still on the marketplace route.
         await controller.ask(
-          'What is in FAMHUB Marketplace?',
+          'What is in VUNIO Marketplace?',
           assistantContext: onMarketplace,
         );
         await _drain();
@@ -1218,7 +1218,7 @@ void main() {
         await _drain();
         // Explicit marketplace again, now from the farm module.
         await controller.ask(
-          'What is in FAMHUB Marketplace?',
+          'What is in VUNIO Marketplace?',
           assistantContext: _assistantContext,
         );
         await _drain();

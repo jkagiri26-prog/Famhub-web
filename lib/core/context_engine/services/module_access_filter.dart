@@ -73,7 +73,7 @@ class ModuleAccessFilter {
       // If module is not marked as guest-visible, block it
       // When SystemModule supportsGuest metadata is available, check it here.
       // For now, we allow all non-premium, enabled modules to be visible
-      // to guests, as per the FAMHUB Home ecosystem showcase design.
+      // to guests, as per the VUNIO Home ecosystem showcase design.
       return !module.premiumOnly;
     }
 

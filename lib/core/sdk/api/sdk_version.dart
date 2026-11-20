@@ -1,5 +1,5 @@
 /// ============================================================
-/// FAMHUB SDK VERSION
+/// VUNIO SDK VERSION
 /// ============================================================
 ///
 /// 🧠 LOCATION CONTEXT:
@@ -51,7 +51,7 @@ class SdkVersion {
   }
 
   /// Human-readable summary
-  static String get summary => 'FAMHUB SDK v$current';
+  static String get summary => 'VUNIO SDK v$current';
 
   /// Compare against another version (returns -1, 0, +1)
   static int compare(String otherVersion) {

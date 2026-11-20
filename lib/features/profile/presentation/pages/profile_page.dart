@@ -256,7 +256,7 @@ class _LoadedProfile extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                displayName.isEmpty ? 'FAMHUB User' : displayName,
+                displayName.isEmpty ? 'VUNIO User' : displayName,
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,

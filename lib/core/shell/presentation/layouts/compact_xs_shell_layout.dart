@@ -93,7 +93,7 @@ class _CompactBottomNav extends ConsumerWidget {
     final location = GoRouterState.of(context).uri.toString();
     final navItems = ref.watch(dashboardNavItemsProvider);
 
-    // Always include FAMHUB Home as first item (same pattern as ShellBottomNav),
+    // Always include VUNIO Home as first item (same pattern as ShellBottomNav),
     // then modules, then an explicit Profile destination.
     final allItems = [
       const NavItem(

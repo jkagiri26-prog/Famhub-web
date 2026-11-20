@@ -2,7 +2,7 @@ import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// =======================================================
-/// FAMHUB SUPABASE SERVICE
+/// VUNIO SUPABASE SERVICE
 /// =======================================================
 ///
 /// RESPONSIBILITY:

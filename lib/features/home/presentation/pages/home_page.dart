@@ -6,7 +6,7 @@
 ///   features/home/presentation/pages/ = home screen layer
 ///
 /// ✅ Responsibilities:
-///   - Render the FAMHUB Home screen composed entirely from runtime descriptors
+///   - Render the VUNIO Home screen composed entirely from runtime descriptors
 ///   - All sections come from HomeContributionComposer
 ///   - No hardcoded cards, widgets, or sections
 ///
@@ -635,7 +635,7 @@ class _HomeEmptyState extends StatelessWidget {
             Icon(Icons.home_outlined, size: 48, color: Colors.grey.shade300),
             const SizedBox(height: 16),
             Text(
-              'Welcome to FAMHUB',
+              'Welcome to VUNIO',
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               ),

@@ -108,7 +108,7 @@ const Set<String> kMarketplaceSearchStopwords = <String>{
   'me', 'us', 'have', 'has', 'had', 'any', 'anything', 'some',
   'what', 'whats', 'which', 'who', 'when', 'where', 'why', 'how',
   'there', 'here', 'now', 'today', 'right', 'please', 'just',
-  'famhub', 'marketplace', 'market', 'place', 'listing', 'listings',
+  'famhub', 'vunio', 'marketplace', 'market', 'place', 'listing', 'listings',
   'mean', 'instead', 'rather', 'about', 'show', 'tell', 'list', 'browse',
   'available', 'sale', 'sell', 'sells', 'sold', 'buy', 'got', 'get',
   'see', 'look', 'looking', 'want', 'need',
@@ -138,7 +138,7 @@ bool isMarketplaceListingsQuestion(String question) {
 }
 
 /// The title search for [question]: up to two meaningful tokens, or null
-/// for an unfiltered overview ("What's in FAMHUB Marketplace?").
+/// for an unfiltered overview ("What's in VUNIO Marketplace?").
 ///
 /// Never an identifier — only words the farmer typed themselves.
 String? marketplaceSearchTerm(String question) {

@@ -1,5 +1,5 @@
 /// ============================================================
-/// FARM ACTIVITY HISTORY CAPABILITY — third FAMHUB AI capability
+/// FARM ACTIVITY HISTORY CAPABILITY — third VUNIO AI capability
 /// ============================================================
 ///
 /// 🧠 LOCATION CONTEXT:
