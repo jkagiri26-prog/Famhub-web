@@ -1,0 +1,10 @@
+name = "reputation-processing-scheduler-staging"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+
+[triggers]
+crons = []
+
+[vars]
+# Supply the project-specific function URL at deployment time.
+REPUTATION_FUNCTION_URL = ""
