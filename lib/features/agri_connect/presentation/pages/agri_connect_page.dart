@@ -18,6 +18,8 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:famhub_app/core/theme/module_theme.dart';
+
 import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
 import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
 
@@ -106,7 +108,9 @@ class _AgriConnectPageState extends ConsumerState<AgriConnectPage>
   Widget build(BuildContext context) {
     super.build(context);
 
-    return ResponsiveWrapper(
+    return ModuleAccentScope(
+      accent: ModuleAccents.connect,
+      child: ResponsiveWrapper(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -135,6 +139,7 @@ class _AgriConnectPageState extends ConsumerState<AgriConnectPage>
             ),
           ),
         ],
+      ),
       ),
     );
   }

@@ -41,6 +41,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:famhub_app/core/session/session_provider.dart';
+import 'package:famhub_app/core/theme/module_theme.dart';
 import 'package:famhub_app/core/dashboard_engine/presentation/builders/widget_registry.dart';
 import 'package:famhub_app/core/composition/providers/descriptor_providers.dart';
 import 'package:famhub_app/core/composition/domain/models/module_descriptor.dart';
@@ -1070,7 +1071,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
                       ),
                       indicatorColor: Theme.of(context).colorScheme.primary,
                       labelColor: Theme.of(context).colorScheme.primary,
-                      unselectedLabelColor: Colors.grey.shade600,
+                      unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
                       labelStyle: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -1085,7 +1086,12 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
               ),
       ),
     );
-    if (kIsWeb) return page;
+    final themedPage = ModuleAccentScope(
+      accent: ModuleAccents.farm,
+      secondary: ModuleAccents.farmLivestock,
+      child: page,
+    );
+    if (kIsWeb) return themedPage;
     return BackButtonListener(
       onBackButtonPressed: () async {
         if (Navigator.of(context).canPop()) return false;
@@ -1101,7 +1107,7 @@ class _FarmManagementPageState extends ConsumerState<FarmManagementPage>
           if (didPop) return;
           _handleSystemBack();
         },
-        child: page,
+        child: themedPage,
       ),
     );
   }

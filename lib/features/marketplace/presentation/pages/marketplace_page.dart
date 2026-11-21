@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:famhub_app/core/theme/module_theme.dart';
+
 import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
 import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
 import 'package:famhub_app/shared/widgets/states/loading_state_widget.dart';
@@ -101,7 +103,9 @@ class _MarketplacePageState extends ConsumerState<MarketplacePage> {
   Widget build(BuildContext context) {
     final listingsAsync = ref.watch(marketplaceProvider);
 
-    return ResponsiveWrapper(
+    return ModuleAccentScope(
+      accent: ModuleAccents.marketplace,
+      child: ResponsiveWrapper(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -137,7 +141,7 @@ class _MarketplacePageState extends ConsumerState<MarketplacePage> {
                     )
                   : null,
               filled: true,
-              fillColor: Colors.grey.shade100,
+              fillColor: Theme.of(context).colorScheme.surfaceVariant,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
@@ -226,6 +230,7 @@ class _MarketplacePageState extends ConsumerState<MarketplacePage> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -505,8 +510,11 @@ class _MarketPricesEntry extends ConsumerWidget {
         if (!enabled) return const SizedBox.shrink();
         final theme = Theme.of(context);
         return Material(
-          color: theme.colorScheme.primary.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(14),
+          color: theme.colorScheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(color: theme.colorScheme.outlineVariant),
+          ),
           child: InkWell(
             borderRadius: BorderRadius.circular(14),
             onTap: () {
@@ -536,13 +544,14 @@ class _MarketPricesEntry extends ConsumerWidget {
                           'Verified market intelligence by county, ward and market',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey.shade600,
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  Icon(Icons.chevron_right, color: Colors.grey.shade500),
+                  Icon(Icons.chevron_right,
+                      color: theme.colorScheme.onSurfaceVariant),
                 ],
               ),
             ),

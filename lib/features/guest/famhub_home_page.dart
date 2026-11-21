@@ -582,7 +582,7 @@ class FamhubHomePage extends ConsumerWidget {
         vertical: 10,
         horizontal: isMobile ? 12 : 24,
       ),
-      color: colorScheme.surface,
+      color: colorScheme.background,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -685,7 +685,7 @@ class FamhubHomePage extends ConsumerWidget {
         isMobile ? 24 : 40,
       ),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: colorScheme.background,
         border: Border(
           bottom: BorderSide(
             color: colorScheme.outlineVariant.withValues(alpha: 0.5),
@@ -789,7 +789,7 @@ class FamhubHomePage extends ConsumerWidget {
         isMobile ? 24 : 40,
       ),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: colorScheme.background,
         border: Border(
           bottom: BorderSide(
             color: colorScheme.outlineVariant.withValues(alpha: 0.5),
@@ -1012,7 +1012,7 @@ class FamhubHomePage extends ConsumerWidget {
         isMobile ? 32 : 48,
       ),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: colorScheme.background,
         border: Border(
           bottom: BorderSide(
             color: colorScheme.outlineVariant.withValues(alpha: 0.5),

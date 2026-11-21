@@ -21,6 +21,7 @@ class MarketplaceFilterTabsWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return SizedBox(
       height: 40,
       child: ListView.separated(
@@ -35,15 +36,13 @@ class MarketplaceFilterTabsWidget extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: isActive
-                    ? Theme.of(context).colorScheme.primary
-                    : Colors.grey.shade100,
+                color: isActive ? cs.primary : cs.surfaceVariant,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
                 tab,
                 style: TextStyle(
-                  color: isActive ? Colors.white : Colors.black87,
+                  color: isActive ? cs.onPrimary : cs.onSurface,
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
                 ),

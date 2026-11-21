@@ -67,6 +67,30 @@ class FamhubBrandTokens {
   /// Warm neutral/cream surface for warm content areas where appropriate.
   static const Color cream = Color(0xFFFAF8F2);
 
+  /// Content canvas — warm cream from the isolated Vunio direction.
+  static const Color creamBackground = Color(0xFFF5F1E8);
+
+  /// Warm secondary surface for inputs, chips and tinted strips.
+  static const Color creamSurface = Color(0xFFEDE6DB);
+
+  /// Warm border / divider for cards and content surfaces.
+  static const Color creamBorder = Color(0xFFE8E2D6);
+
+  /// Warm hover tint.
+  static const Color creamHover = Color(0xFFF0EAE0);
+
+  /// Warm text scale for the cream canvas.
+  static const Color textPrimary = Color(0xFF221A14);
+  static const Color textSecondary = Color(0xFF6F665C);
+  static const Color textTertiary = Color(0xFFA59C90);
+
+  /// Module accents — applied only inside a module's content area.
+  /// The shell chrome always stays Vunio green.
+  static const Color marketplaceAccent = Color(0xFF954224);
+  static const Color farmCropAccent = Color(0xFF4C7A34);
+  static const Color farmLivestockAccent = Color(0xFF8A5A2B);
+  static const Color connectAccent = Color(0xFF3F6E9E);
+
   /// Light-mode subtle green surface (inputs, chips, hovers).
   static const Color greenSurface = Color(0xFFEAF2E6);
 
@@ -112,13 +136,16 @@ final shellThemeProvider = Provider<ShellTheme>((ref) {
     primary: FamhubBrandTokens.green,
     accent: FamhubBrandTokens.orange,
     borderFocused: FamhubBrandTokens.green,
-    background: FamhubBrandTokens.greenBackground,
-    surfaceVariant: FamhubBrandTokens.greenSurface,
-    border: FamhubBrandTokens.greenBorder,
-    divider: FamhubBrandTokens.greenBorder,
-    hover: FamhubBrandTokens.greenHover,
+    background: FamhubBrandTokens.creamBackground,
+    surfaceVariant: FamhubBrandTokens.creamSurface,
+    border: FamhubBrandTokens.creamBorder,
+    divider: FamhubBrandTokens.creamBorder,
+    hover: FamhubBrandTokens.creamHover,
+    primaryText: FamhubBrandTokens.textPrimary,
+    secondaryText: FamhubBrandTokens.textSecondary,
+    tertiaryText: FamhubBrandTokens.textTertiary,
     navigationBg: const Color(0xFFFFFFFF),
-    navigationHover: FamhubBrandTokens.greenHover,
+    navigationHover: FamhubBrandTokens.creamHover,
     navigationSelectedBg: FamhubBrandTokens.green.withValues(alpha: 0.08),
     navigationSelectedText: FamhubBrandTokens.green,
     chromeBackground: FamhubBrandTokens.chrome,
@@ -126,8 +153,8 @@ final shellThemeProvider = Provider<ShellTheme>((ref) {
     onChromeMuted: FamhubBrandTokens.onChromeMuted,
     chromeBorder: FamhubBrandTokens.chromeBorder,
     chromeNavSelectedBg: FamhubBrandTokens.chromeSelected,
-    statusBarBg: FamhubBrandTokens.greenBackground,
-    statusBarText: FamhubBrandTokens.statusTextLight,
+    statusBarBg: FamhubBrandTokens.creamBackground,
+    statusBarText: FamhubBrandTokens.textSecondary,
   );
 
   final dark = ShellTheme.defaultDark.copyWith(
