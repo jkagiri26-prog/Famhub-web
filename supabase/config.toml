@@ -35,6 +35,12 @@ enabled = false
 enabled = true
 verify_jwt = false
 
+[functions.reputation-processing-worker]
+# The worker is invoked by a trusted scheduler/manual operator and
+# authenticates with the x-worker-secret header. It does not use a user JWT.
+enabled = true
+verify_jwt = false
+
 [db]
 # Port to use for the local database URL.
 port = 54322
