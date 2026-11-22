@@ -50,6 +50,20 @@ function createReputationWorkerRpc(config: WorkerConfig): WorkerRpc {
       return { data, error };
     },
 
+    async captureEvidence(
+      engagementId: string,
+      requestId: string,
+    ): Promise<WorkerRpcResult> {
+      const { data, error } = await supabase
+        .schema("system")
+        .rpc("capture_reputation_order_evidence", {
+          p_engagement_id: engagementId,
+          p_capture_actor_profile_id: null,
+          p_request_id: requestId,
+        });
+      return { data, error };
+    },
+
     async complete(
       workId: string,
       claimToken: string,

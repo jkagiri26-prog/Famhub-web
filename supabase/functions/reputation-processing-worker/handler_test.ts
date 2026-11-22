@@ -16,6 +16,7 @@ const WORKER_SECRET = "worker-secret-test";
 const SERVICE_ROLE_KEY = "service-role-test";
 const CLAIM_TOKEN = "30000000-0000-4000-8000-000000000001";
 const WORK_ID = "10000000-0000-4000-8000-000000000001";
+const ENGAGEMENT_ID = "40000000-0000-4000-8000-000000000001";
 
 type CompleteCall = {
   workId: string;
@@ -27,9 +28,15 @@ type CompleteCall = {
   runId: string;
 };
 
+type EvidenceCall = {
+  engagementId: string;
+  requestId: string;
+};
+
 type Calls = {
   claim: Array<{ limit: number; workerId: string; leaseSeconds: number }>;
   ingest: string[];
+  evidence: EvidenceCall[];
   complete: CompleteCall[];
 };
 
@@ -40,6 +47,10 @@ type RpcOverrides = {
     leaseSeconds: number,
   ) => Promise<WorkerRpcResult>;
   ingest?: (orderId: string) => Promise<WorkerRpcResult>;
+  evidence?: (
+    engagementId: string,
+    requestId: string,
+  ) => Promise<WorkerRpcResult>;
   complete?: (
     workId: string,
     claimToken: string,
@@ -116,7 +127,32 @@ function claimResponse(rows: ClaimedWork[]): WorkerRpcResult {
 }
 
 function ingestionSuccess(outcome = "created", reasonCode: string | null = null): WorkerRpcResult {
-  return { data: [{ outcome, reason_code: reasonCode }], error: null };
+  const success = outcome === "created"
+    || outcome === "already_ingested"
+    || outcome === "repaired";
+  return {
+    data: [{
+      outcome,
+      reason_code: reasonCode,
+      engagement_id: success ? ENGAGEMENT_ID : null,
+    }],
+    error: null,
+  };
+}
+
+function evidenceSuccess(
+  outcome = "recorded",
+  status = "active",
+): WorkerRpcResult {
+  return {
+    data: [{
+      evidence_id: "50000000-0000-4000-8000-000000000001",
+      outcome,
+      evidence_status: status,
+      conflict_event_id: status === "conflicted" ? "60000000-0000-4000-8000-000000000001" : null,
+    }],
+    error: null,
+  };
 }
 
 function completionSuccess(status = "succeeded"): WorkerRpcResult {
@@ -135,7 +171,7 @@ function rpcHarness(overrides: RpcOverrides = {}): {
   rpc: WorkerRpc;
   calls: Calls;
 } {
-  const calls: Calls = { claim: [], ingest: [], complete: [] };
+  const calls: Calls = { claim: [], ingest: [], evidence: [], complete: [] };
 
   const rpc: WorkerRpc = {
     claim(limit, workerId, leaseSeconds) {
@@ -147,6 +183,11 @@ function rpcHarness(overrides: RpcOverrides = {}): {
       calls.ingest.push(orderId);
       return overrides.ingest?.(orderId)
         ?? Promise.resolve(ingestionSuccess());
+    },
+    captureEvidence(engagementId, requestId) {
+      calls.evidence.push({ engagementId, requestId });
+      return overrides.evidence?.(engagementId, requestId)
+        ?? Promise.resolve(evidenceSuccess());
     },
     complete(
       workId,
@@ -302,6 +343,9 @@ Deno.test("successful ingestion outcomes complete as succeeded", async (t) => {
       const response = await runWorker(request(), rpc);
       assertEquals(response.status, 200);
       assertEquals(calls.ingest, [row.sourceReference]);
+      assertEquals(calls.evidence.length, 1);
+      assertEquals(calls.evidence[0].engagementId, ENGAGEMENT_ID);
+      assert(calls.evidence[0].requestId.length > 0);
       assertEquals(calls.complete.length, 1);
       assertEquals(calls.complete[0].workId, row.workId);
       assertEquals(calls.complete[0].claimToken, row.claimToken);
@@ -310,12 +354,183 @@ Deno.test("successful ingestion outcomes complete as succeeded", async (t) => {
       assertEquals(calls.complete[0].errorCode, null);
       assertEquals(calls.complete[0].errorMessage, null);
       assert(calls.complete[0].runId.length > 0);
+      assertEquals(calls.evidence[0].requestId, calls.complete[0].runId);
 
       const body = await response.json();
       assertEquals(body.succeeded, 1);
       assertEquals(body.failed, 0);
     });
   }
+});
+
+Deno.test("already-recorded evidence lifecycle states complete as succeeded", async (t) => {
+  for (const status of ["active", "revoked", "superseded"]) {
+    await t.step(status, async () => {
+      const row = claimRow(1);
+      const { rpc, calls } = rpcHarness({
+        claim: () => Promise.resolve(claimResponse([row])),
+        ingest: () => Promise.resolve(ingestionSuccess("already_ingested")),
+        evidence: () => Promise.resolve(evidenceSuccess("already_recorded", status)),
+      });
+
+      const response = await runWorker(request(), rpc);
+      assertEquals(response.status, 200);
+      assertEquals(calls.evidence.length, 1);
+      assertEquals(calls.complete.length, 1);
+      assertEquals(calls.complete[0].outcome, "succeeded");
+      assertEquals(calls.complete[0].errorCategory, null);
+
+      const body = await response.json();
+      assertEquals(body.succeeded, 1);
+      assertEquals(body.failed, 0);
+    });
+  }
+});
+
+Deno.test("evidence conflicts complete as source-conflict dead letters", async (t) => {
+  for (const testCase of [
+    {
+      outcome: "conflict_recorded",
+      status: "conflicted",
+      code: "evidence_conflict_recorded",
+    },
+    {
+      outcome: "already_recorded",
+      status: "conflicted",
+      code: "evidence_already_conflicted",
+    },
+  ]) {
+    await t.step(testCase.outcome, async () => {
+      const row = claimRow(1);
+      const { rpc, calls } = rpcHarness({
+        claim: () => Promise.resolve(claimResponse([row])),
+        ingest: () => Promise.resolve(ingestionSuccess("created")),
+        evidence: () => Promise.resolve(
+          evidenceSuccess(testCase.outcome, testCase.status),
+        ),
+      });
+
+      const response = await runWorker(request(), rpc);
+      assertEquals(response.status, 200);
+      assertEquals(calls.evidence.length, 1);
+      assertEquals(calls.complete.length, 1);
+      assertEquals(calls.complete[0].outcome, "dead_letter");
+      assertEquals(calls.complete[0].errorCategory, "source_conflict");
+      assertEquals(calls.complete[0].errorCode, testCase.code);
+
+      const body = await response.json();
+      assertEquals(body.dead_lettered, 1);
+      assertEquals(body.failed, 0);
+    });
+  }
+});
+
+Deno.test("transient evidence failure completes as retryable", async () => {
+  const row = claimRow(1);
+  const { rpc, calls } = rpcHarness({
+    claim: () => Promise.resolve(claimResponse([row])),
+    ingest: () => Promise.resolve(ingestionSuccess("created")),
+    evidence: () => Promise.resolve({
+      data: null,
+      error: { code: "40001", message: "serialization failure" },
+    }),
+  });
+
+  const response = await runWorker(request(), rpc);
+  assertEquals(response.status, 200);
+  assertEquals(calls.evidence.length, 1);
+  assertEquals(calls.complete.length, 1);
+  assertEquals(calls.complete[0].outcome, "retryable");
+  assertEquals(calls.complete[0].errorCategory, "transient_technical");
+  assertEquals(calls.complete[0].errorCode, "database_serialization_failure");
+
+  const body = await response.json();
+  assertEquals(body.retryable, 1);
+  assertEquals(body.failed, 0);
+});
+
+Deno.test("malformed evidence response aborts without fabricating completion", async () => {
+  const row = claimRow(1);
+  const { rpc, calls } = rpcHarness({
+    claim: () => Promise.resolve(claimResponse([row])),
+    ingest: () => Promise.resolve(ingestionSuccess("created")),
+    evidence: () => Promise.resolve({
+      data: [{ outcome: "recorded" }],
+      error: null,
+    }),
+  });
+
+  const response = await runWorker(request(), rpc);
+  assertEquals(response.status, 500);
+  assertEquals(calls.evidence.length, 1);
+  assertEquals(calls.complete.length, 0);
+
+  const body = await response.json();
+  assertEquals(body.ok, false);
+  assertEquals(body.failed, 1);
+  assertEquals(body.succeeded, 0);
+});
+
+Deno.test("partial success retries evidence after engagement already ingested", async () => {
+  const row = claimRow(1);
+  const first = rpcHarness({
+    claim: () => Promise.resolve(claimResponse([row])),
+    ingest: () => Promise.resolve(ingestionSuccess("created")),
+    evidence: () => Promise.resolve({
+      data: null,
+      error: { code: "40001", message: "serialization failure" },
+    }),
+  });
+
+  const firstResponse = await runWorker(request(), first.rpc);
+  assertEquals(firstResponse.status, 200);
+  assertEquals(first.calls.complete[0].outcome, "retryable");
+
+  const second = rpcHarness({
+    claim: () => Promise.resolve(claimResponse([row])),
+    ingest: () => Promise.resolve(ingestionSuccess("already_ingested")),
+    evidence: () => Promise.resolve(
+      evidenceSuccess("already_recorded", "active"),
+    ),
+  });
+
+  const secondResponse = await runWorker(request(), second.rpc);
+  assertEquals(secondResponse.status, 200);
+  assertEquals(second.calls.evidence[0].engagementId, ENGAGEMENT_ID);
+  assertEquals(second.calls.complete[0].outcome, "succeeded");
+});
+
+Deno.test("recovery after evidence before completion completes successfully", async () => {
+  const row = claimRow(1);
+  const first = rpcHarness({
+    claim: () => Promise.resolve(claimResponse([row])),
+    ingest: () => Promise.resolve(ingestionSuccess("created")),
+    evidence: () => Promise.resolve(evidenceSuccess("recorded", "active")),
+    complete: () => Promise.resolve({
+      data: null,
+      error: { code: "40001", message: "serialization failure" },
+    }),
+  });
+
+  const firstResponse = await runWorker(request(), first.rpc);
+  assertEquals(firstResponse.status, 200);
+  assertEquals(first.calls.evidence.length, 1);
+  assertEquals(first.calls.complete[0].outcome, "succeeded");
+  const firstBody = await firstResponse.json();
+  assertEquals(firstBody.failed, 1);
+
+  const second = rpcHarness({
+    claim: () => Promise.resolve(claimResponse([row])),
+    ingest: () => Promise.resolve(ingestionSuccess("already_ingested")),
+    evidence: () => Promise.resolve(
+      evidenceSuccess("already_recorded", "active"),
+    ),
+  });
+
+  const secondResponse = await runWorker(request(), second.rpc);
+  assertEquals(secondResponse.status, 200);
+  assertEquals(second.calls.evidence.length, 1);
+  assertEquals(second.calls.complete[0].outcome, "succeeded");
 });
 
 Deno.test("ineligible and source-conflict outcomes complete as dead_letter", async (t) => {
@@ -344,6 +559,7 @@ Deno.test("ineligible and source-conflict outcomes complete as dead_letter", asy
 
       const response = await runWorker(request(), rpc);
       assertEquals(response.status, 200);
+      assertEquals(calls.evidence.length, 0);
       assertEquals(calls.complete.length, 1);
       assertEquals(calls.complete[0].outcome, "dead_letter");
       assertEquals(calls.complete[0].errorCategory, testCase.category);

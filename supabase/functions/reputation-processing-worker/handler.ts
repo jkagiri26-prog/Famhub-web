@@ -46,6 +46,10 @@ export type WorkerRpc = {
     leaseSeconds: number,
   ): Promise<WorkerRpcResult>;
   ingest(orderId: string): Promise<WorkerRpcResult>;
+  captureEvidence(
+    engagementId: string,
+    requestId: string,
+  ): Promise<WorkerRpcResult>;
   complete(
     workId: string,
     claimToken: string,
@@ -89,6 +93,19 @@ const INGESTION_OUTCOMES = new Set([
   "source_conflict",
 ]);
 
+const EVIDENCE_OUTCOMES = new Set([
+  "recorded",
+  "already_recorded",
+  "conflict_recorded",
+]);
+
+const EVIDENCE_STATUSES = new Set([
+  "active",
+  "revoked",
+  "superseded",
+  "conflicted",
+]);
+
 const COMPLETION_STATUSES = new Set([
   "succeeded",
   "retryable",
@@ -110,7 +127,19 @@ type JobResult =
 type IngestionResult = {
   outcome: string;
   reasonCode: string | null;
+  engagementId: string | null;
 };
+
+type EvidenceResult = {
+  outcome: string;
+  evidenceStatus: string;
+};
+
+type EvidenceAttempt =
+  | { kind: "success"; outcome: string; status: string }
+  | { kind: "conflict"; outcome: string; status: string; errorCode: string }
+  | { kind: "retryable"; errorCode: string }
+  | { kind: "systemic"; errorCode: string };
 
 function json(status: number, body: Record<string, unknown>): Response {
   return new Response(JSON.stringify(body), {
@@ -357,7 +386,32 @@ function parseIngestionResult(data: unknown): IngestionResult | null {
     return null;
   }
 
-  return { outcome: row.outcome, reasonCode };
+  const successOutcome = row.outcome === "created"
+    || row.outcome === "already_ingested"
+    || row.outcome === "repaired";
+
+  if (successOutcome && !isUuid(row.engagement_id)) {
+    return null;
+  }
+
+  return {
+    outcome: row.outcome,
+    reasonCode,
+    engagementId: successOutcome ? row.engagement_id as string : null,
+  };
+}
+
+function parseEvidenceResult(data: unknown): EvidenceResult | null {
+  if (!Array.isArray(data) || data.length !== 1) return null;
+  const row = data[0];
+  if (!isRecord(row) || !isNonEmptyString(row.outcome)) return null;
+  if (!EVIDENCE_OUTCOMES.has(row.outcome)) return null;
+  if (!isNonEmptyString(row.evidence_status)) return null;
+  if (!EVIDENCE_STATUSES.has(row.evidence_status)) return null;
+  return {
+    outcome: row.outcome,
+    evidenceStatus: row.evidence_status,
+  };
 }
 
 function parseCompletionStatus(data: unknown): CompletionStatus | null {
@@ -405,6 +459,7 @@ function logJob(
   completionStatus: string | null,
   errorCategory: string | null,
   errorCode: string | null,
+  evidence: (EvidenceResult & { engagementId: string }) | null = null,
 ): void {
   log("info", runId, {
     worker_id: workerId,
@@ -416,6 +471,9 @@ function logJob(
     completion_status: completionStatus,
     error_category: errorCategory,
     error_code: errorCode,
+    engagement_id: evidence?.engagementId ?? null,
+    evidence_outcome: evidence?.outcome ?? null,
+    evidence_status: evidence?.evidenceStatus ?? null,
     duration_ms: Math.max(0, Math.round(now() - started)),
   });
 }
@@ -487,6 +545,71 @@ async function completeWork(
   }
 
   return { kind: "completed", status };
+}
+
+async function captureEvidence(
+  engagementId: string,
+  runId: string,
+  rpc: WorkerRpc,
+  now: () => number,
+  overallStarted: number,
+  jobStarted: number,
+  options: Required<WorkerOptions>,
+): Promise<EvidenceAttempt> {
+  let result: WorkerRpcResult;
+  try {
+    result = await withTimeout(
+      rpc.captureEvidence(engagementId, runId),
+      callBudget(now, overallStarted, jobStarted, options),
+    );
+  } catch (error) {
+    if (isTransientError(error)) {
+      return { kind: "retryable", errorCode: transientErrorCode(error) };
+    }
+    return { kind: "systemic", errorCode: "evidence_gateway_error" };
+  }
+
+  if (result.error) {
+    if (isTransientError(result.error)) {
+      return {
+        kind: "retryable",
+        errorCode: transientErrorCode(result.error),
+      };
+    }
+    return { kind: "systemic", errorCode: "evidence_gateway_error" };
+  }
+
+  const parsed = parseEvidenceResult(result.data);
+  if (!parsed) {
+    return { kind: "systemic", errorCode: "evidence_contract_invalid" };
+  }
+
+  if (
+    parsed.outcome === "conflict_recorded"
+    || parsed.evidenceStatus === "conflicted"
+  ) {
+    return {
+      kind: "conflict",
+      outcome: parsed.outcome,
+      status: parsed.evidenceStatus,
+      errorCode: parsed.outcome === "already_recorded"
+        ? "evidence_already_conflicted"
+        : "evidence_conflict_recorded",
+    };
+  }
+
+  if (
+    parsed.outcome === "recorded"
+    || parsed.outcome === "already_recorded"
+  ) {
+    return {
+      kind: "success",
+      outcome: parsed.outcome,
+      status: parsed.evidenceStatus,
+    };
+  }
+
+  return { kind: "systemic", errorCode: "evidence_contract_invalid" };
 }
 
 async function processItem(
@@ -757,6 +880,148 @@ async function processItem(
     || parsed.outcome === "already_ingested"
     || parsed.outcome === "repaired"
   ) {
+    const engagementId = parsed.engagementId;
+    if (!engagementId) {
+      log("error", runId, {
+        worker_id: workerId,
+        work_id: item.workId,
+        work_kind: item.workKind,
+        source_reference: item.sourceReference,
+        attempt_number: item.attemptNumber,
+        outcome: "ingestion_contract_invalid",
+        error_code: "ingestion_engagement_id_missing",
+        duration_ms: Math.max(0, Math.round(now() - jobStarted)),
+      });
+      return { kind: "systemic" };
+    }
+
+    const evidence = await captureEvidence(
+      engagementId,
+      runId,
+      rpc,
+      now,
+      overallStarted,
+      jobStarted,
+      options,
+    );
+
+    if (evidence.kind === "systemic") {
+      log("error", runId, {
+        worker_id: workerId,
+        work_id: item.workId,
+        work_kind: item.workKind,
+        source_reference: item.sourceReference,
+        engagement_id: engagementId,
+        attempt_number: item.attemptNumber,
+        outcome: "evidence_contract_invalid",
+        error_code: evidence.errorCode,
+        duration_ms: Math.max(0, Math.round(now() - jobStarted)),
+      });
+      return { kind: "systemic" };
+    }
+
+    if (evidence.kind === "retryable") {
+      const completion = await completeWork(
+        item,
+        "retryable",
+        "transient_technical",
+        evidence.errorCode,
+        "Transient evidence gateway failure",
+        runId,
+        rpc,
+        now,
+        overallStarted,
+        jobStarted,
+        options,
+      );
+
+      if (completion.kind === "completed") {
+        logJob(
+          runId,
+          workerId,
+          item,
+          jobStarted,
+          now,
+          "transient_evidence_failure",
+          completion.status,
+          "transient_technical",
+          evidence.errorCode,
+        );
+        return { kind: "completed", status: completion.status };
+      }
+      if (completion.kind === "failed") {
+        logJob(
+          runId,
+          workerId,
+          item,
+          jobStarted,
+          now,
+          "transient_evidence_failure",
+          null,
+          completion.errorCategory,
+          completion.errorCode,
+        );
+        return { kind: "failed" };
+      }
+      return { kind: "systemic" };
+    }
+
+    if (evidence.kind === "conflict") {
+      const completion = await completeWork(
+        item,
+        "dead_letter",
+        "source_conflict",
+        evidence.errorCode,
+        "Delivery evidence conflicts with existing Reputation state",
+        runId,
+        rpc,
+        now,
+        overallStarted,
+        jobStarted,
+        options,
+      );
+
+      if (completion.kind === "completed") {
+        logJob(
+          runId,
+          workerId,
+          item,
+          jobStarted,
+          now,
+          parsed.outcome,
+          completion.status,
+          "source_conflict",
+          evidence.errorCode,
+          {
+            engagementId,
+            outcome: evidence.outcome,
+            evidenceStatus: evidence.status,
+          },
+        );
+        return { kind: "completed", status: completion.status };
+      }
+      if (completion.kind === "failed") {
+        logJob(
+          runId,
+          workerId,
+          item,
+          jobStarted,
+          now,
+          parsed.outcome,
+          null,
+          completion.errorCategory,
+          completion.errorCode,
+          {
+            engagementId,
+            outcome: evidence.outcome,
+            evidenceStatus: evidence.status,
+          },
+        );
+        return { kind: "failed" };
+      }
+      return { kind: "systemic" };
+    }
+
     const completion = await completeWork(
       item,
       "succeeded",
@@ -782,6 +1047,11 @@ async function processItem(
         completion.status,
         null,
         null,
+        {
+          engagementId,
+          outcome: evidence.outcome,
+          evidenceStatus: evidence.status,
+        },
       );
       return { kind: "completed", status: completion.status };
     }
@@ -796,6 +1066,11 @@ async function processItem(
         null,
         completion.errorCategory,
         completion.errorCode,
+        {
+          engagementId,
+          outcome: evidence.outcome,
+          evidenceStatus: evidence.status,
+        },
       );
       return { kind: "failed" };
     }
