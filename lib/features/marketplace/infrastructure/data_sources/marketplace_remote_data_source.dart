@@ -16,6 +16,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../domain/models/contact_unlock_payment.dart';
 import '../../domain/models/listing_edit_changes.dart';
+import '../../domain/models/listing_specification.dart';
 
 /// Serializes [changes] into the exact whitelisted JSONB payload accepted by
 /// `marketplace.update_listing`.
@@ -371,6 +372,173 @@ class MarketplaceRemoteDataSource {
     } catch (e) {
       throw Exception('Failed to fetch variants: $e');
     }
+  }
+
+  /// Read public product specifications from the canonical Core attribute
+  /// tables. The listing only stores `variant_id`; item-level attributes are
+  /// resolved through the variant's item. Internal ids and JSON blobs are not
+  /// returned to the UI.
+  Future<List<ListingSpecification>> fetchListingSpecifications(
+    String variantId,
+  ) async {
+    if (variantId.isEmpty) return const [];
+
+    Map<String, dynamic>? variantRow;
+    try {
+      variantRow = await _client
+          .schema('core')
+          .from('item_variants')
+          .select('item_id')
+          .eq('id', variantId)
+          .maybeSingle();
+    } on PostgrestException {
+      variantRow = null;
+    }
+
+    final rows = <({String source, Map<String, dynamic> row})>[];
+    try {
+      final response = await _client
+          .schema('core')
+          .from('variant_attributes')
+          .select(
+            'attribute_id, value_text, value_number, value_boolean, '
+            'value_date, enum_value_id',
+          )
+          .eq('variant_id', variantId);
+      for (final row in (response as List).cast<Map<String, dynamic>>()) {
+        rows.add((source: 'variant', row: row));
+      }
+    } on PostgrestException {
+      // Optional presentation data; never fail the listing page.
+    }
+
+    final itemId = variantRow?['item_id']?.toString();
+    if (itemId != null && itemId.isNotEmpty) {
+      try {
+        final response = await _client
+            .schema('core')
+            .from('item_attributes')
+            .select(
+              'attribute_id, value_text, value_number, value_boolean, '
+              'value_json',
+            )
+            .eq('item_id', itemId);
+        for (final row in (response as List).cast<Map<String, dynamic>>()) {
+          rows.add((source: 'item', row: row));
+        }
+      } on PostgrestException {
+        // Optional presentation data; never fail the listing page.
+      }
+    }
+
+    if (rows.isEmpty) return const [];
+
+    final attributeIds = <String>{};
+    final enumIds = <String>{};
+    for (final entry in rows) {
+      final attributeId = entry.row['attribute_id']?.toString();
+      if (attributeId != null && attributeId.isNotEmpty) {
+        attributeIds.add(attributeId);
+      }
+      final enumId = entry.row['enum_value_id']?.toString();
+      if (enumId != null && enumId.isNotEmpty) enumIds.add(enumId);
+    }
+    if (attributeIds.isEmpty) return const [];
+
+    Map<String, Map<String, dynamic>> attributes = const {};
+    try {
+      final response = await _client
+          .schema('core')
+          .from('attribute_registry')
+          .select('id, name, data_type, unit_id')
+          .inFilter('id', attributeIds.toList());
+      attributes = {
+        for (final row in (response as List).cast<Map<String, dynamic>>())
+          if (row['id'] != null) row['id'].toString(): row,
+      };
+    } on PostgrestException {
+      return const [];
+    }
+
+    final unitIds = <String>{};
+    for (final attr in attributes.values) {
+      final unitId = attr['unit_id']?.toString();
+      if (unitId != null && unitId.isNotEmpty) unitIds.add(unitId);
+    }
+
+    Map<String, String> units = const {};
+    if (unitIds.isNotEmpty) {
+      try {
+        units = await fetchUnitsByIds(unitIds);
+      } on Object {
+        units = const {};
+      }
+    }
+
+    Map<String, String> enumValues = const {};
+    if (enumIds.isNotEmpty) {
+      try {
+        final response = await _client
+            .schema('core')
+            .from('attribute_enum_values')
+            .select('id, value')
+            .inFilter('id', enumIds.toList());
+        enumValues = {
+          for (final row in (response as List).cast<Map<String, dynamic>>())
+            if (row['id'] != null)
+              row['id'].toString(): row['value']?.toString() ?? '',
+        };
+      } on PostgrestException {
+        enumValues = const {};
+      }
+    }
+
+    final byName = <String, ListingSpecification>{};
+    // Item-level values first; variant-level values take precedence when the
+    // same canonical attribute is defined at both levels.
+    for (final source in const ['item', 'variant']) {
+      for (final entry in rows.where((r) => r.source == source)) {
+        final attributeId = entry.row['attribute_id']?.toString();
+        final attribute = attributeId == null
+            ? null
+            : attributes[attributeId];
+        if (attribute == null) continue;
+
+        final name = attribute['name']?.toString().trim() ?? '';
+        if (name.isEmpty) continue;
+
+        final rawValue = entry.row['value_text']?.toString().trim() ??
+            entry.row['value_number']?.toString() ??
+            entry.row['value_date']?.toString() ??
+            (entry.row['value_boolean'] is bool
+                ? ((entry.row['value_boolean'] as bool) ? 'Yes' : 'No')
+                : null) ??
+            (entry.row['value_json'] is String ||
+                    entry.row['value_json'] is num ||
+                    entry.row['value_json'] is bool
+                ? entry.row['value_json'].toString()
+                : null) ??
+            enumValues[entry.row['enum_value_id']?.toString() ?? ''];
+
+        if (rawValue == null || rawValue.trim().isEmpty) continue;
+
+        var displayValue = rawValue.trim();
+        final unitId = attribute['unit_id']?.toString();
+        final unit = unitId == null ? null : units[unitId];
+        if (unit != null && unit.isNotEmpty && !displayValue.endsWith(unit)) {
+          displayValue = '$displayValue $unit';
+        }
+
+        byName[name] = ListingSpecification(
+          name: name,
+          value: displayValue,
+        );
+      }
+    }
+
+    final result = byName.values.toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return result;
   }
 
   /// Resolve item (product) names for the given item IDs (id → name).

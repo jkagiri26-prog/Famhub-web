@@ -15,6 +15,7 @@ import 'package:famhub_app/features/marketplace/domain/models/listing_edit_chang
 import 'package:famhub_app/features/marketplace/domain/models/listing_edit_images_state.dart';
 import 'package:famhub_app/features/marketplace/domain/models/listing_image_file.dart';
 import 'package:famhub_app/features/marketplace/domain/models/listing_publication.dart';
+import 'package:famhub_app/features/marketplace/domain/models/listing_specification.dart';
 import 'package:famhub_app/features/marketplace/domain/models/marketplace_order.dart';
 import 'package:famhub_app/features/marketplace/domain/repositories/marketplace_repository.dart';
 import 'package:famhub_app/features/marketplace/infrastructure/data_sources/marketplace_remote_data_source.dart';
@@ -245,6 +246,13 @@ class _FakeMarketplaceRepository implements MarketplaceRepository {
   }) async {
     final current = listing;
     return current == null ? const [] : [current];
+  }
+
+  @override
+  Future<List<ListingSpecification>> fetchListingSpecifications(
+    String variantId,
+  ) async {
+    return const [];
   }
 
   @override

@@ -7,6 +7,7 @@ import '../models/contact_unlock_payment.dart';
 import '../models/listing_edit_changes.dart';
 import '../models/listing_image_file.dart';
 import '../models/listing_publication.dart';
+import '../models/listing_specification.dart';
 import '../models/marketplace_order.dart';
 
 /// Abstract repository contract for marketplace data operations.
@@ -21,6 +22,13 @@ abstract class MarketplaceRepository {
   });
 
   Future<Listing?> fetchListingById(String id);
+
+  /// Read public specifications attached to the listing's canonical product
+  /// variant/item. Returns display-only name/value pairs; internal ids never
+  /// leave the data layer.
+  Future<List<ListingSpecification>> fetchListingSpecifications(
+    String variantId,
+  );
 
   Future<Listing> createListing(Map<String, dynamic> payload);
 

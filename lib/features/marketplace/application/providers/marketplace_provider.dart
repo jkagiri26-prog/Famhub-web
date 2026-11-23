@@ -12,6 +12,7 @@ import '../../domain/models/listing_edit_changes.dart';
 import '../../domain/models/listing_edit_images_state.dart';
 import '../../domain/models/listing_image_file.dart';
 import '../../domain/models/listing_publication.dart';
+import '../../domain/models/listing_specification.dart';
 import '../../domain/models/marketplace_order.dart';
 import '../../domain/repositories/marketplace_repository.dart';
 import '../../infrastructure/data_sources/marketplace_remote_data_source.dart';
@@ -701,6 +702,20 @@ final stockItemDetailsProvider = FutureProvider.family<StockItem?, String>((
 /// Listing.images holds `media.files` IDs — never URLs. This provider is the
 /// presentation/runtime representation of those references. Signed URLs expire
 /// and must never be persisted; invalidate the provider to refresh them.
+/// Public product specifications for a listing's canonical variant/item.
+///
+/// Read-only and best-effort; an empty list means the listing has no
+/// structured attributes. The free-text description remains the source of
+/// truth when no structured data exists.
+final listingSpecificationsProvider =
+    FutureProvider.family<List<ListingSpecification>, String>((
+      ref,
+      variantId,
+    ) async {
+      final repo = ref.read(marketplaceRepositoryProvider);
+      return repo.fetchListingSpecifications(variantId);
+    });
+
 final listingImageUrlsProvider = FutureProvider.family<List<String>, String>((
   ref,
   listingId,

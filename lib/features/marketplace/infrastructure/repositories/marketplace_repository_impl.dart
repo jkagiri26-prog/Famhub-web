@@ -16,6 +16,7 @@ import 'package:famhub_app/features/marketplace/domain/models/contact_unlock_pay
 import 'package:famhub_app/features/marketplace/domain/models/listing_edit_changes.dart';
 import 'package:famhub_app/features/marketplace/domain/models/listing_image_file.dart';
 import 'package:famhub_app/features/marketplace/domain/models/listing_publication.dart';
+import 'package:famhub_app/features/marketplace/domain/models/listing_specification.dart';
 import 'package:famhub_app/features/marketplace/domain/models/marketplace_order.dart';
 import 'package:famhub_app/features/marketplace/domain/repositories/marketplace_repository.dart';
 import 'package:famhub_app/features/marketplace/infrastructure/data_sources/marketplace_remote_data_source.dart';
@@ -311,6 +312,13 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
       statusFilter: statusValue,
     );
     return _enrichWithSellerProfiles(data);
+  }
+
+  @override
+  Future<List<ListingSpecification>> fetchListingSpecifications(
+    String variantId,
+  ) {
+    return dataSource.fetchListingSpecifications(variantId);
   }
 
   @override
