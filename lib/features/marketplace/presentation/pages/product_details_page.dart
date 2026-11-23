@@ -75,110 +75,113 @@ class _ProductDetailContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final imageUrls =
         ref.watch(listingImageUrlsProvider(listing.id)).value ?? const [];
-    final activeEntityId =
-        ref.watch(contextProvider.select((context) => context.entityId));
-    final canEdit = ref.watch(isAuthenticatedProvider) &&
+    final activeEntityId = ref.watch(
+      contextProvider.select((context) => context.entityId),
+    );
+    final canEdit =
+        ref.watch(isAuthenticatedProvider) &&
         activeEntityId == listing.entityId &&
         listing.status != ListingStatus.archived;
 
     return ResponsiveWrapper(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 12),
-          const ModuleHeaderWidget(
-            title: 'Listing Details',
-            subtitle: 'Product information, availability & seller',
-          ),
-          const SizedBox(height: 20),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 12),
+            const ModuleHeaderWidget(
+              title: 'Listing Details',
+              subtitle: 'Product information, availability & seller',
+            ),
+            const SizedBox(height: 20),
 
-          if (canEdit) ...[
-            Align(
-              alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => ListingEditPage(listingId: listing.id),
+            if (canEdit) ...[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ListingEditPage(listingId: listing.id),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  label: const Text('Edit Listing'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Theme.of(context).colorScheme.primary,
+                    side: BorderSide(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.4),
                     ),
-                  );
-                },
-                icon: const Icon(Icons.edit_outlined, size: 18),
-                label: const Text('Edit Listing'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Theme.of(context).colorScheme.primary,
-                  side: BorderSide(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primary
-                        .withValues(alpha: 0.4),
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+            ],
+
+            ListingCardWidget(
+              title: listing.title,
+              subtitle: _productLabel(listing),
+              price: listing.displayPrice,
+              location: listing.locationName ?? 'Location unavailable',
+              imageUrl: imageUrls.isEmpty ? null : imageUrls.first,
             ),
-            const SizedBox(height: 16),
-          ],
 
-          ListingCardWidget(
-            title: listing.title,
-            subtitle: _productLabel(listing),
-            price: listing.displayPrice,
-            location: listing.locationName ?? 'Location unavailable',
-            imageUrl: imageUrls.isEmpty ? null : imageUrls.first,
-          ),
-
-          if (imageUrls.length > 1) ...[
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 72,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: imageUrls.length - 1,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (_, index) {
-                  final url = imageUrls[index + 1];
-                  return ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.network(
-                      url,
-                      width: 88,
-                      height: 72,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                    ),
-                  );
-                },
+            if (imageUrls.length > 1) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 72,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: imageUrls.length - 1,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (_, index) {
+                    final url = imageUrls[index + 1];
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.network(
+                        url,
+                        width: 88,
+                        height: 72,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                      ),
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
 
-          const SizedBox(height: 16),
-          _OverviewCard(listing: listing),
-          const SizedBox(height: 16),
-          _DescriptionCard(listing: listing),
-          const SizedBox(height: 16),
-          _SpecificationsCard(listing: listing),
-          const SizedBox(height: 16),
-          _AvailabilityCard(listing: listing),
-          const SizedBox(height: 16),
-          BuyOrderSection(listing: listing),
-          const SizedBox(height: 16),
-          _SellerCard(listing: listing),
-          const SizedBox(height: 16),
-          _ReviewsCard(listing: listing),
-          const SizedBox(height: 16),
-
-          if (ref.watch(isAuthenticatedProvider) &&
-              listing.contactVisibility == 'locked') ...[
-            ContactUnlockSection(listing: listing),
             const SizedBox(height: 16),
-          ],
+            _OverviewCard(listing: listing),
+            const SizedBox(height: 16),
+            _DescriptionCard(listing: listing),
+            const SizedBox(height: 16),
+            _SpecificationsCard(listing: listing),
+            const SizedBox(height: 16),
+            _AvailabilityCard(listing: listing),
+            const SizedBox(height: 16),
+            BuyOrderSection(listing: listing),
+            const SizedBox(height: 16),
+            _SellerCard(listing: listing),
+            const SizedBox(height: 16),
+            _ReviewsCard(listing: listing),
+            const SizedBox(height: 16),
 
-          const SizedBox(height: 24),
-        ],
+            if (ref.watch(isAuthenticatedProvider) &&
+                listing.contactVisibility == 'locked') ...[
+              ContactUnlockSection(listing: listing),
+              const SizedBox(height: 16),
+            ],
+
+            const SizedBox(height: 24),
+          ],
+        ),
       ),
     );
   }
@@ -265,9 +268,9 @@ class _SectionCard extends StatelessWidget {
         children: [
           Text(
             title,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 10),
           child,
@@ -426,8 +429,9 @@ class _SellerCard extends StatelessWidget {
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor:
-                Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+            backgroundColor: Theme.of(
+              context,
+            ).colorScheme.primary.withValues(alpha: 0.1),
             child: Icon(
               Icons.storefront_outlined,
               color: Theme.of(context).colorScheme.primary,
@@ -448,10 +452,7 @@ class _SellerCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   listing.locationName ?? 'Location unavailable',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
               ],
             ),
