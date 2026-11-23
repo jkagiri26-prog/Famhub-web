@@ -10,6 +10,7 @@ import 'package:famhub_app/shared/widgets/cards/summary_panel_widget.dart';
 
 import '../widgets/listing_tile.dart';
 import '../../application/providers/marketplace_provider.dart';
+import 'package:famhub_app/features/reputation/presentation/widgets/reputation_subject_ratings.dart';
 
 class SellerProfilePage extends ConsumerWidget {
   final String sellerId;
@@ -35,6 +36,19 @@ class SellerProfilePage extends ConsumerWidget {
             title: sellerName ?? 'Seller Profile',
             subtitle: 'Listings & performance',
           ),
+          const SizedBox(height: 20),
+
+          Container(
+            constraints: const BoxConstraints(maxHeight: 420),
+            child: SingleChildScrollView(
+              child: ReputationSubjectRatings(
+                kind: ReputationSubjectKind.seller,
+                canonicalId: sellerId,
+                title: 'Seller ratings',
+              ),
+            ),
+          ),
+
           const SizedBox(height: 20),
 
           // Stats section

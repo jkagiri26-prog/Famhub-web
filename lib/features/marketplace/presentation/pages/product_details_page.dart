@@ -1,24 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
-import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
-import 'package:famhub_app/shared/widgets/states/loading_state_widget.dart';
-import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
-import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
-import 'package:famhub_app/shared/widgets/cards/info_tile_widget.dart';
-
+import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
 import 'package:famhub_app/core/session/session_provider.dart';
-import 'package:famhub_app/features/marketplace/presentation/widgets/listing_card_widget.dart';
-import 'package:famhub_app/features/marketplace/presentation/widgets/listing_status_badge.dart';
-import 'package:famhub_app/features/marketplace/presentation/widgets/buy_order_section.dart';
-import 'package:famhub_app/features/marketplace/presentation/widgets/contact_unlock_section.dart';
-import 'package:famhub_app/features/marketplace/presentation/widgets/marketplace_health_widget.dart';
+import 'package:famhub_app/features/marketplace/application/providers/marketplace_provider.dart';
 import 'package:famhub_app/features/marketplace/domain/entities/listing.dart';
 import 'package:famhub_app/features/marketplace/domain/enums/listing_status.dart';
-import 'package:famhub_app/features/marketplace/application/providers/marketplace_provider.dart';
 import 'package:famhub_app/features/marketplace/presentation/pages/listing_edit_page.dart';
 import 'package:famhub_app/features/marketplace/presentation/pages/seller_profile_page.dart';
+import 'package:famhub_app/features/marketplace/presentation/widgets/buy_order_section.dart';
+import 'package:famhub_app/features/marketplace/presentation/widgets/contact_unlock_section.dart';
+import 'package:famhub_app/features/marketplace/presentation/widgets/listing_card_widget.dart';
+import 'package:famhub_app/features/reputation/presentation/widgets/reputation_subject_ratings.dart';
+import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
+import 'package:famhub_app/shared/widgets/headers/module_header_widget.dart';
+import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
+import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
+import 'package:famhub_app/shared/widgets/states/loading_state_widget.dart';
 
 class ProductDetailsPage extends ConsumerWidget {
   final String? listingId;
@@ -27,7 +25,6 @@ class ProductDetailsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // If no listingId, show empty state
     if (listingId == null) {
       return const ResponsiveWrapper(
         child: EmptyStateWidget(
@@ -38,7 +35,6 @@ class ProductDetailsPage extends ConsumerWidget {
       );
     }
 
-    // Use listingDetailsProvider for targeted single-listing load
     final listingAsync = ref.watch(listingDetailsProvider(listingId!));
 
     return listingAsync.when(
@@ -64,7 +60,6 @@ class ProductDetailsPage extends ConsumerWidget {
             ),
           );
         }
-
         return _ProductDetailContent(listing: listing);
       },
     );
@@ -78,27 +73,13 @@ class _ProductDetailContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final statusColor = switch (listing.status) {
-      ListingStatus.active => Colors.green,
-      ListingStatus.draft => Colors.grey,
-      ListingStatus.paused => Colors.orange,
-      ListingStatus.soldOut => Colors.red,
-      ListingStatus.archived => Colors.grey,
-      ListingStatus.inactive => Colors.grey,
-    };
-
-    final availabilityText = switch (listing.status) {
-      ListingStatus.active =>
-        '${listing.availableQuantity.toStringAsFixed(0)} ${listing.unitName ?? ''} available',
-      ListingStatus.soldOut => 'Sold Out',
-      ListingStatus.draft => 'Draft',
-      ListingStatus.paused => 'Paused',
-      ListingStatus.archived => 'Archived',
-      ListingStatus.inactive => 'Inactive',
-    };
-
     final imageUrls =
         ref.watch(listingImageUrlsProvider(listing.id)).value ?? const [];
+    final activeEntityId =
+        ref.watch(contextProvider.select((context) => context.entityId));
+    final canEdit = ref.watch(isAuthenticatedProvider) &&
+        activeEntityId == listing.entityId &&
+        listing.status != ListingStatus.archived;
 
     return ResponsiveWrapper(
       child: Column(
@@ -106,15 +87,12 @@ class _ProductDetailContent extends ConsumerWidget {
         children: [
           const SizedBox(height: 12),
           const ModuleHeaderWidget(
-            title: 'Product Details',
-            subtitle: 'Seller details, pricing & availability',
+            title: 'Listing Details',
+            subtitle: 'Product information, availability & seller',
           ),
           const SizedBox(height: 20),
 
-          // Seller action: edit listing metadata & availability. Backend
-          // authorization is authoritative — no ownership claim is sent.
-          if (ref.watch(isAuthenticatedProvider) &&
-              listing.status != ListingStatus.archived) ...[
+          if (canEdit) ...[
             Align(
               alignment: Alignment.centerLeft,
               child: OutlinedButton.icon(
@@ -130,9 +108,10 @@ class _ProductDetailContent extends ConsumerWidget {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Theme.of(context).colorScheme.primary,
                   side: BorderSide(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withValues(alpha: 0.4),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.4),
                   ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
@@ -143,12 +122,11 @@ class _ProductDetailContent extends ConsumerWidget {
             const SizedBox(height: 16),
           ],
 
-          // Main listing card
           ListingCardWidget(
             title: listing.title,
-            subtitle: listing.description ?? '',
+            subtitle: _productLabel(listing),
             price: listing.displayPrice,
-            location: listing.locationName ?? listing.locationId ?? 'Unknown',
+            location: listing.locationName ?? 'Location unavailable',
             imageUrl: imageUrls.isEmpty ? null : imageUrls.first,
           ),
 
@@ -178,88 +156,20 @@ class _ProductDetailContent extends ConsumerWidget {
           ],
 
           const SizedBox(height: 16),
-
-          // Status & Availability Row
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.inventory_2_outlined,
-                    color: statusColor,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        availabilityText,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                          color: statusColor,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Reserved: ${listing.reservedQuantity.toStringAsFixed(0)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // ListingStatusBadge(status: listing.status),
-              ],
-            ),
-          ),
-
+          _OverviewCard(listing: listing),
           const SizedBox(height: 16),
-
+          _DescriptionCard(listing: listing),
+          const SizedBox(height: 16),
+          _SpecificationsCard(listing: listing),
+          const SizedBox(height: 16),
+          _AvailabilityCard(listing: listing),
+          const SizedBox(height: 16),
           BuyOrderSection(listing: listing),
-
           const SizedBox(height: 16),
-
-          // Seller Info Section
-          if (listing.sellerName != null) ...[
-            InfoTileWidget(
-              label: listing.sellerName!,
-              value: listing.sellerRating != null
-                  ? 'Rating: ${listing.sellerRating}'
-                  : 'Seller',
-              icon: Icons.person,
-              onTap: listing.entityId.isNotEmpty
-                  ? () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => SellerProfilePage(
-                            sellerId: listing.entityId,
-                            sellerName: listing.sellerName,
-                          ),
-                        ),
-                      );
-                    }
-                  : null,
-            ),
-            const SizedBox(height: 16),
-          ],
+          _SellerCard(listing: listing),
+          const SizedBox(height: 16),
+          _ReviewsCard(listing: listing),
+          const SizedBox(height: 16),
 
           if (ref.watch(isAuthenticatedProvider) &&
               listing.contactVisibility == 'locked') ...[
@@ -267,35 +177,365 @@ class _ProductDetailContent extends ConsumerWidget {
             const SizedBox(height: 16),
           ],
 
-          // AI Assistant Section (future)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(12),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+}
+
+String _productLabel(Listing listing) {
+  final item = listing.itemName?.trim() ?? '';
+  final variant = listing.variantName?.trim() ?? '';
+  if (item.isEmpty && variant.isEmpty) return '';
+  if (variant.isEmpty || variant == item) return item;
+  return '$item · $variant';
+}
+
+String _categoryLabel(Listing listing) {
+  final candidates = [
+    listing.itemCategory,
+    listing.commodityCategory,
+    listing.itemDomain,
+  ];
+  for (final candidate in candidates) {
+    if (candidate != null && candidate.trim().isNotEmpty) {
+      return candidate.trim();
+    }
+  }
+  return 'Marketplace';
+}
+
+String _statusLabel(ListingStatus status) {
+  return switch (status) {
+    ListingStatus.active => 'Active',
+    ListingStatus.draft => 'Draft',
+    ListingStatus.paused => 'Paused',
+    ListingStatus.soldOut => 'Sold out',
+    ListingStatus.archived => 'Archived',
+    ListingStatus.inactive => 'Inactive',
+  };
+}
+
+String _formatDate(DateTime? date) {
+  if (date == null) return '—';
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  return '${date.day} ${months[date.month - 1]} ${date.year}';
+}
+
+String _formatQuantity(double value, String? unit) {
+  final formatted = value == value.roundToDouble()
+      ? value.toStringAsFixed(0)
+      : value.toStringAsFixed(2);
+  final suffix = unit == null || unit.trim().isEmpty ? '' : ' ${unit.trim()}';
+  return '$formatted$suffix';
+}
+
+class _SectionCard extends StatelessWidget {
+  final String title;
+  final Widget child;
+
+  const _SectionCard({required this.title, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: 10),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _OverviewCard extends StatelessWidget {
+  final Listing listing;
+
+  const _OverviewCard({required this.listing});
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: 'Overview',
+      child: Column(
+        children: [
+          _InfoRow(label: 'Category', value: _categoryLabel(listing)),
+          if (_productLabel(listing).isNotEmpty)
+            _InfoRow(label: 'Product', value: _productLabel(listing)),
+          _InfoRow(
+            label: 'Location',
+            value: listing.locationName ?? 'Location unavailable',
+          ),
+          _InfoRow(label: 'Status', value: _statusLabel(listing.status)),
+          _InfoRow(label: 'Posted', value: _formatDate(listing.createdAt)),
+          _InfoRow(label: 'Updated', value: _formatDate(listing.updatedAt)),
+        ],
+      ),
+    );
+  }
+}
+
+class _DescriptionCard extends StatelessWidget {
+  final Listing listing;
+
+  const _DescriptionCard({required this.listing});
+
+  @override
+  Widget build(BuildContext context) {
+    final description = listing.description?.trim() ?? '';
+    return _SectionCard(
+      title: 'Description',
+      child: description.isEmpty
+          ? Text(
+              'No description provided.',
+              style: TextStyle(color: Colors.grey.shade600),
+            )
+          : Text(
+              description,
+              style: const TextStyle(fontSize: 14, height: 1.55),
             ),
-            child: Row(
+    );
+  }
+}
+
+class _SpecificationsCard extends ConsumerWidget {
+  final Listing listing;
+
+  const _SpecificationsCard({required this.listing});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final specsAsync = ref.watch(
+      listingSpecificationsProvider(listing.variantId),
+    );
+
+    return _SectionCard(
+      title: 'Product information',
+      child: specsAsync.when(
+        loading: () => const Padding(
+          padding: EdgeInsets.symmetric(vertical: 4),
+          child: SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+        error: (_, __) => Text(
+          'Structured product information is unavailable.',
+          style: TextStyle(color: Colors.grey.shade600),
+        ),
+        data: (specs) {
+          if (specs.isEmpty) {
+            return Text(
+              'No structured specifications were provided. See the seller '
+              'description above.',
+              style: TextStyle(color: Colors.grey.shade600),
+            );
+          }
+          return Column(
+            children: [
+              for (final spec in specs)
+                _InfoRow(label: spec.name, value: spec.value),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _AvailabilityCard extends StatelessWidget {
+  final Listing listing;
+
+  const _AvailabilityCard({required this.listing});
+
+  @override
+  Widget build(BuildContext context) {
+    final standalone = listing.isStandalone;
+    final quantity = standalone
+        ? (listing.quantityOffered ?? listing.availableQuantity)
+        : listing.availableQuantity;
+    final label = standalone ? 'Listing availability' : 'Available stock';
+    final note = standalone
+        ? 'Seller-declared quantity offered through this listing.'
+        : 'Availability derived from managed inventory.';
+
+    return _SectionCard(
+      title: 'Availability',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _InfoRow(
+            label: label,
+            value: _formatQuantity(quantity, listing.unitName),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            note,
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SellerCard extends StatelessWidget {
+  final Listing listing;
+
+  const _SellerCard({required this.listing});
+
+  @override
+  Widget build(BuildContext context) {
+    final sellerName = listing.sellerName?.trim();
+    if (sellerName == null || sellerName.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return _SectionCard(
+      title: 'Seller',
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor:
+                Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+            child: Icon(
+              Icons.storefront_outlined,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.auto_awesome, color: Colors.blue.shade600, size: 20),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'AI Assistant + Seller Unlock System',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                      color: Colors.blue.shade800,
-                    ),
+                Text(
+                  sellerName,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                Icon(Icons.chevron_right, color: Colors.blue.shade400),
+                const SizedBox(height: 2),
+                Text(
+                  listing.locationName ?? 'Location unavailable',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          const MarketplaceHealthWidget(),
-          const SizedBox(height: 24),
+          TextButton(
+            onPressed: listing.entityId.isEmpty
+                ? null
+                : () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => SellerProfilePage(
+                          sellerId: listing.entityId,
+                          sellerName: sellerName,
+                        ),
+                      ),
+                    );
+                  },
+            child: const Text('View'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReviewsCard extends StatelessWidget {
+  final Listing listing;
+
+  const _ReviewsCard({required this.listing});
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: 'Reviews & ratings',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ReputationSubjectRatings(
+            kind: ReputationSubjectKind.product,
+            canonicalId: listing.variantId,
+            title: 'Product ratings',
+          ),
+          const Divider(height: 28),
+          ReputationSubjectRatings(
+            kind: ReputationSubjectKind.seller,
+            canonicalId: listing.entityId,
+            title: 'Seller ratings',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _InfoRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+          ),
         ],
       ),
     );
