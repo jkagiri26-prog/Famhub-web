@@ -21,6 +21,7 @@ class CreateListingPage extends StatelessWidget {
   final String? initialVariantId;
   final String? initialTitle;
   final String? initialContextLabel;
+  final String? initialSellerEntityId;
   final String? initialLocationId;
   final String? initialLocationName;
 
@@ -29,6 +30,7 @@ class CreateListingPage extends StatelessWidget {
     this.initialVariantId,
     this.initialTitle,
     this.initialContextLabel,
+    this.initialSellerEntityId,
     this.initialLocationId,
     this.initialLocationName,
   });
@@ -52,6 +54,7 @@ class CreateListingPage extends StatelessWidget {
                 initialVariantId: initialVariantId,
                 initialTitle: initialTitle,
                 initialContextLabel: initialContextLabel,
+                initialSellerEntityId: initialSellerEntityId,
                 initialLocationId: initialLocationId,
                 initialLocationName: initialLocationName,
               ),

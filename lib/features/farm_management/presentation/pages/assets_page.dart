@@ -14,6 +14,7 @@ import 'package:famhub_app/features/farm_management/application/providers/farm_c
 import 'package:famhub_app/features/farm_management/domain/entities/asset_entity.dart';
 import 'package:famhub_app/features/marketplace/presentation/pages/stock_selection_page.dart';
 import 'package:famhub_app/features/marketplace/presentation/pages/create_listing_page.dart';
+import 'package:famhub_app/features/farm_management/domain/utils/farm_listing_origin.dart';
 
 class AssetsPage extends ConsumerStatefulWidget {
   const AssetsPage({super.key});
@@ -173,13 +174,12 @@ class _AssetsPageState extends ConsumerState<AssetsPage> {
   void _navigateToSellOnMarketplace(BuildContext context) {
     // General listing from the farm workspace — no crop/asset reference and
     // no managed stock required (standalone listing, stock_id null).
-    final entity = ref.read(farmContextProvider).farm;
-    final locationId =
-        entity?.wardId ?? entity?.subCountyId ?? entity?.countyId;
+    final selectedFarm = ref.read(farmContextProvider).farm;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => CreateListingPage(
-          initialLocationId: locationId,
+          initialSellerEntityId: farmListingSellerEntityId(selectedFarm),
+          initialLocationId: farmListingLocationId(selectedFarm),
         ),
       ),
     );

@@ -32,6 +32,7 @@ class CreateListingFormWidget extends ConsumerStatefulWidget {
   final String? initialVariantId;
   final String? initialTitle;
   final String? initialContextLabel;
+  final String? initialSellerEntityId;
   final String? initialLocationId;
   final String? initialLocationName;
 
@@ -40,6 +41,7 @@ class CreateListingFormWidget extends ConsumerStatefulWidget {
     this.initialVariantId,
     this.initialTitle,
     this.initialContextLabel,
+    this.initialSellerEntityId,
     this.initialLocationId,
     this.initialLocationName,
   });
@@ -141,6 +143,20 @@ class _CreateListingFormWidgetState
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final sellerEntityId = widget.initialSellerEntityId?.trim() ?? '';
+    if (sellerEntityId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'The selling entity for this listing is unavailable. '
+            'Reopen this listing from the farm or business context and try again.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     final locationId = _selectedLocationId;
     if (locationId == null || locationId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -193,6 +209,7 @@ class _CreateListingFormWidgetState
         unitId: unitId,
         quantityOffered: quantityOffered,
         locationId: locationId,
+        sellerEntityId: sellerEntityId,
         description: description.isEmpty ? null : description,
         images: _selectedImages,
       );

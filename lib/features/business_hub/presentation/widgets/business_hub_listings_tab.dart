@@ -29,6 +29,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:famhub_app/features/marketplace/domain/enums/listing_status.dart';
 import 'package:famhub_app/features/marketplace/presentation/pages/create_listing_page.dart';
+import 'package:famhub_app/features/marketplace/presentation/pages/product_details_page.dart';
 import 'package:famhub_app/features/marketplace/presentation/pages/stock_selection_page.dart';
 import 'package:famhub_app/shared/widgets/states/empty_state_widget.dart';
 import 'package:famhub_app/shared/widgets/states/error_state_widget.dart';
@@ -58,11 +59,9 @@ String _formatQty(double value) =>
 /// ACTIVE business entity — the same `CreateListingPage` the farm module
 /// uses. No separate business form or listing service is involved.
 ///
-/// `entity_id` is never passed here: the shared form resolves it from the
-/// ACTIVE entity context at submit time, so a workspace switch after this
-/// navigation can never leak another entity's identity. Authorization stays
-/// backend-authoritative (can_sell membership / RLS) — this entry performs
-/// no client-side permission check.
+/// The seller entity is captured explicitly from the active business at
+/// entry time. Authorization stays backend-authoritative (can_sell membership
+/// / RLS) — this entry performs no client-side permission check.
 ///
 /// Location is prefilled ONLY from a valid configured business location
 /// (an existing `core.locations` id already attached to this business's
@@ -91,7 +90,8 @@ void _openStandaloneListing(BuildContext context, WidgetRef ref) {
     }
   }
 
-  final businessName = ref.read(activeBusinessProvider)?.name;
+  final activeBusiness = ref.read(activeBusinessProvider);
+  final businessName = activeBusiness?.name;
 
   Navigator.of(context).push(
     MaterialPageRoute(
@@ -99,6 +99,7 @@ void _openStandaloneListing(BuildContext context, WidgetRef ref) {
         initialContextLabel: businessName == null
             ? null
             : 'Selling as: $businessName',
+        initialSellerEntityId: activeBusiness?.id,
         initialLocationId: locationId,
       ),
     ),
@@ -548,6 +549,23 @@ class _ListingDetailSheet extends ConsumerWidget {
               _detailRow(context, 'Media',
                   '${listing.images.length} image(s) — shown in Marketplace'),
             const Divider(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () {
+                  final navigator = Navigator.of(context);
+                  navigator.pop();
+                  navigator.push(
+                    MaterialPageRoute(
+                      builder: (_) => ProductDetailsPage(listingId: listing.id),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.open_in_new, size: 18),
+                label: const Text('View full listing details'),
+              ),
+            ),
+            const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(

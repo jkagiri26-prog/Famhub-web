@@ -13,6 +13,7 @@ import 'package:famhub_app/features/farm_management/domain/entities/livestock_en
 import 'package:famhub_app/features/farm_management/presentation/pages/production_page.dart';
 import 'package:famhub_app/features/farm_management/presentation/widgets/workspace_tab_header.dart';
 import 'package:famhub_app/features/marketplace/presentation/pages/create_listing_page.dart';
+import 'package:famhub_app/features/farm_management/domain/utils/farm_listing_origin.dart';
 import 'package:famhub_app/features/knowledge_link/presentation/widgets/contextual_knowledge_widget.dart';
 
 /// Livestock tab — the user's GLOBAL livestock workspace.
@@ -74,16 +75,15 @@ class _LivestockPageState extends ConsumerState<LivestockPage> {
   }
 
   void _openSellOnMarketplace(LivestockEntity animal) {
-    final entity = ref.read(hierarchyProvider).entity;
-    final locationId =
-        entity?.wardId ?? entity?.subCountyId ?? entity?.countyId;
+    final selectedFarm = ref.read(hierarchyProvider).entity;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => CreateListingPage(
           initialVariantId: animal.variantId,
           initialTitle: animal.species,
           initialContextLabel: 'Selling from: ${animal.species} (livestock)',
-          initialLocationId: locationId,
+          initialSellerEntityId: farmListingSellerEntityId(selectedFarm),
+          initialLocationId: farmListingLocationId(selectedFarm),
         ),
       ),
     );

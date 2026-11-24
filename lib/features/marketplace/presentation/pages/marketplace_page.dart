@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
 import 'package:famhub_app/core/theme/module_theme.dart';
 
 import 'package:famhub_app/shared/layouts/responsive_wrappers_widget.dart';
@@ -23,7 +24,10 @@ import 'market_prices_page.dart';
 ///
 /// Shared by the Marketplace page and the Home quick action so both entry
 /// points use the same listing flow.
-void openMarketplaceListingCreation(BuildContext context) {
+void openMarketplaceListingCreation(
+  BuildContext context, {
+  String? sellerEntityId,
+}) {
   showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
@@ -42,7 +46,9 @@ void openMarketplaceListingCreation(BuildContext context) {
               Navigator.of(sheetContext).pop();
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => const CreateListingPage(),
+                  builder: (_) => CreateListingPage(
+                    initialSellerEntityId: sellerEntityId,
+                  ),
                 ),
               );
             },
@@ -115,7 +121,10 @@ class _MarketplacePageState extends ConsumerState<MarketplacePage> {
             title: 'Marketplace',
             subtitle: 'Buy & Sell — Inputs, Livestock, Produce',
             trailingIcon: Icons.add_circle_outline,
-            onTrailingTap: () => openMarketplaceListingCreation(context),
+            onTrailingTap: () => openMarketplaceListingCreation(
+              context,
+              sellerEntityId: ref.read(contextProvider).entityId,
+            ),
           ),
 
           const SizedBox(height: 12),

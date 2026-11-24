@@ -22,6 +22,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:famhub_app/core/composition/home/home_contribution_composer.dart';
+import 'package:famhub_app/core/context_engine/providers/context_provider.dart';
 import 'package:famhub_app/core/composition/home/home_providers.dart';
 import 'package:famhub_app/core/composition/contributions/contribution_models.dart';
 import 'package:famhub_app/core/composition/providers/descriptor_providers.dart';
@@ -493,13 +494,13 @@ class _ActionChip extends StatelessWidget {
 /// ============================================================
 /// QUICK ACTION CHIP
 /// ============================================================
-class _QuickActionChip extends StatelessWidget {
+class _QuickActionChip extends ConsumerWidget {
   final QuickActionContribution action;
 
   const _QuickActionChip({required this.action});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final icon = IconResolver.resolve(action.iconKey);
 
@@ -511,7 +512,10 @@ class _QuickActionChip extends StatelessWidget {
       child: InkWell(
         onTap: () {
           if (action.actionKey == 'marketplace_sell_product') {
-            openMarketplaceListingCreation(context);
+            openMarketplaceListingCreation(
+              context,
+              sellerEntityId: ref.read(contextProvider).entityId,
+            );
           }
         },
         borderRadius: BorderRadius.circular(12),

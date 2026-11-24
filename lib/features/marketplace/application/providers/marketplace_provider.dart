@@ -197,8 +197,9 @@ class MarketplaceController extends AsyncNotifier<List<Listing>> {
   ///
   /// `stock_id` is intentionally null — no fabricated stock id is sent.
   /// `quantity_offered` (positive) and `unit_id` are required for standalone
-  /// listings per the backend contract. `entity_id` comes from the ACTIVE
-  /// entity context (never user input) and remains validated by backend RLS.
+  /// listings per the backend contract. `sellerEntityId` must be supplied by
+  /// the entry point: the selected farm's owning entity for farm listings, or
+  /// the active entity for generic Marketplace listings.
   Future<Listing> publishStandaloneListing({
     required String title,
     required double pricePerUnit,
@@ -206,14 +207,13 @@ class MarketplaceController extends AsyncNotifier<List<Listing>> {
     required String unitId,
     required double quantityOffered,
     required String locationId,
+    required String sellerEntityId,
     String? description,
     List<SelectedListingImage> images = const [],
   }) async {
-    final entityId = ref.read(contextProvider).entityId;
-    if (entityId == null || entityId.isEmpty) {
-      throw Exception(
-        'An active entity/business context is required before listing.',
-      );
+    final entityId = sellerEntityId.trim();
+    if (entityId.isEmpty) {
+      throw Exception('A selling entity is required before listing.');
     }
 
     // STEP 1 — Create the standalone draft (stock_id null).
