@@ -49,7 +49,11 @@ class ListingMapper {
       description: json['description']?.toString(),
       pricePerUnit: (json['price_per_unit'] as num?)?.toDouble() ?? 0.0,
       currency: json['currency']?.toString() ?? 'KES',
-      images: (json['images'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      images:
+          (json['images'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
       entityId: json['entity_id']?.toString() ?? '',
       variantId: json['variant_id']?.toString() ?? '',
       stockId: json['stock_id']?.toString(),
@@ -72,12 +76,16 @@ class ListingMapper {
       unitName: unitData is Map<String, dynamic>
           ? unitData['name']?.toString()
           : null,
-      locationName: json['location_name']?.toString() ??
+      locationName:
+          json['location_name']?.toString() ??
           (locationData is Map<String, dynamic>
               ? locationData['name']?.toString()
               : null),
       locationShortName: json['location_short_name']?.toString(),
       sellerName: json['seller_name']?.toString(),
+      sellerEntityName: json['seller_entity_name']?.toString(),
+      sellerFirstName: json['seller_first_name']?.toString(),
+      sellerIsProfileOwned: json['seller_is_profile_owned'] == true,
       sellerRating: (json['seller_rating'] as num?)?.toDouble(),
       itemName: json['item_name']?.toString(),
       variantName: json['variant_name']?.toString(),

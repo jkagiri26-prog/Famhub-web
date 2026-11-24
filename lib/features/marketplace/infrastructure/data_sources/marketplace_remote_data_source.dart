@@ -17,6 +17,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../domain/models/contact_unlock_payment.dart';
 import '../../domain/models/listing_edit_changes.dart';
 import '../../domain/models/listing_specification.dart';
+import '../../domain/utils/seller_identity.dart';
 
 /// Serializes [changes] into the exact whitelisted JSONB payload accepted by
 /// `marketplace.update_listing`.
@@ -90,7 +91,7 @@ class MarketplaceRemoteDataSource {
   static const String _listingSelectQuery = '''
     id, title, description, price_per_unit, currency, status, images,
     contact_visibility, is_promoted, promoted_until, created_at, updated_at,
-    entity_id, variant_id, stock_id, unit_id, location_id
+    entity_id, variant_id, stock_id, unit_id, location_id, quantity_offered
   ''';
 
   /// Resolve unit names for the given unit IDs (id → name).
@@ -499,15 +500,14 @@ class MarketplaceRemoteDataSource {
     for (final source in const ['item', 'variant']) {
       for (final entry in rows.where((r) => r.source == source)) {
         final attributeId = entry.row['attribute_id']?.toString();
-        final attribute = attributeId == null
-            ? null
-            : attributes[attributeId];
+        final attribute = attributeId == null ? null : attributes[attributeId];
         if (attribute == null) continue;
 
         final name = attribute['name']?.toString().trim() ?? '';
         if (name.isEmpty) continue;
 
-        final rawValue = entry.row['value_text']?.toString().trim() ??
+        final rawValue =
+            entry.row['value_text']?.toString().trim() ??
             entry.row['value_number']?.toString() ??
             entry.row['value_date']?.toString() ??
             (entry.row['value_boolean'] is bool
@@ -529,10 +529,7 @@ class MarketplaceRemoteDataSource {
           displayValue = '$displayValue $unit';
         }
 
-        byName[name] = ListingSpecification(
-          name: name,
-          value: displayValue,
-        );
+        byName[name] = ListingSpecification(name: name, value: displayValue);
       }
     }
 
@@ -1010,19 +1007,41 @@ class MarketplaceRemoteDataSource {
     }
   }
 
-  /// Fetch seller business profile by entity_id.
+  /// Fetch the public seller identity by entity_id.
   ///
-  /// 2-hop: entity_id → core.entities → commerce.business_profiles
-  /// PostgREST cannot natively do this, so it's a separate query.
+  /// 2-hop: entity_id → core.entities → commerce.business_profiles, plus the
+  /// owner/primary-contact first name only. No email, phone, last name or full
+  /// canonical profile name is selected here.
   Future<Map<String, dynamic>?> fetchSellerProfile(String entityId) async {
     try {
-      final response = await _client
+      final businessProfile = await _client
           .schema('commerce')
           .from('business_profiles')
-          .select('supplier_name, rating')
+          .select(
+            'entity_id, supplier_name, rating, ownership_scope, entity_type, '
+            'primary_contact_id',
+          )
           .eq('entity_id', entityId)
           .maybeSingle();
-      return response;
+
+      final entity = await _client
+          .schema('core')
+          .from('entities')
+          .select('id, name, entity_type, owner_id, primary_contact_profile_id')
+          .eq('id', entityId)
+          .maybeSingle();
+
+      final profileId =
+          businessProfile?['primary_contact_id']?.toString() ??
+          entity?['primary_contact_profile_id']?.toString() ??
+          entity?['owner_id']?.toString();
+      final firstName = await _fetchFirstName(profileId);
+
+      return _publicSellerIdentity(
+        businessProfile: businessProfile,
+        entity: entity,
+        firstName: firstName,
+      );
     } on PostgrestException catch (e) {
       throw Exception('Failed to fetch seller profile: ${e.message}');
     } catch (e) {
@@ -1030,32 +1049,140 @@ class MarketplaceRemoteDataSource {
     }
   }
 
-  /// Resolve seller profiles for many entity ids in ONE query
-  /// (entity_id → `{supplier_name, rating}`).
+  /// Resolve public seller identities for many entity ids in ONE batched set
+  /// of lookups (entity_id → public seller identity fields).
   ///
-  /// Batched counterpart of [fetchSellerProfile] used by list reads so a
-  /// feed of N listings costs a single lookup instead of N round-trips.
+  /// This is the batched counterpart of [fetchSellerProfile] used by list
+  /// reads. It intentionally fetches only entity names and first names; public
+  /// listing data must never contain phone numbers or email addresses.
   Future<Map<String, Map<String, dynamic>>> fetchSellerProfilesByIds(
     Set<String> entityIds,
   ) async {
     final ids = entityIds.where((id) => id.isNotEmpty).toList();
     if (ids.isEmpty) return const {};
+
     try {
-      final response = await _client
+      final businessResponse = await _client
           .schema('commerce')
           .from('business_profiles')
-          .select('entity_id, supplier_name, rating')
+          .select(
+            'entity_id, supplier_name, rating, ownership_scope, entity_type, '
+            'primary_contact_id',
+          )
           .inFilter('entity_id', ids);
-      final rows = (response as List).cast<Map<String, dynamic>>();
-      return {
-        for (final row in rows)
+      final businessProfiles = {
+        for (final row
+            in (businessResponse as List).cast<Map<String, dynamic>>())
           if (row['entity_id'] != null) row['entity_id'].toString(): row,
+      };
+
+      final entityResponse = await _client
+          .schema('core')
+          .from('entities')
+          .select('id, name, entity_type, owner_id, primary_contact_profile_id')
+          .inFilter('id', ids);
+      final entities = {
+        for (final row in (entityResponse as List).cast<Map<String, dynamic>>())
+          if (row['id'] != null) row['id'].toString(): row,
+      };
+
+      final profileIds = <String>{};
+      for (final id in ids) {
+        final business = businessProfiles[id];
+        final entity = entities[id];
+        for (final candidate in <Object?>[
+          business?['primary_contact_id'],
+          entity?['primary_contact_profile_id'],
+          entity?['owner_id'],
+        ]) {
+          final profileId = candidate?.toString();
+          if (profileId != null && profileId.isNotEmpty) {
+            profileIds.add(profileId);
+          }
+        }
+      }
+
+      final firstNames = await _fetchFirstNames(profileIds);
+      return {
+        for (final id in ids)
+          if (businessProfiles[id] != null || entities[id] != null)
+            id: _publicSellerIdentity(
+              businessProfile: businessProfiles[id],
+              entity: entities[id],
+              firstName:
+                  firstNames[_firstProfileIdFor(
+                        businessProfile: businessProfiles[id],
+                        entity: entities[id],
+                      ) ??
+                      ''],
+            ),
       };
     } on PostgrestException catch (e) {
       throw Exception('Failed to fetch seller profiles: ${e.message}');
     } catch (e) {
       throw Exception('Failed to fetch seller profiles: $e');
     }
+  }
+
+  String? _firstProfileIdFor({
+    required Map<String, dynamic>? businessProfile,
+    required Map<String, dynamic>? entity,
+  }) {
+    return businessProfile?['primary_contact_id']?.toString() ??
+        entity?['primary_contact_profile_id']?.toString() ??
+        entity?['owner_id']?.toString();
+  }
+
+  Future<String?> _fetchFirstName(String? profileId) async {
+    if (profileId == null || profileId.isEmpty) return null;
+    final names = await _fetchFirstNames({profileId});
+    return names[profileId];
+  }
+
+  Future<Map<String, String>> _fetchFirstNames(Set<String> profileIds) async {
+    final ids = profileIds.where((id) => id.isNotEmpty).toList();
+    if (ids.isEmpty) return const {};
+    try {
+      final response = await _client
+          .schema('users')
+          .from('profiles')
+          .select('id, first_name')
+          .inFilter('id', ids);
+      return {
+        for (final row in (response as List).cast<Map<String, dynamic>>())
+          if (row['id'] != null)
+            row['id'].toString(): row['first_name']?.toString().trim() ?? '',
+      };
+    } on PostgrestException {
+      return const {};
+    }
+  }
+
+  Map<String, dynamic> _publicSellerIdentity({
+    required Map<String, dynamic>? businessProfile,
+    required Map<String, dynamic>? entity,
+    required String? firstName,
+  }) {
+    final isProfileOwned =
+        businessProfile?['ownership_scope']?.toString() == 'personal' ||
+        businessProfile?['entity_type']?.toString() == 'individual' ||
+        entity?['entity_type']?.toString() == 'individual_pro';
+    final entityName =
+        entity?['name']?.toString() ??
+        (isProfileOwned ? null : businessProfile?['supplier_name']?.toString());
+
+    return {
+      ...?businessProfile,
+      ...?entity,
+      'seller_entity_name': entityName,
+      'seller_first_name': firstName,
+      'seller_is_profile_owned': isProfileOwned,
+      'seller_display_name': sellerIdentityDisplayName(
+        entityName: entityName,
+        firstName: firstName,
+        isProfileOwned: isProfileOwned,
+      ),
+    };
   }
 
   /// Create a new listing.

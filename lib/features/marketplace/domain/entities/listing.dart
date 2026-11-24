@@ -61,6 +61,9 @@ class Listing {
   /// whichever levels resolve.
   final String? locationShortName;
   final String? sellerName;
+  final String? sellerEntityName;
+  final String? sellerFirstName;
+  final bool sellerIsProfileOwned;
   final double? sellerRating;
   final double availableQuantity;
   final double reservedQuantity;
@@ -102,6 +105,9 @@ class Listing {
     this.locationName,
     this.locationShortName,
     this.sellerName,
+    this.sellerEntityName,
+    this.sellerFirstName,
+    this.sellerIsProfileOwned = false,
     this.sellerRating,
     this.availableQuantity = 0,
     this.reservedQuantity = 0,
@@ -154,6 +160,9 @@ class Listing {
     String? locationName,
     String? locationShortName,
     String? sellerName,
+    String? sellerEntityName,
+    String? sellerFirstName,
+    bool? sellerIsProfileOwned,
     double? sellerRating,
     double? availableQuantity,
     double? reservedQuantity,
@@ -188,6 +197,9 @@ class Listing {
       locationName: locationName ?? this.locationName,
       locationShortName: locationShortName ?? this.locationShortName,
       sellerName: sellerName ?? this.sellerName,
+      sellerEntityName: sellerEntityName ?? this.sellerEntityName,
+      sellerFirstName: sellerFirstName ?? this.sellerFirstName,
+      sellerIsProfileOwned: sellerIsProfileOwned ?? this.sellerIsProfileOwned,
       sellerRating: sellerRating ?? this.sellerRating,
       availableQuantity: availableQuantity ?? this.availableQuantity,
       reservedQuantity: reservedQuantity ?? this.reservedQuantity,

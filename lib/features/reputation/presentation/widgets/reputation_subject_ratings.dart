@@ -86,9 +86,9 @@ class _ReputationSubjectRatingsState
       _reload();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not save rating: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not save rating: $e')));
     }
   }
 
@@ -112,8 +112,7 @@ class _ReputationSubjectRatingsState
           body: result.body,
           title: result.title,
           ratingId: result.linkRating ? state.ratingId : null,
-          publicIdentityMode:
-              result.anonymous ? 'anonymous' : 'display_name',
+          publicIdentityMode: result.anonymous ? 'anonymous' : 'display_name',
         );
       } else {
         await service.submitReview(
@@ -121,17 +120,16 @@ class _ReputationSubjectRatingsState
           body: result.body,
           title: result.title,
           ratingId: result.linkRating ? state?.ratingId : null,
-          publicIdentityMode:
-              result.anonymous ? 'anonymous' : 'display_name',
+          publicIdentityMode: result.anonymous ? 'anonymous' : 'display_name',
         );
       }
       if (!mounted) return;
       _reload();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not save review: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not save review: $e')));
     }
   }
 
@@ -190,7 +188,10 @@ class _ReputationSubjectRatingsState
                     decoration: const InputDecoration(labelText: 'Stars'),
                     items: [
                       for (var star = 1; star <= 5; star++)
-                        DropdownMenuItem(value: star, child: Text('$star star${star == 1 ? '' : 's'}')),
+                        DropdownMenuItem(
+                          value: star,
+                          child: Text('$star star${star == 1 ? '' : 's'}'),
+                        ),
                     ],
                     onChanged: (value) {
                       if (value != null) setModalState(() => selected = value);
@@ -224,6 +225,7 @@ class _ReputationSubjectRatingsState
     final bodyController = TextEditingController(text: initialBody);
     var anonymous = initialAnonymous;
     var linkRating = initialLinkRating;
+    String? bodyError;
     final result = await showModalBottomSheet<_ReviewInput>(
       context: context,
       isScrollControlled: true,
@@ -253,14 +255,24 @@ class _ReputationSubjectRatingsState
                     TextField(
                       controller: titleController,
                       maxLength: 200,
-                      decoration: const InputDecoration(labelText: 'Title (optional)'),
+                      decoration: const InputDecoration(
+                        labelText: 'Title (optional)',
+                      ),
                     ),
                     TextField(
                       controller: bodyController,
                       minLines: 3,
                       maxLines: 8,
                       maxLength: 20000,
-                      decoration: const InputDecoration(labelText: 'Review'),
+                      onChanged: (_) {
+                        if (bodyError != null) {
+                          setModalState(() => bodyError = null);
+                        }
+                      },
+                      decoration: InputDecoration(
+                        labelText: 'Review',
+                        errorText: bodyError,
+                      ),
                     ),
                     CheckboxListTile(
                       contentPadding: EdgeInsets.zero,
@@ -284,6 +296,11 @@ class _ReputationSubjectRatingsState
                         onPressed: () {
                           final body = bodyController.text.trim();
                           if (body.isEmpty) return;
+                          final privacyError = _publicReviewTextError(body);
+                          if (privacyError != null) {
+                            setModalState(() => bodyError = privacyError);
+                            return;
+                          }
                           Navigator.pop(
                             context,
                             _ReviewInput(
@@ -339,19 +356,26 @@ class _RatingsBody extends StatelessWidget {
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
             if (signedIn) ...[
               TextButton.icon(
                 onPressed: onRate,
                 icon: const Icon(Icons.star_outline, size: 18),
-                label: Text(data.myState?.ratingId == null ? 'Rate' : 'Edit rating'),
+                label: Text(
+                  data.myState?.ratingId == null ? 'Rate' : 'Edit rating',
+                ),
               ),
               TextButton.icon(
                 onPressed: onReview,
                 icon: const Icon(Icons.rate_review_outlined, size: 18),
-                label: Text(data.myState?.reviewId == null ? 'Review' : 'Edit review'),
+                label: Text(
+                  data.myState?.reviewId == null ? 'Review' : 'Edit review',
+                ),
               ),
             ],
           ],
@@ -366,7 +390,10 @@ class _RatingsBody extends StatelessWidget {
             children: [
               Text(
                 summary.verifiedRatingAverage.toStringAsFixed(1),
-                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               const SizedBox(width: 8),
               _Stars(rating: summary.verifiedRatingAverage),
@@ -391,7 +418,7 @@ class _RatingsBody extends StatelessWidget {
                       value: summary.verifiedRatingCount == 0
                           ? 0
                           : (summary.verifiedDistribution[star] ?? 0) /
-                              summary.verifiedRatingCount,
+                                summary.verifiedRatingCount,
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -446,25 +473,32 @@ class _ReviewTile extends StatelessWidget {
         children: [
           Row(
             children: [
+              _ReviewerAvatar(review: review),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  review.reviewerDisplayName ?? 'Anonymous',
+                  _publicReviewerName(review.reviewerDisplayName),
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
-              if (review.rating != null) _Stars(rating: review.rating!.toDouble()),
+              if (review.rating != null)
+                _Stars(rating: review.rating!.toDouble()),
               const SizedBox(width: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: review.isVerified ? Colors.green.shade50 : Colors.orange.shade50,
+                  color: review.isVerified
+                      ? Colors.green.shade50
+                      : Colors.orange.shade50,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   review.isVerified ? 'Verified' : 'Unverified',
                   style: TextStyle(
                     fontSize: 10,
-                    color: review.isVerified ? Colors.green.shade800 : Colors.orange.shade800,
+                    color: review.isVerified
+                        ? Colors.green.shade800
+                        : Colors.orange.shade800,
                   ),
                 ),
               ),
@@ -472,11 +506,15 @@ class _ReviewTile extends StatelessWidget {
           ),
           if (review.title != null && review.title!.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text(review.title!, style: const TextStyle(fontWeight: FontWeight.w600)),
+            Text(
+              review.title!,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
           ],
           const SizedBox(height: 4),
           Text(review.body),
-          if (review.responseBody != null && review.responseBody!.isNotEmpty) ...[
+          if (review.responseBody != null &&
+              review.responseBody!.isNotEmpty) ...[
             const SizedBox(height: 8),
             Container(
               width: double.infinity,
@@ -544,4 +582,52 @@ class _ReviewInput {
     required this.anonymous,
     required this.linkRating,
   });
+}
+
+String _publicReviewerName(String? displayName) {
+  final value = displayName?.trim() ?? '';
+  if (value.isEmpty) return 'Anonymous';
+  return value.split(RegExp(r'\s+')).first;
+}
+
+String? _publicReviewTextError(String text) {
+  final email = RegExp(
+    r'[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}',
+    caseSensitive: false,
+  );
+  if (email.hasMatch(text)) {
+    return 'Remove email addresses from public reviews.';
+  }
+  final phone = RegExp(r'(?:\+?\d[\d\s().-]{7,}\d)');
+  if (phone.hasMatch(text)) {
+    return 'Remove phone numbers from public reviews.';
+  }
+  return null;
+}
+
+class _ReviewerAvatar extends StatelessWidget {
+  final ReputationReview review;
+
+  const _ReviewerAvatar({required this.review});
+
+  @override
+  Widget build(BuildContext context) {
+    final avatar = review.reviewerAvatar?.trim();
+    final hasAvatar =
+        avatar != null &&
+        avatar.isNotEmpty &&
+        (avatar.startsWith('http://') || avatar.startsWith('https://'));
+    final name = _publicReviewerName(review.reviewerDisplayName);
+    return CircleAvatar(
+      radius: 14,
+      backgroundColor: Colors.grey.shade200,
+      backgroundImage: hasAvatar ? NetworkImage(avatar) : null,
+      child: hasAvatar
+          ? null
+          : Text(
+              name == 'Anonymous' ? 'A' : name.substring(0, 1).toUpperCase(),
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+            ),
+    );
+  }
 }

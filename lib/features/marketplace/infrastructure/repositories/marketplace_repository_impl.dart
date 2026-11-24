@@ -60,6 +60,9 @@ class ListingMapper {
       locationName: json['location_name']?.toString(),
       locationShortName: json['location_short_name']?.toString(),
       sellerName: json['seller_name']?.toString(),
+      sellerEntityName: json['seller_entity_name']?.toString(),
+      sellerFirstName: json['seller_first_name']?.toString(),
+      sellerIsProfileOwned: json['seller_is_profile_owned'] == true,
       sellerRating: (json['seller_rating'] as num?)?.toDouble(),
       itemName: json['item_name']?.toString(),
       variantName: json['variant_name']?.toString(),
@@ -127,11 +130,19 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
       final entityId = raw['entity_id']?.toString();
       if (entityId == null || entityId.isEmpty) continue;
       final profile = profiles[entityId];
-      if (profile != null) {
-        raw['seller_name'] = profile['supplier_name']?.toString();
-        raw['seller_rating'] = profile['rating'];
-      }
+      if (profile != null) _stampPublicSellerIdentity(raw, profile);
     }
+  }
+
+  void _stampPublicSellerIdentity(
+    Map<String, dynamic> raw,
+    Map<String, dynamic> profile,
+  ) {
+    raw['seller_name'] = profile['seller_display_name']?.toString();
+    raw['seller_entity_name'] = profile['seller_entity_name']?.toString();
+    raw['seller_first_name'] = profile['seller_first_name']?.toString();
+    raw['seller_is_profile_owned'] = profile['seller_is_profile_owned'] == true;
+    raw['seller_rating'] = profile['rating'];
   }
 
   /// Enrich a single listing with seller profile data.
@@ -145,8 +156,7 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
       try {
         final sellerProfile = await dataSource.fetchSellerProfile(entityId);
         if (sellerProfile != null) {
-          raw['seller_name'] = sellerProfile['supplier_name']?.toString();
-          raw['seller_rating'] = sellerProfile['rating'];
+          _stampPublicSellerIdentity(raw, sellerProfile);
         }
       } catch (_) {
         // Silently continue without seller info
@@ -268,7 +278,7 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
           hierarchy.level4,
         ].where((part) => part.isNotEmpty).toList();
         if (parts.isNotEmpty) {
-          raw['location_name'] = parts.join(' › ');
+          raw['location_name'] = parts.join(' · ');
         } else if (hierarchy.name.isNotEmpty) {
           raw['location_name'] = hierarchy.name;
         }
