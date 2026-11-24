@@ -5,6 +5,7 @@ class ListingCardWidget extends StatelessWidget {
   final String subtitle;
   final String price;
   final String location;
+  final String? sellerName;
   final String? imageUrl;
   final String? badge;
   final Widget? trailing;
@@ -15,6 +16,7 @@ class ListingCardWidget extends StatelessWidget {
     required this.subtitle,
     required this.price,
     required this.location,
+    this.sellerName,
     this.imageUrl,
     this.badge,
     this.trailing,
@@ -91,8 +93,10 @@ class ListingCardWidget extends StatelessWidget {
             children: [
               LayoutBuilder(
                 builder: (context, constraints) {
-                  final imageHeight =
-                      (constraints.maxWidth / 1.35).clamp(108.0, 152.0);
+                  final imageHeight = (constraints.maxWidth / 1.35).clamp(
+                    108.0,
+                    152.0,
+                  );
                   return SizedBox(
                     width: double.infinity,
                     height: imageHeight,
@@ -105,8 +109,10 @@ class ListingCardWidget extends StatelessWidget {
                   top: 8,
                   left: 8,
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(5),
@@ -187,6 +193,32 @@ class ListingCardWidget extends StatelessWidget {
                     color: Colors.red.shade700,
                   ),
                 ),
+                if (sellerName != null && sellerName!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.storefront_outlined,
+                        size: 12,
+                        color: Colors.green.shade700,
+                      ),
+                      const SizedBox(width: 3),
+                      Expanded(
+                        child: Text(
+                          sellerName!.trim(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.green.shade800,
+                            height: 1.15,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 3),
                 // Line 3 — location.
                 Row(

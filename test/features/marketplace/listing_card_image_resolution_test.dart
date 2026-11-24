@@ -67,4 +67,19 @@ void main() {
     expect(find.text('KSh 150/kg'), findsOneWidget);
     expect(find.text('Nairobi, Kenya'), findsOneWidget);
   });
+
+  testWidgets('shows the shared seller identity on listing cards',
+      (tester) async {
+    await tester.pumpWidget(_wrap(const ListingCardWidget(
+      title: 'Fresh Tomatoes',
+      subtitle: 'Test crop',
+      price: 'KSh 150/kg',
+      location: 'Nairobi, Kenya',
+      sellerName: 'JK Agrovet · James',
+      imageUrl: null,
+    )));
+
+    expect(find.text('JK Agrovet · James'), findsOneWidget);
+    expect(find.text('Nairobi, Kenya'), findsOneWidget);
+  });
 }

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:famhub_app/features/marketplace/domain/utils/seller_identity.dart';
+import 'package:famhub_app/features/marketplace/infrastructure/data_sources/marketplace_remote_data_source.dart';
 import 'package:famhub_app/features/marketplace/infrastructure/services/listing_mapper.dart';
 
 void main() {
@@ -36,6 +37,41 @@ void main() {
         ),
         '',
       );
+    });
+
+    test(
+      'entity label is not manufactured when the entity name is missing',
+      () {
+        expect(
+          sellerIdentityDisplayName(
+            entityName: null,
+            firstName: 'James',
+            isProfileOwned: false,
+          ),
+          'James',
+        );
+      },
+    );
+
+    test('canonical entity names display consistently across entity types', () {
+      const cases = {
+        'Eden Farm': 'farm',
+        'JK Agrovet': 'agrovet',
+        'Acme Trading': 'trading_company',
+        'Green Coop': 'cooperative',
+        'Agri Services': 'service_provider',
+      };
+      for (final entry in cases.entries) {
+        expect(
+          sellerIdentityDisplayName(
+            entityName: entry.key,
+            firstName: 'James',
+            isProfileOwned: false,
+          ),
+          '${entry.key} · James',
+          reason: entry.value,
+        );
+      }
     });
 
     test('full profile name is not used as the public seller identity', () {
@@ -131,6 +167,73 @@ void main() {
       expect(listing.sellerName, isNot(contains('@')));
       expect(listing.sellerName, isNot(contains('+254')));
       expect(listing.sellerName, isNot(contains('Kamau')));
+    });
+  });
+
+  group('public seller identity RPC contract', () {
+    test('uses the dedicated public listing seller RPC', () {
+      expect(
+        MarketplaceRemoteDataSource.publicListingSellerRpc,
+        'get_public_listing_sellers',
+      );
+      expect(MarketplaceRemoteDataSource.publicListingSellerMaxIds, 200);
+    });
+
+    test('maps entity seller to entity name plus first name only', () {
+      final identity =
+          MarketplaceRemoteDataSource.publicSellerIdentityFromRpcRow({
+            'listing_id': 'listing-1',
+            'seller_entity_id': 'entity-1',
+            'seller_entity_name': 'JK Agrovet',
+            'seller_public_first_name': 'James',
+            'seller_kind': 'entity',
+            'phone': '+254700000000',
+            'email': 'private@example.com',
+            'last_name': 'Kamau',
+          });
+
+      expect(identity['seller_display_name'], 'JK Agrovet · James');
+      expect(identity['seller_first_name'], 'James');
+      expect(identity['seller_entity_name'], 'JK Agrovet');
+      expect(identity['seller_is_profile_owned'], false);
+      expect(identity['seller_display_name'], isNot(contains('Kamau')));
+      expect(identity['seller_display_name'], isNot(contains('@')));
+      expect(identity['seller_display_name'], isNot(contains('+254')));
+    });
+
+    test('entity without an authorized manager does not invent a name', () {
+      final identity =
+          MarketplaceRemoteDataSource.publicSellerIdentityFromRpcRow({
+            'listing_id': 'listing-3',
+            'seller_entity_id': 'entity-3',
+            'seller_entity_name': 'Coop Without Manager',
+            'seller_public_first_name': null,
+            'seller_kind': 'entity',
+            'owner_id': 'private-owner-id',
+            'last_name': 'Private',
+          });
+
+      expect(identity['seller_display_name'], 'Coop Without Manager');
+      expect(identity['seller_first_name'], isNull);
+      expect(identity['seller_display_name'], isNot(contains('Private')));
+    });
+
+    test('maps individual seller to first name only', () {
+      final identity =
+          MarketplaceRemoteDataSource.publicSellerIdentityFromRpcRow({
+            'listing_id': 'listing-2',
+            'seller_entity_id': 'entity-2',
+            'seller_entity_name': null,
+            'seller_public_first_name': 'Alice',
+            'seller_kind': 'individual',
+            'last_name': 'Wanjiku',
+          });
+
+      expect(identity['seller_display_name'], 'Alice');
+      expect(identity['seller_first_name'], 'Alice');
+      expect(identity['seller_entity_name'], isNull);
+      expect(identity['seller_is_profile_owned'], true);
+      expect(identity['seller_display_name'], isNot(contains('Wanjiku')));
     });
   });
 }

@@ -1007,173 +1007,68 @@ class MarketplaceRemoteDataSource {
     }
   }
 
-  /// Fetch the public seller identity by entity_id.
+  /// Public seller presentation identity for Marketplace listings.
   ///
-  /// 2-hop: entity_id → core.entities → commerce.business_profiles, plus the
-  /// owner/primary-contact first name only. No email, phone, last name or full
-  /// canonical profile name is selected here.
-  Future<Map<String, dynamic>?> fetchSellerProfile(String entityId) async {
-    try {
-      final businessProfile = await _client
-          .schema('commerce')
-          .from('business_profiles')
-          .select(
-            'entity_id, supplier_name, rating, ownership_scope, entity_type, '
-            'primary_contact_id',
-          )
-          .eq('entity_id', entityId)
-          .maybeSingle();
+  /// The canonical identity tables are intentionally private. This calls the
+  /// controlled, SECURITY DEFINER read contract which returns only the seller
+  /// entity name, public first name and entity/individual kind for listings the
+  /// caller may already read. It never returns phone, email, full profile names,
+  /// auth ids or arbitrary entity/profile lookups.
+  static const String publicListingSellerRpc = 'get_public_listing_sellers';
+  static const int publicListingSellerMaxIds = 200;
 
-      final entity = await _client
-          .schema('core')
-          .from('entities')
-          .select('id, name, entity_type, owner_id, primary_contact_profile_id')
-          .eq('id', entityId)
-          .maybeSingle();
-
-      final profileId =
-          businessProfile?['primary_contact_id']?.toString() ??
-          entity?['primary_contact_profile_id']?.toString() ??
-          entity?['owner_id']?.toString();
-      final firstName = await _fetchFirstName(profileId);
-
-      return _publicSellerIdentity(
-        businessProfile: businessProfile,
-        entity: entity,
-        firstName: firstName,
-      );
-    } on PostgrestException catch (e) {
-      throw Exception('Failed to fetch seller profile: ${e.message}');
-    } catch (e) {
-      throw Exception('Failed to fetch seller profile: $e');
-    }
-  }
-
-  /// Resolve public seller identities for many entity ids in ONE batched set
-  /// of lookups (entity_id → public seller identity fields).
-  ///
-  /// This is the batched counterpart of [fetchSellerProfile] used by list
-  /// reads. It intentionally fetches only entity names and first names; public
-  /// listing data must never contain phone numbers or email addresses.
-  Future<Map<String, Map<String, dynamic>>> fetchSellerProfilesByIds(
-    Set<String> entityIds,
-  ) async {
-    final ids = entityIds.where((id) => id.isNotEmpty).toList();
+  Future<Map<String, Map<String, dynamic>>>
+  fetchPublicSellerIdentitiesByListingIds(Set<String> listingIds) async {
+    final ids = listingIds.where((id) => id.isNotEmpty).toList();
     if (ids.isEmpty) return const {};
 
     try {
-      final businessResponse = await _client
-          .schema('commerce')
-          .from('business_profiles')
-          .select(
-            'entity_id, supplier_name, rating, ownership_scope, entity_type, '
-            'primary_contact_id',
-          )
-          .inFilter('entity_id', ids);
-      final businessProfiles = {
-        for (final row
-            in (businessResponse as List).cast<Map<String, dynamic>>())
-          if (row['entity_id'] != null) row['entity_id'].toString(): row,
-      };
-
-      final entityResponse = await _client
-          .schema('core')
-          .from('entities')
-          .select('id, name, entity_type, owner_id, primary_contact_profile_id')
-          .inFilter('id', ids);
-      final entities = {
-        for (final row in (entityResponse as List).cast<Map<String, dynamic>>())
-          if (row['id'] != null) row['id'].toString(): row,
-      };
-
-      final profileIds = <String>{};
-      for (final id in ids) {
-        final business = businessProfiles[id];
-        final entity = entities[id];
-        for (final candidate in <Object?>[
-          business?['primary_contact_id'],
-          entity?['primary_contact_profile_id'],
-          entity?['owner_id'],
-        ]) {
-          final profileId = candidate?.toString();
-          if (profileId != null && profileId.isNotEmpty) {
-            profileIds.add(profileId);
+      final result = <String, Map<String, dynamic>>{};
+      for (
+        var start = 0;
+        start < ids.length;
+        start += publicListingSellerMaxIds
+      ) {
+        final end = start + publicListingSellerMaxIds > ids.length
+            ? ids.length
+            : start + publicListingSellerMaxIds;
+        final response = await _client.rpc(
+          publicListingSellerRpc,
+          params: {'p_listing_ids': ids.sublist(start, end)},
+        );
+        final rows = response is List
+            ? response.cast<Map<String, dynamic>>()
+            : response is Map<String, dynamic>
+            ? [response]
+            : const <Map<String, dynamic>>[];
+        for (final row in rows) {
+          if (row['listing_id'] != null) {
+            result[row['listing_id'].toString()] =
+                publicSellerIdentityFromRpcRow(row);
           }
         }
       }
-
-      final firstNames = await _fetchFirstNames(profileIds);
-      return {
-        for (final id in ids)
-          if (businessProfiles[id] != null || entities[id] != null)
-            id: _publicSellerIdentity(
-              businessProfile: businessProfiles[id],
-              entity: entities[id],
-              firstName:
-                  firstNames[_firstProfileIdFor(
-                        businessProfile: businessProfiles[id],
-                        entity: entities[id],
-                      ) ??
-                      ''],
-            ),
-      };
+      return result;
     } on PostgrestException catch (e) {
-      throw Exception('Failed to fetch seller profiles: ${e.message}');
+      throw Exception('Failed to fetch public seller identity: ${e.message}');
     } catch (e) {
-      throw Exception('Failed to fetch seller profiles: $e');
+      throw Exception('Failed to fetch public seller identity: $e');
     }
   }
 
-  String? _firstProfileIdFor({
-    required Map<String, dynamic>? businessProfile,
-    required Map<String, dynamic>? entity,
-  }) {
-    return businessProfile?['primary_contact_id']?.toString() ??
-        entity?['primary_contact_profile_id']?.toString() ??
-        entity?['owner_id']?.toString();
-  }
-
-  Future<String?> _fetchFirstName(String? profileId) async {
-    if (profileId == null || profileId.isEmpty) return null;
-    final names = await _fetchFirstNames({profileId});
-    return names[profileId];
-  }
-
-  Future<Map<String, String>> _fetchFirstNames(Set<String> profileIds) async {
-    final ids = profileIds.where((id) => id.isNotEmpty).toList();
-    if (ids.isEmpty) return const {};
-    try {
-      final response = await _client
-          .schema('users')
-          .from('profiles')
-          .select('id, first_name')
-          .inFilter('id', ids);
-      return {
-        for (final row in (response as List).cast<Map<String, dynamic>>())
-          if (row['id'] != null)
-            row['id'].toString(): row['first_name']?.toString().trim() ?? '',
-      };
-    } on PostgrestException {
-      return const {};
-    }
-  }
-
-  Map<String, dynamic> _publicSellerIdentity({
-    required Map<String, dynamic>? businessProfile,
-    required Map<String, dynamic>? entity,
-    required String? firstName,
-  }) {
-    final isProfileOwned =
-        businessProfile?['ownership_scope']?.toString() == 'personal' ||
-        businessProfile?['entity_type']?.toString() == 'individual' ||
-        entity?['entity_type']?.toString() == 'individual_pro';
-    final entityName =
-        entity?['name']?.toString() ??
-        (isProfileOwned ? null : businessProfile?['supplier_name']?.toString());
-
+  /// Map one public seller RPC row into the existing listing seller fields.
+  ///
+  /// Kept as a pure static helper so the contract can be tested without a live
+  /// database. Unknown keys (including any accidental contact/full-name fields)
+  /// are ignored.
+  static Map<String, dynamic> publicSellerIdentityFromRpcRow(
+    Map<String, dynamic> row,
+  ) {
+    final entityName = row['seller_entity_name']?.toString();
+    final firstName = row['seller_public_first_name']?.toString();
+    final isProfileOwned = row['seller_kind']?.toString() == 'individual';
     return {
-      ...?businessProfile,
-      ...?entity,
+      'seller_entity_id': row['seller_entity_id']?.toString(),
       'seller_entity_name': entityName,
       'seller_first_name': firstName,
       'seller_is_profile_owned': isProfileOwned,

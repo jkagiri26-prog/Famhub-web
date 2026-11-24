@@ -87,50 +87,47 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
 
   MarketplaceRepositoryImpl(this.dataSource);
 
-  /// Enrich a list of listings with seller profile data.
+  /// Enrich a list of listings with public seller identity data.
   ///
-  /// Seller name and rating require a 2-hop join
-  /// (entity_id → core.entities → commerce.business_profiles)
-  /// which PostgREST cannot express natively, so it is resolved with ONE
-  /// batched lookup for all distinct seller entities (no per-listing reads).
-  ///
-  /// Referenced-data enrichment and the seller-profile batch are independent
-  /// and run concurrently.
+  /// Seller identity is resolved through the controlled public listing-seller
+  /// RPC in one batched call keyed by listing id. Referenced-data enrichment
+  /// and the seller identity call are independent and run concurrently.
   Future<List<Listing>> _enrichWithSellerProfiles(
     List<Map<String, dynamic>> rawListings,
   ) async {
-    final entityIds = <String>{};
+    final listingIds = <String>{};
     for (final raw in rawListings) {
-      final entityId = raw['entity_id']?.toString();
-      if (entityId != null && entityId.isNotEmpty) entityIds.add(entityId);
+      final listingId = raw['id']?.toString();
+      if (listingId != null && listingId.isNotEmpty) listingIds.add(listingId);
     }
 
     await Future.wait([
       _enrichReferencedData(rawListings),
-      if (entityIds.isNotEmpty) _stampSellerProfiles(rawListings, entityIds),
+      if (listingIds.isNotEmpty) _stampSellerProfiles(rawListings, listingIds),
     ]);
 
     return [for (final raw in rawListings) ListingMapper.fromJson(raw)];
   }
 
-  /// Stamp `seller_name` / `seller_rating` onto raw listings from a single
-  /// batched `commerce.business_profiles` lookup (best-effort).
+  /// Stamp the public seller display fields onto raw listings.
   Future<void> _stampSellerProfiles(
     List<Map<String, dynamic>> rawListings,
-    Set<String> entityIds,
+    Set<String> listingIds,
   ) async {
-    Map<String, Map<String, dynamic>> profiles = const {};
+    Map<String, Map<String, dynamic>> identities = const {};
     try {
-      profiles = await dataSource.fetchSellerProfilesByIds(entityIds);
+      identities = await dataSource.fetchPublicSellerIdentitiesByListingIds(
+        listingIds,
+      );
     } catch (_) {
       // Silently continue without seller info
     }
 
     for (final raw in rawListings) {
-      final entityId = raw['entity_id']?.toString();
-      if (entityId == null || entityId.isEmpty) continue;
-      final profile = profiles[entityId];
-      if (profile != null) _stampPublicSellerIdentity(raw, profile);
+      final listingId = raw['id']?.toString();
+      if (listingId == null || listingId.isEmpty) continue;
+      final identity = identities[listingId];
+      if (identity != null) _stampPublicSellerIdentity(raw, identity);
     }
   }
 
@@ -142,21 +139,22 @@ class MarketplaceRepositoryImpl implements MarketplaceRepository {
     raw['seller_entity_name'] = profile['seller_entity_name']?.toString();
     raw['seller_first_name'] = profile['seller_first_name']?.toString();
     raw['seller_is_profile_owned'] = profile['seller_is_profile_owned'] == true;
-    raw['seller_rating'] = profile['rating'];
   }
 
-  /// Enrich a single listing with seller profile data.
+  /// Enrich a single listing with public seller identity data.
   ///
   /// The referenced-data enrichment and the seller lookup are independent and
   /// run concurrently.
   Future<Listing> _enrichSingleSellerProfile(Map<String, dynamic> raw) async {
-    final entityId = raw['entity_id']?.toString();
+    final listingId = raw['id']?.toString();
     Future<void> stampSeller() async {
-      if (entityId == null || entityId.isEmpty) return;
+      if (listingId == null || listingId.isEmpty) return;
       try {
-        final sellerProfile = await dataSource.fetchSellerProfile(entityId);
-        if (sellerProfile != null) {
-          _stampPublicSellerIdentity(raw, sellerProfile);
+        final identity = await dataSource
+            .fetchPublicSellerIdentitiesByListingIds({listingId});
+        final seller = identity[listingId];
+        if (seller != null) {
+          _stampPublicSellerIdentity(raw, seller);
         }
       } catch (_) {
         // Silently continue without seller info

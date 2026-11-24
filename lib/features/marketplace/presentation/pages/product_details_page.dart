@@ -129,6 +129,7 @@ class _ProductDetailContent extends ConsumerWidget {
               subtitle: _productLabel(listing),
               price: listing.displayPrice,
               location: listing.locationName ?? 'Location unavailable',
+              sellerName: listing.sellerName,
               imageUrl: imageUrls.isEmpty ? null : imageUrls.first,
             ),
 
@@ -448,11 +449,6 @@ class _SellerCard extends StatelessWidget {
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  listing.locationName ?? 'Location unavailable',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                 ),
               ],
             ),
