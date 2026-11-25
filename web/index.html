@@ -45,32 +45,205 @@
   <link rel="manifest" href="manifest.json?v=20261120e">
 
   <style>
-    body { background-color: #F3F7F0; margin: 0; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-    #loading { text-align: center; }
-    .brand-logo { display: block; width: 84px; height: 84px; margin: 0 auto 18px; border-radius: 50%; box-shadow: 0 10px 28px rgba(37, 109, 58, 0.18); }
+    html, body { max-width: 100%; }
+    body { background-color: #F3F7F0; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; min-height: 100dvh; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .startup-screen { position: fixed; inset: 0; z-index: 2147483647; display: flex; align-items: center; justify-content: center; box-sizing: border-box; padding: 24px; padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); background-color: #F3F7F0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .startup-screen[hidden] { display: none !important; }
+    .startup-panel { width: 100%; max-width: 360px; margin: auto; text-align: center; }
+    .brand-logo { display: block; width: 84px; height: 84px; max-width: 100%; margin: 0 auto 18px; border-radius: 50%; box-shadow: 0 10px 28px rgba(37, 109, 58, 0.18); }
     .loader { border: 5px solid #e0e0e0; border-top: 5px solid #256D3A; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 18px auto 0; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    h2 { color: #256D3A; margin-top: 20px; font-weight: 400; }
-    p { color: #757575; margin-top: 8px; font-size: 14px; }
+    h2 { color: #256D3A; margin: 20px 0 0; font-weight: 400; }
+    .startup-message { color: #4B5563; margin: 10px 0 0; font-size: 14px; line-height: 1.55; overflow-wrap: break-word; }
+    .startup-error-message { margin-bottom: 24px; font-size: 15px; }
+    .retry-button { display: block; width: 100%; min-height: 48px; border: 0; border-radius: 12px; padding: 12px 18px; background-color: #256D3A; color: #FFFFFF; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer; }
+    .retry-button:hover { background-color: #1B5229; }
+    .retry-button:active { background-color: #174522; }
+    .retry-button:focus-visible { outline: 3px solid #256D3A; outline-offset: 3px; }
+    .retry-button:disabled { opacity: 0.7; cursor: wait; }
+    @media (prefers-reduced-motion: reduce) {
+      .loader { animation: none; }
+    }
   </style>
+
+  <noscript>
+    <style>#loading { display: none !important; }</style>
+  </noscript>
 </head>
 <body>
-  <div id="loading">
-    <img class="brand-logo" src="android-chrome-192x192.png?v=20261120e" alt="Vunio logo">
-    <h2>Vunio</h2>
-    <div class="loader"></div>
-    <p>Loading...</p>
+  <div id="loading" class="startup-screen" role="status" aria-live="polite" aria-busy="true">
+    <div class="startup-panel">
+      <img class="brand-logo" src="android-chrome-192x192.png?v=20261120e" alt="Vunio logo">
+      <h2>Vunio</h2>
+      <div class="loader" aria-hidden="true"></div>
+      <p class="startup-message">Loading...</p>
+    </div>
   </div>
+
+  <div id="startup-error" class="startup-screen" role="alert" aria-live="assertive" hidden>
+    <div class="startup-panel">
+      <img class="brand-logo" src="android-chrome-192x192.png?v=20261120e" alt="Vunio logo">
+      <h2>Vunio</h2>
+      <p class="startup-message startup-error-message">We're having trouble loading Vunio. Please check your internet connection and try again.</p>
+      <button id="startup-retry" class="retry-button" type="button" aria-label="Retry loading Vunio">Retry</button>
+    </div>
+  </div>
+
+  <noscript>
+    <div class="startup-screen" role="alert">
+      <div class="startup-panel">
+        <img class="brand-logo" src="android-chrome-192x192.png?v=20261120e" alt="Vunio logo">
+        <h2>Vunio</h2>
+        <p class="startup-message">Vunio needs JavaScript to run. Please enable JavaScript in your browser, then reload this page.</p>
+      </div>
+    </div>
+  </noscript>
+
   <script>
-    // Remove loading indicator once Flutter boots
-    window.addEventListener('load', function() {
-      setTimeout(function() {
-        var el = document.getElementById('loading');
-        if (el) el.style.display = 'none';
-      }, 100);
-    });
+    (function () {
+      'use strict';
+
+      var STATE_LOADING = 'loading';
+      var STATE_READY = 'ready';
+      var STATE_ERROR = 'error';
+      var STARTUP_TIMEOUT_MS = 30000;
+
+      var state = STATE_LOADING;
+      var timeoutId = null;
+      var firstFrameSeen = false;
+      var loadingElement = null;
+      var errorElement = null;
+      var retryButton = null;
+
+      function setState(nextState) {
+        state = nextState;
+        document.documentElement.setAttribute('data-vunio-startup', nextState);
+      }
+
+      function clearStartupTimeout() {
+        if (timeoutId !== null) {
+          window.clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+      }
+
+      function startStartupTimeout() {
+        clearStartupTimeout();
+        timeoutId = window.setTimeout(function () {
+          timeoutId = null;
+          if (state === STATE_LOADING && !firstFrameSeen) {
+            showError();
+          }
+        }, STARTUP_TIMEOUT_MS);
+      }
+
+      function showError() {
+        if (state === STATE_READY || firstFrameSeen) {
+          return;
+        }
+        clearStartupTimeout();
+        setState(STATE_ERROR);
+        if (loadingElement) {
+          loadingElement.hidden = true;
+        }
+        if (errorElement) {
+          errorElement.hidden = false;
+        }
+      }
+
+      function failStartup() {
+        if (state === STATE_READY || firstFrameSeen) {
+          return;
+        }
+        showError();
+      }
+
+      function markReady() {
+        if (firstFrameSeen) {
+          return;
+        }
+        firstFrameSeen = true;
+        clearStartupTimeout();
+        setState(STATE_READY);
+        if (loadingElement) {
+          loadingElement.hidden = true;
+          loadingElement.setAttribute('aria-busy', 'false');
+        }
+        if (errorElement) {
+          errorElement.hidden = true;
+        }
+        window.removeEventListener('flutter-first-frame', markReady);
+        window.removeEventListener('error', onWindowError, true);
+        window.removeEventListener('unhandledrejection', onUnhandledRejection);
+      }
+
+      function onWindowError(event) {
+        if (state !== STATE_LOADING) {
+          return;
+        }
+        var target = event && event.target;
+        if (target && target.tagName === 'SCRIPT') {
+          var source = target.src || '';
+          if (source.indexOf('flutter_bootstrap.js') !== -1 || source.indexOf('main.dart.js') !== -1) {
+            failStartup();
+          }
+          return;
+        }
+        var filename = (event && event.filename) || '';
+        if (filename.indexOf('flutter_bootstrap.js') !== -1 || filename.indexOf('main.dart.js') !== -1) {
+          failStartup();
+        }
+      }
+
+      function onUnhandledRejection() {
+        if (state !== STATE_LOADING) {
+          return;
+        }
+        failStartup();
+      }
+
+      function retryStartup() {
+        if (state === STATE_READY) {
+          return;
+        }
+        clearStartupTimeout();
+        setState(STATE_LOADING);
+        if (loadingElement) {
+          loadingElement.hidden = false;
+          loadingElement.setAttribute('aria-busy', 'true');
+        }
+        if (errorElement) {
+          errorElement.hidden = true;
+        }
+        if (retryButton) {
+          retryButton.disabled = true;
+        }
+        window.setTimeout(function () {
+          window.location.reload();
+        }, 50);
+      }
+
+      function initializeStartupState() {
+        loadingElement = document.getElementById('loading');
+        errorElement = document.getElementById('startup-error');
+        retryButton = document.getElementById('startup-retry');
+
+        if (retryButton) {
+          retryButton.addEventListener('click', retryStartup);
+        }
+
+        window.addEventListener('flutter-first-frame', markReady);
+        window.addEventListener('error', onWindowError, true);
+        window.addEventListener('unhandledrejection', onUnhandledRejection);
+
+        setState(STATE_LOADING);
+        startStartupTimeout();
+      }
+
+      window.__vunioStartupFailure = failStartup;
+      initializeStartupState();
+    })();
   </script>
-  <script src="flutter_bootstrap.js" async></script>
+  <script id="flutter-bootstrap" src="flutter_bootstrap.js" async onerror="window.__vunioStartupFailure && window.__vunioStartupFailure()"></script>
 </body>
 </html>
-
