@@ -42,11 +42,19 @@ class _ReputationSubjectRatingsState
         : service.resolveSellerSubject(widget.canonicalId);
   }
 
-  Future<String> _ensureSubject() {
+  Future<String> _ensureSubject() async {
+    // Public page viewing/reviewing must not create Reputation subjects.
+    // Subject creation is restricted to authorized seller/listing managers or
+    // a trusted service-role/backend path; here we only resolve an existing
+    // subject and surface a controlled error when none exists yet.
     final service = ref.read(reputationReviewsServiceProvider);
-    return widget.kind == ReputationSubjectKind.product
-        ? service.ensureProductSubject(widget.canonicalId)
-        : service.ensureSellerSubject(widget.canonicalId);
+    final subjectId = widget.kind == ReputationSubjectKind.product
+        ? await service.resolveProductSubject(widget.canonicalId)
+        : await service.resolveSellerSubject(widget.canonicalId);
+    if (subjectId == null || subjectId.isEmpty) {
+      throw StateError('Reviews are not available for this subject yet.');
+    }
+    return subjectId;
   }
 
   Future<_RatingsData> _load() async {
