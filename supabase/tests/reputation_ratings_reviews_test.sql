@@ -580,7 +580,7 @@ VALUES
      'Ratings Seller', 'Manager', 'd3000000-0000-4000-8000-000000000001', true, 'active');
 
 INSERT INTO core.user_roles (id, name, type)
-VALUES ('d3000000-0000-4000-8000-0000000001001', 'ratings-test-manager', 'commerce')
+VALUES ('d3000000-0000-4000-8000-000000001001', 'ratings-test-manager', 'commerce')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO core.entities (id, name, entity_type, owner_id, primary_contact_profile_id, is_active, verification_status)
@@ -589,7 +589,7 @@ VALUES ('d3000000-0000-4000-8000-000000000203', 'Ratings Primary/Manager Entity'
 
 INSERT INTO core.entity_members (entity_id, profile_id, role_id, is_active, can_manage, membership_status)
 VALUES ('d3000000-0000-4000-8000-000000000203', 'd3000000-0000-4000-8000-000000000105',
-        'd3000000-0000-4000-8000-0000000001001', true, true, 'active');
+        'd3000000-0000-4000-8000-000000001001', true, true, 'active');
 
 DO $extra_subject$
 DECLARE
