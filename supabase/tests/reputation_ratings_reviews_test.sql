@@ -568,4 +568,305 @@ BEGIN
 END;
 $security$;
 
+
+-- ===========================================================================
+-- Phase 3A/3B hardening tests (follow-up migration 20261127000003).
+-- ===========================================================================
+INSERT INTO users.profiles (id, auth_user_id, first_name, last_name, country_id, is_active, account_status)
+VALUES
+    ('d3000000-0000-4000-8000-000000000104', 'd3000000-0000-4000-8000-000000000904',
+     'Ratings Seller', 'Primary', 'd3000000-0000-4000-8000-000000000001', true, 'active'),
+    ('d3000000-0000-4000-8000-000000000105', 'd3000000-0000-4000-8000-000000000905',
+     'Ratings Seller', 'Manager', 'd3000000-0000-4000-8000-000000000001', true, 'active');
+
+INSERT INTO core.user_roles (id, name, type)
+VALUES ('d3000000-0000-4000-8000-0000000001001', 'ratings-test-manager', 'commerce')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO core.entities (id, name, entity_type, owner_id, primary_contact_profile_id, is_active, verification_status)
+VALUES ('d3000000-0000-4000-8000-000000000203', 'Ratings Primary/Manager Entity', 'farm',
+        'd3000000-0000-4000-8000-000000000103', 'd3000000-0000-4000-8000-000000000104', true, 'verified');
+
+INSERT INTO core.entity_members (entity_id, profile_id, role_id, is_active, can_manage, membership_status)
+VALUES ('d3000000-0000-4000-8000-000000000203', 'd3000000-0000-4000-8000-000000000105',
+        'd3000000-0000-4000-8000-0000000001001', true, true, 'active');
+
+DO $extra_subject$
+DECLARE
+    v_seller uuid;
+BEGIN
+    v_seller := reputation.register_subject('entity', 'seller',
+        'd3000000-0000-4000-8000-000000000203');
+END;
+$extra_subject$;
+
+-- ---------------------------------------------------------------------------
+-- Self-review prevention (verified and unverified paths).
+-- ---------------------------------------------------------------------------
+DO $self_review$
+DECLARE
+    v_seller_201 uuid;
+    v_seller_203 uuid;
+    v_product_301 uuid;
+    r record;
+BEGIN
+    SELECT id INTO v_seller_201 FROM reputation.subjects
+     WHERE subject_type='entity' AND subject_role='seller'
+       AND entity_id='d3000000-0000-4000-8000-000000000201';
+    SELECT id INTO v_seller_203 FROM reputation.subjects
+     WHERE subject_type='entity' AND subject_role='seller'
+       AND entity_id='d3000000-0000-4000-8000-000000000203';
+    SELECT id INTO v_product_301 FROM reputation.subjects
+     WHERE subject_type='item' AND subject_role='product'
+       AND item_id='d3000000-0000-4000-8000-000000000301';
+
+    -- Owner attempting to rate own seller entity.
+    BEGIN
+        PERFORM pg_temp.actor('d3000000-0000-4000-8000-000000000903');
+        PERFORM reputation.submit_rating(v_seller_201, 5::smallint, NULL);
+        RAISE EXCEPTION 'TEST FAILED: seller owner self-rating permitted';
+    EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
+    END;
+
+    -- Primary contact attempting to review own seller entity.
+    BEGIN
+        PERFORM pg_temp.actor('d3000000-0000-4000-8000-000000000904');
+        PERFORM reputation.submit_review(v_seller_203, 'Self review by primary.', NULL, NULL, NULL);
+        RAISE EXCEPTION 'TEST FAILED: primary contact self-review permitted';
+    EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
+    END;
+
+    -- Active manager attempting to review own seller entity.
+    BEGIN
+        PERFORM pg_temp.actor('d3000000-0000-4000-8000-000000000905');
+        PERFORM reputation.submit_review(v_seller_203, 'Self review by manager.', NULL, NULL, NULL);
+        RAISE EXCEPTION 'TEST FAILED: manager self-review permitted';
+    EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
+    END;
+
+    -- Seller affiliate attempting to rate/review own product.
+    BEGIN
+        PERFORM pg_temp.actor('d3000000-0000-4000-8000-000000000903');
+        PERFORM reputation.submit_rating(v_product_301, 5::smallint, NULL);
+        RAISE EXCEPTION 'TEST FAILED: product owner self-rating permitted';
+    EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
+    END;
+    BEGIN
+        PERFORM pg_temp.actor('d3000000-0000-4000-8000-000000000903');
+        PERFORM reputation.submit_review(v_product_301, 'Self product review.', NULL, NULL, NULL);
+        RAISE EXCEPTION 'TEST FAILED: product owner self-review permitted';
+    EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
+    END;
+
+    -- Ordinary unrelated user can still submit unverified content.
+    PERFORM pg_temp.actor('d3000000-0000-4000-8000-000000000902');
+    SELECT * INTO r FROM reputation.submit_rating(v_product_301, 4::smallint, NULL) AS x;
+    IF r.verification_status <> 'unverified' THEN
+        RAISE EXCEPTION 'TEST FAILED: unrelated product rating not unverified';
+    END IF;
+    SELECT * INTO r FROM reputation.submit_review(v_product_301, 'Unverified product review.') AS x;
+    IF r.verification_status <> 'unverified' THEN
+        RAISE EXCEPTION 'TEST FAILED: unrelated product review not unverified';
+    END IF;
+END;
+$self_review$;
+
+-- ---------------------------------------------------------------------------
+-- Subject creation authorization.
+-- ---------------------------------------------------------------------------
+DO $subject_auth$
+BEGIN
+    -- Authorized owner/manager can ensure the seller subject.
+    PERFORM pg_temp.actor('d3000000-0000-4000-8000-000000000903', 'authenticated');
+    PERFORM reputation.ensure_seller_subject('d3000000-0000-4000-8000-000000000201');
+
+    -- Unrelated authenticated user cannot ensure that seller subject.
+    BEGIN
+        PERFORM pg_temp.actor('d3000000-0000-4000-8000-000000000902', 'authenticated');
+        PERFORM reputation.ensure_seller_subject('d3000000-0000-4000-8000-000000000201');
+        RAISE EXCEPTION 'TEST FAILED: unrelated seller subject creation permitted';
+    EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
+    END;
+
+    -- Authorized manager can ensure the product subject (listing/stock relationship).
+    PERFORM pg_temp.actor('d3000000-0000-4000-8000-000000000903', 'authenticated');
+    PERFORM reputation.ensure_product_subject('d3000000-0000-4000-8000-000000000311');
+
+    -- Unrelated authenticated user cannot ensure an arbitrary product subject.
+    BEGIN
+        PERFORM pg_temp.actor('d3000000-0000-4000-8000-000000000902', 'authenticated');
+        PERFORM reputation.ensure_product_subject('d3000000-0000-4000-8000-000000000311');
+        RAISE EXCEPTION 'TEST FAILED: unrelated product subject creation permitted';
+    EXCEPTION WHEN SQLSTATE '42501' THEN NULL;
+    END;
+
+    -- Public resolve/read APIs remain usable (grants and results).
+    IF NOT has_function_privilege('anon', 'system.resolve_reputation_product_subject(uuid)', 'EXECUTE')
+       OR NOT has_function_privilege('anon', 'system.resolve_reputation_seller_subject(uuid)', 'EXECUTE')
+       OR NOT has_function_privilege('anon', 'system.get_reputation_rating_summary(uuid)', 'EXECUTE') THEN
+        RAISE EXCEPTION 'TEST FAILED: public read grants missing';
+    END IF;
+    IF system.resolve_reputation_product_subject('d3000000-0000-4000-8000-000000000311') IS NULL THEN
+        RAISE EXCEPTION 'TEST FAILED: public product subject resolution failed';
+    END IF;
+END;
+$subject_auth$;
+
+-- ---------------------------------------------------------------------------
+-- Explicit ineligible-engagement rejection (disputed/voided/lifecycle outcomes).
+-- ---------------------------------------------------------------------------
+CREATE FUNCTION pg_temp.seed_outcome_engagement(
+    p_engagement_id uuid,
+    p_order_id uuid,
+    p_outcome text
+) RETURNS void LANGUAGE plpgsql AS $f$
+DECLARE
+    v_seller_subject uuid;
+    v_buyer_profile uuid := 'd3000000-0000-4000-8000-000000000101';
+    v_buyer_entity uuid := 'd3000000-0000-4000-8000-000000000202';
+    v_seller_entity uuid := 'd3000000-0000-4000-8000-000000000201';
+    v_listing uuid := 'd3000000-0000-4000-8000-000000000501';
+    v_supplier uuid := 'd3000000-0000-4000-8000-000000000402';
+    v_snapshot jsonb;
+    v_hash bytea;
+    v_src_hash bytea;
+BEGIN
+    SELECT id INTO v_seller_subject FROM reputation.subjects
+     WHERE subject_type='entity' AND subject_role='seller' AND entity_id=v_seller_entity;
+
+    INSERT INTO commerce.orders (
+        id, buyer_id, listing_id, supplier_id, quantity, total_amount, status,
+        payment_status, order_date, delivered_at, delivery_date, entity_id,
+        order_kind, buyer_entity_id, seller_entity_id, currency, unit_id,
+        status_changed_by_profile_id
+    ) VALUES (
+        p_order_id, v_buyer_profile, v_listing, v_supplier,
+        1, 50, 'delivered', 'pending', '2026-11-23T08:00:00Z',
+        '2026-11-23T09:00:00Z', '2026-11-23T09:00:00Z',
+        v_seller_entity, 'stock', v_buyer_entity, v_seller_entity,
+        'KES', 'd3000000-0000-4000-8000-000000000003', v_buyer_profile
+    );
+
+    v_snapshot := jsonb_build_object('snapshot_schema_version', 1,
+        'source', jsonb_build_object('source_system', 'vunio',
+                                     'source_reference', p_order_id::text));
+    v_hash := sha256(convert_to(v_snapshot::text, 'UTF8'));
+
+    INSERT INTO reputation.engagements (
+        id, engagement_kind, source_system, source_reference, commerce_order_id,
+        source_snapshot, source_snapshot_hash, source_occurred_at, currency, gross_amount
+    ) VALUES (
+        p_engagement_id, 'vunio_order', 'vunio', p_order_id::text, p_order_id,
+        v_snapshot, v_hash, '2026-11-23T09:00:00Z', 'KES', 50
+    );
+    INSERT INTO reputation.engagement_participants (engagement_id, party_role, profile_id, entity_id)
+    VALUES (p_engagement_id, 'buyer', v_buyer_profile, v_buyer_entity);
+    INSERT INTO reputation.engagement_participants (engagement_id, party_role, entity_id)
+    VALUES (p_engagement_id, 'seller', v_seller_entity);
+    INSERT INTO reputation.engagement_subjects (engagement_id, subject_id, relationship, source_fact)
+    VALUES (p_engagement_id, v_seller_subject, 'seller_entity', '{}'::jsonb);
+
+    INSERT INTO reputation.engagement_events (
+        engagement_id, event_origin, event_type, event_at, event_key, event_version, details
+    ) VALUES (
+        p_engagement_id, 'reputation', 'engagement_recorded',
+        '2026-11-23T08:00:00Z', 'engagement-recorded', 1,
+        '{"source_integrity_status":"consistent"}'::jsonb
+    );
+
+    v_src_hash := sha256(convert_to(jsonb_build_object(
+        'event_version', 1, 'event_type', 'order_delivered',
+        'event_at', '2026-11-23T09:00:00.000000Z', 'source_namespace', 'vunio',
+        'source_event_reference', 'order:' || p_order_id::text || ':delivered',
+        'actor_profile_id', NULL::text, 'details', '{}'::jsonb
+    )::text, 'UTF8'));
+    INSERT INTO reputation.engagement_events (
+        engagement_id, event_origin, event_type, event_at, event_key,
+        source_namespace, source_event_reference, payload_hash, event_version, details
+    ) VALUES (
+        p_engagement_id, 'source', 'order_delivered',
+        '2026-11-23T09:00:00Z', 'vunio:delivered', 'vunio',
+        'order:' || p_order_id::text || ':delivered', v_src_hash, 1, '{}'::jsonb
+    );
+
+    IF p_outcome = 'disputed' THEN
+        INSERT INTO reputation.engagement_events (
+            engagement_id, event_origin, event_type, event_at, event_key, event_version, details
+        ) VALUES (
+            p_engagement_id, 'reputation', 'dispute_opened',
+            '2026-11-24T09:00:00Z', 'dispute-opened', 1, '{}'::jsonb
+        );
+    ELSIF p_outcome = 'voided' THEN
+        INSERT INTO reputation.engagement_events (
+            engagement_id, event_origin, event_type, event_at, event_key, event_version, details
+        ) VALUES (
+            p_engagement_id, 'reputation', 'engagement_voided',
+            '2026-11-24T09:00:00Z', 'engagement-voided', 1,
+            '{"invalidity_code":"hardening_test"}'::jsonb
+        );
+    ELSE
+        v_src_hash := sha256(convert_to(jsonb_build_object(
+            'event_version', 1, 'event_type', p_outcome,
+            'event_at', '2026-11-24T09:00:00.000000Z', 'source_namespace', 'vunio',
+            'source_event_reference', 'order:' || p_order_id::text || ':' || p_outcome,
+            'actor_profile_id', NULL::text, 'details', '{}'::jsonb
+        )::text, 'UTF8'));
+        INSERT INTO reputation.engagement_events (
+            engagement_id, event_origin, event_type, event_at, event_key,
+            source_namespace, source_event_reference, payload_hash, event_version, details
+        ) VALUES (
+            p_engagement_id, 'source', p_outcome,
+            '2026-11-24T09:00:00Z', 'vunio:' || p_outcome, 'vunio',
+            'order:' || p_order_id::text || ':' || p_outcome, v_src_hash, 1, '{}'::jsonb
+        );
+    END IF;
+END;
+$f$;
+
+DO $ineligible$
+DECLARE
+    v_seller uuid;
+    v_eng uuid;
+    v_order uuid;
+    r record;
+    v_cases text[] := ARRAY['disputed', 'voided', 'order_returned', 'order_refunded', 'order_reversed'];
+    v_case text;
+    v_index integer := 0;
+BEGIN
+    SELECT id INTO v_seller FROM reputation.subjects
+     WHERE subject_type='entity' AND subject_role='seller'
+       AND entity_id='d3000000-0000-4000-8000-000000000201';
+
+    FOREACH v_case IN ARRAY v_cases LOOP
+        v_index := v_index + 1;
+        v_eng := ('d3000000-0000-4000-8000-0000000009' || lpad(v_index::text, 2, '0'))::uuid;
+        v_order := ('d3000000-0000-4000-8000-000000000a' || lpad(v_index::text, 2, '0'))::uuid;
+        PERFORM pg_temp.seed_outcome_engagement(v_eng, v_order, v_case);
+
+        BEGIN
+            PERFORM pg_temp.actor('d3000000-0000-4000-8000-000000000902', 'authenticated');
+            PERFORM reputation.submit_rating(v_seller, 5::smallint, v_eng);
+            RAISE EXCEPTION 'TEST FAILED: ineligible engagement % was accepted', v_case;
+        EXCEPTION WHEN SQLSTATE 'P0001' THEN NULL;
+        END;
+    END LOOP;
+
+    -- Review path for one representative ineligible engagement.
+    BEGIN
+        PERFORM pg_temp.actor('d3000000-0000-4000-8000-000000000902', 'authenticated');
+        PERFORM reputation.submit_review(v_seller, 'Should be rejected.',
+            NULL, NULL, 'd3000000-0000-4000-8000-000000000901'::uuid);
+        RAISE EXCEPTION 'TEST FAILED: ineligible review was accepted';
+    EXCEPTION WHEN SQLSTATE 'P0001' THEN NULL;
+    END;
+
+    -- No engagement supplied remains a legitimate unverified submission.
+    PERFORM pg_temp.actor('d3000000-0000-4000-8000-000000000902', 'authenticated');
+    SELECT * INTO r FROM reputation.submit_rating(v_seller, 3::smallint, NULL) AS x;
+    IF r.verification_status <> 'unverified' THEN
+        RAISE EXCEPTION 'TEST FAILED: no-engagement seller rating not unverified';
+    END IF;
+END;
+$ineligible$;
+
 ROLLBACK;
